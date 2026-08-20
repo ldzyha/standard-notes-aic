@@ -14,8 +14,11 @@ describe("Standard Notes component manifest", () => {
       file_type: "md",
       url: "https://ldzyha.github.io/standard-notes-aic/",
       latest_url: "https://ldzyha.github.io/standard-notes-aic/ext.json",
-      marketing_url: "https://dzyha.com/",
     });
+    expect(manifest).not.toHaveProperty("marketing_url");
+    expect(packageJson.homepage).toBe(
+      "https://ldzyha.github.io/standard-notes-aic/",
+    );
     expect(manifest.download_url).toContain(`/v${packageJson.version}/`);
     expect(
       manifest.download_url.endsWith(

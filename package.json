@@ -5,7 +5,7 @@
   "type": "module",
   "license": "UNLICENSED",
   "description": "AIC Markdown editor component for Standard Notes",
-  "homepage": "https://dzyha.com/",
+  "homepage": "https://ldzyha.github.io/standard-notes-aic/",
   "repository": {
     "type": "git",
     "url": "https://github.com/ldzyha/standard-notes-aic.git"

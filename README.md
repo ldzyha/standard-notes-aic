@@ -9,12 +9,12 @@ highlighting, and Mermaid diagrams in the editor.
 In Standard Notes, open **Preferences → Plugins**, find **Install Custom Plugin**, and paste:
 
 ```text
-https://dzyha.com/standard-notes-aic.json
+https://ldzyha.github.io/standard-notes-aic/ext.json
 ```
 
-This is an independent third-party plugin and is not reviewed by the Standard Notes team. The
-install endpoint redirects to the canonical manifest deployed from this repository. Web and mobile
-clients use the hosted GitHub Pages editor; desktop clients can use the versioned release archive.
+This is an independent third-party plugin and is not reviewed by the Standard Notes team. Web and
+mobile clients use the hosted GitHub Pages editor; desktop clients can use the versioned release
+archive.
 
 ## Development
 

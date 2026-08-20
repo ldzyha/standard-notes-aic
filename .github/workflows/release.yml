@@ -54,4 +54,5 @@ jobs:
             "standard-notes-aic-$PACKAGE_VERSION.zip" \
             --verify-tag \
             --title "AIC $PACKAGE_VERSION" \
+            --notes "Website: https://dzyha.com/" \
             --generate-notes
