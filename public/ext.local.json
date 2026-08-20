@@ -1,0 +1,13 @@
+{
+  "identifier": "com.dzyha.standard-notes-aic",
+  "name": "AIC (Local)",
+  "content_type": "SN|Component",
+  "area": "editor-editor",
+  "version": "0.1.0",
+  "description": "Local development build of the AIC Markdown editor.",
+  "url": "http://localhost:5178/",
+  "note_type": "markdown",
+  "file_type": "md",
+  "spellcheckControl": true,
+  "showInGallery": false
+}
