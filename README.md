@@ -1,5 +1,9 @@
 # AIC for Standard Notes
 
+<p align="center">
+  <img src="./public/aic-logo.svg" alt="AIC logo" width="96" height="96">
+</p>
+
 `AIC` is a Markdown editor component for Standard Notes. It keeps the note body as ordinary
 Markdown and derives headings, lists, task checkboxes, tables, frontmatter properties, fenced-code
 highlighting, and Mermaid diagrams in the editor.
@@ -15,6 +19,20 @@ https://ldzyha.github.io/standard-notes-aic/ext.json
 This is an independent third-party plugin and is not reviewed by the Standard Notes team. Web and
 mobile clients use the hosted GitHub Pages editor; desktop clients can use the versioned release
 archive.
+
+## Use AIC for new notes
+
+To make AIC the account-wide Markdown editor for new notes, open **Preferences → General → New
+Note Defaults** and select **AIC**. Standard Notes owns this preference; the plugin does not change
+it during installation.
+
+You can also choose AIC as the default editor for one tag from that tag's options. This keeps, for
+example, project notes in AIC without changing the editor used by the rest of the account.
+
+The Standard Notes Clipper currently creates **Super** notes. To continue a clipped note in AIC,
+open its note-type chooser, select **AIC**, review the conversion preview supplied by Standard
+Notes, and confirm the conversion. The resulting note is ordinary Markdown and can still be opened
+with Plain Text or another interchangeable Markdown editor.
 
 ## Development
 
@@ -41,6 +59,9 @@ stack pulled by EditorKit is deliberately not bundled into this editor.
 - The exact CodeMirror document is the only value sent to Standard Notes.
 - Rendered tables, properties, checkboxes, syntax highlighting, and Mermaid SVG are never persisted.
 - Switching to Plain Text exposes the same Markdown source.
+- AIC stays read-only until Standard Notes supplies the first working-note payload.
+- Saves attach a bounded plain-text preview derived from visible Markdown content; the stored note
+  body remains exact Markdown.
 - Mermaid uses the bundled strict runtime and performs no render-time network request.
 
 ## Distribution

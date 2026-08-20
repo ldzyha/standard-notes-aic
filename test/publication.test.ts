@@ -14,6 +14,7 @@ describe("publication metadata", () => {
       "https://ldzyha.github.io/standard-notes-aic/ext.json",
     );
     expect(manifest).not.toHaveProperty("marketing_url");
+    expect(readme).toContain('<img src="./public/aic-logo.svg"');
   });
 
   it("uses dzyha.com only as the release-notes website link", () => {

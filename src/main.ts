@@ -1,6 +1,7 @@
 import snApi from "sn-extension-api";
 import "sn-extension-api/dist/sn.min.css";
 import { AicEditor } from "./editor";
+import { markdownPlainPreview } from "./preview";
 import "./styles.css";
 
 declare global {
@@ -36,12 +37,14 @@ flowchart LR
 \`\`\`
 `;
 
+const standalone = window.parent === window && !window.ReactNativeWebView;
+let hydrated = standalone;
 let saveText: (text: string) => void = () => {};
 const editor = new AicEditor(root, {
+  readOnly: !standalone,
   onChange: (text) => saveText(text),
 });
 
-const standalone = window.parent === window && !window.ReactNativeWebView;
 let unsubscribe = () => {};
 
 if (standalone) {
@@ -53,11 +56,14 @@ if (standalone) {
   snApi.initialize({ debounceSave: 250 });
   unsubscribe = snApi.subscribe((text) => {
     editor.setDocument(text);
+    hydrated = true;
     editor.setReadOnly(Boolean(snApi.locked));
     editor.refreshTheme();
   });
   saveText = (text) => {
-    if (!snApi.locked) snApi.text = text;
+    if (!hydrated || snApi.locked) return;
+    snApi.text = text;
+    snApi.preview = markdownPlainPreview(text);
   };
   document.documentElement.dataset.environment = "standard-notes";
 }

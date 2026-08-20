@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   createMermaidPreview,
   makeMermaidRenderQueue,
+  mermaidConfig,
   mermaidDiagnostic,
   renderMermaidSvg,
   sanitizeMermaidSvg,
@@ -78,15 +79,28 @@ describe("Mermaid source scanning", () => {
 });
 
 describe("Mermaid rendering boundary", () => {
-  it("renders a real diagram with the pinned strict runtime", async () => {
-    const svg = await renderMermaidSvg({
-      source: "flowchart LR\n  Markdown --> AIC",
-      theme: "default",
+  it("uses SVG text labels that survive the strict sanitizer", () => {
+    const config = mermaidConfig("default");
+    expect(config).toMatchObject({
+      securityLevel: "strict",
+      htmlLabels: false,
+      flowchart: { useMaxWidth: true },
     });
-    expect(svg).toMatch(/^<svg/u);
-    expect(svg).toContain("Markdown");
-    expect(svg).toContain("AIC");
-    expect(svg).not.toMatch(/<script|onload=|href=/u);
+    expect(config.flowchart).not.toHaveProperty("htmlLabels");
+  });
+
+  it("renders a real diagram with the pinned strict runtime", async () => {
+    for (const theme of ["default", "dark"] as const) {
+      const svg = await renderMermaidSvg({
+        source: "flowchart LR\n  Markdown --> AIC",
+        theme,
+      });
+      expect(svg).toMatch(/^<svg/u);
+      expect(svg).toContain("Markdown");
+      expect(svg).toContain("AIC");
+      expect(svg).toContain("<text");
+      expect(svg).not.toMatch(/<script|<foreignObject|onload=|href=/u);
+    }
   });
 
   it("serializes jobs and rejects an overflowing queue", async () => {

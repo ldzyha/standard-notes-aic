@@ -129,6 +129,7 @@ export class AicEditor {
     });
     this.view = view;
     this.toolbar.setReadOnly(this.currentReadOnly);
+    this.element.dataset.readOnly = String(this.currentReadOnly);
     this.refreshTheme();
   }
 

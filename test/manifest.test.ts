@@ -12,6 +12,7 @@ describe("Standard Notes component manifest", () => {
       area: "editor-editor",
       note_type: "markdown",
       file_type: "md",
+      interchangeable: true,
       url: "https://ldzyha.github.io/standard-notes-aic/",
       latest_url: "https://ldzyha.github.io/standard-notes-aic/ext.json",
     });
@@ -32,6 +33,7 @@ describe("Standard Notes component manifest", () => {
       area: "editor-editor",
       note_type: "markdown",
       file_type: "md",
+      interchangeable: true,
     });
   });
 
@@ -45,6 +47,7 @@ describe("Standard Notes component manifest", () => {
       url: "http://localhost:5178/",
       note_type: manifest.note_type,
       file_type: manifest.file_type,
+      interchangeable: true,
     });
   });
 

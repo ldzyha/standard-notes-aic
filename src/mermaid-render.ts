@@ -130,6 +130,18 @@ async function loadMermaid() {
   return mermaidPromise;
 }
 
+export function mermaidConfig(theme: MermaidTheme) {
+  return {
+    startOnLoad: false,
+    securityLevel: "strict" as const,
+    suppressErrorRendering: true,
+    maxTextSize: 50_000,
+    theme,
+    htmlLabels: false,
+    flowchart: { useMaxWidth: true },
+  };
+}
+
 export function sanitizeMermaidSvg(
   svg: string,
   document: Document = globalThis.document,
@@ -170,14 +182,7 @@ export async function renderMermaidSvg({
   const limit = mermaidLimitError(source);
   if (limit) throw limit;
   const mermaid = await loadMermaid();
-  mermaid.initialize({
-    startOnLoad: false,
-    securityLevel: "strict",
-    suppressErrorRendering: true,
-    maxTextSize: 50_000,
-    theme,
-    flowchart: { htmlLabels: false, useMaxWidth: true },
-  });
+  mermaid.initialize(mermaidConfig(theme));
   const result = await mermaid.render(
     `aic-standard-notes-${++sequence}`,
     source,
