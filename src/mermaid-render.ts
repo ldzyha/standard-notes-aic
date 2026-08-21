@@ -241,30 +241,25 @@ export function createMermaidPreview({
   label.textContent = "Mermaid";
   const edit = document.createElement("button");
   edit.type = "button";
-  edit.className = "cm-mermaid-edit";
+  edit.className = "cm-mermaid-edit cm-md-edit-source";
   edit.textContent = "Edit source";
   caption.append(label, edit);
   const canvas = document.createElement("div");
   canvas.className = "cm-mermaid-canvas";
-  canvas.tabIndex = 0;
-  canvas.setAttribute("role", "button");
-  canvas.setAttribute("aria-label", "Mermaid diagram; activate to edit source");
+  canvas.setAttribute("role", "region");
+  canvas.setAttribute("aria-label", "Rendered Mermaid diagram");
   figure.append(caption, canvas);
 
   let epoch = 0;
   let destroyed = false;
   let activeAbort: AbortController | null = null;
 
-  const reveal = (event?: Event) => {
-    event?.preventDefault();
-    event?.stopPropagation();
+  const reveal = (event: Event) => {
+    event.preventDefault();
+    event.stopPropagation();
     onEdit();
   };
   edit.addEventListener("click", reveal);
-  canvas.addEventListener("click", reveal);
-  canvas.addEventListener("keydown", (event) => {
-    if (event.key === "Enter" || event.key === " ") reveal(event);
-  });
 
   const update = async (
     nextSource: string,

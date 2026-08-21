@@ -11,6 +11,16 @@
   --aic-chip: color-mix(in srgb, var(--aic-fg) 7%, transparent);
   --aic-marker: color-mix(in srgb, var(--aic-muted) 80%, var(--aic-fg));
   --aic-danger: var(--sn-stylekit-danger-color, #c62828);
+  --aic-details-surface: color-mix(
+    in srgb,
+    var(--aic-contrast) 94%,
+    var(--aic-contrast-fg) 6%
+  );
+  --aic-details-border: color-mix(
+    in srgb,
+    var(--aic-border) 72%,
+    var(--aic-contrast-fg) 28%
+  );
   font-family: var(
     --sn-stylekit-sans-serif-font,
     Inter,
@@ -89,6 +99,7 @@ select {
 .aic-toolbar-button,
 .aic-toolbar-select,
 .cm-mermaid-edit,
+.cm-md-edit-source,
 .cm-md-link-tooltip button {
   min-height: 34px;
   border: 1px solid transparent;
@@ -117,6 +128,8 @@ select {
 .aic-toolbar-select:focus-visible,
 .cm-mermaid-edit:hover,
 .cm-mermaid-edit:focus-visible,
+.cm-md-edit-source:hover,
+.cm-md-edit-source:focus-visible,
 .cm-md-link-tooltip button:hover,
 .cm-md-link-tooltip button:focus-visible {
   border-color: color-mix(in srgb, var(--aic-accent) 60%, var(--aic-border));
@@ -328,17 +341,12 @@ select {
   margin: 0.65rem 0;
   overflow-x: auto;
   overflow-y: hidden;
-  border: 1px solid var(--aic-border);
+  border: 1px solid var(--aic-details-border);
   border-radius: 0.55rem;
-  background: var(--aic-contrast);
+  background: var(--aic-details-surface);
   scrollbar-width: thin;
   overscroll-behavior-x: contain;
   touch-action: pan-x pan-y;
-}
-
-.aic-md-block-scroll:focus-visible {
-  outline: 2px solid var(--aic-accent);
-  outline-offset: 2px;
 }
 
 .aic-md-block-scroll table {
@@ -347,6 +355,26 @@ select {
   border-collapse: collapse;
   color: var(--aic-contrast-fg);
   font-family: inherit;
+}
+
+.cm-md-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 2rem;
+  padding: 0.16rem 0.32rem 0.16rem 0.62rem;
+  border-bottom: 1px solid var(--aic-details-border);
+  color: var(--aic-muted);
+  font: 650 0.76rem/1.2
+    var(--sn-stylekit-sans-serif-font, system-ui, sans-serif);
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+
+.cm-md-edit-source {
+  min-height: 28px;
+  padding: 0 0.5rem;
+  text-transform: none;
 }
 
 .aic-md-block-scroll th,
@@ -388,9 +416,9 @@ select {
 .cm-mermaid-inline {
   margin: 0.75rem 0;
   overflow: hidden;
-  border: 1px solid var(--aic-border);
+  border: 1px solid var(--aic-details-border);
   border-radius: 0.65rem;
-  background: var(--aic-contrast);
+  background: var(--aic-details-surface);
   color: var(--aic-contrast-fg);
 }
 
@@ -419,12 +447,125 @@ select {
   max-height: min(70vh, 720px);
   padding: 0.8rem;
   overflow: auto;
-  cursor: text;
 }
 
-.cm-mermaid-canvas:focus-visible {
-  outline: 2px solid var(--aic-accent);
-  outline-offset: -3px;
+.cm-aic-details-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.32rem;
+  width: 100%;
+  min-height: 2rem;
+  padding: 0.18rem 0.3rem;
+  border: 1px solid var(--aic-details-border);
+  border-left: 2px solid var(--aic-accent);
+  border-radius: 0.55rem;
+  background: var(--aic-details-surface);
+  color: var(--aic-contrast-fg);
+}
+
+.cm-aic-details-summary[data-open="true"][data-body="true"] {
+  border-bottom: 0;
+  border-radius: 0.55rem 0.55rem 0 0;
+}
+
+.cm-aic-details-summary button {
+  color: inherit;
+  font: inherit;
+}
+
+.cm-aic-details-disclosure,
+.cm-aic-details-check,
+.cm-aic-details-link,
+.cm-aic-details-title {
+  border: 0;
+  background: transparent;
+  padding: 0.1rem;
+}
+
+.cm-aic-details-disclosure {
+  display: inline-grid;
+  width: 1.4rem;
+  height: 1.4rem;
+  flex: 0 0 auto;
+  place-items: center;
+  cursor: pointer;
+}
+
+.cm-aic-details-chevron {
+  width: 0.9rem;
+  height: 0.9rem;
+  transform: rotate(0deg);
+  transition: transform 120ms ease-out;
+}
+
+.cm-aic-details-summary[data-open="true"] .cm-aic-details-chevron {
+  transform: rotate(90deg);
+}
+
+.cm-aic-details-check {
+  width: 1rem;
+  height: 1rem;
+  border: 1px solid currentColor;
+  border-radius: 0.18rem;
+  cursor: pointer;
+}
+
+.cm-aic-details-check.checked::after {
+  display: block;
+  line-height: 0.72rem;
+  content: "✓";
+}
+
+.cm-aic-details-check:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.cm-aic-details-title {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.cm-aic-details-link {
+  display: inline-grid;
+  width: 1.45rem;
+  height: 1.45rem;
+  flex: 0 0 auto;
+  place-items: center;
+  color: var(--aic-accent);
+  cursor: pointer;
+}
+
+.cm-aic-details-link svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.cm-aic-details-edit {
+  flex: 0 0 auto;
+}
+
+.aic-editor-host .cm-line.cm-aic-details-body {
+  padding-right: 0.58rem;
+  padding-left: 0.58rem;
+  border-right: 1px solid var(--aic-details-border);
+  border-left: 2px solid var(--aic-accent);
+  background: var(--aic-details-surface);
+}
+
+.aic-editor-host .cm-line.cm-aic-details-body-first {
+  padding-top: 0.3rem;
+}
+
+.aic-editor-host .cm-line.cm-aic-details-body-last {
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid var(--aic-details-border);
+  border-radius: 0 0 0.55rem 0.55rem;
 }
 
 .cm-mermaid-diagram {

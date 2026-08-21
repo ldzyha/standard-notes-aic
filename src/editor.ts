@@ -32,6 +32,7 @@ import { markdownDecorations } from "./markdown-decorations";
 import { makeMermaidExtension, refreshMermaidTheme } from "./mermaid-extension";
 import type { MermaidTheme } from "./mermaid-render";
 import { createToolbar, type ToolbarController } from "./toolbar";
+import { detailsExtensions } from "./details-extension";
 
 export type AicEditorOptions = {
   document?: Document;
@@ -172,6 +173,7 @@ export class AicEditor {
       ]),
       markdownDecorations,
       blockViewExtensions(),
+      detailsExtensions(),
       makeMermaidExtension({
         theme: () => detectTheme(this.document),
         document: this.document,

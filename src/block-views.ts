@@ -169,6 +169,30 @@ function selectionIntersects(
   );
 }
 
+function previewHeader(
+  document: Document,
+  label: string,
+  onEdit: () => void,
+  readOnly: boolean,
+) {
+  const header = document.createElement("div");
+  header.className = "cm-md-preview-header";
+  const title = document.createElement("span");
+  title.textContent = label;
+  const edit = document.createElement("button");
+  edit.type = "button";
+  edit.className = "cm-md-edit-source";
+  edit.textContent = "Edit source";
+  edit.title = readOnly ? "View source (read-only)" : "Edit source";
+  edit.addEventListener("pointerdown", (event) => event.preventDefault());
+  edit.addEventListener("click", (event) => {
+    event.stopPropagation();
+    onEdit();
+  });
+  header.append(title, edit);
+  return header;
+}
+
 class TableWidget extends WidgetType {
   constructor(
     private readonly source: string,
@@ -182,13 +206,24 @@ class TableWidget extends WidgetType {
   }
 
   override toDOM(view: EditorView): HTMLElement {
+    const document = view.dom.ownerDocument;
     const wrapper = document.createElement("div");
-    wrapper.className = "cm-md-table aic-md-block-scroll";
-    wrapper.tabIndex = 0;
+    wrapper.className = "cm-md-table aic-md-block-scroll cm-md-block-preview";
     wrapper.setAttribute("role", "region");
-    wrapper.setAttribute(
-      "aria-label",
-      "Markdown table; activate to edit source",
+    wrapper.setAttribute("aria-label", "Markdown table preview");
+    wrapper.append(
+      previewHeader(
+        document,
+        "Table",
+        () => {
+          view.dispatch({
+            selection: { anchor: this.from },
+            scrollIntoView: true,
+          });
+          view.focus();
+        },
+        view.state.readOnly,
+      ),
     );
     const parsed = parseTable(this.source);
     if (!parsed) {
@@ -221,16 +256,6 @@ class TableWidget extends WidgetType {
     table.append(body);
     wrapper.append(table);
 
-    const reveal = (event: Event) => {
-      if ((event.target as Element | null)?.closest?.("a")) return;
-      event.preventDefault();
-      view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true });
-      view.focus();
-    };
-    wrapper.addEventListener("click", reveal);
-    wrapper.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") reveal(event);
-    });
     return wrapper;
   }
 
@@ -249,13 +274,22 @@ class FrontmatterWidget extends WidgetType {
   }
 
   override toDOM(view: EditorView): HTMLElement {
+    const document = view.dom.ownerDocument;
     const wrapper = document.createElement("div");
-    wrapper.className = "cm-md-props aic-md-block-scroll";
-    wrapper.tabIndex = 0;
+    wrapper.className = "cm-md-props aic-md-block-scroll cm-md-block-preview";
     wrapper.setAttribute("role", "region");
-    wrapper.setAttribute(
-      "aria-label",
-      "Markdown properties; activate to edit source",
+    wrapper.setAttribute("aria-label", "Markdown properties preview");
+    wrapper.append(
+      previewHeader(
+        document,
+        "Properties",
+        () => {
+          const anchor = Math.min(view.state.doc.length, this.block.from + 4);
+          view.dispatch({ selection: { anchor }, scrollIntoView: true });
+          view.focus();
+        },
+        view.state.readOnly,
+      ),
     );
     const table = document.createElement("table");
     const body = document.createElement("tbody");
@@ -270,16 +304,6 @@ class FrontmatterWidget extends WidgetType {
     }
     table.append(body);
     wrapper.append(table);
-    const reveal = (event: Event) => {
-      event.preventDefault();
-      const anchor = Math.min(view.state.doc.length, this.block.from + 4);
-      view.dispatch({ selection: { anchor }, scrollIntoView: true });
-      view.focus();
-    };
-    wrapper.addEventListener("click", reveal);
-    wrapper.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") reveal(event);
-    });
     return wrapper;
   }
 

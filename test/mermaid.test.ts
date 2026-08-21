@@ -172,6 +172,15 @@ describe("Mermaid rendering boundary", () => {
       .querySelector<HTMLButtonElement>(".cm-mermaid-edit")!
       .click();
     expect(onEdit).toHaveBeenCalledOnce();
+    const canvas =
+      preview.element.querySelector<HTMLElement>(".cm-mermaid-canvas")!;
+    expect(canvas.getAttribute("role")).toBe("region");
+    expect(canvas.tabIndex).toBe(-1);
+    canvas.click();
+    canvas.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),
+    );
+    expect(onEdit).toHaveBeenCalledOnce();
     expect(preview.destroy()).toBe(true);
     expect(preview.destroy()).toBe(false);
   });

@@ -100,7 +100,7 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
-  it("reveals exact derived source when the block is activated", () => {
+  it("keeps preview content inert and reveals exact source only from Edit source", () => {
     const source = "| A | B |\n| --- | --- |\n| x | y |\n\nafter";
     const host = document.createElement("div");
     document.body.append(host);
@@ -108,10 +108,16 @@ describe("AIC editor integration", () => {
     editor.view.dispatch({ selection: { anchor: source.length } });
     const table = editor.element.querySelector<HTMLElement>(".cm-md-table");
     expect(table).not.toBeNull();
+    const before = editor.view.state.selection.main.head;
     table!.click();
+    expect(editor.view.state.selection.main.head).toBe(before);
+    expect(editor.element.querySelector(".cm-md-table")).not.toBeNull();
+    table!.querySelector<HTMLButtonElement>(".cm-md-edit-source")!.click();
     expect(editor.view.state.selection.main.head).toBe(0);
     expect(editor.element.querySelector(".cm-md-table")).toBeNull();
     expect(editor.value).toBe(source);
+    editor.view.dispatch({ selection: { anchor: source.length } });
+    expect(editor.element.querySelector(".cm-md-table")).not.toBeNull();
     editor.destroy();
   });
 

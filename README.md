@@ -6,7 +6,7 @@
 
 `AIC` is a Markdown editor component for Standard Notes. It keeps the note body as ordinary
 Markdown and derives headings, lists, task checkboxes, tables, frontmatter properties, fenced-code
-highlighting, and Mermaid diagrams in the editor.
+highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 ## Install
 
@@ -19,6 +19,30 @@ https://ldzyha.github.io/standard-notes-aic/ext.json
 This is an independent third-party plugin and is not reviewed by the Standard Notes team. Web and
 mobile clients use the hosted GitHub Pages editor; desktop clients can use the versioned release
 archive.
+
+After installation, choose **AIC** from a note's editor menu. Existing Markdown stays byte-for-byte
+compatible with Plain Text and other interchangeable Markdown editors.
+
+## Preview and source controls
+
+AIC keeps Markdown as the source of truth. Four replacement previews—**Details**, **Mermaid**,
+**Table**, and **Properties**—show a compact **Edit source** button. Clicking preview content does
+not switch modes; links and detail controls remain independently actionable. **Edit source** reveals
+the exact Markdown, including in a locked note where it is available for read-only inspection.
+
+AIC details use this exact non-nested grammar:
+
+```text
+>>>|open| Title
+Body
+<<<
+```
+
+Omit `|open|` for a closed card: `>>> Title`. Click either the title or SVG chevron to toggle. In a
+writable note the marker is persisted; in a locked note disclosure is visual only. A summary in the
+form `- [ ] [Source](target)` also exposes a separate checkbox and compact link action. Delimiters
+inside fenced code do not close a card, while invalid, nested, or unmatched blocks stay visible as
+ordinary Markdown.
 
 ## Use AIC for new notes
 
@@ -75,3 +99,8 @@ The production manifest is canonical at
 `https://ldzyha.github.io/standard-notes-aic/ext.json`. Its desktop archive is version-pinned, so a
 release must update `package.json`, `public/ext.json`, and `public/ext.local.json` together before
 tagging.
+
+This project follows the AIC `R.F.B` release convention: successful release sequence,
+release-local feature outcomes, and release-local fixed-bug outcomes. `3.2.0` is sequence 3 with
+two feature outcomes and no fixed-bug outcomes; it is not a SemVer compatibility claim. See
+[`CHANGELOG.md`](CHANGELOG.md).

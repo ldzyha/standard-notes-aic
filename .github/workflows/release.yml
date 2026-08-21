@@ -40,9 +40,10 @@ jobs:
           PACKAGE_VERSION="${RELEASE_TAG#v}"
           mkdir -p .release/dist
           cp package.json .release/package.json
+          cp README.md CHANGELOG.md .release/
           cp -R dist/. .release/dist/
           cd .release
-          zip -qr "../standard-notes-aic-$PACKAGE_VERSION.zip" package.json dist
+          zip -qr "../standard-notes-aic-$PACKAGE_VERSION.zip" package.json README.md CHANGELOG.md dist
 
       - name: Publish GitHub release
         env:
