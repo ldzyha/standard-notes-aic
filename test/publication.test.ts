@@ -23,13 +23,14 @@ describe("publication metadata", () => {
     expect(releaseWorkflow).toContain('--notes "Website: https://dzyha.com/"');
   });
 
-  it("documents the 3.2.0 R.F.B release and packages usage instructions", () => {
-    expect(changelog).toContain("## 3.2.0 — 2026-08-21");
+  it("documents the 4.0.1 R.F.B release and packages usage instructions", () => {
+    expect(changelog).toContain("## 4.0.1 — 2026-08-21");
     expect(changelog).toContain(
-      "Release sequence 3 · 2 feature outcomes · 0 fixed-bug outcomes",
+      "Release sequence 4 · 0 feature outcomes · 1 fixed-bug outcome",
     );
     expect(readme).toContain("## Preview and source controls");
     expect(readme).toContain(">>>|open| Title");
+    expect(readme).toContain("Raw Space is");
     expect(releaseWorkflow).toContain("cp README.md CHANGELOG.md .release/");
     expect(releaseWorkflow).toContain(
       "package.json README.md CHANGELOG.md dist",

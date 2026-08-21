@@ -1,5 +1,17 @@
 # Changelog
 
+## 4.0.1 — 2026-08-21
+
+Release sequence 4 · 0 feature outcomes · 1 fixed-bug outcome.
+
+- B01: raw Space is no longer bound to task toggling. Authors can type `- [ ]` followed by the
+  required trailing space or task text so the checkbox renders normally; clicking an already
+  rendered checkbox remains the explicit toggle action.
+
+Compatibility: Standard Notes custom `editor-editor` component, interchangeable Markdown note/file
+type. The hosted manifest and desktop archive keep the stable
+`com.dzyha.standard-notes-aic` identifier.
+
 ## 3.2.0 — 2026-08-21
 
 Release sequence 3 · 2 feature outcomes · 0 fixed-bug outcomes.

@@ -219,27 +219,6 @@ export function continueList(view: EditorView): boolean {
   return true;
 }
 
-export function spaceToggleTask(view: EditorView): boolean {
-  if (!writable(view)) return false;
-  const selection = view.state.selection.main;
-  if (!selection.empty) return false;
-  const line = view.state.doc.lineAt(selection.head);
-  const match = /^(\s*(?:[-*+]|\d+[.)])\s+)\[([ xX])\]/u.exec(line.text);
-  if (!match) return false;
-  const markerFrom = line.from + match[1]!.length;
-  if (selection.head < markerFrom || selection.head > markerFrom + 3)
-    return false;
-  view.dispatch({
-    changes: {
-      from: markerFrom + 1,
-      to: markerFrom + 2,
-      insert: match[2] === " " ? "x" : " ",
-    },
-    userEvent: "input",
-  });
-  return true;
-}
-
 export const insertLink: AicCommand = (view) => {
   if (!writable(view)) return false;
   const { from, to } = view.state.selection.main;
@@ -349,5 +328,4 @@ export const aicKeymap: readonly KeyBinding[] = [
   { key: "Mod-Shift-8", run: (view) => toggleList(view, "bullet") },
   { key: "Mod-Shift-9", run: (view) => toggleList(view, "task") },
   { key: "Enter", run: continueList },
-  { key: " ", run: spaceToggleTask },
 ];

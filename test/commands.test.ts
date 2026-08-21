@@ -2,11 +2,11 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it } from "vitest";
 import {
+  aicKeymap,
   continueList,
   insertMermaid,
   insertProperties,
   setBlockKind,
-  spaceToggleTask,
   toggleBold,
   toggleList,
 } from "../src/commands";
@@ -82,13 +82,8 @@ describe("AIC Markdown commands", () => {
     view.destroy();
   });
 
-  it("toggles a task marker from the keyboard source position", () => {
-    const view = editor("- [ ] work", { anchor: 3 });
-    expect(spaceToggleTask(view)).toBe(true);
-    expect(view.state.doc.toString()).toBe("- [x] work");
-    expect(spaceToggleTask(view)).toBe(true);
-    expect(view.state.doc.toString()).toBe("- [ ] work");
-    view.destroy();
+  it("leaves raw Space unbound so it can complete task syntax", () => {
+    expect(aicKeymap.some(({ key }) => key === " ")).toBe(false);
   });
 
   it("inserts one leading properties block and then reveals it", () => {

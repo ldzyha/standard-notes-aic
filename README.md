@@ -44,6 +44,10 @@ form `- [ ] [Source](target)` also exposes a separate checkbox and compact link 
 inside fenced code do not close a card, while invalid, nested, or unmatched blocks stay visible as
 ordinary Markdown.
 
+To author a task, type the raw marker `- [ ]` and then a trailing Space or task text. Raw Space is
+ordinary source input and is never intercepted as a toggle; once the complete task syntax renders,
+click its checkbox to change only that task marker.
+
 ## Use AIC for new notes
 
 To make AIC the account-wide Markdown editor for new notes, open **Preferences → General → New
@@ -101,6 +105,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `3.2.0` is sequence 3 with
-two feature outcomes and no fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `4.0.1` is sequence 4 with
+no feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).
