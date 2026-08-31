@@ -11,7 +11,6 @@ import {
   indentOnInput,
   syntaxHighlighting,
 } from "@codemirror/language";
-import { searchKeymap } from "@codemirror/search";
 import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import {
   crosshairCursor,
@@ -27,7 +26,7 @@ import {
 import { blockViewExtensions } from "./block-views";
 import { aicKeymap } from "./commands";
 import { aicMarkdownLanguage } from "./language";
-import { linkTooltip } from "./link-tooltip";
+import { linkActionsExtension } from "./link-actions";
 import { markdownDecorations } from "./markdown-decorations";
 import { makeMermaidExtension, refreshMermaidTheme } from "./mermaid-extension";
 import type { MermaidTheme } from "./mermaid-render";
@@ -40,6 +39,8 @@ export type AicEditorOptions = {
   readOnly?: boolean;
   onChange?: (text: string) => void;
 };
+
+export type SaveState = "dirty" | "saved" | "placeholder" | "unavailable";
 
 function parseRgb(value: string): [number, number, number] | null {
   const normalized = value.trim();
@@ -131,7 +132,9 @@ export class AicEditor {
     this.view = view;
     this.toolbar.setReadOnly(this.currentReadOnly);
     this.element.dataset.readOnly = String(this.currentReadOnly);
+    this.element.dataset.saveState = "unavailable";
     this.refreshTheme();
+    this.view.requestMeasure();
   }
 
   private extensions(): Extension[] {
@@ -166,7 +169,6 @@ export class AicEditor {
       keymap.of([
         ...aicKeymap,
         ...closeBracketsKeymap,
-        ...searchKeymap,
         ...historyKeymap,
         indentWithTab,
         ...defaultKeymap,
@@ -178,7 +180,7 @@ export class AicEditor {
         theme: () => detectTheme(this.document),
         document: this.document,
       }),
-      linkTooltip(),
+      linkActionsExtension(),
       EditorView.updateListener.of((update) => {
         if (!update.docChanged || this.suppressChange) return;
         this.onChange(this.serialize(update.state));
@@ -211,6 +213,7 @@ export class AicEditor {
     if (text === this.value) return false;
     this.suppressChange = true;
     this.view.setState(this.createState(text));
+    this.view.requestMeasure();
     this.suppressChange = false;
     return true;
   }
@@ -227,6 +230,10 @@ export class AicEditor {
     this.toolbar.setReadOnly(readOnly);
     this.element.dataset.readOnly = String(readOnly);
     return true;
+  }
+
+  setSaveState(state: SaveState): void {
+    this.element.dataset.saveState = state;
   }
 
   refreshTheme(): MermaidTheme {

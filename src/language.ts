@@ -1,4 +1,7 @@
 import { LanguageDescription } from "@codemirror/language";
+import { css } from "@codemirror/lang-css";
+import { html } from "@codemirror/lang-html";
+import { javascript } from "@codemirror/lang-javascript";
 import { markdown, markdownLanguage } from "@codemirror/lang-markdown";
 import { GFM } from "@lezer/markdown";
 
@@ -6,34 +9,22 @@ const codeLanguages = [
   LanguageDescription.of({
     name: "JavaScript",
     alias: ["js", "javascript", "mjs", "cjs"],
-    load: () =>
-      import("@codemirror/lang-javascript").then(({ javascript }) =>
-        javascript(),
-      ),
+    load: async () => javascript(),
   }),
   LanguageDescription.of({
     name: "JSX",
     alias: ["jsx"],
-    load: () =>
-      import("@codemirror/lang-javascript").then(({ javascript }) =>
-        javascript({ jsx: true }),
-      ),
+    load: async () => javascript({ jsx: true }),
   }),
   LanguageDescription.of({
     name: "TypeScript",
     alias: ["ts", "typescript", "mts", "cts"],
-    load: () =>
-      import("@codemirror/lang-javascript").then(({ javascript }) =>
-        javascript({ typescript: true }),
-      ),
+    load: async () => javascript({ typescript: true }),
   }),
   LanguageDescription.of({
     name: "TSX",
     alias: ["tsx"],
-    load: () =>
-      import("@codemirror/lang-javascript").then(({ javascript }) =>
-        javascript({ typescript: true, jsx: true }),
-      ),
+    load: async () => javascript({ typescript: true, jsx: true }),
   }),
   LanguageDescription.of({
     name: "Python",
@@ -49,7 +40,7 @@ const codeLanguages = [
   LanguageDescription.of({
     name: "CSS",
     alias: ["css"],
-    load: () => import("@codemirror/lang-css").then(({ css }) => css()),
+    load: async () => css(),
   }),
   LanguageDescription.of({
     name: "SCSS",
@@ -75,7 +66,7 @@ const codeLanguages = [
   LanguageDescription.of({
     name: "HTML",
     alias: ["html", "htm"],
-    load: () => import("@codemirror/lang-html").then(({ html }) => html()),
+    load: async () => html(),
   }),
 ];
 

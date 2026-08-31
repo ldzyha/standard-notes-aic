@@ -63,7 +63,18 @@ describe("AIC details interaction", () => {
     )!;
     summary.querySelector<HTMLButtonElement>(".cm-aic-details-check")!.click();
     expect(editor.value).toContain(">>>|open| - [x] [Source]");
-    expect(editor.element.querySelector(".cm-aic-details-body")).not.toBeNull();
+    const body = editor.element.querySelector<HTMLElement>(
+      ".cm-aic-details-body",
+    )!;
+    expect(body).not.toBeNull();
+
+    const comment = editor.value.indexOf("comment") + "comment".length;
+    editor.view.dispatch({
+      selection: { anchor: comment },
+      changes: { from: comment, insert: " kept" },
+      userEvent: "input",
+    });
+    expect(editor.value).toContain("comment kept");
 
     const beforeEdit = editor.value;
     summary = editor.element.querySelector<HTMLElement>(
@@ -76,7 +87,7 @@ describe("AIC details interaction", () => {
     expect(
       editor.element.querySelector(".cm-aic-details-summary"),
     ).not.toBeNull();
-    expect(changed).toHaveBeenCalledTimes(2);
+    expect(changed).toHaveBeenCalledTimes(3);
     editor.destroy();
   });
 

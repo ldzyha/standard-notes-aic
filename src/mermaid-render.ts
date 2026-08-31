@@ -242,7 +242,7 @@ export function createMermaidPreview({
   const edit = document.createElement("button");
   edit.type = "button";
   edit.className = "cm-mermaid-edit cm-md-edit-source";
-  edit.textContent = "Edit source";
+  edit.textContent = "Edit";
   caption.append(label, edit);
   const canvas = document.createElement("div");
   canvas.className = "cm-mermaid-canvas";

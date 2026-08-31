@@ -82,15 +82,17 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
-  it("derives properties, tables, and accessible task widgets from source", () => {
+  it("derives properties, tables, and accessible task widgets from source", async () => {
     const source =
       "---\nstatus: idea\n---\n\n- [ ] work\n\n| A | B |\n| --- | --- |\n| x | y |\n\nend";
     const host = document.createElement("div");
     document.body.append(host);
     const editor = new AicEditor(host, { initialText: source });
     editor.view.dispatch({ selection: { anchor: source.length } });
-    expect(editor.element.querySelector(".cm-md-props")).not.toBeNull();
-    expect(editor.element.querySelector(".cm-md-table table")).not.toBeNull();
+    await vi.waitFor(() => {
+      expect(editor.element.querySelector(".cm-md-props")).not.toBeNull();
+      expect(editor.element.querySelector(".cm-md-table table")).not.toBeNull();
+    });
     const task = editor.element.querySelector<HTMLElement>(
       '[role="checkbox"][aria-checked="false"]',
     );
@@ -100,7 +102,69 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
-  it("keeps preview content inert and reveals exact source only from Edit source", () => {
+  it("edits, adds, and exposes drag handles for properties", () => {
+    const source = "---\nstatus: idea\nowner: team\n---\n\nBody";
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host, { initialText: source });
+    editor.view.dispatch({ selection: { anchor: source.length } });
+    const status = editor.element.querySelector<HTMLInputElement>(
+      '[aria-label="Property status value"]',
+    );
+    expect(status).not.toBeNull();
+    status!.value = "active";
+    status!.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(editor.value).toContain("status: active");
+    const add = [
+      ...editor.element.querySelectorAll<HTMLButtonElement>("button"),
+    ].find((button) => button.textContent === "Add property");
+    expect(add).toBeDefined();
+    add!.click();
+    expect(editor.value).toContain("property: ");
+    expect(
+      [
+        ...editor.element.querySelectorAll<HTMLButtonElement>(
+          ".cm-aic-drag-handle",
+        ),
+      ].every((handle) => handle.draggable),
+    ).toBe(true);
+    editor.destroy();
+  });
+
+  it("renders links as direct open, copy, and focused edit controls without a tooltip", () => {
+    const source =
+      "Before [OpenAI](https://openai.com) and https://example.com\n\nEnd";
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host, { initialText: source });
+    editor.view.dispatch({ selection: { anchor: source.length } });
+    const links = editor.element.querySelectorAll<HTMLElement>(
+      ".cm-aic-link-control",
+    );
+    expect(links).toHaveLength(2);
+    expect(editor.element.querySelector(".cm-md-link-tooltip")).toBeNull();
+    const open = vi.spyOn(window, "open").mockImplementation(() => null);
+    links[0]!.querySelector<HTMLButtonElement>(".cm-aic-link-open")!.click();
+    expect(open).toHaveBeenCalledWith(
+      "https://openai.com",
+      "_blank",
+      "noopener,noreferrer",
+    );
+    const labels = [...links[0]!.querySelectorAll("button")].map(
+      (button) => button.textContent,
+    );
+    expect(labels).toEqual(["OpenAI", "Copy", "Edit"]);
+    links[0]!.querySelectorAll<HTMLButtonElement>("button")[2]!.click();
+    expect(
+      editor.view.state.sliceDoc(
+        editor.view.state.selection.main.from,
+        editor.view.state.selection.main.to,
+      ),
+    ).toBe("https://openai.com");
+    editor.destroy();
+  });
+
+  it("edits table values directly and reveals exact source only from Edit", () => {
     const source = "| A | B |\n| --- | --- |\n| x | y |\n\nafter";
     const host = document.createElement("div");
     document.body.append(host);
@@ -112,10 +176,22 @@ describe("AIC editor integration", () => {
     table!.click();
     expect(editor.view.state.selection.main.head).toBe(before);
     expect(editor.element.querySelector(".cm-md-table")).not.toBeNull();
-    table!.querySelector<HTMLButtonElement>(".cm-md-edit-source")!.click();
+    const value = table!.querySelector<HTMLInputElement>(
+      '[aria-label="Row 1, column 1"]',
+    );
+    expect(value).not.toBeNull();
+    value!.value = "changed";
+    value!.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(editor.value).toContain("| changed | y |");
+    const refreshed = editor.element.querySelector<HTMLElement>(".cm-md-table");
+    const edit = [
+      ...refreshed!.querySelectorAll<HTMLButtonElement>("button"),
+    ].find((button) => button.textContent === "Edit");
+    expect(edit).toBeDefined();
+    edit!.click();
     expect(editor.view.state.selection.main.head).toBe(0);
     expect(editor.element.querySelector(".cm-md-table")).toBeNull();
-    expect(editor.value).toBe(source);
+    expect(editor.value).toContain("| changed | y |");
     editor.view.dispatch({ selection: { anchor: source.length } });
     expect(editor.element.querySelector(".cm-md-table")).not.toBeNull();
     editor.destroy();

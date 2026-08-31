@@ -9,10 +9,26 @@ import {
   Decoration,
   EditorView,
   ViewPlugin,
+  type ViewUpdate,
   WidgetType,
 } from "@codemirror/view";
+import {
+  addProperty,
+  addTableColumn,
+  addTableRow,
+  moveProperty,
+  moveTableColumn,
+  moveTableRow,
+  serializeFrontmatter,
+  serializeTable,
+  updateProperty,
+  updateTableCell,
+  validPropertyKey,
+  type PropertyRow,
+  type TableModel,
+} from "./core/structured-preview.js";
 
-export type FrontmatterRow = Readonly<{ key: string; value: string }>;
+export type FrontmatterRow = Readonly<PropertyRow>;
 export type FrontmatterBlock = Readonly<{
   from: number;
   to: number;
@@ -35,8 +51,9 @@ export function parseFrontmatter(document: string): FrontmatterBlock | null {
     const rawTo = nextBreak < 0 ? document.length : nextBreak;
     const raw = document.slice(cursor, rawTo).replace(/\r$/u, "");
     if (raw.trim() === "---") {
-      if (rows.length === 0) return null;
-      return Object.freeze({ from: 0, to: rawTo, rows: Object.freeze(rows) });
+      return rows.length
+        ? Object.freeze({ from: 0, to: rawTo, rows: Object.freeze(rows) })
+        : null;
     }
     if (raw.trim()) {
       if (/^[ \t]/u.test(raw)) return null;
@@ -51,11 +68,7 @@ export function parseFrontmatter(document: string): FrontmatterBlock | null {
   return null;
 }
 
-export type ParsedTable = Readonly<{
-  header: readonly string[];
-  aligns: readonly ("left" | "center" | "right" | "")[];
-  rows: readonly (readonly string[])[];
-}>;
+export type ParsedTable = Readonly<TableModel>;
 
 function splitRow(line: string): string[] {
   return line
@@ -71,22 +84,22 @@ export function parseTable(source: string): ParsedTable | null {
   const header = splitRow(lines[0]);
   const delimiters = splitRow(lines[1]);
   if (
-    header.length === 0 ||
+    !header.length ||
     delimiters.length !== header.length ||
-    delimiters.some((delimiter) => !/^:?-{3,}:?$/u.test(delimiter))
-  ) {
+    delimiters.some((value) => !/^:?-{3,}:?$/u.test(value))
+  )
     return null;
-  }
-  const aligns = delimiters.map((delimiter) => {
-    const left = delimiter.startsWith(":");
-    const right = delimiter.endsWith(":");
+  const aligns = delimiters.map((value) => {
+    const left = value.startsWith(":");
+    const right = value.endsWith(":");
     return left && right ? "center" : right ? "right" : left ? "left" : "";
   });
-  const rows = lines.slice(2).map((line) => splitRow(line));
   return Object.freeze({
     header: Object.freeze(header),
     aligns: Object.freeze(aligns),
-    rows: Object.freeze(rows),
+    rows: Object.freeze(
+      lines.slice(2).map((line) => Object.freeze(splitRow(line))),
+    ),
   });
 }
 
@@ -106,57 +119,6 @@ export function safeExternalUrl(value: string): string {
   }
 }
 
-const CELL_INLINE =
-  /(`([^`]+)`)|(\[([^\]]*)\]\(([^)]+)\))|(\*\*([^*]+)\*)|(__([^_]+)__)|(~~([^~]+)~~)|(\*([^*]+)\*)|(_([^_]+)_)/gu;
-
-function fillInline(parent: HTMLElement, source: string) {
-  const pattern = new RegExp(CELL_INLINE.source, "gu");
-  let last = 0;
-  for (let match = pattern.exec(source); match; match = pattern.exec(source)) {
-    if (match.index > last)
-      parent.append(document.createTextNode(source.slice(last, match.index)));
-    if (match[2] !== undefined) {
-      const code = document.createElement("code");
-      code.className = "cm-md-code";
-      code.textContent = match[2];
-      parent.append(code);
-    } else if (match[5] !== undefined) {
-      const url = safeExternalUrl(match[5]);
-      if (url) {
-        const anchor = document.createElement("a");
-        anchor.className = "cm-md-table-link";
-        anchor.href = url;
-        anchor.target = "_blank";
-        anchor.rel = "noopener noreferrer";
-        anchor.title = match[5];
-        fillInline(anchor, match[4] || match[5]);
-        parent.append(anchor);
-      } else {
-        const text = document.createElement("span");
-        text.className = "cm-md-table-link cm-md-table-link-local";
-        text.title = match[5];
-        fillInline(text, match[4] || match[5]);
-        parent.append(text);
-      }
-    } else if (match[7] !== undefined || match[9] !== undefined) {
-      const strong = document.createElement("strong");
-      fillInline(strong, match[7] ?? match[9] ?? "");
-      parent.append(strong);
-    } else if (match[11] !== undefined) {
-      const deleted = document.createElement("del");
-      fillInline(deleted, match[11]);
-      parent.append(deleted);
-    } else {
-      const emphasis = document.createElement("em");
-      fillInline(emphasis, match[13] ?? match[15] ?? "");
-      parent.append(emphasis);
-    }
-    last = match.index + match[0].length;
-  }
-  if (last < source.length)
-    parent.append(document.createTextNode(source.slice(last)));
-}
-
 function selectionIntersects(
   state: EditorState,
   from: number,
@@ -169,40 +131,140 @@ function selectionIntersects(
   );
 }
 
+function action(
+  document: Document,
+  label: string,
+  run: () => void,
+  disabled = false,
+): HTMLButtonElement {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "cm-md-edit-source";
+  button.textContent = label;
+  button.setAttribute("aria-label", label);
+  button.disabled = disabled;
+  button.addEventListener("pointerdown", (event) => event.preventDefault());
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    run();
+  });
+  return button;
+}
+
 function previewHeader(
   document: Document,
   label: string,
-  onEdit: () => void,
-  readOnly: boolean,
-) {
+  actions: HTMLElement[],
+): HTMLElement {
   const header = document.createElement("div");
   header.className = "cm-md-preview-header";
   const title = document.createElement("span");
   title.textContent = label;
-  const edit = document.createElement("button");
-  edit.type = "button";
-  edit.className = "cm-md-edit-source";
-  edit.textContent = "Edit source";
-  edit.title = readOnly ? "View source (read-only)" : "Edit source";
-  edit.addEventListener("pointerdown", (event) => event.preventDefault());
-  edit.addEventListener("click", (event) => {
-    event.stopPropagation();
-    onEdit();
-  });
-  header.append(title, edit);
+  const group = document.createElement("span");
+  group.className = "cm-md-preview-actions";
+  group.append(...actions);
+  header.append(title, group);
   return header;
+}
+
+function input(
+  document: Document,
+  value: string,
+  label: string,
+  onChange: (value: string) => void,
+  readOnly: boolean,
+  propertyKey = false,
+): HTMLInputElement {
+  const field = document.createElement("input");
+  field.type = "text";
+  field.className = "cm-aic-structure-input";
+  field.value = value;
+  field.readOnly = readOnly;
+  field.setAttribute("aria-label", label);
+  field.addEventListener("change", () => {
+    if (propertyKey && !validPropertyKey(field.value.trim())) {
+      field.setCustomValidity("Use letters, numbers, dot, underscore, or dash");
+      field.reportValidity();
+      return;
+    }
+    field.setCustomValidity("");
+    onChange(field.value);
+  });
+  field.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      field.blur();
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      field.value = value;
+      field.blur();
+    }
+  });
+  return field;
+}
+
+function dragHandle(
+  document: Document,
+  label: string,
+  kind: string,
+  index: number,
+  readOnly: boolean,
+): HTMLButtonElement {
+  const handle = document.createElement("button");
+  handle.type = "button";
+  handle.className = "cm-aic-drag-handle";
+  handle.textContent = "⠿";
+  handle.setAttribute("aria-label", label);
+  handle.draggable = !readOnly;
+  handle.disabled = readOnly;
+  handle.addEventListener("pointerdown", (event) => event.stopPropagation());
+  handle.addEventListener("dragstart", (event) => {
+    event.dataTransfer?.setData(`application/x-aic-${kind}`, String(index));
+    if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+  });
+  return handle;
+}
+
+function dropTarget(
+  element: HTMLElement,
+  kind: string,
+  index: number,
+  onMove: (from: number, to: number) => void,
+  readOnly: boolean,
+): void {
+  if (readOnly) return;
+  element.addEventListener("dragover", (event) => {
+    if (!event.dataTransfer?.types.includes(`application/x-aic-${kind}`))
+      return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+  });
+  element.addEventListener("drop", (event) => {
+    const from = Number(
+      event.dataTransfer?.getData(`application/x-aic-${kind}`) ?? "",
+    );
+    if (!Number.isInteger(from)) return;
+    event.preventDefault();
+    onMove(from, index);
+  });
 }
 
 class TableWidget extends WidgetType {
   constructor(
     private readonly source: string,
     private readonly from: number,
+    private readonly readOnly: boolean,
   ) {
     super();
   }
 
   override eq(other: TableWidget): boolean {
-    return other.source === this.source && other.from === this.from;
+    return (
+      other.source === this.source &&
+      other.from === this.from &&
+      other.readOnly === this.readOnly
+    );
   }
 
   override toDOM(view: EditorView): HTMLElement {
@@ -210,52 +272,132 @@ class TableWidget extends WidgetType {
     const wrapper = document.createElement("div");
     wrapper.className = "cm-md-table aic-md-block-scroll cm-md-block-preview";
     wrapper.setAttribute("role", "region");
-    wrapper.setAttribute("aria-label", "Markdown table preview");
-    wrapper.append(
-      previewHeader(
-        document,
-        "Table",
-        () => {
-          view.dispatch({
-            selection: { anchor: this.from },
-            scrollIntoView: true,
-          });
-          view.focus();
-        },
-        view.state.readOnly,
-      ),
-    );
+    wrapper.setAttribute("aria-label", "Interactive Markdown table");
     const parsed = parseTable(this.source);
+    const replace = (model: TableModel) => {
+      const markdown = serializeTable(model);
+      if (!markdown || markdown === this.source) return;
+      view.dispatch({
+        changes: {
+          from: this.from,
+          to: this.from + this.source.length,
+          insert: markdown,
+        },
+        userEvent: "input",
+      });
+    };
+    const reveal = () => {
+      view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true });
+      view.focus();
+    };
     if (!parsed) {
-      wrapper.textContent = this.source;
+      const fallback = document.createElement("pre");
+      fallback.textContent = this.source;
+      wrapper.append(
+        previewHeader(document, "Table", [action(document, "Edit", reveal)]),
+        fallback,
+      );
       return wrapper;
     }
+    wrapper.append(
+      previewHeader(document, "Table", [
+        action(
+          document,
+          "Add row",
+          () => replace(addTableRow(parsed)),
+          this.readOnly,
+        ),
+        action(
+          document,
+          "Add column",
+          () => replace(addTableColumn(parsed)),
+          this.readOnly,
+        ),
+        action(document, this.readOnly ? "View source" : "Edit", reveal),
+      ]),
+    );
     const table = document.createElement("table");
     const head = document.createElement("thead");
     const headRow = document.createElement("tr");
-    parsed.header.forEach((cell, index) => {
-      const element = document.createElement("th");
-      fillInline(element, cell);
-      if (parsed.aligns[index]) element.style.textAlign = parsed.aligns[index]!;
-      headRow.append(element);
+    const blank = document.createElement("th");
+    blank.className = "cm-aic-structure-handle-cell";
+    headRow.append(blank);
+    parsed.header.forEach((value, columnIndex) => {
+      const cell = document.createElement("th");
+      const content = document.createElement("span");
+      content.className = "cm-aic-structure-cell";
+      content.append(
+        dragHandle(
+          document,
+          `Move column ${value || columnIndex + 1}`,
+          "column",
+          columnIndex,
+          this.readOnly,
+        ),
+        input(
+          document,
+          value,
+          `Column ${columnIndex + 1} name`,
+          (next) => replace(updateTableCell(parsed, -1, columnIndex, next)),
+          this.readOnly,
+        ),
+      );
+      cell.append(content);
+      if (parsed.aligns[columnIndex])
+        cell.style.textAlign = parsed.aligns[columnIndex]!;
+      dropTarget(
+        cell,
+        "column",
+        columnIndex,
+        (from, to) => replace(moveTableColumn(parsed, from, to)),
+        this.readOnly,
+      );
+      headRow.append(cell);
     });
     head.append(headRow);
     table.append(head);
     const body = document.createElement("tbody");
-    for (const row of parsed.rows) {
+    parsed.rows.forEach((row, rowIndex) => {
       const rowElement = document.createElement("tr");
-      parsed.header.forEach((_, index) => {
-        const element = document.createElement("td");
-        fillInline(element, row[index] ?? "");
-        if (parsed.aligns[index])
-          element.style.textAlign = parsed.aligns[index]!;
-        rowElement.append(element);
+      const handleCell = document.createElement("td");
+      handleCell.className = "cm-aic-structure-handle-cell";
+      handleCell.append(
+        dragHandle(
+          document,
+          `Move row ${rowIndex + 1}`,
+          "row",
+          rowIndex,
+          this.readOnly,
+        ),
+      );
+      rowElement.append(handleCell);
+      parsed.header.forEach((_, columnIndex) => {
+        const cell = document.createElement("td");
+        cell.append(
+          input(
+            document,
+            row[columnIndex] ?? "",
+            `Row ${rowIndex + 1}, column ${columnIndex + 1}`,
+            (next) =>
+              replace(updateTableCell(parsed, rowIndex, columnIndex, next)),
+            this.readOnly,
+          ),
+        );
+        if (parsed.aligns[columnIndex])
+          cell.style.textAlign = parsed.aligns[columnIndex]!;
+        rowElement.append(cell);
       });
+      dropTarget(
+        rowElement,
+        "row",
+        rowIndex,
+        (from, to) => replace(moveTableRow(parsed, from, to)),
+        this.readOnly,
+      );
       body.append(rowElement);
-    }
+    });
     table.append(body);
     wrapper.append(table);
-
     return wrapper;
   }
 
@@ -265,12 +407,18 @@ class TableWidget extends WidgetType {
 }
 
 class FrontmatterWidget extends WidgetType {
-  constructor(private readonly block: FrontmatterBlock) {
+  constructor(
+    private readonly block: FrontmatterBlock,
+    private readonly readOnly: boolean,
+  ) {
     super();
   }
 
   override eq(other: FrontmatterWidget): boolean {
-    return JSON.stringify(other.block.rows) === JSON.stringify(this.block.rows);
+    return (
+      other.readOnly === this.readOnly &&
+      JSON.stringify(other.block.rows) === JSON.stringify(this.block.rows)
+    );
   }
 
   override toDOM(view: EditorView): HTMLElement {
@@ -278,30 +426,79 @@ class FrontmatterWidget extends WidgetType {
     const wrapper = document.createElement("div");
     wrapper.className = "cm-md-props aic-md-block-scroll cm-md-block-preview";
     wrapper.setAttribute("role", "region");
-    wrapper.setAttribute("aria-label", "Markdown properties preview");
+    wrapper.setAttribute("aria-label", "Interactive Markdown properties");
+    const replace = (rows: readonly PropertyRow[]) => {
+      const markdown = serializeFrontmatter(rows);
+      if (!markdown) return;
+      view.dispatch({
+        changes: { from: this.block.from, to: this.block.to, insert: markdown },
+        userEvent: "input",
+      });
+    };
+    const reveal = () => {
+      const anchor = Math.min(view.state.doc.length, this.block.from + 4);
+      view.dispatch({ selection: { anchor }, scrollIntoView: true });
+      view.focus();
+    };
     wrapper.append(
-      previewHeader(
-        document,
-        "Properties",
-        () => {
-          const anchor = Math.min(view.state.doc.length, this.block.from + 4);
-          view.dispatch({ selection: { anchor }, scrollIntoView: true });
-          view.focus();
-        },
-        view.state.readOnly,
-      ),
+      previewHeader(document, "Properties", [
+        action(
+          document,
+          "Add property",
+          () => replace(addProperty(this.block.rows)),
+          this.readOnly,
+        ),
+        action(document, this.readOnly ? "View source" : "Edit", reveal),
+      ]),
     );
     const table = document.createElement("table");
     const body = document.createElement("tbody");
-    for (const row of this.block.rows) {
-      const element = document.createElement("tr");
+    this.block.rows.forEach((item, index) => {
+      const row = document.createElement("tr");
+      const handle = document.createElement("th");
+      handle.className = "cm-aic-structure-handle-cell";
+      handle.append(
+        dragHandle(
+          document,
+          `Move property ${index + 1}`,
+          "property",
+          index,
+          this.readOnly,
+        ),
+      );
       const key = document.createElement("th");
+      key.append(
+        input(
+          document,
+          item.key,
+          `Property ${index + 1} name`,
+          (next) =>
+            replace(updateProperty(this.block.rows, index, "key", next)),
+          this.readOnly,
+          true,
+        ),
+      );
       const value = document.createElement("td");
-      key.textContent = row.key;
-      value.textContent = row.value;
-      element.append(key, value);
-      body.append(element);
-    }
+      value.append(
+        input(
+          document,
+          item.value,
+          `Property ${item.key} value`,
+          (next) =>
+            replace(updateProperty(this.block.rows, index, "value", next)),
+          this.readOnly,
+        ),
+      );
+      dropTarget(
+        row,
+        "property",
+        index,
+        (from, to) => replace(moveProperty(this.block.rows, from, to)),
+        this.readOnly,
+      );
+      row.append(handle, key, value);
+      body.append(row);
+    });
     table.append(body);
     wrapper.append(table);
     return wrapper;
@@ -322,8 +519,6 @@ function tableNodes(state: EditorState): Array<{ from: number; to: number }> {
   return nodes;
 }
 
-const refreshBlockViews = StateEffect.define<void>();
-
 function tableDecorations(state: EditorState) {
   const replacements = [];
   for (const node of tableNodes(state)) {
@@ -332,7 +527,7 @@ function tableDecorations(state: EditorState) {
     if (!source.trim() || !parseTable(source)) continue;
     replacements.push(
       Decoration.replace({
-        widget: new TableWidget(source, node.from),
+        widget: new TableWidget(source, node.from, state.readOnly),
         block: true,
       }).range(node.from, node.to),
     );
@@ -347,7 +542,7 @@ function frontmatterDecorations(state: EditorState) {
   return Decoration.set(
     [
       Decoration.replace({
-        widget: new FrontmatterWidget(block),
+        widget: new FrontmatterWidget(block, state.readOnly),
         block: true,
       }).range(block.from, block.to),
     ],
@@ -355,16 +550,18 @@ function frontmatterDecorations(state: EditorState) {
   );
 }
 
+const refreshBlockViews = StateEffect.define<void>();
+
 const tableField = StateField.define({
   create: tableDecorations,
   update(value, transaction) {
     if (
       !transaction.docChanged &&
       !transaction.selection &&
+      transaction.startState.readOnly === transaction.state.readOnly &&
       !transaction.effects.some((effect) => effect.is(refreshBlockViews))
-    ) {
+    )
       return value;
-    }
     return tableDecorations(transaction.state);
   },
   provide: (field) => EditorView.decorations.from(field),
@@ -373,7 +570,12 @@ const tableField = StateField.define({
 const frontmatterField = StateField.define({
   create: frontmatterDecorations,
   update(value, transaction) {
-    if (!transaction.docChanged && !transaction.selection) return value;
+    if (
+      !transaction.docChanged &&
+      !transaction.selection &&
+      transaction.startState.readOnly === transaction.state.readOnly
+    )
+      return value;
     return frontmatterDecorations(transaction.state);
   },
   provide: (field) => EditorView.decorations.from(field),
@@ -381,19 +583,29 @@ const frontmatterField = StateField.define({
 
 const viewportRefresh = ViewPlugin.fromClass(
   class {
-    update(update: {
-      viewportChanged: boolean;
-      docChanged: boolean;
-      selectionSet: boolean;
-      view: EditorView;
-    }) {
+    private scheduled = false;
+    private destroyed = false;
+
+    constructor(private readonly view: EditorView) {}
+
+    update(update: ViewUpdate) {
       if (
-        update.viewportChanged &&
-        !update.docChanged &&
-        !update.selectionSet
-      ) {
-        update.view.dispatch({ effects: refreshBlockViews.of() });
-      }
+        !update.viewportChanged ||
+        update.docChanged ||
+        update.selectionSet ||
+        this.scheduled
+      )
+        return;
+      this.scheduled = true;
+      queueMicrotask(() => {
+        this.scheduled = false;
+        if (!this.destroyed)
+          this.view.dispatch({ effects: refreshBlockViews.of() });
+      });
+    }
+
+    destroy() {
+      this.destroyed = true;
     }
   },
 );

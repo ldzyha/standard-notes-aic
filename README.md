@@ -23,12 +23,20 @@ archive.
 After installation, choose **AIC** from a note's editor menu. Existing Markdown stays byte-for-byte
 compatible with Plain Text and other interchangeable Markdown editors.
 
+For an existing installation, no second import is required. Standard Notes automatically checks
+the manifest's `latest_url`; after a release and the hosted manifest are published, it offers or
+applies the newer component. If the client still displays the previous build, restart it so the
+component cache is reloaded. The stable plugin identifier is unchanged, so updating does not create
+a second editor or convert note data.
+
 ## Preview and source controls
 
-AIC keeps Markdown as the source of truth. Four replacement previews—**Details**, **Mermaid**,
-**Table**, and **Properties**—show a compact **Edit source** button. Clicking preview content does
-not switch modes; links and detail controls remain independently actionable. **Edit source** reveals
-the exact Markdown, including in a locked note where it is available for read-only inspection.
+AIC keeps Markdown as the source of truth without duplicating it into tooltip editors. Clicking a
+link label opens it; compact **Copy** and **Edit** actions stay beside the label. **Table** and
+**Properties** previews edit values directly, add rows/columns/properties, and reorder data through
+drag handles. Each interaction produces one valid Markdown transaction. The explicit **Edit** action
+reveals and focuses the complete raw source for a structure, including read-only inspection in a
+locked note.
 
 AIC details use this exact non-nested grammar:
 
@@ -90,6 +98,14 @@ stack pulled by EditorKit is deliberately not bundled into this editor.
 - AIC stays read-only until Standard Notes supplies the first working-note payload.
 - Saves attach a bounded plain-text preview derived from visible Markdown content; the stored note
   body remains exact Markdown.
+- Input stays in the shared dependency-free draft core. Standard Notes is updated only when the
+  user presses Ctrl+S/Cmd+S; input, blur, and page unload never save a note.
+- The Standard Notes host adapter binds each in-memory draft to the working-note UUID and checks
+  that UUID again at save time. Switching notes cannot redirect a draft into another note, and
+  returning during the same editor session restores the correct dirty draft without storing its
+  plaintext on disk.
+- A lightly green editor surface means the current text has crossed the explicit save boundary.
+  The ordinary surface means it has unsaved changes; an empty placeholder is gray.
 - Mermaid uses the bundled strict runtime and performs no render-time network request.
 
 ## Distribution
@@ -105,6 +121,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `4.0.1` is sequence 4 with
-no feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `7.1.3` is sequence 7 with
+one feature outcome and three fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

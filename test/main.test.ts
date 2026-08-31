@@ -14,6 +14,7 @@ const bridge = vi.hoisted(() => {
       return unsubscribe;
     }),
     locked: false,
+    lastStreamedItem: null as { uuid: string } | null,
     get text() {
       return text;
     },
@@ -33,7 +34,11 @@ const bridge = vi.hoisted(() => {
     api,
     writes,
     unsubscribe,
-    subscriber: () => subscriber,
+    stream(id: string, value: string) {
+      api.lastStreamedItem = { uuid: id };
+      text = value;
+      subscriber?.(value);
+    },
   };
 });
 
@@ -49,58 +54,63 @@ afterEach(() => {
 });
 
 describe("Standard Notes editor bridge", () => {
-  it("loads, saves, locks, and tears down exact note text", async () => {
+  it("saves only on Ctrl+S and isolates dirty drafts by working-note UUID", async () => {
     window.ReactNativeWebView = {};
     const root = document.createElement("main");
     root.id = "app";
     document.body.append(root);
     await import("../src/main");
 
-    expect(bridge.api.initialize).toHaveBeenCalledWith({ debounceSave: 250 });
+    expect(bridge.api.initialize).toHaveBeenCalledWith({ debounceSave: 0 });
     expect(bridge.api.subscribe).toHaveBeenCalledOnce();
     expect(document.documentElement.dataset.environment).toBe("standard-notes");
 
     const editorElement = root.querySelector<HTMLElement>(".cm-editor")!;
     const view = EditorView.findFromDOM(editorElement);
     if (!view) throw new Error("CodeMirror view was not mounted");
+    const editor = root.querySelector<HTMLElement>(".aic-editor")!;
 
     expect(view.state.readOnly).toBe(true);
-    expect(
-      root.querySelector<HTMLElement>(".aic-editor")!.dataset.readOnly,
-    ).toBe("true");
-    view.dispatch({ changes: { from: 0, insert: "premature" } });
+    expect(editor.dataset.saveState).toBe("unavailable");
+
+    const first = "# First\n\n- [ ] exact  \n";
+    bridge.stream("note-first", first);
+    expect(view.state.doc.toString()).toBe(first);
+    expect(view.state.readOnly).toBe(false);
+    expect(editor.dataset.saveState).toBe("saved");
+
+    view.dispatch({
+      changes: { from: first.length, insert: "local" },
+      userEvent: "input",
+    });
+    expect(editor.dataset.saveState).toBe("dirty");
+    root.dispatchEvent(new FocusEvent("focusout", { relatedTarget: null }));
     expect(bridge.writes).toEqual([]);
 
-    const source = "# Synced\n\n- [ ] exact  \n";
-    bridge.subscriber()!(source);
-    expect(view.state.doc.toString()).toBe(source);
-    expect(view.state.readOnly).toBe(false);
-    expect(
-      root.querySelector<HTMLElement>(".aic-editor")!.dataset.readOnly,
-    ).toBe("false");
-    view.dispatch({
-      changes: { from: source.length, insert: "next" },
-      userEvent: "input",
-    });
-    expect(bridge.api.text).toBe(`${source}next`);
-    expect(bridge.api.preview).toBe("Synced exact next");
-    expect(bridge.writes).toEqual([
-      `text:${source}next`,
-      "preview:Synced exact next",
-    ]);
+    const second = "## Second\n\nremote\n";
+    bridge.stream("note-second", second);
+    expect(view.state.doc.toString()).toBe(second);
+    expect(bridge.writes).toEqual([]);
 
-    const remote = "## Remote\r\n\r\nbody  \r\n";
-    bridge.subscriber()!(remote);
-    expect(bridge.writes).toHaveLength(2);
-    view.dispatch({
-      changes: { from: view.state.doc.length, insert: "more" },
-      userEvent: "input",
-    });
-    expect(bridge.api.text).toBe(`${remote}more`);
-    expect(bridge.api.preview).toBe("Remote body more");
+    bridge.stream("note-first", first);
+    expect(view.state.doc.toString()).toBe(`${first}local`);
+    expect(editor.dataset.saveState).toBe("dirty");
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "s", ctrlKey: true }),
+    );
+    expect(bridge.api.text).toBe(`${first}local`);
+    expect(bridge.api.preview).toBe("First exact local");
+    expect(bridge.writes).toEqual([
+      "preview:First exact local",
+      `text:${first}local`,
+    ]);
+    expect(editor.dataset.saveState).toBe("saved");
+
+    bridge.stream("note-empty", "");
+    expect(editor.dataset.saveState).toBe("placeholder");
 
     bridge.api.locked = true;
-    bridge.subscriber()!(bridge.api.text);
+    bridge.stream("note-empty", "");
     expect(
       [
         ...root.querySelectorAll<HTMLButtonElement | HTMLSelectElement>(
@@ -108,11 +118,13 @@ describe("Standard Notes editor bridge", () => {
         ),
       ].every((control) => control.disabled),
     ).toBe(true);
-    const saved = bridge.api.text;
-    view.dispatch({ changes: { from: 0, insert: "blocked" } });
-    expect(bridge.api.text).toBe(saved);
 
+    bridge.api.locked = false;
+    bridge.stream("note-first", `${first}local`);
+    view.dispatch({ changes: { from: view.state.doc.length, insert: "!" } });
+    const writesBeforeUnload = [...bridge.writes];
     window.dispatchEvent(new PageTransitionEvent("pagehide"));
+    expect(bridge.writes).toEqual(writesBeforeUnload);
     expect(bridge.unsubscribe).toHaveBeenCalledOnce();
     expect(root.querySelector(".aic-editor")).toBeNull();
   });

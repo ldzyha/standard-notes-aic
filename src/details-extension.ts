@@ -105,7 +105,7 @@ class DetailsSummaryWidget extends WidgetType {
   }
 
   override ignoreEvent(): boolean {
-    return false;
+    return true;
   }
 
   override toDOM(view: EditorView): HTMLElement {
@@ -216,10 +216,7 @@ class DetailsSummaryWidget extends WidgetType {
     const edit = document.createElement("button");
     edit.type = "button";
     edit.className = "cm-md-edit-source cm-aic-details-edit";
-    edit.textContent = "Edit source";
-    edit.title = view.state.readOnly
-      ? "View source (read-only)"
-      : "Edit source";
+    edit.textContent = view.state.readOnly ? "View source" : "Edit";
     edit.addEventListener("pointerdown", (event) => event.preventDefault());
     edit.addEventListener("click", () => {
       const anchor = Math.min(this.block.headerTo, this.block.headerFrom + 4);
@@ -319,22 +316,6 @@ const detailsBodyField = StateField.define({
   provide: (field) => EditorView.decorations.from(field),
 });
 
-const inertPreviewClicks = EditorView.domEventHandlers({
-  mousedown(event) {
-    const target = event.target instanceof Element ? event.target : null;
-    if (!target?.closest(".cm-aic-details-body")) return false;
-    if (target.closest("button, a, input, [role='checkbox']")) return false;
-    event.preventDefault();
-    return true;
-  },
-});
-
 export function detailsExtensions(): Extension {
-  return [
-    visualOverrides,
-    sourceOverrides,
-    detailsBodyField,
-    detailsField,
-    inertPreviewClicks,
-  ];
+  return [visualOverrides, sourceOverrides, detailsBodyField, detailsField];
 }

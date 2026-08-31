@@ -23,10 +23,10 @@ describe("publication metadata", () => {
     expect(releaseWorkflow).toContain('--notes "Website: https://dzyha.com/"');
   });
 
-  it("documents the 4.0.1 R.F.B release and packages usage instructions", () => {
-    expect(changelog).toContain("## 4.0.1 — 2026-08-21");
+  it("documents the 7.1.3 R.F.B release and packages usage instructions", () => {
+    expect(changelog).toContain("## 7.1.3 — 2026-08-31");
     expect(changelog).toContain(
-      "Release sequence 4 · 0 feature outcomes · 1 fixed-bug outcome",
+      "Release sequence 7 · 1 feature outcome · 3 fixed-bug outcomes",
     );
     expect(readme).toContain("## Preview and source controls");
     expect(readme).toContain(">>>|open| Title");

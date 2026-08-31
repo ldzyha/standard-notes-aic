@@ -100,7 +100,7 @@ select {
 .aic-toolbar-select,
 .cm-mermaid-edit,
 .cm-md-edit-source,
-.cm-md-link-tooltip button {
+.cm-aic-link-action {
   min-height: 34px;
   border: 1px solid transparent;
   border-radius: 0.4rem;
@@ -130,8 +130,8 @@ select {
 .cm-mermaid-edit:focus-visible,
 .cm-md-edit-source:hover,
 .cm-md-edit-source:focus-visible,
-.cm-md-link-tooltip button:hover,
-.cm-md-link-tooltip button:focus-visible {
+.cm-aic-link-action:hover,
+.cm-aic-link-action:focus-visible {
   border-color: color-mix(in srgb, var(--aic-accent) 60%, var(--aic-border));
   background: color-mix(in srgb, var(--aic-accent) 10%, transparent);
   outline: none;
@@ -161,6 +161,17 @@ select {
     monospace
   );
   font-size: clamp(0.94rem, 0.9rem + 0.18vw, 1.05rem);
+}
+
+.aic-editor[data-save-state="saved"] .aic-editor-host > .cm-editor {
+  background: color-mix(in srgb, var(--aic-bg) 96%, #5aa66a 4%);
+  box-shadow: inset 2px 0 color-mix(in srgb, #5aa66a 58%, transparent);
+}
+
+.aic-editor[data-save-state="placeholder"] .aic-editor-host > .cm-editor,
+.aic-editor[data-save-state="unavailable"] .aic-editor-host > .cm-editor {
+  background: color-mix(in srgb, var(--aic-bg) 93%, var(--aic-muted) 7%);
+  box-shadow: inset 2px 0 color-mix(in srgb, var(--aic-muted) 48%, transparent);
 }
 
 .aic-editor-host .cm-scroller {
@@ -394,6 +405,69 @@ select {
   border-right: 0;
 }
 
+.cm-aic-structure-cell {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.cm-aic-structure-input {
+  width: 100%;
+  min-width: 7ch;
+  padding: 0.22rem 0.32rem;
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+
+.cm-aic-structure-input:hover {
+  border-color: var(--aic-border);
+}
+
+.cm-aic-structure-input:focus {
+  border-color: var(--aic-accent);
+  background: var(--aic-bg);
+  outline: none;
+}
+
+.cm-aic-structure-input[readonly] {
+  cursor: default;
+}
+
+.cm-aic-structure-handle-cell {
+  width: 1.9rem;
+  min-width: 1.9rem;
+  padding: 0.1rem !important;
+  text-align: center !important;
+}
+
+.cm-aic-drag-handle {
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--aic-muted);
+  cursor: grab;
+  font: inherit;
+  line-height: 1;
+}
+
+.cm-aic-drag-handle:active {
+  cursor: grabbing;
+}
+
+.cm-aic-drag-handle:disabled {
+  cursor: default;
+  opacity: 0.35;
+}
+
+.cm-md-block-preview:focus-within {
+  border-color: var(--aic-accent);
+}
+
 .cm-md-table thead th,
 .cm-md-props th {
   background: var(--aic-chip);
@@ -451,7 +525,7 @@ select {
 
 .cm-aic-details-summary {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.32rem;
   width: 100%;
   min-height: 2rem;
@@ -505,6 +579,7 @@ select {
 .cm-aic-details-check {
   width: 1rem;
   height: 1rem;
+  flex: 0 0 auto;
   border: 1px solid currentColor;
   border-radius: 0.18rem;
   cursor: pointer;
@@ -524,10 +599,9 @@ select {
 .cm-aic-details-title {
   min-width: 0;
   flex: 1 1 auto;
-  overflow: hidden;
   text-align: left;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
+  white-space: normal;
   cursor: pointer;
 }
 
@@ -602,48 +676,63 @@ select {
   white-space: pre-wrap;
 }
 
-.cm-md-link-tooltip {
-  display: flex;
+.cm-aic-link-control {
+  display: inline-flex;
   align-items: center;
-  gap: 0.3rem;
-  max-width: min(90vw, 42rem);
-  padding: 0.3rem;
-  border: 1px solid var(--aic-border);
-  border-radius: 0.5rem;
-  background: var(--aic-contrast);
-  color: var(--aic-contrast-fg);
-  box-shadow: 0 0.45rem 1.5rem rgb(0 0 0 / 18%);
-  font: 0.8rem/1.3 var(--sn-stylekit-sans-serif-font, system-ui, sans-serif);
+  gap: 0.25rem;
+  max-width: 100%;
+  vertical-align: baseline;
 }
 
-.cm-md-link-tooltip span {
+.cm-aic-link-open,
+.cm-aic-link-action {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.cm-aic-link-open {
   min-width: 0;
-  max-width: 24rem;
-  padding: 0 0.35rem;
+  padding: 0;
   overflow: hidden;
+  color: var(--aic-accent);
+  text-decoration: underline;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.cm-md-link-tooltip button {
-  min-height: 30px;
-  padding: 0 0.45rem;
+.cm-aic-link-actions {
+  display: inline-flex;
+  gap: 0.15rem;
+  opacity: 0;
 }
 
-.cm-panel.cm-search {
-  padding: 0.4rem;
-  border-bottom: 1px solid var(--aic-border);
-  background: var(--aic-contrast);
-  color: var(--aic-contrast-fg);
+.cm-aic-link-control:hover .cm-aic-link-actions,
+.cm-aic-link-control:focus-within .cm-aic-link-actions {
+  opacity: 1;
 }
 
-.cm-panel.cm-search input,
-.cm-panel.cm-search button {
-  min-height: 32px;
+.cm-aic-link-action {
+  min-height: 24px;
+  padding: 0 0.35rem;
   border: 1px solid var(--aic-border);
-  border-radius: 0.35rem;
-  background: var(--aic-bg);
-  color: var(--aic-fg);
+  color: var(--aic-muted);
+  font-size: 0.78em;
+  text-decoration: none;
+}
+
+.cm-aic-link-open:disabled,
+.cm-aic-link-action:disabled {
+  cursor: default;
+  opacity: 0.5;
+}
+
+@media (hover: none) {
+  .cm-aic-link-actions {
+    opacity: 1;
+  }
 }
 
 .aic-editor[data-read-only="true"] .cm-content {

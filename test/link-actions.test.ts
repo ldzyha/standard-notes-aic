@@ -1,0 +1,44 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { writeLinkToClipboard } from "../src/link-actions";
+
+afterEach(() => {
+  Object.defineProperty(window.navigator, "clipboard", {
+    configurable: true,
+    value: undefined,
+  });
+  vi.restoreAllMocks();
+});
+
+describe("link actions", () => {
+  it("copies the exact URL through the Clipboard API", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+
+    await expect(
+      writeLinkToClipboard("https://example.com/a?b=1#c", document),
+    ).resolves.toBe(true);
+    expect(writeText).toHaveBeenCalledWith("https://example.com/a?b=1#c");
+  });
+
+  it("falls back to a temporary DOM selection in restricted clients", async () => {
+    const writeText = vi.fn().mockRejectedValue(new Error("denied"));
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const execCommand = vi.fn().mockReturnValue(true);
+    Object.defineProperty(document, "execCommand", {
+      configurable: true,
+      value: execCommand,
+    });
+
+    await expect(
+      writeLinkToClipboard("../local/file.md", document),
+    ).resolves.toBe(true);
+    expect(execCommand).toHaveBeenCalledWith("copy");
+    expect(document.querySelector("textarea")).toBeNull();
+  });
+});
