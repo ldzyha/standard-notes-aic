@@ -40,6 +40,8 @@ only among valid siblings. Each interaction produces one valid Markdown transact
 selection reveals raw Markdown for every preview block it crosses; `Ctrl+A`/`Cmd+A` therefore exits
 preview for the complete note. A collapsed cursor keeps preview, while the explicit **Edit** action
 reveals and focuses one structure, including read-only inspection in a locked note.
+Table cells use wrapping, auto-height textareas. The table fills its card and places only the grid
+inside a horizontal scroller when its readable columns are wider than the editor.
 
 AIC details use this exact non-nested grammar:
 
@@ -124,6 +126,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `9.1.0` is sequence 9 with
-one feature outcome and no fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `10.2.0` is sequence 10 with
+two feature outcomes and no fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

@@ -243,22 +243,41 @@ describe("AIC editor integration", () => {
     const editor = new AicEditor(host, { initialText: source });
     const table = editor.element.querySelector<HTMLElement>(".cm-md-table");
     expect(table).not.toBeNull();
+    expect(table!.querySelector(".cm-aic-table-scroll > table")).not.toBeNull();
     const before = editor.view.state.selection.main.head;
     table!.click();
     expect(editor.view.state.selection.main.head).toBe(before);
     expect(editor.element.querySelector(".cm-md-table")).not.toBeNull();
-    const value = table!.querySelector<HTMLInputElement>(
+    const value = table!.querySelector<HTMLTextAreaElement>(
       '[aria-label="Row 1, column 1"]',
     );
     expect(value).not.toBeNull();
+    expect(value!.tagName).toBe("TEXTAREA");
     value!.value = "changed";
     value!.dispatchEvent(new Event("change", { bubbles: true }));
     expect(editor.value).toContain("| changed | y |");
+    let refreshed = editor.element.querySelector<HTMLElement>(".cm-md-table");
+    const selectedCell = refreshed!.querySelector<HTMLTextAreaElement>(
+      '[aria-label="Row 1, column 1"]',
+    );
+    selectedCell!.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "a",
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(editor.view.state.selection.main.from).toBe(0);
+    expect(editor.view.state.selection.main.to).toBe(editor.value.length);
+    expect(editor.element.querySelector(".cm-md-table")).toBeNull();
+    editor.view.dispatch({ selection: { anchor: editor.value.length } });
+    expect(editor.element.querySelector(".cm-md-table")).not.toBeNull();
     editor.view.dispatch({ selection: { anchor: 0, head: source.length } });
     expect(editor.element.querySelector(".cm-md-table")).toBeNull();
-    editor.view.dispatch({ selection: { anchor: source.length } });
+    editor.view.dispatch({ selection: { anchor: editor.value.length } });
     expect(editor.element.querySelector(".cm-md-table")).not.toBeNull();
-    const refreshed = editor.element.querySelector<HTMLElement>(".cm-md-table");
+    refreshed = editor.element.querySelector<HTMLElement>(".cm-md-table");
     const edit = [
       ...refreshed!.querySelectorAll<HTMLButtonElement>("button"),
     ].find((button) => button.textContent === "Edit");

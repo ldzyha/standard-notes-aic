@@ -88,6 +88,10 @@ export function makeMermaidExtension({
           view.focus();
         },
       });
+      controller.element.dataset.aicSourceFrom = String(this.candidate.from);
+      controller.element.dataset.aicSourceTo = String(
+        this.candidate.decorationTo,
+      );
       mounted.set(controller.element, controller);
       return controller.element;
     }

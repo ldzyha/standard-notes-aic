@@ -1,5 +1,22 @@
 # Changelog
 
+## 10.2.0 — 2026-09-01
+
+Release sequence 10 · 2 feature outcomes · 0 fixed-bug outcomes.
+
+- F01: make table previews readable at every editor width. Header and body cells use wrapping,
+  auto-height textareas; the grid fills the card without a blank right-hand zone, and a dedicated
+  body scroller provides horizontal navigation when the minimum readable column widths exceed the
+  pane. The action header remains fixed and Properties inputs stay compact and single-line.
+- F02: bridge selection from preview DOM back into CodeMirror. Ctrl+A/Cmd+A now selects the complete
+  Markdown document even when focus is inside a table cell or another preview control, while a real
+  mouse selection over a rendered block opens and selects that block's source. Browser-only
+  selection can no longer leave the editor visually selected but non-editable.
+
+Compatibility: Standard Notes custom `editor-editor` component, interchangeable Markdown note/file
+type. The hosted manifest and desktop archive keep the stable
+`com.dzyha.standard-notes-aic` identifier and AIC Editor Core 2.2.
+
 ## 9.1.0 — 2026-09-01
 
 Release sequence 9 · 1 feature outcome · 0 fixed-bug outcomes.

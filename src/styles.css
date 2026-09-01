@@ -368,6 +368,27 @@ select {
   font-family: inherit;
 }
 
+.cm-md-table.aic-md-block-scroll {
+  overflow: hidden;
+}
+
+.cm-aic-table-scroll {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+}
+
+.cm-aic-table-scroll > table {
+  width: max-content;
+  min-width: 100%;
+  table-layout: auto;
+}
+
 .cm-md-preview-header {
   display: flex;
   align-items: center;
@@ -434,6 +455,18 @@ select {
 
 .cm-aic-structure-input[readonly] {
   cursor: default;
+}
+
+.cm-md-table .cm-aic-structure-input {
+  display: block;
+  min-width: 14rem;
+  min-height: 2rem;
+  max-height: 12rem;
+  line-height: 1.35;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow-y: auto;
+  resize: vertical;
 }
 
 .cm-aic-structure-handle-cell {

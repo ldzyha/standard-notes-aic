@@ -113,6 +113,8 @@ class DetailsSummaryWidget extends WidgetType {
     const document = view.dom.ownerDocument;
     const row = document.createElement("div");
     row.className = "cm-aic-details-summary";
+    row.dataset.aicSourceFrom = String(this.block.from);
+    row.dataset.aicSourceTo = String(this.block.end);
     row.dataset.open = String(this.open);
     row.dataset.body = String(this.block.contentFrom < this.block.closeFrom);
     const toggle = () => {

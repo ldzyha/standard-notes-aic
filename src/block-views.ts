@@ -181,13 +181,23 @@ function input(
   onChange: (value: string) => void,
   readOnly: boolean,
   propertyKey = false,
-): HTMLInputElement {
-  const field = document.createElement("input");
-  field.type = "text";
+  multiline = false,
+): HTMLInputElement | HTMLTextAreaElement {
+  const field = multiline
+    ? document.createElement("textarea")
+    : document.createElement("input");
+  if (field.tagName === "TEXTAREA") (field as HTMLTextAreaElement).rows = 1;
+  else (field as HTMLInputElement).type = "text";
   field.className = "cm-aic-structure-input";
   field.value = value;
   field.readOnly = readOnly;
   field.setAttribute("aria-label", label);
+  const fit = () => {
+    if (field.tagName !== "TEXTAREA") return;
+    field.style.height = "0";
+    field.style.height = `${Math.max(30, field.scrollHeight)}px`;
+  };
+  field.addEventListener("input", fit);
   field.addEventListener("change", () => {
     if (propertyKey && !validPropertyKey(field.value.trim())) {
       field.setCustomValidity("Use letters, numbers, dot, underscore, or dash");
@@ -198,15 +208,17 @@ function input(
     onChange(field.value);
   });
   field.addEventListener("keydown", (event) => {
-    if (event.key === "Enter") {
-      event.preventDefault();
+    const keyboardEvent = event as KeyboardEvent;
+    if (keyboardEvent.key === "Enter") {
+      keyboardEvent.preventDefault();
       field.blur();
-    } else if (event.key === "Escape") {
-      event.preventDefault();
+    } else if (keyboardEvent.key === "Escape") {
+      keyboardEvent.preventDefault();
       field.value = value;
       field.blur();
     }
   });
+  queueMicrotask(fit);
   return field;
 }
 
@@ -277,6 +289,8 @@ class TableWidget extends WidgetType {
     const document = view.dom.ownerDocument;
     const wrapper = document.createElement("div");
     wrapper.className = "cm-md-table aic-md-block-scroll cm-md-block-preview";
+    wrapper.dataset.aicSourceFrom = String(this.from);
+    wrapper.dataset.aicSourceTo = String(this.from + this.source.length);
     wrapper.setAttribute("role", "region");
     wrapper.setAttribute("aria-label", "Interactive Markdown table");
     const parsed = parseTable(this.source);
@@ -350,6 +364,8 @@ class TableWidget extends WidgetType {
           `Column ${columnIndex + 1} name`,
           (next) => replace(updateTableCell(parsed, -1, columnIndex, next)),
           this.readOnly,
+          false,
+          true,
         ),
       );
       cell.append(content);
@@ -391,6 +407,8 @@ class TableWidget extends WidgetType {
             (next) =>
               replace(updateTableCell(parsed, rowIndex, columnIndex, next)),
             this.readOnly,
+            false,
+            true,
           ),
         );
         if (parsed.aligns[columnIndex])
@@ -407,7 +425,10 @@ class TableWidget extends WidgetType {
       body.append(rowElement);
     });
     table.append(body);
-    wrapper.append(table);
+    const scroll = document.createElement("div");
+    scroll.className = "cm-aic-table-scroll";
+    scroll.append(table);
+    wrapper.append(scroll);
     return wrapper;
   }
 
@@ -435,6 +456,8 @@ class FrontmatterWidget extends WidgetType {
     const document = view.dom.ownerDocument;
     const wrapper = document.createElement("div");
     wrapper.className = "cm-md-props aic-md-block-scroll cm-md-block-preview";
+    wrapper.dataset.aicSourceFrom = String(this.block.from);
+    wrapper.dataset.aicSourceTo = String(this.block.to);
     wrapper.setAttribute("role", "region");
     wrapper.setAttribute("aria-label", "Interactive Markdown properties");
     const replace = (rows: readonly PropertyRow[]) => {

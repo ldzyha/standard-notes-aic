@@ -94,6 +94,65 @@ export function detectTheme(
     : "default";
 }
 
+function wirePreviewSelection(view: EditorView, document: Document): void {
+  view.dom.addEventListener(
+    "keydown",
+    (event) => {
+      if (
+        event.defaultPrevented ||
+        !(event.ctrlKey || event.metaKey) ||
+        event.altKey ||
+        event.key.toLowerCase() !== "a"
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      document.getSelection()?.removeAllRanges();
+      view.dispatch({
+        selection: { anchor: 0, head: view.state.doc.length },
+        scrollIntoView: true,
+        userEvent: "select",
+      });
+      view.focus();
+    },
+    true,
+  );
+  const previewForNode = (node: Node | null): HTMLElement | null => {
+    const element =
+      node?.nodeType === 1 ? (node as Element) : (node?.parentElement ?? null);
+    return (
+      element?.closest<HTMLElement>(
+        "[data-aic-source-from][data-aic-source-to]",
+      ) ?? null
+    );
+  };
+  view.dom.addEventListener(
+    "pointerup",
+    (event) => {
+      const target = event.target as Element | null;
+      if (target?.closest?.("textarea,input,[contenteditable='true']")) return;
+      const selection = document.getSelection();
+      if (!selection || selection.isCollapsed) return;
+      const preview =
+        previewForNode(selection.anchorNode) ??
+        previewForNode(selection.focusNode);
+      if (!preview || !view.dom.contains(preview)) return;
+      const from = Number(preview.dataset.aicSourceFrom);
+      const to = Number(preview.dataset.aicSourceTo);
+      if (!Number.isInteger(from) || !Number.isInteger(to) || from >= to)
+        return;
+      selection.removeAllRanges();
+      view.dispatch({
+        selection: { anchor: from, head: to },
+        scrollIntoView: true,
+        userEvent: "select.pointer",
+      });
+      view.focus();
+    },
+    true,
+  );
+}
+
 export class AicEditor {
   readonly element: HTMLElement;
   readonly editorHost: HTMLElement;
@@ -130,6 +189,7 @@ export class AicEditor {
       root: this.document,
     });
     this.view = view;
+    wirePreviewSelection(this.view, this.document);
     this.toolbar.setReadOnly(this.currentReadOnly);
     this.element.dataset.readOnly = String(this.currentReadOnly);
     this.element.dataset.saveState = "unavailable";
