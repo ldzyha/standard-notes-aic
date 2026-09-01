@@ -1,4 +1,4 @@
-import { syntaxTree } from "@codemirror/language";
+import { ensureSyntaxTree } from "@codemirror/language";
 import { EditorState } from "@codemirror/state";
 import { describe, expect, it } from "vitest";
 import { aicMarkdownLanguage } from "../src/language";
@@ -10,7 +10,9 @@ describe("AIC Markdown language", () => {
       extensions: [aicMarkdownLanguage()],
     });
     const names = new Set<string>();
-    syntaxTree(state).iterate({
+    const tree = ensureSyntaxTree(state, state.doc.length, 1000);
+    expect(tree).not.toBeNull();
+    tree!.iterate({
       enter(node) {
         names.add(node.name);
       },

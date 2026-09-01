@@ -5,7 +5,7 @@
 </p>
 
 `AIC` is a Markdown editor component for Standard Notes. It keeps the note body as ordinary
-Markdown and derives headings, lists, task checkboxes, tables, frontmatter properties, fenced-code
+Markdown and derives headings, lists, task checkboxes, tables, hierarchical frontmatter properties, fenced-code
 highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 ## Install
@@ -34,7 +34,9 @@ a second editor or convert note data.
 AIC keeps Markdown as the source of truth without duplicating it into tooltip editors. Clicking a
 link label opens it; compact **Copy** and **Edit** actions stay beside the label. **Table** and
 **Properties** previews edit values directly, add rows/columns/properties, and reorder data through
-drag handles. Each interaction produces one valid Markdown transaction. The explicit **Edit** action
+drag handles. Nested YAML maps and sequences retain their indentation as visible levels; group rows
+stay structural, leaf values remain editable, and moving a list/map row moves its complete branch
+only among valid siblings. Each interaction produces one valid Markdown transaction. The explicit **Edit** action
 reveals and focuses the complete raw source for a structure, including read-only inspection in a
 locked note.
 
@@ -121,6 +123,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `7.1.3` is sequence 7 with
-one feature outcome and three fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `8.1.2` is sequence 8 with
+one feature outcome and two fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

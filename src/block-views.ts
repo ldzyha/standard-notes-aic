@@ -19,6 +19,7 @@ import {
   moveProperty,
   moveTableColumn,
   moveTableRow,
+  parseFrontmatterRows,
   serializeFrontmatter,
   serializeTable,
   updateProperty,
@@ -43,24 +44,21 @@ export function parseFrontmatter(document: string): FrontmatterBlock | null {
     document.slice(0, firstBreak).replace(/\r$/u, "").trim() !== "---"
   )
     return null;
-  const rows: FrontmatterRow[] = [];
-  const keys = new Set<string>();
+  const bodyFrom = firstBreak + 1;
   let cursor = firstBreak + 1;
   while (cursor <= document.length) {
     const nextBreak = document.indexOf("\n", cursor);
     const rawTo = nextBreak < 0 ? document.length : nextBreak;
     const raw = document.slice(cursor, rawTo).replace(/\r$/u, "");
     if (raw.trim() === "---") {
-      return rows.length
-        ? Object.freeze({ from: 0, to: rawTo, rows: Object.freeze(rows) })
+      const rows = parseFrontmatterRows(document.slice(bodyFrom, cursor));
+      return rows?.length
+        ? Object.freeze({
+            from: 0,
+            to: rawTo,
+            rows: Object.freeze(rows.map((row) => Object.freeze({ ...row }))),
+          })
         : null;
-    }
-    if (raw.trim()) {
-      if (/^[ \t]/u.test(raw)) return null;
-      const match = /^([A-Za-z0-9_.-]+):[ \t]*(.*)$/u.exec(raw);
-      if (!match?.[1] || keys.has(match[1])) return null;
-      keys.add(match[1]);
-      rows.push(Object.freeze({ key: match[1], value: match[2] ?? "" }));
     }
     if (nextBreak < 0) break;
     cursor = nextBreak + 1;
@@ -69,6 +67,13 @@ export function parseFrontmatter(document: string): FrontmatterBlock | null {
 }
 
 export type ParsedTable = Readonly<TableModel>;
+
+type SourceOverride = Readonly<{
+  kind: "table" | "frontmatter";
+  from: number;
+}>;
+
+const editBlockSource = StateEffect.define<SourceOverride>();
 
 function splitRow(line: string): string[] {
   return line
@@ -287,7 +292,11 @@ class TableWidget extends WidgetType {
       });
     };
     const reveal = () => {
-      view.dispatch({ selection: { anchor: this.from }, scrollIntoView: true });
+      view.dispatch({
+        selection: { anchor: this.from },
+        effects: editBlockSource.of({ kind: "table", from: this.from }),
+        scrollIntoView: true,
+      });
       view.focus();
     };
     if (!parsed) {
@@ -437,7 +446,14 @@ class FrontmatterWidget extends WidgetType {
     };
     const reveal = () => {
       const anchor = Math.min(view.state.doc.length, this.block.from + 4);
-      view.dispatch({ selection: { anchor }, scrollIntoView: true });
+      view.dispatch({
+        selection: { anchor },
+        effects: editBlockSource.of({
+          kind: "frontmatter",
+          from: this.block.from,
+        }),
+        scrollIntoView: true,
+      });
       view.focus();
     };
     wrapper.append(
@@ -455,6 +471,8 @@ class FrontmatterWidget extends WidgetType {
     const body = document.createElement("tbody");
     this.block.rows.forEach((item, index) => {
       const row = document.createElement("tr");
+      row.dataset.depth = String(item.depth ?? 0);
+      row.dataset.sequence = String(Boolean(item.sequence));
       const handle = document.createElement("th");
       handle.className = "cm-aic-structure-handle-cell";
       handle.append(
@@ -467,28 +485,58 @@ class FrontmatterWidget extends WidgetType {
         ),
       );
       const key = document.createElement("th");
-      key.append(
-        input(
-          document,
-          item.key,
-          `Property ${index + 1} name`,
-          (next) =>
-            replace(updateProperty(this.block.rows, index, "key", next)),
-          this.readOnly,
-          true,
-        ),
+      key.className = "cm-aic-property-key-cell";
+      const keyContent = document.createElement("div");
+      keyContent.className = "cm-aic-property-key";
+      keyContent.style.setProperty(
+        "--aic-property-depth",
+        String(Math.max(0, Math.min(12, item.depth ?? 0))),
       );
+      const marker = document.createElement("span");
+      marker.className = "cm-aic-property-level";
+      marker.textContent = item.sequence ? "•" : item.depth ? "↳" : "";
+      keyContent.append(marker);
+      if (!item.scalar) {
+        keyContent.append(
+          input(
+            document,
+            item.key,
+            `Property ${index + 1} name`,
+            (next) =>
+              replace(updateProperty(this.block.rows, index, "key", next)),
+            this.readOnly,
+            true,
+          ),
+        );
+      } else {
+        const itemLabel = document.createElement("span");
+        itemLabel.className = "cm-aic-property-item";
+        itemLabel.textContent = "item";
+        keyContent.append(itemLabel);
+      }
+      key.append(keyContent);
       const value = document.createElement("td");
-      value.append(
-        input(
-          document,
-          item.value,
-          `Property ${item.key} value`,
-          (next) =>
-            replace(updateProperty(this.block.rows, index, "value", next)),
-          this.readOnly,
-        ),
-      );
+      const hasChildren =
+        !item.value &&
+        index + 1 < this.block.rows.length &&
+        (this.block.rows[index + 1]?.indent ?? 0) > (item.indent ?? 0);
+      if (hasChildren) {
+        const group = document.createElement("span");
+        group.className = "cm-aic-property-group";
+        group.textContent = "Group";
+        value.append(group);
+      } else {
+        value.append(
+          input(
+            document,
+            item.value,
+            `Property ${item.key || "list item"} value`,
+            (next) =>
+              replace(updateProperty(this.block.rows, index, "value", next)),
+            this.readOnly,
+          ),
+        );
+      }
       dropTarget(
         row,
         "property",
@@ -519,15 +567,49 @@ function tableNodes(state: EditorState): Array<{ from: number; to: number }> {
   return nodes;
 }
 
+function sourceRange(
+  state: EditorState,
+  override: SourceOverride,
+): { from: number; to: number } | null {
+  if (override.kind === "frontmatter") {
+    const block = parseFrontmatter(state.doc.toString());
+    return block?.from === override.from
+      ? { from: block.from, to: block.to }
+      : null;
+  }
+  return tableNodes(state).find(({ from }) => from === override.from) ?? null;
+}
+
+const sourceOverrideField = StateField.define<SourceOverride | null>({
+  create: () => null,
+  update(value, transaction) {
+    let next = value
+      ? {
+          ...value,
+          from: transaction.changes.mapPos(value.from),
+        }
+      : null;
+    for (const effect of transaction.effects) {
+      if (effect.is(editBlockSource)) next = effect.value;
+    }
+    if (!next) return null;
+    const range = sourceRange(transaction.state, next);
+    return range && selectionIntersects(transaction.state, range.from, range.to)
+      ? next
+      : null;
+  },
+});
+
 function tableDecorations(state: EditorState) {
+  const source = state.field(sourceOverrideField);
   const replacements = [];
   for (const node of tableNodes(state)) {
-    if (selectionIntersects(state, node.from, node.to)) continue;
-    const source = state.sliceDoc(node.from, node.to);
-    if (!source.trim() || !parseTable(source)) continue;
+    if (source?.kind === "table" && source.from === node.from) continue;
+    const markdown = state.sliceDoc(node.from, node.to);
+    if (!markdown.trim() || !parseTable(markdown)) continue;
     replacements.push(
       Decoration.replace({
-        widget: new TableWidget(source, node.from, state.readOnly),
+        widget: new TableWidget(markdown, node.from, state.readOnly),
         block: true,
       }).range(node.from, node.to),
     );
@@ -537,7 +619,8 @@ function tableDecorations(state: EditorState) {
 
 function frontmatterDecorations(state: EditorState) {
   const block = parseFrontmatter(state.doc.toString());
-  if (!block || selectionIntersects(state, block.from, block.to))
+  const source = state.field(sourceOverrideField);
+  if (!block || (source?.kind === "frontmatter" && source.from === block.from))
     return Decoration.none;
   return Decoration.set(
     [
@@ -611,5 +694,5 @@ const viewportRefresh = ViewPlugin.fromClass(
 );
 
 export function blockViewExtensions(): Extension {
-  return [tableField, frontmatterField, viewportRefresh];
+  return [sourceOverrideField, tableField, frontmatterField, viewportRefresh];
 }

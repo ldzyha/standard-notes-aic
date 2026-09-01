@@ -1,11 +1,19 @@
-export const STRUCTURED_PREVIEW_CORE_VERSION: "2.0.0";
+export const STRUCTURED_PREVIEW_CORE_VERSION: "2.1.0";
 
 export type TableModel = {
   header: readonly string[];
   aligns: readonly ("left" | "center" | "right" | "")[];
   rows: readonly (readonly string[])[];
 };
-export type PropertyRow = { key: string; value: string };
+export type PropertyRow = {
+  key: string;
+  value: string;
+  indent?: number;
+  depth?: number;
+  sequence?: boolean;
+  scalar?: boolean;
+  spacing?: string;
+};
 
 export function serializeTable(model: TableModel, lineEnding?: string): string;
 export function updateTableCell(
@@ -28,6 +36,7 @@ export function moveTableColumn(
   to: number,
 ): TableModel;
 export function validPropertyKey(value: string): boolean;
+export function parseFrontmatterRows(source: string): PropertyRow[] | null;
 export function uniquePropertyKey(
   rows: readonly PropertyRow[],
   seed?: string,

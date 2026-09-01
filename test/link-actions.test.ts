@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { readFile } from "node:fs/promises";
 import { writeLinkToClipboard } from "../src/link-actions";
 
 afterEach(() => {
@@ -10,6 +11,14 @@ afterEach(() => {
 });
 
 describe("link actions", () => {
+  it("keeps Copy and Edit visible without reserving an empty hover gap", async () => {
+    const styles = await readFile("src/styles.css", "utf8");
+    expect(styles).toMatch(
+      /\.cm-aic-link-actions\s*\{[^}]*display:\s*inline-flex/u,
+    );
+    expect(styles).not.toMatch(/\.cm-aic-link-actions[^}]*opacity:\s*0/u);
+  });
+
   it("copies the exact URL through the Clipboard API", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(window.navigator, "clipboard", {

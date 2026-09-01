@@ -478,6 +478,32 @@ select {
   color: var(--aic-accent);
 }
 
+.cm-aic-property-key-cell {
+  min-width: 13rem;
+  padding: 0.12rem 0.35rem !important;
+}
+
+.cm-aic-property-key {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding-inline-start: calc(var(--aic-property-depth, 0) * 0.9rem);
+}
+
+.cm-aic-property-level {
+  width: 0.9rem;
+  flex: 0 0 0.9rem;
+  color: var(--aic-muted);
+  text-align: center;
+}
+
+.cm-aic-property-item,
+.cm-aic-property-group {
+  color: var(--aic-muted);
+  font-style: italic;
+  font-weight: 400;
+}
+
 .cm-md-table-link {
   color: var(--aic-accent);
   text-decoration: underline;
@@ -706,12 +732,6 @@ select {
 .cm-aic-link-actions {
   display: inline-flex;
   gap: 0.15rem;
-  opacity: 0;
-}
-
-.cm-aic-link-control:hover .cm-aic-link-actions,
-.cm-aic-link-control:focus-within .cm-aic-link-actions {
-  opacity: 1;
 }
 
 .cm-aic-link-action {
@@ -727,12 +747,6 @@ select {
 .cm-aic-link-action:disabled {
   cursor: default;
   opacity: 0.5;
-}
-
-@media (hover: none) {
-  .cm-aic-link-actions {
-    opacity: 1;
-  }
 }
 
 .aic-editor[data-read-only="true"] .cm-content {

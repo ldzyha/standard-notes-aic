@@ -102,12 +102,28 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
-  it("edits, adds, and exposes drag handles for properties", () => {
+  it("opens properties in preview and reveals source only from Edit", () => {
     const source = "---\nstatus: idea\nowner: team\n---\n\nBody";
     const host = document.createElement("div");
     document.body.append(host);
     const editor = new AicEditor(host, { initialText: source });
+    let properties = editor.element.querySelector<HTMLElement>(".cm-md-props");
+    expect(properties).not.toBeNull();
+    properties!.click();
+    properties!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
+    expect(editor.element.querySelector(".cm-md-props")).not.toBeNull();
+
+    const edit = [
+      ...properties!.querySelectorAll<HTMLButtonElement>("button"),
+    ].find((button) => button.textContent === "Edit");
+    expect(edit).toBeDefined();
+    edit!.click();
+    expect(editor.element.querySelector(".cm-md-props")).toBeNull();
+    expect(editor.view.state.selection.main.head).toBe(4);
+
     editor.view.dispatch({ selection: { anchor: source.length } });
+    properties = editor.element.querySelector<HTMLElement>(".cm-md-props");
+    expect(properties).not.toBeNull();
     const status = editor.element.querySelector<HTMLInputElement>(
       '[aria-label="Property status value"]',
     );
@@ -128,6 +144,46 @@ describe("AIC editor integration", () => {
         ),
       ].every((handle) => handle.draggable),
     ).toBe(true);
+    editor.destroy();
+  });
+
+  it("renders nested property levels and edits only leaf values", () => {
+    const source = [
+      "---",
+      "document:",
+      "  type: index",
+      "traceability:",
+      "  requirements:",
+      "    - type: jira",
+      "      id: EPC-32962",
+      "      role: v1-study",
+      "---",
+      "",
+      "Body",
+    ].join("\n");
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host, { initialText: source });
+    const properties =
+      editor.element.querySelector<HTMLElement>(".cm-md-props");
+    expect(properties).not.toBeNull();
+    expect(properties!.querySelectorAll("tr[data-depth='0']")).toHaveLength(2);
+    expect(properties!.querySelectorAll("tr[data-depth='3']")).toHaveLength(2);
+    expect(properties!.querySelectorAll(".cm-aic-property-level")).toHaveLength(
+      7,
+    );
+    expect(properties!.querySelectorAll(".cm-aic-property-group")).toHaveLength(
+      3,
+    );
+
+    const ticket = properties!.querySelector<HTMLInputElement>(
+      '[aria-label="Property id value"]',
+    );
+    expect(ticket).not.toBeNull();
+    ticket!.value = "EPC-33349";
+    ticket!.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(editor.value).toContain("      id: EPC-33349");
+    expect(editor.value).toContain("    - type: jira");
     editor.destroy();
   });
 
@@ -169,7 +225,6 @@ describe("AIC editor integration", () => {
     const host = document.createElement("div");
     document.body.append(host);
     const editor = new AicEditor(host, { initialText: source });
-    editor.view.dispatch({ selection: { anchor: source.length } });
     const table = editor.element.querySelector<HTMLElement>(".cm-md-table");
     expect(table).not.toBeNull();
     const before = editor.view.state.selection.main.head;

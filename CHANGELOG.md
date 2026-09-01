@@ -1,5 +1,27 @@
 # Changelog
 
+## 8.1.2 — 2026-09-01
+
+Release sequence 8 · 1 feature outcome · 2 fixed-bug outcomes.
+
+- F01: upgrade the shared AIC Editor Core to 2.1 and render nested YAML maps and sequences as a
+  real hierarchical Properties preview. Indentation levels and list items remain visible, leaf
+  values stay directly editable, group nodes cannot be turned into invalid scalars, and
+  drag-and-drop moves a complete branch only among structurally valid siblings. Unsupported YAML
+  stays raw.
+
+- B01: replace selection-driven Properties/Table source disclosure with explicit source-mode state.
+  Both blocks now open in preview even when the initial cursor is inside their Markdown; ordinary,
+  repeated, and double clicks cannot reveal raw source. Only **Edit** opens source, and moving the
+  cursor outside the block returns to preview.
+- B02: keep link **Copy** and **Edit** controls visible at all times. The control no longer reserves
+  a blank hover-only gap, so link rows stay compact and their available actions are immediately
+  clear on mouse, keyboard, and touch clients.
+
+Compatibility: Standard Notes custom `editor-editor` component, interchangeable Markdown note/file
+type. Preview inputs, add actions, and drag-and-drop remain interactive; the hosted manifest and
+desktop archive keep the stable `com.dzyha.standard-notes-aic` identifier and AIC Editor Core 2.1.
+
 ## 7.1.3 — 2026-08-31
 
 Release sequence 7 · 1 feature outcome · 3 fixed-bug outcomes.
