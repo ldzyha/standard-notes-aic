@@ -36,9 +36,10 @@ link label opens it; compact **Copy** and **Edit** actions stay beside the label
 **Properties** previews edit values directly, add rows/columns/properties, and reorder data through
 drag handles. Nested YAML maps and sequences retain their indentation as visible levels; group rows
 stay structural, leaf values remain editable, and moving a list/map row moves its complete branch
-only among valid siblings. Each interaction produces one valid Markdown transaction. The explicit **Edit** action
-reveals and focuses the complete raw source for a structure, including read-only inspection in a
-locked note.
+only among valid siblings. Each interaction produces one valid Markdown transaction. A non-empty
+selection reveals raw Markdown for every preview block it crosses; `Ctrl+A`/`Cmd+A` therefore exits
+preview for the complete note. A collapsed cursor keeps preview, while the explicit **Edit** action
+reveals and focuses one structure, including read-only inspection in a locked note.
 
 AIC details use this exact non-nested grammar:
 
@@ -123,6 +124,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `8.1.2` is sequence 8 with
-one feature outcome and two fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `9.1.0` is sequence 9 with
+one feature outcome and no fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

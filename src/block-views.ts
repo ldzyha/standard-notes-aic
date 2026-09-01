@@ -20,6 +20,7 @@ import {
   moveTableColumn,
   moveTableRow,
   parseFrontmatterRows,
+  selectionRevealsPreview,
   serializeFrontmatter,
   serializeTable,
   updateProperty,
@@ -605,6 +606,8 @@ function tableDecorations(state: EditorState) {
   const replacements = [];
   for (const node of tableNodes(state)) {
     if (source?.kind === "table" && source.from === node.from) continue;
+    if (selectionRevealsPreview(state.selection.ranges, node.from, node.to))
+      continue;
     const markdown = state.sliceDoc(node.from, node.to);
     if (!markdown.trim() || !parseTable(markdown)) continue;
     replacements.push(
@@ -620,7 +623,11 @@ function tableDecorations(state: EditorState) {
 function frontmatterDecorations(state: EditorState) {
   const block = parseFrontmatter(state.doc.toString());
   const source = state.field(sourceOverrideField);
-  if (!block || (source?.kind === "frontmatter" && source.from === block.from))
+  if (
+    !block ||
+    (source?.kind === "frontmatter" && source.from === block.from) ||
+    selectionRevealsPreview(state.selection.ranges, block.from, block.to)
+  )
     return Decoration.none;
   return Decoration.set(
     [

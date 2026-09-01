@@ -12,6 +12,7 @@ import {
   type DetailsBlock,
 } from "./details-model";
 import { safeExternalUrl } from "./block-views";
+import { selectionRevealsPreview } from "./core/structured-preview.js";
 
 const toggleVisual = StateEffect.define<number>();
 const editSource = StateEffect.define<number>({
@@ -237,7 +238,11 @@ function previewDecorations(state: EditorState) {
   const source = state.field(sourceOverrides);
   const ranges: Range<Decoration>[] = [];
   for (const block of parseDetailsBlocks(state.doc.toString())) {
-    if (source.has(block.headerFrom)) continue;
+    if (
+      source.has(block.headerFrom) ||
+      selectionRevealsPreview(state.selection.ranges, block.from, block.end)
+    )
+      continue;
     const open = overrides.has(block.headerFrom) ? !block.open : block.open;
     const widget = new DetailsSummaryWidget(block, open, state.readOnly);
     if (!open) {
@@ -279,7 +284,11 @@ function bodyDecorations(state: EditorState) {
   const source = state.field(sourceOverrides);
   const ranges: Range<Decoration>[] = [];
   for (const block of parseDetailsBlocks(state.doc.toString())) {
-    if (source.has(block.headerFrom)) continue;
+    if (
+      source.has(block.headerFrom) ||
+      selectionRevealsPreview(state.selection.ranges, block.from, block.end)
+    )
+      continue;
     const open = overrides.has(block.headerFrom) ? !block.open : block.open;
     if (!open) continue;
     const first = state.doc.lineAt(block.contentFrom).number;

@@ -1,4 +1,10 @@
-export const STRUCTURED_PREVIEW_CORE_VERSION: "2.1.0";
+export const STRUCTURED_PREVIEW_CORE_VERSION: "2.2.0";
+
+export function selectionRevealsPreview(
+  ranges: readonly { from: number; to: number }[],
+  from: number,
+  to: number,
+): boolean;
 
 export type TableModel = {
   header: readonly string[];

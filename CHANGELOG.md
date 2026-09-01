@@ -1,5 +1,20 @@
 # Changelog
 
+## 9.1.0 — 2026-09-01
+
+Release sequence 9 · 1 feature outcome · 0 fixed-bug outcomes.
+
+- F01: upgrade the shared AIC Editor Core to 2.2 and make source selection a universal escape from
+  rendered previews. Ctrl+A/Cmd+A selects the complete Markdown document and reveals raw source for
+  every intersected Properties, Table, Details, code, Mermaid, link, and inline-syntax view. A
+  smaller non-empty selection reveals only the blocks it crosses; ordinary clicks and collapsed
+  cursors retain preview behavior, and the visible **Edit** action remains available for focused
+  source editing.
+
+Compatibility: Standard Notes custom `editor-editor` component, interchangeable Markdown note/file
+type. The hosted manifest and desktop archive keep the stable
+`com.dzyha.standard-notes-aic` identifier and AIC Editor Core 2.2.
+
 ## 8.1.2 — 2026-09-01
 
 Release sequence 8 · 1 feature outcome · 2 fixed-bug outcomes.

@@ -102,7 +102,7 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
-  it("opens properties in preview and reveals source only from Edit", () => {
+  it("keeps single clicks in preview and reveals source for Ctrl+A or Edit", () => {
     const source = "---\nstatus: idea\nowner: team\n---\n\nBody";
     const host = document.createElement("div");
     document.body.append(host);
@@ -112,6 +112,22 @@ describe("AIC editor integration", () => {
     properties!.click();
     properties!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
     expect(editor.element.querySelector(".cm-md-props")).not.toBeNull();
+
+    editor.view.contentDOM.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "a",
+        ctrlKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    expect(editor.view.state.selection.main.from).toBe(0);
+    expect(editor.view.state.selection.main.to).toBe(source.length);
+    expect(editor.element.querySelector(".cm-md-props")).toBeNull();
+
+    editor.view.dispatch({ selection: { anchor: source.length } });
+    properties = editor.element.querySelector<HTMLElement>(".cm-md-props");
+    expect(properties).not.toBeNull();
 
     const edit = [
       ...properties!.querySelectorAll<HTMLButtonElement>("button"),
@@ -220,7 +236,7 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
-  it("edits table values directly and reveals exact source only from Edit", () => {
+  it("edits table values directly and reveals source for selections or Edit", () => {
     const source = "| A | B |\n| --- | --- |\n| x | y |\n\nafter";
     const host = document.createElement("div");
     document.body.append(host);
@@ -238,6 +254,10 @@ describe("AIC editor integration", () => {
     value!.value = "changed";
     value!.dispatchEvent(new Event("change", { bubbles: true }));
     expect(editor.value).toContain("| changed | y |");
+    editor.view.dispatch({ selection: { anchor: 0, head: source.length } });
+    expect(editor.element.querySelector(".cm-md-table")).toBeNull();
+    editor.view.dispatch({ selection: { anchor: source.length } });
+    expect(editor.element.querySelector(".cm-md-table")).not.toBeNull();
     const refreshed = editor.element.querySelector<HTMLElement>(".cm-md-table");
     const edit = [
       ...refreshed!.querySelectorAll<HTMLButtonElement>("button"),

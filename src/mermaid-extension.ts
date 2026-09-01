@@ -5,6 +5,7 @@ import {
   type Extension,
 } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
+import { selectionRevealsPreview } from "./core/structured-preview.js";
 import {
   createMermaidPreview,
   type MermaidPreviewController,
@@ -22,10 +23,18 @@ function selectionIntersects(
   state: EditorState,
   candidate: MermaidCandidate,
 ): boolean {
-  return state.selection.ranges.some((range) =>
-    range.empty
-      ? range.from >= candidate.from && range.from < candidate.to
-      : range.from < candidate.to && range.to > candidate.from,
+  return (
+    selectionRevealsPreview(
+      state.selection.ranges,
+      candidate.from,
+      candidate.to,
+    ) ||
+    state.selection.ranges.some(
+      (range) =>
+        range.empty &&
+        range.from >= candidate.from &&
+        range.from < candidate.to,
+    )
   );
 }
 

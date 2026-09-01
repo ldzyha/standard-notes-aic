@@ -6,6 +6,7 @@ import {
   moveProperty,
   moveTableColumn,
   moveTableRow,
+  selectionRevealsPreview,
   serializeFrontmatter,
   serializeTable,
   updateProperty,
@@ -13,6 +14,13 @@ import {
 } from "../src/core/structured-preview.js";
 
 describe("shared structured preview core", () => {
+  it("reveals only preview blocks crossed by a non-empty selection", () => {
+    expect(selectionRevealsPreview([{ from: 4, to: 4 }], 0, 10)).toBe(false);
+    expect(selectionRevealsPreview([{ from: 2, to: 8 }], 0, 10)).toBe(true);
+    expect(selectionRevealsPreview([{ from: 10, to: 20 }], 0, 10)).toBe(false);
+    expect(selectionRevealsPreview([{ from: 20, to: 0 }], 4, 8)).toBe(true);
+  });
+
   it("updates, adds, and reorders table data without mutating input", () => {
     const initial = {
       header: ["A", "B"],

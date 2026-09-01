@@ -1,4 +1,23 @@
-export const STRUCTURED_PREVIEW_CORE_VERSION = "2.1.0";
+export const STRUCTURED_PREVIEW_CORE_VERSION = "2.2.0";
+
+export function selectionRevealsPreview(ranges, from, to) {
+  if (!Array.isArray(ranges) || !Number.isFinite(from) || !Number.isFinite(to))
+    return false;
+  const start = Math.min(from, to);
+  const end = Math.max(from, to);
+  if (start === end) return false;
+  return ranges.some((range) => {
+    const selectionFrom = Math.min(Number(range?.from), Number(range?.to));
+    const selectionTo = Math.max(Number(range?.from), Number(range?.to));
+    return (
+      Number.isFinite(selectionFrom) &&
+      Number.isFinite(selectionTo) &&
+      selectionFrom < selectionTo &&
+      selectionFrom < end &&
+      selectionTo > start
+    );
+  });
+}
 
 function text(value) {
   return String(value ?? "").replace(/\r?\n|\r/g, " ");
