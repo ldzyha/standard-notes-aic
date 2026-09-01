@@ -23,8 +23,8 @@ describe("publication metadata", () => {
     expect(releaseWorkflow).toContain('--notes "Website: https://dzyha.com/"');
   });
 
-  it("documents the 10.2.0 R.F.B release and packages usage instructions", () => {
-    expect(changelog).toContain("## 10.2.0 — 2026-09-01");
+  it("documents the 11.1.0 R.F.B release and packages usage instructions", () => {
+    expect(changelog).toContain("## 11.1.0 — 2026-09-01");
     expect(changelog).toContain(
       "Release sequence 10 · 2 feature outcomes · 0 fixed-bug outcomes",
     );

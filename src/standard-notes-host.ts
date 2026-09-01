@@ -1,6 +1,10 @@
 import snApi from "sn-extension-api";
 
-type StreamedItem = Readonly<{ uuid?: unknown }>;
+type StreamedItem = Readonly<{
+  uuid?: unknown;
+  created_at?: unknown;
+  content?: Readonly<{ title?: unknown }>;
+}>;
 
 export type StandardNotesApi = {
   initialize(options?: { debounceSave?: number }): void;
@@ -18,6 +22,8 @@ export type StandardNotesSnapshot = Readonly<{
   id: string | null;
   text: string;
   locked: boolean;
+  fileName: string | null;
+  createdAt: string | null;
 }>;
 
 function noteId(api: StandardNotesApi): string | null {
@@ -41,10 +47,19 @@ export class StandardNotesHost {
 
   subscribe(callback: (snapshot: StandardNotesSnapshot) => void): () => void {
     return this.api.subscribe((text) => {
+      const item = (this.api as IdentityAwareApi).lastStreamedItem;
+      const title = item?.content?.title;
+      const createdAt = item?.created_at;
       callback({
         id: noteId(this.api),
         text,
         locked: Boolean(this.api.locked),
+        fileName:
+          typeof title === "string" && title.trim() ? title.trim() : null,
+        createdAt:
+          typeof createdAt === "string" && createdAt.trim()
+            ? createdAt.trim()
+            : null,
       });
     });
   }

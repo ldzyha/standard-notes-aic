@@ -1,5 +1,20 @@
 # Changelog
 
+## 11.1.0 — 2026-09-01
+
+Release sequence 11 · 1 feature outcome · 0 fixed-bug outcomes.
+
+- F01: reduce managed properties for ordinary Markdown files to `file`, `created`, and `updated`.
+  Ctrl+S/Cmd+S derives the filename and creation time from the active Standard Notes item, preserves
+  the original creation value and Markdown body, and writes a fresh UTC update timestamp before the
+  explicit save. `*.note.md` sidecars remain unchanged so their hierarchy and synchronization
+  identities stay intact. The dependency-free AIC Editor Core 2.3 owns the same transformation used
+  by the VS Code adapter.
+
+Compatibility: Standard Notes custom `editor-editor` component, interchangeable Markdown note/file
+type. The hosted manifest and desktop archive keep the stable
+`com.dzyha.standard-notes-aic` identifier and AIC Editor Core 2.3.
+
 ## 10.2.0 — 2026-09-01
 
 Release sequence 10 · 2 feature outcomes · 0 fixed-bug outcomes.

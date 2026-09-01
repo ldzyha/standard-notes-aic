@@ -16,7 +16,11 @@ describe("Standard Notes host adapter", () => {
         return vi.fn();
       }),
       locked: false,
-      lastStreamedItem: { uuid: "note-a" },
+      lastStreamedItem: {
+        uuid: "note-a",
+        created_at: "2026-08-20T10:00:00.000Z",
+        content: { title: "documentation.md" },
+      },
       get text() {
         return text;
       },
@@ -43,11 +47,17 @@ describe("Standard Notes host adapter", () => {
       id: "note-a",
       text: "A",
       locked: false,
+      fileName: "documentation.md",
+      createdAt: "2026-08-20T10:00:00.000Z",
     });
     expect(host.save("note-a", "saved", "preview")).toBe(true);
     expect({ text, preview }).toEqual({ text: "saved", preview: "preview" });
 
-    api.lastStreamedItem = { uuid: "note-b" };
+    api.lastStreamedItem = {
+      uuid: "note-b",
+      created_at: "2026-08-21T10:00:00.000Z",
+      content: { title: "other.md" },
+    };
     expect(host.save("note-a", "wrong", "wrong")).toBe(false);
     expect({ text, preview }).toEqual({ text: "saved", preview: "preview" });
   });

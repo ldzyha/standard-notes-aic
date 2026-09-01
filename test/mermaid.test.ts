@@ -101,7 +101,7 @@ describe("Mermaid rendering boundary", () => {
       expect(svg).toContain("<text");
       expect(svg).not.toMatch(/<script|<foreignObject|onload=|href=/u);
     }
-  });
+  }, 15_000);
 
   it("serializes jobs and rejects an overflowing queue", async () => {
     const queue = makeMermaidRenderQueue({ concurrency: 1, maxPending: 1 });

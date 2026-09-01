@@ -14,7 +14,11 @@ const bridge = vi.hoisted(() => {
       return unsubscribe;
     }),
     locked: false,
-    lastStreamedItem: null as { uuid: string } | null,
+    lastStreamedItem: null as {
+      uuid: string;
+      created_at?: string;
+      content?: { title?: string };
+    } | null,
     get text() {
       return text;
     },
@@ -34,8 +38,16 @@ const bridge = vi.hoisted(() => {
     api,
     writes,
     unsubscribe,
-    stream(id: string, value: string) {
-      api.lastStreamedItem = { uuid: id };
+    stream(
+      id: string,
+      value: string,
+      identity: { title?: string; createdAt?: string } = {},
+    ) {
+      api.lastStreamedItem = {
+        uuid: id,
+        created_at: identity.createdAt,
+        content: { title: identity.title },
+      };
       text = value;
       subscriber?.(value);
     },
@@ -108,6 +120,22 @@ describe("Standard Notes editor bridge", () => {
 
     bridge.stream("note-empty", "");
     expect(editor.dataset.saveState).toBe("placeholder");
+
+    const documentSource = "---\nstatus: draft\n---\n\n# Document\n";
+    bridge.stream("markdown-file", documentSource, {
+      title: "documentation.md",
+      createdAt: "2026-08-20T10:00:00.000Z",
+    });
+    const writesBeforeFileSave = bridge.writes.length;
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "s", ctrlKey: true }),
+    );
+    expect(bridge.api.text).toMatch(
+      /^---\nfile: documentation\.md\ncreated: 2026-08-20T10:00:00\.000Z\nupdated: .+Z\n---\n\n# Document\n$/u,
+    );
+    expect(view.state.doc.toString()).toBe(bridge.api.text);
+    expect(bridge.writes).toHaveLength(writesBeforeFileSave + 2);
+    expect(editor.dataset.saveState).toBe("saved");
 
     bridge.api.locked = true;
     bridge.stream("note-empty", "");

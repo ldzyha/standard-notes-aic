@@ -3,6 +3,7 @@ import { AicEditor } from "./editor";
 import { markdownPlainPreview } from "./preview";
 import { NoteDraftRegistry } from "./note-draft-registry";
 import { StandardNotesHost } from "./standard-notes-host";
+import { stampFileProperties } from "./core/file-properties.js";
 import "./styles.css";
 
 declare global {
@@ -53,6 +54,11 @@ const editor = new AicEditor(root, {
 });
 
 let unsubscribe = () => {};
+let activeFileProperties: Readonly<{
+  id: string;
+  fileName: string | null;
+  createdAt: string | null;
+}> | null = null;
 
 if (standalone) {
   const storageKey = "aic-standard-notes-standalone-document";
@@ -69,6 +75,7 @@ if (standalone) {
   unsubscribe = standardNotesHost.subscribe((snapshot) => {
     remoteGeneration += 1;
     if (!snapshot.id) {
+      activeFileProperties = null;
       editor.setDocument(snapshot.text);
       editor.setReadOnly(true);
       editor.setSaveState("unavailable");
@@ -79,6 +86,11 @@ if (standalone) {
       snapshot.text,
       remoteGeneration,
     );
+    activeFileProperties = {
+      id: snapshot.id,
+      fileName: snapshot.fileName,
+      createdAt: snapshot.createdAt,
+    };
     editor.setDocument(active.text);
     hydrated = true;
     editor.setReadOnly(snapshot.locked);
@@ -105,6 +117,17 @@ function commitDraft(): void {
   if (!hydrated || (!standalone && host?.locked)) return;
   const active = drafts.current;
   if (!active) return;
+  if (activeFileProperties?.id === active.id) {
+    const stamped = stampFileProperties(active.text, {
+      fileName: activeFileProperties.fileName,
+      createdAt: activeFileProperties.createdAt,
+      updatedAt: new Date().toISOString(),
+    });
+    if (stamped !== active.text) {
+      drafts.edit(stamped);
+      editor.setDocument(stamped);
+    }
+  }
   const commit = drafts.begin("explicit");
   if (!commit) return;
   let saved = false;

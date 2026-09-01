@@ -105,6 +105,9 @@ stack pulled by EditorKit is deliberately not bundled into this editor.
   body remains exact Markdown.
 - Input stays in the shared dependency-free draft core. Standard Notes is updated only when the
   user presses Ctrl+S/Cmd+S; input, blur, and page unload never save a note.
+- For ordinary Markdown file items (`*.md`, excluding `*.note.md`), that explicit save keeps one
+  compact properties header: `file`, the stable `created` value, and an automatically refreshed UTC
+  `updated` timestamp. The Markdown body is preserved exactly.
 - The Standard Notes host adapter binds each in-memory draft to the working-note UUID and checks
   that UUID again at save time. Switching notes cannot redirect a draft into another note, and
   returning during the same editor session restores the correct dirty draft without storing its
@@ -126,6 +129,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `10.2.0` is sequence 10 with
-two feature outcomes and no fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `11.1.0` is sequence 11 with
+one feature outcome and no fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).
