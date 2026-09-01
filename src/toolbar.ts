@@ -1,4 +1,5 @@
 import type { EditorView } from "@codemirror/view";
+import { createIconButton } from "./core/structured-preview.js";
 import {
   insertCodeFence,
   insertHorizontalRule,
@@ -22,21 +23,18 @@ export type ToolbarController = Readonly<{
 }>;
 
 function actionButton(
-  label: string,
+  icon: string,
   title: string,
   command: AicCommand,
   getView: () => EditorView,
   document: Document,
 ) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "aic-toolbar-button";
-  button.textContent = label;
-  button.title = title;
-  button.setAttribute("aria-label", title);
-  button.addEventListener("pointerdown", (event) => event.preventDefault());
-  button.addEventListener("click", () => command(getView()));
-  return button;
+  return createIconButton(document, {
+    label: title,
+    icon,
+    className: "aic-toolbar-button",
+    onActivate: () => command(getView()),
+  });
 }
 
 function group(label: string, document: Document) {
@@ -83,18 +81,24 @@ export function createToolbar(
 
   const inlineGroup = group("Inline formatting", document);
   inlineGroup.append(
-    actionButton("B", "Bold (Ctrl/Command+B)", toggleBold, getView, document),
     actionButton(
-      "I",
+      "bold",
+      "Bold (Ctrl/Command+B)",
+      toggleBold,
+      getView,
+      document,
+    ),
+    actionButton(
+      "italic",
       "Italic (Ctrl/Command+I)",
       toggleItalic,
       getView,
       document,
     ),
-    actionButton("S", "Strikethrough", toggleStrike, getView, document),
-    actionButton("<> ", "Inline code", toggleInlineCode, getView, document),
+    actionButton("strike", "Strikethrough", toggleStrike, getView, document),
+    actionButton("code", "Inline code", toggleInlineCode, getView, document),
     actionButton(
-      "Link",
+      "link",
       "Insert link (Ctrl/Command+K)",
       insertLink,
       getView,
@@ -105,21 +109,21 @@ export function createToolbar(
   const listGroup = group("Lists", document);
   listGroup.append(
     actionButton(
-      "•",
+      "bullet-list",
       "Bullet list",
       (view) => toggleList(view, "bullet"),
       getView,
       document,
     ),
     actionButton(
-      "1.",
+      "ordered-list",
       "Ordered list",
       (view) => toggleList(view, "ordered"),
       getView,
       document,
     ),
     actionButton(
-      "☑",
+      "task-list",
       "Task list",
       (view) => toggleList(view, "task"),
       getView,

@@ -1,4 +1,9 @@
 import { mermaidLimitError } from "./mermaid-source";
+import {
+  createIconButton,
+  showIconFeedback,
+  writeTextToClipboard,
+} from "./core/structured-preview.js";
 
 export type MermaidTheme = "dark" | "default";
 
@@ -239,11 +244,26 @@ export function createMermaidPreview({
   const caption = document.createElement("figcaption");
   const label = document.createElement("span");
   label.textContent = "Mermaid";
-  const edit = document.createElement("button");
-  edit.type = "button";
-  edit.className = "cm-mermaid-edit cm-md-edit-source";
-  edit.textContent = "Edit";
-  caption.append(label, edit);
+  let currentSource = source;
+  const actions = document.createElement("span");
+  actions.className = "cm-md-preview-actions";
+  const copy = createIconButton(document, {
+    label: "Copy Mermaid source",
+    icon: "copy",
+    className: "cm-mermaid-copy cm-md-edit-source",
+    onActivate: async (button) => {
+      if (!(await writeTextToClipboard(currentSource, document))) return;
+      showIconFeedback(button, { restoreLabel: "Copy Mermaid source" });
+    },
+  });
+  const edit = createIconButton(document, {
+    label: "Edit Mermaid source",
+    icon: "edit",
+    className: "cm-mermaid-edit cm-md-edit-source",
+    onActivate: () => onEdit(),
+  });
+  actions.append(copy, edit);
+  caption.append(label, actions);
   const canvas = document.createElement("div");
   canvas.className = "cm-mermaid-canvas";
   canvas.setAttribute("role", "region");
@@ -254,17 +274,11 @@ export function createMermaidPreview({
   let destroyed = false;
   let activeAbort: AbortController | null = null;
 
-  const reveal = (event: Event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    onEdit();
-  };
-  edit.addEventListener("click", reveal);
-
   const update = async (
     nextSource: string,
     nextTheme: MermaidTheme = theme,
   ) => {
+    currentSource = nextSource;
     const token = ++epoch;
     activeAbort?.abort();
     const abort = new AbortController();

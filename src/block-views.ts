@@ -16,16 +16,19 @@ import {
   addProperty,
   addTableColumn,
   addTableRow,
+  createIconButton,
   moveProperty,
   moveTableColumn,
   moveTableRow,
   parseFrontmatterRows,
   selectionRevealsPreview,
+  showIconFeedback,
   serializeFrontmatter,
   serializeTable,
   updateProperty,
   updateTableCell,
   validPropertyKey,
+  writeTextToClipboard,
   type PropertyRow,
   type TableModel,
 } from "./core/structured-preview.js";
@@ -140,22 +143,17 @@ function selectionIntersects(
 function action(
   document: Document,
   label: string,
-  run: () => void,
+  icon: string,
+  run: (button: HTMLButtonElement) => void | Promise<void>,
   disabled = false,
 ): HTMLButtonElement {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "cm-md-edit-source";
-  button.textContent = label;
-  button.setAttribute("aria-label", label);
-  button.disabled = disabled;
-  button.addEventListener("pointerdown", (event) => event.preventDefault());
-  button.addEventListener("click", (event) => {
-    event.preventDefault();
-    event.stopPropagation();
-    run();
+  return createIconButton(document, {
+    label,
+    icon,
+    className: "cm-md-edit-source",
+    disabled,
+    onActivate: run,
   });
-  return button;
 }
 
 function previewHeader(
@@ -231,8 +229,8 @@ function dragHandle(
 ): HTMLButtonElement {
   const handle = document.createElement("button");
   handle.type = "button";
-  handle.className = "cm-aic-drag-handle";
-  handle.textContent = "⠿";
+  handle.className = "cm-aic-drag-handle cm-aic-icon-button";
+  handle.dataset.aicIcon = "drag";
   handle.setAttribute("aria-label", label);
   handle.draggable = !readOnly;
   handle.disabled = readOnly;
@@ -314,11 +312,18 @@ class TableWidget extends WidgetType {
       });
       view.focus();
     };
+    const copy = async (button: HTMLButtonElement) => {
+      if (!(await writeTextToClipboard(this.source, document))) return;
+      showIconFeedback(button, { restoreLabel: "Copy table" });
+    };
     if (!parsed) {
       const fallback = document.createElement("pre");
       fallback.textContent = this.source;
       wrapper.append(
-        previewHeader(document, "Table", [action(document, "Edit", reveal)]),
+        previewHeader(document, "Table", [
+          action(document, "Copy table", "copy", copy),
+          action(document, "Edit table source", "edit", reveal),
+        ]),
         fallback,
       );
       return wrapper;
@@ -328,16 +333,24 @@ class TableWidget extends WidgetType {
         action(
           document,
           "Add row",
+          "add-row",
           () => replace(addTableRow(parsed)),
           this.readOnly,
         ),
         action(
           document,
           "Add column",
+          "add-column",
           () => replace(addTableColumn(parsed)),
           this.readOnly,
         ),
-        action(document, this.readOnly ? "View source" : "Edit", reveal),
+        action(document, "Copy table", "copy", copy),
+        action(
+          document,
+          this.readOnly ? "View table source" : "Edit table source",
+          this.readOnly ? "source" : "edit",
+          reveal,
+        ),
       ]),
     );
     const table = document.createElement("table");
@@ -485,10 +498,16 @@ class FrontmatterWidget extends WidgetType {
         action(
           document,
           "Add property",
+          "add-property",
           () => replace(addProperty(this.block.rows)),
           this.readOnly,
         ),
-        action(document, this.readOnly ? "View source" : "Edit", reveal),
+        action(
+          document,
+          this.readOnly ? "View properties source" : "Edit properties source",
+          this.readOnly ? "source" : "edit",
+          reveal,
+        ),
       ]),
     );
     const table = document.createElement("table");

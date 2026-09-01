@@ -32,16 +32,18 @@ a second editor or convert note data.
 ## Preview and source controls
 
 AIC keeps Markdown as the source of truth without duplicating it into tooltip editors. Clicking a
-link label opens it; compact **Copy** and **Edit** actions stay beside the label. **Table** and
-**Properties** previews edit values directly, add rows/columns/properties, and reorder data through
+link label opens it; compact, always-visible Copy and Edit icon actions stay beside the label.
+**Table** and **Properties** previews edit values directly, add rows/columns/properties, and reorder data through
 drag handles. Nested YAML maps and sequences retain their indentation as visible levels; group rows
 stay structural, leaf values remain editable, and moving a list/map row moves its complete branch
 only among valid siblings. Each interaction produces one valid Markdown transaction. A non-empty
 selection reveals raw Markdown for every preview block it crosses; `Ctrl+A`/`Cmd+A` therefore exits
-preview for the complete note. A collapsed cursor keeps preview, while the explicit **Edit** action
+preview for the complete note. A collapsed cursor keeps preview, while the explicit Edit icon
 reveals and focuses one structure, including read-only inspection in a locked note.
 Table cells use wrapping, auto-height textareas. The table fills its card and places only the grid
-inside a horizontal scroller when its readable columns are wider than the editor.
+inside a horizontal scroller when its readable columns are wider than the editor. Its Copy icon
+copies the exact Markdown table source. Action graphics are embedded SVG data URIs rendered as CSS
+masks; button DOM stays text-free and accessible through `aria-label` values.
 
 AIC details use this exact non-nested grammar:
 
@@ -51,7 +53,7 @@ Body
 <<<
 ```
 
-Omit `|open|` for a closed card: `>>> Title`. Click either the title or SVG chevron to toggle. In a
+Omit `|open|` for a closed card: `>>> Title`. Click either the title or CSS chevron to toggle. In a
 writable note the marker is persisted; in a locked note disclosure is visual only. A summary in the
 form `- [ ] [Source](target)` also exposes a separate checkbox and compact link action. Delimiters
 inside fenced code do not close a card, while invalid, nested, or unmatched blocks stay visible as
@@ -129,6 +131,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `11.1.0` is sequence 11 with
-one feature outcome and no fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `12.2.0` is sequence 12 with
+two feature outcomes and no fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

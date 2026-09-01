@@ -37,7 +37,7 @@ describe("AIC details grammar", () => {
 });
 
 describe("AIC details interaction", () => {
-  it("toggles from title/SVG, keeps linked controls separate, and edits source explicitly", () => {
+  it("toggles from title/CSS icon, keeps linked controls separate, and edits source explicitly", () => {
     const source =
       ">>> - [ ] [Source](src/app.ts#L2-L4)\ncomment\n<<<\n\nafter";
     const changed = vi.fn();
@@ -53,7 +53,11 @@ describe("AIC details interaction", () => {
       ".cm-aic-details-summary",
     )!;
     expect(summary.dataset.open).toBe("false");
-    expect(summary.querySelector("svg")).not.toBeNull();
+    expect(summary.querySelector("svg")).toBeNull();
+    expect(
+      summary.querySelector<HTMLButtonElement>(".cm-aic-details-disclosure")!
+        .dataset.aicIcon,
+    ).toBe("chevron");
     expect(summary.textContent).not.toMatch(/[▸▾]/u);
     summary.querySelector<HTMLButtonElement>(".cm-aic-details-title")!.click();
     expect(editor.value).toContain(">>>|open| - [ ] [Source]");

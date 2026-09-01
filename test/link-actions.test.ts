@@ -13,10 +13,14 @@ afterEach(() => {
 describe("link actions", () => {
   it("keeps Copy and Edit visible without reserving an empty hover gap", async () => {
     const styles = await readFile("src/styles.css", "utf8");
+    const icons = await readFile("src/core/icons.css", "utf8");
     expect(styles).toMatch(
       /\.cm-aic-link-actions\s*\{[^}]*display:\s*inline-flex/u,
     );
     expect(styles).not.toMatch(/\.cm-aic-link-actions[^}]*opacity:\s*0/u);
+    expect(icons).toMatch(/data:image\/svg\+xml/u);
+    expect(icons).toMatch(/-webkit-mask:\s*var\(--aic-icon\)/u);
+    expect(icons).toMatch(/mask:\s*var\(--aic-icon\)/u);
   });
 
   it("copies the exact URL through the Clipboard API", async () => {

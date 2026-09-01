@@ -168,9 +168,23 @@ describe("Mermaid rendering boundary", () => {
     await Promise.resolve();
     expect(preview.element.textContent).toContain("second");
     expect(preview.element.textContent).not.toContain("first");
-    preview.element
-      .querySelector<HTMLButtonElement>(".cm-mermaid-edit")!
-      .click();
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const copy =
+      preview.element.querySelector<HTMLButtonElement>(".cm-mermaid-copy")!;
+    expect(copy.textContent).toBe("");
+    expect(copy.dataset.aicIcon).toBe("copy");
+    copy.click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith("second"));
+    await vi.waitFor(() => expect(copy.dataset.aicIcon).toBe("check"));
+    const edit =
+      preview.element.querySelector<HTMLButtonElement>(".cm-mermaid-edit")!;
+    expect(edit.textContent).toBe("");
+    expect(edit.dataset.aicIcon).toBe("edit");
+    edit.click();
     expect(onEdit).toHaveBeenCalledOnce();
     const canvas =
       preview.element.querySelector<HTMLElement>(".cm-mermaid-canvas")!;

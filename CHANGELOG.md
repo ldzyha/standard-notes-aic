@@ -1,5 +1,21 @@
 # Changelog
 
+## 12.2.0 — 2026-09-01
+
+Release sequence 12 · 2 feature outcomes · 0 fixed-bug outcomes.
+
+- F01: add a permanent Copy action to parsed and fallback table previews. It copies the exact
+  Markdown table source through the Clipboard API with a restricted-client DOM fallback and
+  reports success by changing only the accessible icon state.
+- F02: replace textual preview, link, details, Mermaid, drag, and formatting-toolbar actions with
+  custom icon-only buttons. AIC Editor Core 2.4 supplies the shared button, clipboard, and feedback
+  contracts; embedded SVG data URIs are painted exclusively through CSS masks, so action rendering
+  does not depend on the host's inline-SVG support. Every control retains an explicit `aria-label`.
+
+Compatibility: Standard Notes custom `editor-editor` component, interchangeable Markdown note/file
+type. The hosted manifest and desktop archive keep the stable
+`com.dzyha.standard-notes-aic` identifier and AIC Editor Core 2.4.
+
 ## 11.1.0 — 2026-09-01
 
 Release sequence 11 · 1 feature outcome · 0 fixed-bug outcomes.

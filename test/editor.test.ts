@@ -51,30 +51,39 @@ describe("AIC editor integration", () => {
     const host = document.createElement("div");
     document.body.append(host);
     const editor = new AicEditor(host);
-    const controls = [
-      ...editor.toolbar.element.querySelectorAll("button,option"),
-    ]
+    const options = [...editor.toolbar.element.querySelectorAll("option")]
       .map((control) => control.textContent?.trim())
       .filter(Boolean);
-    expect(controls).toEqual(
+    expect(options).toEqual(
       expect.arrayContaining([
         "Paragraph",
         "Heading 6",
         "Quote",
-        "B",
-        "I",
-        "S",
-        "<>",
-        "Link",
-        "•",
-        "1.",
-        "☑",
         "Table",
         "Properties",
         "Code block",
         "Mermaid",
         "Horizontal rule",
       ]),
+    );
+    const buttons = [
+      ...editor.toolbar.element.querySelectorAll<HTMLButtonElement>("button"),
+    ];
+    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual(
+      expect.arrayContaining([
+        "Bold (Ctrl/Command+B)",
+        "Italic (Ctrl/Command+I)",
+        "Strikethrough",
+        "Inline code",
+        "Insert link (Ctrl/Command+K)",
+        "Bullet list",
+        "Ordered list",
+        "Task list",
+      ]),
+    );
+    expect(buttons.every((button) => button.textContent === "")).toBe(true);
+    expect(buttons.every((button) => Boolean(button.dataset.aicIcon))).toBe(
+      true,
     );
     expect(editor.toolbar.element.getAttribute("aria-label")).toBe(
       "AIC formatting",
@@ -129,10 +138,12 @@ describe("AIC editor integration", () => {
     properties = editor.element.querySelector<HTMLElement>(".cm-md-props");
     expect(properties).not.toBeNull();
 
-    const edit = [
-      ...properties!.querySelectorAll<HTMLButtonElement>("button"),
-    ].find((button) => button.textContent === "Edit");
-    expect(edit).toBeDefined();
+    const edit = properties!.querySelector<HTMLButtonElement>(
+      '[aria-label="Edit properties source"]',
+    );
+    expect(edit).not.toBeNull();
+    expect(edit!.textContent).toBe("");
+    expect(edit!.dataset.aicIcon).toBe("edit");
     edit!.click();
     expect(editor.element.querySelector(".cm-md-props")).toBeNull();
     expect(editor.view.state.selection.main.head).toBe(4);
@@ -147,10 +158,12 @@ describe("AIC editor integration", () => {
     status!.value = "active";
     status!.dispatchEvent(new Event("change", { bubbles: true }));
     expect(editor.value).toContain("status: active");
-    const add = [
-      ...editor.element.querySelectorAll<HTMLButtonElement>("button"),
-    ].find((button) => button.textContent === "Add property");
-    expect(add).toBeDefined();
+    const add = editor.element.querySelector<HTMLButtonElement>(
+      '[aria-label="Add property"]',
+    );
+    expect(add).not.toBeNull();
+    expect(add!.textContent).toBe("");
+    expect(add!.dataset.aicIcon).toBe("add-property");
     add!.click();
     expect(editor.value).toContain("property: ");
     expect(
@@ -222,10 +235,12 @@ describe("AIC editor integration", () => {
       "_blank",
       "noopener,noreferrer",
     );
-    const labels = [...links[0]!.querySelectorAll("button")].map(
-      (button) => button.textContent,
+    const labels = [...links[0]!.querySelectorAll("button")].map((button) =>
+      button.getAttribute("aria-label"),
     );
-    expect(labels).toEqual(["OpenAI", "Copy", "Edit"]);
+    expect(labels).toEqual(["OpenAI", "Copy link", "Edit link"]);
+    expect(links[0]!.querySelectorAll("button")[1]!.textContent).toBe("");
+    expect(links[0]!.querySelectorAll("button")[2]!.textContent).toBe("");
     links[0]!.querySelectorAll<HTMLButtonElement>("button")[2]!.click();
     expect(
       editor.view.state.sliceDoc(
@@ -278,16 +293,39 @@ describe("AIC editor integration", () => {
     editor.view.dispatch({ selection: { anchor: editor.value.length } });
     expect(editor.element.querySelector(".cm-md-table")).not.toBeNull();
     refreshed = editor.element.querySelector<HTMLElement>(".cm-md-table");
-    const edit = [
-      ...refreshed!.querySelectorAll<HTMLButtonElement>("button"),
-    ].find((button) => button.textContent === "Edit");
-    expect(edit).toBeDefined();
+    const edit = refreshed!.querySelector<HTMLButtonElement>(
+      '[aria-label="Edit table source"]',
+    );
+    expect(edit).not.toBeNull();
+    expect(edit!.textContent).toBe("");
     edit!.click();
     expect(editor.view.state.selection.main.head).toBe(0);
     expect(editor.element.querySelector(".cm-md-table")).toBeNull();
     expect(editor.value).toContain("| changed | y |");
     editor.view.dispatch({ selection: { anchor: source.length } });
     expect(editor.element.querySelector(".cm-md-table")).not.toBeNull();
+    editor.destroy();
+  });
+
+  it("copies the exact Markdown table through an always-visible icon action", async () => {
+    const source = "| A | B |\n| --- | --- |\n| x | y |";
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host, { initialText: source });
+    const copy = editor.element.querySelector<HTMLButtonElement>(
+      '[aria-label="Copy table"]',
+    );
+    expect(copy).not.toBeNull();
+    expect(copy!.textContent).toBe("");
+    expect(copy!.dataset.aicIcon).toBe("copy");
+    copy!.click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(source));
+    await vi.waitFor(() => expect(copy!.dataset.aicIcon).toBe("check"));
     editor.destroy();
   });
 

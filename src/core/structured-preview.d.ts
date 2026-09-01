@@ -1,10 +1,37 @@
-export const STRUCTURED_PREVIEW_CORE_VERSION: "2.2.0";
+export const STRUCTURED_PREVIEW_CORE_VERSION: "2.4.0";
 
 export function selectionRevealsPreview(
   ranges: readonly { from: number; to: number }[],
   from: number,
   to: number,
 ): boolean;
+
+export function createIconButton(
+  document: Document,
+  options?: Readonly<{
+    label?: unknown;
+    icon?: unknown;
+    className?: string;
+    disabled?: boolean;
+    onActivate?: (button: HTMLButtonElement) => unknown;
+  }>,
+): HTMLButtonElement;
+
+export function showIconFeedback(
+  button: HTMLButtonElement,
+  options?: Readonly<{
+    icon?: string;
+    label?: string;
+    restoreIcon?: string;
+    restoreLabel?: string;
+    duration?: number;
+  }>,
+): void;
+
+export function writeTextToClipboard(
+  text: unknown,
+  document: Document,
+): Promise<boolean>;
 
 export type TableModel = {
   header: readonly string[];

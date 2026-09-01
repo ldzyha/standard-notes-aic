@@ -5,7 +5,10 @@ import {
   type Extension,
 } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
-import { createLinkControl } from "./core/structured-preview.js";
+import {
+  createLinkControl,
+  writeTextToClipboard,
+} from "./core/structured-preview.js";
 import { safeExternalUrl } from "./block-views";
 
 export type MarkdownLink = {
@@ -21,30 +24,7 @@ export async function writeLinkToClipboard(
   text: string,
   document: Document,
 ): Promise<boolean> {
-  const clipboard = document.defaultView?.navigator.clipboard;
-  if (clipboard?.writeText) {
-    try {
-      await clipboard.writeText(text);
-      return true;
-    } catch {
-      // Sandboxed clients can deny Clipboard API access; use the user-gesture DOM fallback.
-    }
-  }
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.readOnly = true;
-  textarea.setAttribute("aria-hidden", "true");
-  textarea.style.position = "fixed";
-  textarea.style.opacity = "0";
-  document.body.append(textarea);
-  textarea.select();
-  try {
-    return document.execCommand?.("copy") ?? false;
-  } catch {
-    return false;
-  } finally {
-    textarea.remove();
-  }
+  return writeTextToClipboard(text, document);
 }
 
 export function linkRecords(state: EditorState): MarkdownLink[] {

@@ -1,4 +1,4 @@
-export const STRUCTURED_PREVIEW_CORE_VERSION = "2.2.0";
+export const STRUCTURED_PREVIEW_CORE_VERSION = "2.4.0";
 
 export function selectionRevealsPreview(ranges, from, to) {
   if (!Array.isArray(ranges) || !Number.isFinite(from) || !Number.isFinite(to))
@@ -283,6 +283,71 @@ function actionButton(document, label, className, run) {
   return button;
 }
 
+export function createIconButton(
+  document,
+  { label, icon, className = "", disabled = false, onActivate } = {},
+) {
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = `cm-aic-icon-button ${className}`.trim();
+  button.dataset.aicIcon = String(icon || "action");
+  button.setAttribute("aria-label", String(label || "Action"));
+  button.disabled = Boolean(disabled);
+  button.addEventListener("pointerdown", (event) => event.preventDefault());
+  button.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void onActivate?.(button);
+  });
+  return button;
+}
+
+export function showIconFeedback(
+  button,
+  {
+    icon = "check",
+    label = "Copied",
+    restoreIcon = "copy",
+    restoreLabel = "Copy",
+    duration = 1200,
+  } = {},
+) {
+  button.dataset.aicIcon = icon;
+  button.setAttribute("aria-label", label);
+  button.ownerDocument.defaultView?.setTimeout(() => {
+    button.dataset.aicIcon = restoreIcon;
+    button.setAttribute("aria-label", restoreLabel);
+  }, duration);
+}
+
+export async function writeTextToClipboard(text, document) {
+  const value = String(text ?? "");
+  const clipboard = document.defaultView?.navigator.clipboard;
+  if (clipboard?.writeText) {
+    try {
+      await clipboard.writeText(value);
+      return true;
+    } catch {
+      // Sandboxed clients can deny Clipboard API access; use the gesture fallback.
+    }
+  }
+  const textarea = document.createElement("textarea");
+  textarea.value = value;
+  textarea.readOnly = true;
+  textarea.setAttribute("aria-hidden", "true");
+  textarea.style.position = "fixed";
+  textarea.style.opacity = "0";
+  document.body.append(textarea);
+  textarea.select();
+  try {
+    return document.execCommand?.("copy") ?? false;
+  } catch {
+    return false;
+  } finally {
+    textarea.remove();
+  }
+}
+
 export function createLinkControl(document, options) {
   const wrapper = document.createElement("span");
   wrapper.className = "cm-aic-link-control";
@@ -302,26 +367,25 @@ export function createLinkControl(document, options) {
 
   const actions = document.createElement("span");
   actions.className = "cm-aic-link-actions";
-  const copy = actionButton(
-    document,
-    "Copy",
-    "cm-aic-link-action",
-    async (button) => {
+  const copy = createIconButton(document, {
+    label: "Copy link",
+    icon: "copy",
+    className: "cm-aic-link-action",
+    onActivate: async (button) => {
       const result = await options.onCopy?.();
       if (result === false) return;
-      button.textContent = "Copied";
-      document.defaultView?.setTimeout(() => {
-        button.textContent = "Copy";
-      }, 1200);
+      showIconFeedback(button, {
+        restoreLabel: "Copy link",
+      });
     },
-  );
+  });
   copy.disabled = !options.url;
-  const edit = actionButton(
-    document,
-    options.readOnly ? "View source" : "Edit",
-    "cm-aic-link-action",
-    () => options.onEdit?.(),
-  );
+  const edit = createIconButton(document, {
+    label: options.readOnly ? "View link source" : "Edit link",
+    icon: options.readOnly ? "source" : "edit",
+    className: "cm-aic-link-action",
+    onActivate: () => options.onEdit?.(),
+  });
   actions.append(copy, edit);
   wrapper.append(open, actions);
   return wrapper;
