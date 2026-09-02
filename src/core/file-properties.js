@@ -57,6 +57,26 @@ function property(body, key) {
   return match ? decodedScalar(match[1]) : "";
 }
 
+function hasProperty(body, key) {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return new RegExp(`^${escaped}:[ \\t]*(.*?)[ \\t]*$`, "mu").test(body);
+}
+
+function hasLegacyGeneratedNoteProperties(body) {
+  return (
+    property(body, "title").trim() !== "" &&
+    ["file-note", "folder-note", "project-note"].includes(
+      property(body, "level").toLowerCase(),
+    ) &&
+    hasProperty(body, "scope") &&
+    property(body, "scope") === "" &&
+    property(body, "status").toLowerCase() === "live" &&
+    property(body, "agent").toLowerCase() === "true" &&
+    property(body, "created") !== "" &&
+    property(body, "updated") !== ""
+  );
+}
+
 export function isManagedNoteName(value) {
   const name = baseName(value).toLowerCase();
   return name.endsWith(".note.md");
@@ -113,13 +133,24 @@ export function stampFileProperties(
     `updated: ${scalar(updated)}`,
   ];
 
-  // Notes can already contain semantic frontmatter (level, scope, status,
-  // nested traceability, and so on). Only replace the three root-level fields
-  // owned by this module; every other authored line remains byte-for-byte.
+  // Notes can already contain authored frontmatter. Replace only the three
+  // root-level fields owned by this module. Releases before Core 2.7 also
+  // generated a complete title/level/scope/status/agent signature; remove
+  // those five keys only when the entire exact legacy signature is present.
+  const legacyGenerated = match
+    ? hasLegacyGeneratedNoteProperties(match[1])
+    : false;
   const authored = match
     ? match[1]
         .split(/\r\n|\n|\r/u)
-        .filter((line) => !/^(?:file|created|updated):[ \t]*/u.test(line))
+        .filter(
+          (line) =>
+            !(
+              /^(?:file|created|updated):[ \t]*/u.test(line) ||
+              (legacyGenerated &&
+                /^(?:title|level|scope|status|agent):[ \t]*/u.test(line))
+            ),
+        )
     : [];
   while (authored[0] === "") authored.shift();
   while (authored.at(-1) === "") authored.pop();

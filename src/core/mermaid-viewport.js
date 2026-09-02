@@ -93,10 +93,14 @@ export function createMermaidViewport(document, options = {}) {
     const ratio = positive(svgAspectRatio(svg), 1);
     const fitted = viewportWidth(viewport, document) * (zoom / 100);
     const sideways = rotation % 180 !== 0;
-    const boundsWidth = fitted;
-    const boundsHeight = sideways ? fitted * ratio : fitted / ratio;
-    const sourceWidth = sideways ? boundsHeight : boundsWidth;
-    const sourceHeight = sideways ? boundsWidth : boundsHeight;
+    // Fit and zoom the source in its original direction exactly once. A
+    // quarter-turn only swaps the resulting layout bounds; fitting the
+    // rotated width again would multiply a wide diagram by its aspect ratio
+    // and make repeated zoom/rotation grow exponentially.
+    const sourceWidth = fitted;
+    const sourceHeight = fitted / ratio;
+    const boundsWidth = sideways ? sourceHeight : sourceWidth;
+    const boundsHeight = sideways ? sourceWidth : sourceHeight;
     stage.style.width = pixels(boundsWidth);
     stage.style.height = pixels(boundsHeight);
     stage.style.setProperty("--aic-mermaid-source-width", pixels(sourceWidth));

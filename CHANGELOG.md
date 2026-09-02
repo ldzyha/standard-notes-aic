@@ -1,5 +1,23 @@
 # Changelog
 
+## 15.1.2 — 2026-09-02
+
+Release sequence 15 · 1 feature outcome · 2 fixed-bug outcomes.
+
+- F01: add a packaged functional index that maps every editor surface, shared-core module,
+  interaction, state boundary, failure rule, and verification owner. Publication tests now require
+  the index and the versioned desktop archive ships it beside the installation instructions.
+- B01: normalize the complete legacy generated sidecar header to the three managed `file`,
+  `created`, and `updated` fields on explicit save. The migration runs only for the exact old
+  title/level/empty-scope/live/agent signature and preserves every additional authored property.
+- B02: keep Mermaid fit/zoom dimensions independent of rotation. Quarter-turns now swap the stable
+  source bounds instead of fitting the rotated width a second time, preventing wide diagrams from
+  expanding to extreme heights while retaining real horizontal and vertical scrolling.
+
+Compatibility: Standard Notes custom `editor-editor` component, interchangeable Markdown note/file
+type. The hosted manifest and desktop archive keep the stable
+`com.dzyha.standard-notes-aic` identifier and AIC Editor Core 2.7.
+
 ## 14.1.1 — 2026-09-02
 
 Release sequence 14 · 1 feature outcome · 1 fixed-bug outcome.

@@ -8,6 +8,8 @@
 Markdown and derives headings, lists, task checkboxes, tables, hierarchical frontmatter properties, fenced-code
 highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
+The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
+
 ## Install
 
 In Standard Notes, open **Preferences → Plugins**, find **Install Custom Plugin**, and paste:
@@ -138,6 +140,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `14.1.1` is sequence 14 with
-one feature outcome and one fixed-bug outcome; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `15.1.2` is sequence 15 with
+one feature outcome and two fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

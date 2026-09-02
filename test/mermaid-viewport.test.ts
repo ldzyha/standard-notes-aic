@@ -30,14 +30,14 @@ describe("shared Mermaid viewport", () => {
     )!;
     rotate.click();
     expect(controller.state).toEqual({ zoom: 125, rotation: 90 });
-    expect(controller.stage.style.width).toBe("250px");
-    expect(controller.stage.style.height).toBe("500px");
+    expect(controller.stage.style.width).toBe("125px");
+    expect(controller.stage.style.height).toBe("250px");
     expect(
       controller.stage.style.getPropertyValue("--aic-mermaid-source-width"),
-    ).toBe("500px");
+    ).toBe("250px");
     expect(
       controller.stage.style.getPropertyValue("--aic-mermaid-source-height"),
-    ).toBe("250px");
+    ).toBe("125px");
     expect(rotate.getAttribute("aria-label")).toContain("currently 90°");
 
     controller.controls
