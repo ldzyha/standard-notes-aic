@@ -24,6 +24,16 @@ describe("publication metadata", () => {
     expect(releaseWorkflow).toContain('--notes "Website: https://dzyha.com/"');
   });
 
+  it("serializes duplicate tag deliveries and republishes idempotently", () => {
+    expect(releaseWorkflow).toContain("group: release-${{ github.ref }}");
+    expect(releaseWorkflow).toContain(
+      'gh release view "$RELEASE_TAG" >/dev/null 2>&1',
+    );
+    expect(releaseWorkflow).toContain(
+      'gh release upload "$RELEASE_TAG" "$ASSET" --clobber',
+    );
+  });
+
   it("documents the 15.1.2 R.F.B release and packages usage instructions", () => {
     expect(changelog).toContain("## 15.1.2 — 2026-09-02");
     expect(changelog).toContain(

@@ -7,6 +7,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: ubuntu-latest
@@ -51,9 +55,14 @@ jobs:
           RELEASE_TAG: ${{ github.ref_name }}
         run: |
           PACKAGE_VERSION="${RELEASE_TAG#v}"
-          gh release create "$RELEASE_TAG" \
-            "standard-notes-aic-$PACKAGE_VERSION.zip" \
-            --verify-tag \
-            --title "AIC $PACKAGE_VERSION" \
-            --notes "Website: https://dzyha.com/" \
-            --generate-notes
+          ASSET="standard-notes-aic-$PACKAGE_VERSION.zip"
+          if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
+            gh release upload "$RELEASE_TAG" "$ASSET" --clobber
+          else
+            gh release create "$RELEASE_TAG" \
+              "$ASSET" \
+              --verify-tag \
+              --title "AIC $PACKAGE_VERSION" \
+              --notes "Website: https://dzyha.com/" \
+              --generate-notes
+          fi
