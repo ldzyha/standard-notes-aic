@@ -636,9 +636,7 @@ select {
 
 .cm-mermaid-canvas {
   min-height: 96px;
-  max-height: min(70vh, 720px);
   padding: 0.8rem;
-  overflow: auto;
 }
 
 .cm-aic-details-summary {
@@ -736,21 +734,6 @@ select {
   padding-bottom: 0.4rem;
   border-bottom: 1px solid var(--aic-details-border);
   border-radius: 0 0 0.55rem 0.55rem;
-}
-
-.cm-mermaid-diagram {
-  display: flex;
-  justify-content: center;
-  min-width: max-content;
-  pointer-events: none;
-  user-select: none;
-}
-
-.cm-mermaid-diagram svg {
-  display: block;
-  width: auto;
-  max-width: min(100%, 920px);
-  height: auto;
 }
 
 .cm-mermaid-loading {

@@ -6,6 +6,7 @@ import { StandardNotesHost } from "./standard-notes-host";
 import { stampFileProperties } from "./core/file-properties.js";
 import "./styles.css";
 import "./core/icons.css";
+import "./core/mermaid-viewport.css";
 
 declare global {
   interface Window {

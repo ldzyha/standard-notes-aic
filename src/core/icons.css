@@ -68,6 +68,9 @@
 .cm-aic-icon-button[data-aic-icon="reset"] {
   --aic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 5H1V2m.5 3A6 6 0 1 1 2 11' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
+.cm-aic-icon-button[data-aic-icon="rotate"] {
+  --aic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2a6 6 0 1 1-5.7 4M2 2v4h4M8 5v3h3' fill='none' stroke='black' stroke-width='1.45' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
 .cm-aic-icon-button[data-aic-icon="bold"] {
   --aic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M4 2.5h4.5a3 3 0 0 1 0 6H4m0 0h5a2.5 2.5 0 0 1 0 5H4v-11' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }

@@ -1,5 +1,20 @@
 # Changelog
 
+## 14.1.1 — 2026-09-02
+
+Release sequence 14 · 1 feature outcome · 1 fixed-bug outcome.
+
+- F01: add permanent icon-only Mermaid zoom, reset, and clockwise quarter-turn controls. Rotation
+  advances through 0°, 90°, 180°, and 270°, while Reset returns both scale and direction to their
+  initial values; controls remain available in preview without opening the Markdown source.
+- B01: replace transform-only Mermaid sizing with a shared two-dimensional viewport whose stage
+  receives the diagram's real zoomed and rotated bounds. Enlarged diagrams now scroll horizontally
+  and vertically instead of being clipped, including after any 90° direction change.
+
+Compatibility: Standard Notes custom `editor-editor` component, interchangeable Markdown note/file
+type. The hosted manifest and desktop archive keep the stable
+`com.dzyha.standard-notes-aic` identifier and AIC Editor Core 2.6.
+
 ## 13.2.1 — 2026-09-02
 
 Release sequence 13 · 2 feature outcomes · 1 fixed-bug outcome.

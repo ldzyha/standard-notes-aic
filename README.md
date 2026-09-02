@@ -46,6 +46,11 @@ inside a horizontal scroller when its readable columns are wider than the editor
 copies the exact Markdown table source. Action graphics are embedded SVG data URIs rendered as CSS
 masks; button DOM stays text-free and accessible through `aria-label` values.
 
+Mermaid previews keep Zoom out, Zoom in, Reset, and Rotate actions permanently visible. Rotate
+turns the diagram clockwise by 90° per activation; Reset restores both 100% scale and the original
+direction. The diagram viewport scrolls on both axes after zoom or rotation and can receive keyboard
+focus without exposing the Mermaid source.
+
 AIC details use this exact non-nested grammar:
 
 ```text
@@ -133,6 +138,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `13.2.1` is sequence 13 with
-two feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `14.1.1` is sequence 14 with
+one feature outcome and one fixed-bug outcome; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

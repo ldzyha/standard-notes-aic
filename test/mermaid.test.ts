@@ -189,7 +189,7 @@ describe("Mermaid rendering boundary", () => {
     const canvas =
       preview.element.querySelector<HTMLElement>(".cm-mermaid-canvas")!;
     expect(canvas.getAttribute("role")).toBe("region");
-    expect(canvas.tabIndex).toBe(-1);
+    expect(canvas.tabIndex).toBe(0);
     canvas.click();
     canvas.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Enter", bubbles: true }),

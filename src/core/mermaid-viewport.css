@@ -1,0 +1,43 @@
+.cm-aic-mermaid-controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.12rem;
+  flex: 0 0 auto;
+}
+
+.cm-aic-mermaid-control:disabled {
+  cursor: default;
+  opacity: 0.42;
+}
+
+.cm-aic-mermaid-viewport {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  max-height: min(70vh, 720px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.cm-aic-mermaid-stage {
+  position: relative;
+  min-width: 1px;
+  min-height: 1px;
+  margin-inline: auto;
+}
+
+.cm-aic-mermaid-stage > svg {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: var(--aic-mermaid-source-width) !important;
+  max-width: none !important;
+  height: var(--aic-mermaid-source-height) !important;
+  transform: translate(-50%, -50%) rotate(var(--aic-mermaid-rotation, 0deg));
+  transform-origin: center;
+  pointer-events: none;
+  user-select: none;
+}

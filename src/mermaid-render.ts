@@ -4,6 +4,7 @@ import {
   showIconFeedback,
   writeTextToClipboard,
 } from "./core/structured-preview.js";
+import { createMermaidViewport } from "./core/mermaid-viewport.js";
 
 export type MermaidTheme = "dark" | "default";
 
@@ -262,10 +263,11 @@ export function createMermaidPreview({
     className: "cm-mermaid-edit cm-md-edit-source",
     onActivate: () => onEdit(),
   });
-  actions.append(copy, edit);
+  const viewportController = createMermaidViewport(document);
+  actions.append(copy, edit, viewportController.controls);
   caption.append(label, actions);
-  const canvas = document.createElement("div");
-  canvas.className = "cm-mermaid-canvas";
+  const canvas = viewportController.viewport;
+  canvas.classList.add("cm-mermaid-canvas");
   canvas.setAttribute("role", "region");
   canvas.setAttribute("aria-label", "Rendered Mermaid diagram");
   figure.append(caption, canvas);
@@ -284,11 +286,10 @@ export function createMermaidPreview({
     const abort = new AbortController();
     activeAbort = abort;
     figure.setAttribute("aria-busy", "true");
-    canvas.replaceChildren();
     const loading = document.createElement("span");
     loading.className = "cm-mermaid-loading";
     loading.textContent = "Rendering diagram…";
-    canvas.append(loading);
+    viewportController.replaceContent(loading);
     try {
       const svg = await queue.schedule(
         () => render({ source: nextSource, theme: nextTheme, document }),
@@ -298,12 +299,12 @@ export function createMermaidPreview({
       );
       if (destroyed || token !== epoch) return false;
       activeAbort = null;
-      const diagram = document.createElement("div");
-      diagram.className = "cm-mermaid-diagram";
+      const holder = document.createElement("div");
+      holder.innerHTML = svg;
+      const diagram = holder.firstElementChild ?? holder;
       diagram.setAttribute("inert", "");
       diagram.setAttribute("aria-hidden", "true");
-      diagram.innerHTML = svg;
-      canvas.replaceChildren(diagram);
+      viewportController.replaceContent(diagram);
       figure.setAttribute("aria-busy", "false");
       return true;
     } catch (error) {
@@ -322,7 +323,7 @@ export function createMermaidPreview({
       const detail = document.createElement("pre");
       detail.textContent = diagnostic.detail;
       card.append(summary, detail);
-      canvas.replaceChildren(card);
+      viewportController.replaceContent(card);
       figure.setAttribute("aria-busy", "false");
       return false;
     }
@@ -338,6 +339,7 @@ export function createMermaidPreview({
       epoch++;
       activeAbort?.abort();
       activeAbort = null;
+      viewportController.destroy();
       figure.setAttribute("aria-busy", "false");
       return true;
     },
