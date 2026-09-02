@@ -1,4 +1,4 @@
-export const STRUCTURED_PREVIEW_CORE_VERSION: "2.4.0";
+export const STRUCTURED_PREVIEW_CORE_VERSION: "2.5.0";
 
 export function selectionRevealsPreview(
   ranges: readonly { from: number; to: number }[],
@@ -16,6 +16,25 @@ export function createIconButton(
     onActivate?: (button: HTMLButtonElement) => unknown;
   }>,
 ): HTMLButtonElement;
+
+export function formatPropertyValue(
+  key: unknown,
+  value: unknown,
+  locale?: string,
+): string;
+
+export function createCellEditor(
+  document: Document,
+  options?: Readonly<{
+    value?: unknown;
+    displayValue?: unknown;
+    label?: unknown;
+    multiline?: boolean;
+    readOnly?: boolean;
+    validate?: (value: string) => string | boolean | void;
+    onCommit?: (value: string) => unknown;
+  }>,
+): HTMLSpanElement;
 
 export function showIconFeedback(
   button: HTMLButtonElement,

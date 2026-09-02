@@ -5,6 +5,7 @@ export type FilePropertyStamp = Readonly<{
 }>;
 
 export function isMarkdownDocumentName(value: unknown): boolean;
+export function isManagedNoteName(value: unknown): boolean;
 
 export function stampFileProperties(
   markdown: unknown,

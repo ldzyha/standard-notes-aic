@@ -1,4 +1,6 @@
-export const STRUCTURED_PREVIEW_CORE_VERSION = "2.4.0";
+export const STRUCTURED_PREVIEW_CORE_VERSION = "2.5.0";
+
+const activeCellEditors = new WeakMap();
 
 export function selectionRevealsPreview(ranges, from, to) {
   if (!Array.isArray(ranges) || !Number.isFinite(from) || !Number.isFinite(to))
@@ -300,6 +302,181 @@ export function createIconButton(
     void onActivate?.(button);
   });
   return button;
+}
+
+export function formatPropertyValue(key, value, locale) {
+  const source = String(value ?? "");
+  if (!/^(?:created|updated)$/iu.test(String(key ?? "").trim())) return source;
+  const timestamp = Date.parse(source);
+  if (!Number.isFinite(timestamp)) return source;
+  try {
+    return new Intl.DateTimeFormat(locale || undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      timeZoneName: "short",
+    }).format(new Date(timestamp));
+  } catch {
+    return source;
+  }
+}
+
+export function createCellEditor(
+  document,
+  {
+    value = "",
+    displayValue,
+    label = "Edit value",
+    multiline = false,
+    readOnly = false,
+    validate,
+    onCommit,
+  } = {},
+) {
+  const source = String(value ?? "");
+  const visible = String(displayValue ?? source);
+  const control = document.createElement("span");
+  control.className = "cm-aic-cell-value";
+  control.dataset.empty = visible ? "false" : "true";
+  control.textContent = visible || "—";
+  control.setAttribute("aria-label", String(label));
+  if (readOnly) return control;
+
+  control.tabIndex = 0;
+  control.setAttribute("role", "button");
+  control.setAttribute("aria-haspopup", "dialog");
+
+  const open = () => {
+    activeCellEditors.get(document)?.();
+    const popup = document.createElement("div");
+    popup.className = "cm-aic-cell-popover";
+    popup.setAttribute("role", "dialog");
+    popup.setAttribute("aria-label", String(label));
+    const field = multiline
+      ? document.createElement("textarea")
+      : document.createElement("input");
+    if (multiline) field.rows = 4;
+    else field.type = "text";
+    field.className = "cm-aic-cell-editor";
+    field.value = source;
+    field.setAttribute("aria-label", String(label));
+    const actions = document.createElement("span");
+    actions.className = "cm-aic-cell-popover-actions";
+    let outsideTimer;
+    const reposition = () => {
+      if (!popup.isConnected) return;
+      const view = document.defaultView;
+      const rect = control.getBoundingClientRect();
+      const viewportWidth =
+        view?.innerWidth ?? document.documentElement.clientWidth;
+      const viewportHeight =
+        view?.innerHeight ?? document.documentElement.clientHeight;
+      const width = Math.min(
+        Math.max(rect.width, 260),
+        Math.max(260, viewportWidth - 24),
+      );
+      popup.style.width = `${width}px`;
+      const measured = popup.getBoundingClientRect();
+      const left = Math.max(
+        12,
+        Math.min(rect.left, viewportWidth - width - 12),
+      );
+      const below = rect.bottom + 6;
+      const top =
+        below + measured.height <= viewportHeight - 12
+          ? below
+          : Math.max(12, rect.top - measured.height - 6);
+      popup.style.left = `${left}px`;
+      popup.style.top = `${top}px`;
+    };
+    const close = () => {
+      if (outsideTimer)
+        (document.defaultView ?? globalThis).clearTimeout(outsideTimer);
+      document.removeEventListener("pointerdown", onOutside, true);
+      document.defaultView?.removeEventListener("resize", reposition);
+      document.defaultView?.removeEventListener("scroll", reposition, true);
+      popup.remove();
+      control.setAttribute("aria-expanded", "false");
+      if (activeCellEditors.get(document) === close)
+        activeCellEditors.delete(document);
+    };
+    const commit = () => {
+      const error = validate?.(field.value);
+      if (typeof error === "string" && error) {
+        field.setCustomValidity(error);
+        field.reportValidity();
+        return false;
+      }
+      if (error === false) return false;
+      field.setCustomValidity("");
+      const next = field.value;
+      close();
+      onCommit?.(next);
+      return true;
+    };
+    const onOutside = (event) => {
+      if (!popup.contains(event.target) && !control.contains(event.target))
+        close();
+    };
+    const save = createIconButton(document, {
+      label: "Apply change",
+      icon: "check",
+      className: "cm-aic-cell-popover-action",
+      onActivate: commit,
+    });
+    const cancel = createIconButton(document, {
+      label: "Cancel edit",
+      icon: "close",
+      className: "cm-aic-cell-popover-action",
+      onActivate: close,
+    });
+    actions.append(save, cancel);
+    popup.append(field, actions);
+    document.body.append(popup);
+    activeCellEditors.set(document, close);
+    control.setAttribute("aria-expanded", "true");
+    reposition();
+    document.defaultView?.addEventListener("resize", reposition);
+    document.defaultView?.addEventListener("scroll", reposition, true);
+    outsideTimer = (document.defaultView ?? globalThis).setTimeout(
+      () => document.addEventListener("pointerdown", onOutside, true),
+      0,
+    );
+    field.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        close();
+      } else if (
+        (event.ctrlKey || event.metaKey) &&
+        event.key.toLowerCase() === "s"
+      ) {
+        if (!commit()) event.preventDefault();
+      } else if (
+        event.key === "Enter" &&
+        (!multiline || event.ctrlKey || event.metaKey)
+      ) {
+        event.preventDefault();
+        commit();
+      }
+    });
+    field.focus();
+    field.select();
+  };
+
+  control.addEventListener("click", (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    open();
+  });
+  control.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    event.stopPropagation();
+    open();
+  });
+  return control;
 }
 
 export function showIconFeedback(

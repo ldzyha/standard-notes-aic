@@ -151,12 +151,21 @@ describe("AIC editor integration", () => {
     editor.view.dispatch({ selection: { anchor: source.length } });
     properties = editor.element.querySelector<HTMLElement>(".cm-md-props");
     expect(properties).not.toBeNull();
-    const status = editor.element.querySelector<HTMLInputElement>(
+    const status = editor.element.querySelector<HTMLElement>(
       '[aria-label="Property status value"]',
     );
     expect(status).not.toBeNull();
-    status!.value = "active";
-    status!.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(status!.tagName).toBe("SPAN");
+    expect(properties!.querySelector("input, textarea")).toBeNull();
+    status!.click();
+    const statusEditor = document.body.querySelector<HTMLTextAreaElement>(
+      ".cm-aic-cell-editor",
+    );
+    expect(statusEditor).not.toBeNull();
+    statusEditor!.value = "active";
+    document.body
+      .querySelector<HTMLButtonElement>('[aria-label="Apply change"]')!
+      .click();
     expect(editor.value).toContain("status: active");
     const add = editor.element.querySelector<HTMLButtonElement>(
       '[aria-label="Add property"]',
@@ -205,12 +214,18 @@ describe("AIC editor integration", () => {
       3,
     );
 
-    const ticket = properties!.querySelector<HTMLInputElement>(
+    const ticket = properties!.querySelector<HTMLElement>(
       '[aria-label="Property id value"]',
     );
     expect(ticket).not.toBeNull();
-    ticket!.value = "EPC-33349";
-    ticket!.dispatchEvent(new Event("change", { bubbles: true }));
+    ticket!.click();
+    const ticketEditor = document.body.querySelector<HTMLTextAreaElement>(
+      ".cm-aic-cell-editor",
+    );
+    ticketEditor!.value = "EPC-33349";
+    document.body
+      .querySelector<HTMLButtonElement>('[aria-label="Apply change"]')!
+      .click();
     expect(editor.value).toContain("      id: EPC-33349");
     expect(editor.value).toContain("    - type: jira");
     editor.destroy();
@@ -251,7 +266,7 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
-  it("edits table values directly and reveals source for selections or Edit", () => {
+  it("edits table values in one popover and reveals source for selections or Edit", () => {
     const source = "| A | B |\n| --- | --- |\n| x | y |\n\nafter";
     const host = document.createElement("div");
     document.body.append(host);
@@ -263,26 +278,25 @@ describe("AIC editor integration", () => {
     table!.click();
     expect(editor.view.state.selection.main.head).toBe(before);
     expect(editor.element.querySelector(".cm-md-table")).not.toBeNull();
-    const value = table!.querySelector<HTMLTextAreaElement>(
+    const value = table!.querySelector<HTMLElement>(
       '[aria-label="Row 1, column 1"]',
     );
     expect(value).not.toBeNull();
-    expect(value!.tagName).toBe("TEXTAREA");
-    value!.value = "changed";
-    value!.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(value!.tagName).toBe("SPAN");
+    expect(table!.querySelector("input, textarea")).toBeNull();
+    value!.click();
+    const valueEditor = document.body.querySelector<HTMLTextAreaElement>(
+      ".cm-aic-cell-editor",
+    );
+    expect(valueEditor).not.toBeNull();
+    valueEditor!.value = "changed";
+    document.body
+      .querySelector<HTMLButtonElement>('[aria-label="Apply change"]')!
+      .click();
     expect(editor.value).toContain("| changed | y |");
-    let refreshed = editor.element.querySelector<HTMLElement>(".cm-md-table");
-    const selectedCell = refreshed!.querySelector<HTMLTextAreaElement>(
-      '[aria-label="Row 1, column 1"]',
-    );
-    selectedCell!.dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "a",
-        ctrlKey: true,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
+    editor.view.dispatch({
+      selection: { anchor: 0, head: editor.value.length },
+    });
     expect(editor.view.state.selection.main.from).toBe(0);
     expect(editor.view.state.selection.main.to).toBe(editor.value.length);
     expect(editor.element.querySelector(".cm-md-table")).toBeNull();
@@ -292,7 +306,7 @@ describe("AIC editor integration", () => {
     expect(editor.element.querySelector(".cm-md-table")).toBeNull();
     editor.view.dispatch({ selection: { anchor: editor.value.length } });
     expect(editor.element.querySelector(".cm-md-table")).not.toBeNull();
-    refreshed = editor.element.querySelector<HTMLElement>(".cm-md-table");
+    const refreshed = editor.element.querySelector<HTMLElement>(".cm-md-table");
     const edit = refreshed!.querySelector<HTMLButtonElement>(
       '[aria-label="Edit table source"]',
     );

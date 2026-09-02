@@ -1,5 +1,24 @@
 # Changelog
 
+## 13.2.1 — 2026-09-02
+
+Release sequence 13 · 2 feature outcomes · 1 fixed-bug outcome.
+
+- F01: move managed `file`, stable `created`, and explicit-save `updated` metadata from ordinary
+  Markdown documents to `*.note.md` items. Existing authored note frontmatter is merged without
+  loss, dates render in the user's locale, and an exact legacy three-field document signature is
+  removed without touching unrelated properties.
+- F02: replace permanent table and Properties inputs with static selectable previews and one
+  transient editor popover opened only for the active cell. Columns size to content, wrap only at
+  word boundaries, retain horizontal scrolling for wide values, and use CSS-mask Apply/Cancel
+  actions shared through AIC Editor Core 2.5.
+- B01: require a complete syntax tree before deriving table blocks, preventing a valid table near
+  the end of a busy document from intermittently remaining raw during initial rendering.
+
+Compatibility: Standard Notes custom `editor-editor` component, interchangeable Markdown note/file
+type. The hosted manifest and desktop archive keep the stable
+`com.dzyha.standard-notes-aic` identifier and AIC Editor Core 2.5.
+
 ## 12.2.0 — 2026-09-01
 
 Release sequence 12 · 2 feature outcomes · 0 fixed-bug outcomes.

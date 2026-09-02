@@ -33,14 +33,15 @@ a second editor or convert note data.
 
 AIC keeps Markdown as the source of truth without duplicating it into tooltip editors. Clicking a
 link label opens it; compact, always-visible Copy and Edit icon actions stay beside the label.
-**Table** and **Properties** previews edit values directly, add rows/columns/properties, and reorder data through
-drag handles. Nested YAML maps and sequences retain their indentation as visible levels; group rows
+**Table** and **Properties** previews show static values and open one focused editor popover only
+after activation. They add rows/columns/properties and reorder data through drag handles. Nested YAML
+maps and sequences retain their indentation as visible levels; group rows
 stay structural, leaf values remain editable, and moving a list/map row moves its complete branch
 only among valid siblings. Each interaction produces one valid Markdown transaction. A non-empty
 selection reveals raw Markdown for every preview block it crosses; `Ctrl+A`/`Cmd+A` therefore exits
 preview for the complete note. A collapsed cursor keeps preview, while the explicit Edit icon
 reveals and focuses one structure, including read-only inspection in a locked note.
-Table cells use wrapping, auto-height textareas. The table fills its card and places only the grid
+Table columns size to their content and wrap only at word boundaries. The table fills its card and places only the grid
 inside a horizontal scroller when its readable columns are wider than the editor. Its Copy icon
 copies the exact Markdown table source. Action graphics are embedded SVG data URIs rendered as CSS
 masks; button DOM stays text-free and accessible through `aria-label` values.
@@ -107,9 +108,10 @@ stack pulled by EditorKit is deliberately not bundled into this editor.
   body remains exact Markdown.
 - Input stays in the shared dependency-free draft core. Standard Notes is updated only when the
   user presses Ctrl+S/Cmd+S; input, blur, and page unload never save a note.
-- For ordinary Markdown file items (`*.md`, excluding `*.note.md`), that explicit save keeps one
-  compact properties header: `file`, the stable `created` value, and an automatically refreshed UTC
-  `updated` timestamp. The Markdown body is preserved exactly.
+- For `*.note.md` items, explicit save keeps `file`, stable `created`, and automatically refreshed
+  `updated` metadata while preserving every authored property. Dates render in the user's locale.
+  Ordinary `*.md` items receive no generated properties; an exact legacy three-field auto-header is
+  removed without touching other frontmatter.
 - The Standard Notes host adapter binds each in-memory draft to the working-note UUID and checks
   that UUID again at save time. Switching notes cannot redirect a draft into another note, and
   returning during the same editor session restores the correct dirty draft without storing its
@@ -131,6 +133,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `12.2.0` is sequence 12 with
-two feature outcomes and no fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `13.2.1` is sequence 13 with
+two feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

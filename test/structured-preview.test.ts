@@ -1,8 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   addProperty,
   addTableColumn,
   addTableRow,
+  createCellEditor,
+  formatPropertyValue,
   moveProperty,
   moveTableColumn,
   moveTableRow,
@@ -50,5 +52,36 @@ describe("shared structured preview core", () => {
     expect(serializeFrontmatter(moved)).toBe(
       "---\nproperty: in progress\nstatus: idea\nproperty_2: \n---",
     );
+  });
+
+  it("formats managed dates for preview without changing their source", () => {
+    const source = "2026-09-02T06:54:39.700Z";
+    const formatted = formatPropertyValue("updated", source, "en-US");
+    expect(formatted).toContain("2026");
+    expect(formatted).not.toBe(source);
+    expect(formatPropertyValue("status", source, "en-US")).toBe(source);
+  });
+
+  it("opens one transient editor and commits only through its action", () => {
+    const commit = vi.fn();
+    const control = createCellEditor(document, {
+      value: "draft",
+      label: "Status",
+      multiline: true,
+      onCommit: commit,
+    });
+    document.body.append(control);
+    expect(document.querySelector(".cm-aic-cell-editor")).toBeNull();
+    control.click();
+    const field = document.querySelector<HTMLTextAreaElement>(
+      ".cm-aic-cell-editor",
+    );
+    expect(field).not.toBeNull();
+    field!.value = "active";
+    document
+      .querySelector<HTMLButtonElement>('[aria-label="Apply change"]')!
+      .click();
+    expect(commit).toHaveBeenCalledWith("active");
+    expect(document.querySelector(".cm-aic-cell-editor")).toBeNull();
   });
 });

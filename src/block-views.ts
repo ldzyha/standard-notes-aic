@@ -1,4 +1,4 @@
-import { syntaxTree } from "@codemirror/language";
+import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import {
   StateEffect,
   StateField,
@@ -16,7 +16,9 @@ import {
   addProperty,
   addTableColumn,
   addTableRow,
+  createCellEditor,
   createIconButton,
+  formatPropertyValue,
   moveProperty,
   moveTableColumn,
   moveTableRow,
@@ -172,54 +174,6 @@ function previewHeader(
   return header;
 }
 
-function input(
-  document: Document,
-  value: string,
-  label: string,
-  onChange: (value: string) => void,
-  readOnly: boolean,
-  propertyKey = false,
-  multiline = false,
-): HTMLInputElement | HTMLTextAreaElement {
-  const field = multiline
-    ? document.createElement("textarea")
-    : document.createElement("input");
-  if (field.tagName === "TEXTAREA") (field as HTMLTextAreaElement).rows = 1;
-  else (field as HTMLInputElement).type = "text";
-  field.className = "cm-aic-structure-input";
-  field.value = value;
-  field.readOnly = readOnly;
-  field.setAttribute("aria-label", label);
-  const fit = () => {
-    if (field.tagName !== "TEXTAREA") return;
-    field.style.height = "0";
-    field.style.height = `${Math.max(30, field.scrollHeight)}px`;
-  };
-  field.addEventListener("input", fit);
-  field.addEventListener("change", () => {
-    if (propertyKey && !validPropertyKey(field.value.trim())) {
-      field.setCustomValidity("Use letters, numbers, dot, underscore, or dash");
-      field.reportValidity();
-      return;
-    }
-    field.setCustomValidity("");
-    onChange(field.value);
-  });
-  field.addEventListener("keydown", (event) => {
-    const keyboardEvent = event as KeyboardEvent;
-    if (keyboardEvent.key === "Enter") {
-      keyboardEvent.preventDefault();
-      field.blur();
-    } else if (keyboardEvent.key === "Escape") {
-      keyboardEvent.preventDefault();
-      field.value = value;
-      field.blur();
-    }
-  });
-  queueMicrotask(fit);
-  return field;
-}
-
 function dragHandle(
   document: Document,
   label: string,
@@ -371,15 +325,14 @@ class TableWidget extends WidgetType {
           columnIndex,
           this.readOnly,
         ),
-        input(
-          document,
+        createCellEditor(document, {
           value,
-          `Column ${columnIndex + 1} name`,
-          (next) => replace(updateTableCell(parsed, -1, columnIndex, next)),
-          this.readOnly,
-          false,
-          true,
-        ),
+          label: `Column ${columnIndex + 1} name`,
+          multiline: true,
+          readOnly: this.readOnly,
+          onCommit: (next) =>
+            replace(updateTableCell(parsed, -1, columnIndex, next)),
+        }),
       );
       cell.append(content);
       if (parsed.aligns[columnIndex])
@@ -413,16 +366,14 @@ class TableWidget extends WidgetType {
       parsed.header.forEach((_, columnIndex) => {
         const cell = document.createElement("td");
         cell.append(
-          input(
-            document,
-            row[columnIndex] ?? "",
-            `Row ${rowIndex + 1}, column ${columnIndex + 1}`,
-            (next) =>
+          createCellEditor(document, {
+            value: row[columnIndex] ?? "",
+            label: `Row ${rowIndex + 1}, column ${columnIndex + 1}`,
+            multiline: true,
+            readOnly: this.readOnly,
+            onCommit: (next) =>
               replace(updateTableCell(parsed, rowIndex, columnIndex, next)),
-            this.readOnly,
-            false,
-            true,
-          ),
+          }),
         );
         if (parsed.aligns[columnIndex])
           cell.style.textAlign = parsed.aligns[columnIndex]!;
@@ -541,15 +492,17 @@ class FrontmatterWidget extends WidgetType {
       keyContent.append(marker);
       if (!item.scalar) {
         keyContent.append(
-          input(
-            document,
-            item.key,
-            `Property ${index + 1} name`,
-            (next) =>
+          createCellEditor(document, {
+            value: item.key,
+            label: `Property ${index + 1} name`,
+            readOnly: this.readOnly,
+            validate: (value) =>
+              validPropertyKey(value.trim())
+                ? ""
+                : "Use letters, numbers, dot, underscore, or dash",
+            onCommit: (next) =>
               replace(updateProperty(this.block.rows, index, "key", next)),
-            this.readOnly,
-            true,
-          ),
+          }),
         );
       } else {
         const itemLabel = document.createElement("span");
@@ -570,14 +523,15 @@ class FrontmatterWidget extends WidgetType {
         value.append(group);
       } else {
         value.append(
-          input(
-            document,
-            item.value,
-            `Property ${item.key || "list item"} value`,
-            (next) =>
+          createCellEditor(document, {
+            value: item.value,
+            displayValue: formatPropertyValue(item.key, item.value),
+            label: `Property ${item.key || "list item"} value`,
+            multiline: true,
+            readOnly: this.readOnly,
+            onCommit: (next) =>
               replace(updateProperty(this.block.rows, index, "value", next)),
-            this.readOnly,
-          ),
+          }),
         );
       }
       dropTarget(
@@ -602,7 +556,9 @@ class FrontmatterWidget extends WidgetType {
 
 function tableNodes(state: EditorState): Array<{ from: number; to: number }> {
   const nodes: Array<{ from: number; to: number }> = [];
-  syntaxTree(state).iterate({
+  const tree =
+    ensureSyntaxTree(state, state.doc.length, 100) ?? syntaxTree(state);
+  tree.iterate({
     enter(node) {
       if (node.name === "Table") nodes.push({ from: node.from, to: node.to });
     },

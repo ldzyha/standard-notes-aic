@@ -57,10 +57,14 @@ function property(body, key) {
   return match ? decodedScalar(match[1]) : "";
 }
 
-export function isMarkdownDocumentName(value) {
+export function isManagedNoteName(value) {
   const name = baseName(value).toLowerCase();
-  return name.endsWith(".md") && !name.endsWith(".note.md");
+  return name.endsWith(".note.md");
 }
+
+// Kept as a compatibility alias for clients released before managed metadata
+// moved from ordinary Markdown documents to note sidecars.
+export const isMarkdownDocumentName = isManagedNoteName;
 
 export function stampFileProperties(
   markdown,
@@ -69,21 +73,57 @@ export function stampFileProperties(
   const source = String(markdown ?? "");
   const file = baseName(fileName);
   const updated = String(updatedAt ?? "").trim();
-  if (!isMarkdownDocumentName(file) || !updated) return source;
+  if (!file || !updated) return source;
 
   const match = FRONTMATTER.exec(source);
+  if (!isManagedNoteName(file)) {
+    // v16.2 briefly stamped ordinary Markdown files. Remove only that exact
+    // managed signature, and never treat arbitrary authored dates as ours.
+    if (
+      !match ||
+      baseName(property(match[1], "file")).toLowerCase() !==
+        file.toLowerCase() ||
+      !property(match[1], "created") ||
+      !property(match[1], "updated")
+    )
+      return source;
+    const eol = lineEnding(source);
+    const authored = match[1]
+      .split(/\r\n|\n|\r/u)
+      .filter((line) => !/^(?:file|created|updated):[ \t]*/u.test(line));
+    while (authored[0] === "") authored.shift();
+    while (authored.at(-1) === "") authored.pop();
+    const body = source.slice(match[0].length);
+    if (authored.length) {
+      const header = ["---", ...authored, "---"].join(eol);
+      if (!body) return `${header}${eol}`;
+      return `${header}${eol}${body.startsWith(eol) ? "" : eol}${body}`;
+    }
+    return body.startsWith(eol) ? body.slice(eol.length) : body;
+  }
+
   const created =
     (match ? property(match[1], "created") : "") ||
     String(createdAt ?? updated).trim() ||
     updated;
   const eol = lineEnding(source);
-  const header = [
-    "---",
+  const managed = [
     `file: ${scalar(file)}`,
     `created: ${scalar(created)}`,
     `updated: ${scalar(updated)}`,
-    "---",
-  ].join(eol);
+  ];
+
+  // Notes can already contain semantic frontmatter (level, scope, status,
+  // nested traceability, and so on). Only replace the three root-level fields
+  // owned by this module; every other authored line remains byte-for-byte.
+  const authored = match
+    ? match[1]
+        .split(/\r\n|\n|\r/u)
+        .filter((line) => !/^(?:file|created|updated):[ \t]*/u.test(line))
+    : [];
+  while (authored[0] === "") authored.shift();
+  while (authored.at(-1) === "") authored.pop();
+  const header = ["---", ...managed, ...authored, "---"].join(eol);
 
   if (!match)
     return source ? `${header}${eol}${eol}${source}` : `${header}${eol}`;

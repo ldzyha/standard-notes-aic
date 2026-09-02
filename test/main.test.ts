@@ -130,12 +130,22 @@ describe("Standard Notes editor bridge", () => {
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "s", ctrlKey: true }),
     );
-    expect(bridge.api.text).toMatch(
-      /^---\nfile: documentation\.md\ncreated: 2026-08-20T10:00:00\.000Z\nupdated: .+Z\n---\n\n# Document\n$/u,
-    );
+    expect(bridge.api.text).toBe(documentSource);
     expect(view.state.doc.toString()).toBe(bridge.api.text);
-    expect(bridge.writes).toHaveLength(writesBeforeFileSave + 2);
+    expect(bridge.writes).toHaveLength(writesBeforeFileSave);
     expect(editor.dataset.saveState).toBe("saved");
+
+    const noteSource = "---\nstatus: draft\n---\n\n# Note\n";
+    bridge.stream("markdown-note", noteSource, {
+      title: "documentation.note.md",
+      createdAt: "2026-08-20T10:00:00.000Z",
+    });
+    document.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "s", ctrlKey: true }),
+    );
+    expect(bridge.api.text).toMatch(
+      /^---\nfile: documentation\.note\.md\ncreated: 2026-08-20T10:00:00\.000Z\nupdated: .+Z\nstatus: draft\n---\n\n# Note\n$/u,
+    );
 
     bridge.api.locked = true;
     bridge.stream("note-empty", "");
