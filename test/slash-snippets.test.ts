@@ -26,12 +26,23 @@ function state(doc: string, readOnly = false) {
 
 describe("shared documentation slash snippets", () => {
   it("offers unique page, section, and formatting-block perspectives", () => {
-    expect(SLASH_SNIPPETS_CORE_VERSION).toBe("1.0.0");
+    expect(SLASH_SNIPPETS_CORE_VERSION).toBe("1.1.0");
     expect(
       new Set(DOCUMENTATION_SNIPPETS.map(({ command }) => command)).size,
     ).toBe(DOCUMENTATION_SNIPPETS.length);
     expect(new Set(DOCUMENTATION_SNIPPETS.map(({ kind }) => kind))).toEqual(
       new Set(["page", "section", "block"]),
+    );
+    expect(new Set(DOCUMENTATION_SNIPPETS.map(({ group }) => group))).toEqual(
+      new Set([
+        "pages",
+        "structure",
+        "assurance",
+        "references",
+        "data",
+        "diagrams",
+        "content",
+      ]),
     );
     expect(
       DOCUMENTATION_SNIPPETS.every(
@@ -84,8 +95,8 @@ describe("shared documentation slash snippets", () => {
     )!;
     const page = empty.options.find(({ label }) => label === "/page")!;
     const purpose = empty.options.find(({ label }) => label === "/purpose")!;
-    expect(page.section).toMatchObject({ name: "Pages", rank: 0 });
-    expect(purpose.section).toMatchObject({ name: "Sections", rank: 1 });
+    expect(page.section).toMatchObject({ name: "Page templates", rank: 0 });
+    expect(purpose.section).toMatchObject({ name: "Page structure", rank: 1 });
 
     const pageState = state("# Existing\n\n/");
     const inPage = slashSnippetCompletions(
@@ -93,10 +104,20 @@ describe("shared documentation slash snippets", () => {
     )!;
     expect(
       inPage.options.find(({ label }) => label === "/purpose")?.section,
-    ).toMatchObject({ name: "Sections", rank: 0 });
+    ).toMatchObject({ name: "Page structure", rank: 0 });
+    expect(
+      inPage.options.find(({ label }) => label === "/errors")?.section,
+    ).toMatchObject({ name: "Risks & verification", rank: 1 });
+    expect(
+      inPage.options.find(({ label }) => label === "/glossary")?.section,
+    ).toMatchObject({ name: "References", rank: 2 });
+    expect(
+      inPage.options.find(({ label }) => label === "/flowchart")?.section,
+    ).toMatchObject({ name: "Diagrams", rank: 4 });
+    expect(inPage.options.every(({ info }) => info === undefined)).toBe(true);
     expect(
       inPage.options.find(({ label }) => label === "/page")?.section,
-    ).toMatchObject({ name: "Pages", rank: 2 });
+    ).toMatchObject({ name: "Page templates", rank: 6 });
   });
 
   it("replaces the slash token and exposes guiding questions as Tab stops", () => {

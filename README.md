@@ -40,11 +40,12 @@ catalog. Empty notes put complete pages first; an existing page puts its section
 template with the keyboard or pointer, then use `Tab` to move through its highlighted thinking
 questions and replace each answer in place.
 
-The catalog includes progressive documentation, architecture, capability, and decision pages;
-purpose, high-level design, owned detail, bibliography, glossary, error handling, verification, and
-open-question sections; and tables, comparisons, Mermaid flow/class/sequence/timeline diagrams,
-code, details, task, and synthesis blocks. Slash completion is disabled in fenced/inline code and in
-locked notes, so `/` remains ordinary Markdown there.
+The menu separates Page templates, Page structure, Risks & verification, References, Tables &
+lists, Diagrams, and Content blocks. Its examples include progressive documentation, architecture,
+capability and decision pages; focused sections; tables and comparisons; Mermaid
+flow/class/sequence/timeline diagrams; code, details, tasks and synthesis. Slash completion is
+disabled in fenced/inline code and in locked notes, so `/` remains ordinary Markdown there. AIC
+Notes uses this same catalog in both ordinary `.md` documents and contextual `.note.md` notes.
 
 ## Preview and source controls
 
@@ -163,6 +164,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `19.1.0` is sequence 19 with
-one feature outcome and no fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `20.1.1` is sequence 20 with
+one feature outcome and one fixed-bug outcome; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

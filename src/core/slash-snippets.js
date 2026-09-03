@@ -1,12 +1,44 @@
 import { autocompletion, snippetCompletion } from "@codemirror/autocomplete";
 import { syntaxTree } from "@codemirror/language";
 
-export const SLASH_SNIPPETS_CORE_VERSION = "1.0.0";
+export const SLASH_SNIPPETS_CORE_VERSION = "1.1.0";
 export const SLASH_SNIPPET_PLACEHOLDER =
   "Write in Markdown… Type / for templates";
 
+const GROUP_BY_COMMAND = Object.freeze({
+  page: "pages",
+  "page-architecture": "pages",
+  "page-capability": "pages",
+  "page-decision": "pages",
+  purpose: "structure",
+  "high-level": "structure",
+  "owned-detail": "structure",
+  errors: "assurance",
+  verification: "assurance",
+  "open-questions": "assurance",
+  bibliography: "references",
+  glossary: "references",
+  "mapping-table": "data",
+  comparison: "data",
+  tasks: "data",
+  flowchart: "diagrams",
+  sequence: "diagrams",
+  "class-diagram": "diagrams",
+  timeline: "diagrams",
+  code: "content",
+  details: "content",
+  synthesis: "content",
+});
+
 const define = (command, kind, title, question, template) =>
-  Object.freeze({ command, kind, title, question, template });
+  Object.freeze({
+    command,
+    kind,
+    group: GROUP_BY_COMMAND[command],
+    title,
+    question,
+    template,
+  });
 
 export const DOCUMENTATION_SNIPPETS = Object.freeze([
   define(
@@ -449,18 +481,44 @@ export function slashSnippetQuery(state, pos) {
   });
 }
 
+const GROUP_NAMES = Object.freeze({
+  pages: "Page templates",
+  structure: "Page structure",
+  assurance: "Risks & verification",
+  references: "References",
+  data: "Tables & lists",
+  diagrams: "Diagrams",
+  content: "Content blocks",
+});
+
 function sections(hasPageContent) {
-  return hasPageContent
-    ? {
-        page: { name: "Pages", rank: 2 },
-        section: { name: "Sections", rank: 0 },
-        block: { name: "Formatting blocks", rank: 1 },
-      }
-    : {
-        page: { name: "Pages", rank: 0 },
-        section: { name: "Sections", rank: 1 },
-        block: { name: "Formatting blocks", rank: 2 },
-      };
+  const order = hasPageContent
+    ? [
+        "structure",
+        "assurance",
+        "references",
+        "data",
+        "diagrams",
+        "content",
+        "pages",
+      ]
+    : [
+        "pages",
+        "structure",
+        "assurance",
+        "references",
+        "data",
+        "diagrams",
+        "content",
+      ];
+  return Object.freeze(
+    Object.fromEntries(
+      order.map((group, rank) => [
+        group,
+        Object.freeze({ name: GROUP_NAMES[group], rank }),
+      ]),
+    ),
+  );
 }
 
 export function slashSnippetCompletions(context) {
@@ -473,9 +531,8 @@ export function slashSnippetCompletions(context) {
       snippetCompletion(entry.template, {
         label: "/" + entry.command,
         detail: entry.title,
-        info: entry.question,
         type: "text",
-        section: menuSections[entry.kind],
+        section: menuSections[entry.group],
       }),
     ),
     validFor: /^\/[\p{L}\p{N}_-]*$/u,

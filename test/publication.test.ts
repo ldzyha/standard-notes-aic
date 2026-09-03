@@ -34,13 +34,14 @@ describe("publication metadata", () => {
     );
   });
 
-  it("documents the 19.1.0 R.F.B release and packages usage instructions", () => {
-    expect(changelog).toContain("## 19.1.0 — 2026-09-03");
+  it("documents the 20.1.1 R.F.B release and packages usage instructions", () => {
+    expect(changelog).toContain("## 20.1.1 — 2026-09-03");
     expect(changelog).toContain(
-      "Release sequence 19 · 1 feature outcome · 0 fixed-bug outcomes",
+      "Release sequence 20 · 1 feature outcome · 1 fixed-bug outcome",
     );
     expect(readme).toContain("## Slash templates");
     expect(readme).toContain("`Tab` to move through");
+    expect(readme).toContain("ordinary `.md` documents");
     expect(readme).toContain("## Preview and source controls");
     expect(readme).toContain(">>>|open| Title");
     expect(readme).toContain("Raw Space is");
