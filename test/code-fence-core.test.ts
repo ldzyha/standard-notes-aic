@@ -7,6 +7,7 @@ import {
   CODE_FENCE_EXTENSION_CORE_VERSION,
   codeFences,
 } from "../src/core/code-fence-extension.js";
+import { PREVIEW_RANGES_CORE_VERSION } from "../src/core/preview-ranges.js";
 import { EditorState } from "@codemirror/state";
 import { aicMarkdownLanguage } from "../src/language";
 
@@ -16,7 +17,8 @@ describe("shared code-fence preview core", () => {
       doc: "```ts\nconst value = 1\n```\n\n```mermaid\nA-->B\n```",
       extensions: [aicMarkdownLanguage()],
     });
-    expect(CODE_FENCE_EXTENSION_CORE_VERSION).toBe("1.0.0");
+    expect(CODE_FENCE_EXTENSION_CORE_VERSION).toBe("1.1.0");
+    expect(PREVIEW_RANGES_CORE_VERSION).toBe("1.0.0");
     expect(codeFences(state)).toMatchObject([
       { language: "ts", source: "const value = 1" },
     ]);

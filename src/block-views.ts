@@ -34,6 +34,7 @@ import {
   type PropertyRow,
   type TableModel,
 } from "./core/structured-preview.js";
+import { providePreviewRanges } from "./core/preview-ranges.js";
 
 export type FrontmatterRow = Readonly<PropertyRow>;
 export type FrontmatterBlock = Readonly<{
@@ -652,7 +653,7 @@ const tableField = StateField.define({
       return value;
     return tableDecorations(transaction.state);
   },
-  provide: (field) => EditorView.decorations.from(field),
+  provide: providePreviewRanges,
 });
 
 const frontmatterField = StateField.define({
@@ -666,7 +667,7 @@ const frontmatterField = StateField.define({
       return value;
     return frontmatterDecorations(transaction.state);
   },
-  provide: (field) => EditorView.decorations.from(field),
+  provide: providePreviewRanges,
 });
 
 const viewportRefresh = ViewPlugin.fromClass(

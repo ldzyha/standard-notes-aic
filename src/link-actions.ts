@@ -9,6 +9,7 @@ import {
   createLinkControl,
   writeTextToClipboard,
 } from "./core/structured-preview.js";
+import { providePreviewRanges } from "./core/preview-ranges.js";
 import { safeExternalUrl } from "./block-views";
 
 export type MarkdownLink = {
@@ -150,6 +151,6 @@ export function linkActionsExtension(): Extension {
         return value;
       return build(transaction.state);
     },
-    provide: (field) => EditorView.decorations.from(field),
+    provide: providePreviewRanges,
   });
 }

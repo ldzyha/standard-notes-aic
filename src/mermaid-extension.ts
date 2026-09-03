@@ -6,6 +6,7 @@ import {
 } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import { selectionRevealsPreview } from "./core/structured-preview.js";
+import { providePreviewRanges } from "./core/preview-ranges.js";
 import {
   createMermaidPreview,
   type MermaidPreviewController,
@@ -133,6 +134,6 @@ export function makeMermaidExtension({
       }
       return decorations(transaction.state);
     },
-    provide: (field) => EditorView.decorations.from(field),
+    provide: providePreviewRanges,
   });
 }

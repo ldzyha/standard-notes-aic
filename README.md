@@ -150,6 +150,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `18.0.3` is sequence 18 with
+release-local feature outcomes, and release-local fixed-bug outcomes. `18.0.4` is sequence 18 with
 no feature outcomes and three fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

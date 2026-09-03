@@ -34,8 +34,8 @@ describe("publication metadata", () => {
     );
   });
 
-  it("documents the 18.0.3 R.F.B release and packages usage instructions", () => {
-    expect(changelog).toContain("## 18.0.3 — 2026-09-03");
+  it("documents the 18.0.4 R.F.B release and packages usage instructions", () => {
+    expect(changelog).toContain("## 18.0.4 — 2026-09-03");
     expect(changelog).toContain(
       "Release sequence 18 · 0 feature outcomes · 3 fixed-bug outcomes",
     );
@@ -60,6 +60,7 @@ describe("publication metadata", () => {
       "Code fences",
       "code-fence-preview",
       "code-fence-extension",
+      "preview-ranges",
       "Tables",
       "Properties",
       "Read-only",

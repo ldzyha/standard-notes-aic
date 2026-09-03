@@ -1,18 +1,18 @@
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { StateEffect, StateField } from "@codemirror/state";
-import {
-  Decoration,
-  EditorView,
-  ViewPlugin,
-  WidgetType,
-} from "@codemirror/view";
+import { Decoration, ViewPlugin, WidgetType } from "@codemirror/view";
 import { createCodeFencePreview } from "./code-fence-preview.js";
+import { providePreviewRanges } from "./preview-ranges.js";
 import {
   selectionRevealsPreview,
   writeTextToClipboard,
 } from "./structured-preview.js";
 
-export const CODE_FENCE_EXTENSION_CORE_VERSION = "1.0.0";
+export const CODE_FENCE_EXTENSION_CORE_VERSION = "1.1.0";
+
+const editCodeFenceSource = StateEffect.define({
+  map: (value, mapping) => mapping.mapPos(value, -1),
+});
 
 export function fenceInfo(state, node) {
   const info = node.node.getChild("CodeInfo");
@@ -46,13 +46,36 @@ export function codeFences(state) {
 
 function selectionIntersects(state, block) {
   return (
+    state.field(codeFenceSource) === block.from ||
     selectionRevealsPreview(state.selection.ranges, block.from, block.to) ||
     state.selection.ranges.some(
       (range) =>
-        range.empty && range.from >= block.from && range.from <= block.to,
+        range.empty && range.from > block.from && range.from < block.to,
     )
   );
 }
+
+const codeFenceSource = StateField.define({
+  create: () => null,
+  update(value, transaction) {
+    let next = value == null ? null : transaction.changes.mapPos(value, -1);
+    for (const effect of transaction.effects) {
+      if (effect.is(editCodeFenceSource)) next = effect.value;
+    }
+    if (next == null) return null;
+    const block = codeFences(transaction.state).find(
+      (candidate) => candidate.from === next,
+    );
+    if (!block) return null;
+    return transaction.state.selection.ranges.some((range) =>
+      range.empty
+        ? range.from >= block.from && range.from <= block.to
+        : range.from < block.to && range.to > block.from,
+    )
+      ? next
+      : null;
+  },
+});
 
 class CodeFenceWidget extends WidgetType {
   constructor(block, document, readOnly, onCopy) {
@@ -87,7 +110,11 @@ class CodeFenceWidget extends WidgetType {
           0,
           Math.min(view.state.doc.length, this.block.textFrom),
         );
-        view.dispatch({ selection: { anchor }, scrollIntoView: true });
+        view.dispatch({
+          selection: { anchor },
+          effects: editCodeFenceSource.of(this.block.from),
+          scrollIntoView: true,
+        });
         view.focus();
       },
     });
@@ -133,7 +160,7 @@ export function makeCodeFenceExtension({
         return value;
       return codeFenceDecorations(transaction.state, document, onCopy);
     },
-    provide: (source) => EditorView.decorations.from(source),
+    provide: providePreviewRanges,
   });
 
   const viewportRefresh = ViewPlugin.fromClass(
@@ -166,5 +193,5 @@ export function makeCodeFenceExtension({
     },
   );
 
-  return [field, viewportRefresh];
+  return [codeFenceSource, field, viewportRefresh];
 }

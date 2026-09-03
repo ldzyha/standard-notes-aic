@@ -1,5 +1,26 @@
 # Changelog
 
+## 18.0.4 — 2026-09-03
+
+Release sequence 18 · 0 feature outcomes · 4 fixed-bug outcomes.
+
+- B01: expose every replaced preview range through CodeMirror's public `atomicRanges` contract.
+  Arrow-key and deletion commands now cross code, Mermaid, table, properties, Details, and link
+  previews as stable units instead of entering hidden Markdown and rebuilding the layout midway.
+- B02: give fenced-code Edit an explicit source-open state in the byte-identical shared core. The
+  opening fence, language label, body, and closing fence remain ordinary editable Markdown while
+  the selection stays in that block, including a cursor or selection at either boundary.
+- B03: keep direct programmatic selections inside a fence source-capable while making normal
+  keyboard navigation skip a closed preview. Leaving the edited fence restores its card without
+  leaking edit state into a neighboring block.
+- B04: add regression coverage for the exact reported boundary: Edit exposes a writable
+  `contenteditable` editor, the opening backticks can be selected, and every closed block publishes
+  its complete source range as an atomic navigation unit.
+
+Compatibility: Standard Notes custom `editor-editor` component with interchangeable Markdown
+storage and the supported Code icon. AIC Notes 25.0.3 consumes the same AIC Editor Core 3.1
+navigation contract.
+
 ## 18.0.3 — 2026-09-03
 
 Release sequence 18 · 0 feature outcomes · 3 fixed-bug outcomes.

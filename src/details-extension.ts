@@ -17,6 +17,7 @@ import {
   createIconButton,
   selectionRevealsPreview,
 } from "./core/structured-preview.js";
+import { providePreviewRanges } from "./core/preview-ranges.js";
 
 const toggleVisual = StateEffect.define<number>();
 const editSource = StateEffect.define<number>({
@@ -269,7 +270,7 @@ const detailsField = StateField.define({
       ? previewDecorations(transaction.state)
       : value;
   },
-  provide: (field) => EditorView.decorations.from(field),
+  provide: providePreviewRanges,
 });
 
 function bodyDecorations(state: EditorState) {

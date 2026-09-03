@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { EditorView } from "@codemirror/view";
 import { AicEditor, detectTheme } from "../src/editor";
 
 afterEach(() => document.body.replaceChildren());
@@ -421,6 +422,15 @@ describe("AIC editor integration", () => {
     const preview = editor.element.querySelector<HTMLElement>(
       ".cm-md-code-preview",
     )!;
+    const fenceFrom = source.indexOf("```ts");
+    const fenceTo = source.indexOf("```", fenceFrom + 3) + 3;
+    const atomicRanges: Array<[number, number]> = [];
+    for (const provider of editor.view.state.facet(EditorView.atomicRanges)) {
+      provider(editor.view).between(0, source.length, (from, to) => {
+        atomicRanges.push([from, to]);
+      });
+    }
+    expect(atomicRanges).toContainEqual([fenceFrom, fenceTo]);
     expect(preview.querySelector("pre")?.textContent).toBe(code);
     expect(
       preview.querySelector(".cm-md-preview-header > span")?.textContent,
@@ -451,6 +461,31 @@ describe("AIC editor integration", () => {
     expect(editor.view.state.selection.main.head).toBe(
       source.indexOf("const answer"),
     );
+    expect(editor.view.state.readOnly).toBe(false);
+    expect(editor.view.contentDOM.getAttribute("contenteditable")).toBe("true");
+
+    editor.view.dispatch({
+      selection: { anchor: fenceFrom, head: fenceFrom + 3 },
+    });
+    expect(editor.element.querySelector(".cm-md-code-preview")).toBeNull();
+    expect(
+      editor.view.state.sliceDoc(
+        editor.view.state.selection.main.from,
+        editor.view.state.selection.main.to,
+      ),
+    ).toBe("```");
+
+    const revealedAtomicRanges: Array<[number, number]> = [];
+    for (const provider of editor.view.state.facet(EditorView.atomicRanges)) {
+      provider(editor.view).between(0, source.length, (from, to) => {
+        revealedAtomicRanges.push([from, to]);
+      });
+    }
+    expect(revealedAtomicRanges).not.toContainEqual([fenceFrom, fenceTo]);
+
+    editor.view.dispatch({ selection: { anchor: source.length } });
+    expect(editor.element.querySelector(".cm-md-code-preview")).not.toBeNull();
+
     editor.destroy();
   });
 
