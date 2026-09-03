@@ -4,15 +4,15 @@ import manifest from "../public/ext.json";
 import localManifest from "../public/ext.local.json";
 
 describe("Standard Notes component manifest", () => {
-  it("registers AIC as a Markdown editor note type", () => {
-    expect(packageJson.version).toBe("16.1.1");
-    expect(packageJson.aicEditorCore).toBe("2.8.0");
+  it("registers AIC with the Code icon and interchangeable Markdown storage", () => {
+    expect(packageJson.version).toBe("17.2.0");
+    expect(packageJson.aicEditorCore).toBe("2.9.0");
     expect(manifest).toMatchObject({
       identifier: "com.dzyha.standard-notes-aic",
       name: "AIC",
       content_type: "SN|Component",
       area: "editor-editor",
-      note_type: "markdown",
+      note_type: "code",
       file_type: "md",
       interchangeable: true,
       url: "https://ldzyha.github.io/standard-notes-aic/",
@@ -33,7 +33,7 @@ describe("Standard Notes component manifest", () => {
       name: "AIC",
       content_type: "SN|Component",
       area: "editor-editor",
-      note_type: "markdown",
+      note_type: "code",
       file_type: "md",
       interchangeable: true,
     });

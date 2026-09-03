@@ -3,8 +3,25 @@ import {
   CODE_FENCE_PREVIEW_CORE_VERSION,
   createCodeFencePreview,
 } from "../src/core/code-fence-preview.js";
+import {
+  CODE_FENCE_EXTENSION_CORE_VERSION,
+  codeFences,
+} from "../src/core/code-fence-extension.js";
+import { EditorState } from "@codemirror/state";
+import { aicMarkdownLanguage } from "../src/language";
 
 describe("shared code-fence preview core", () => {
+  it("owns CodeMirror fence discovery and excludes Mermaid from code cards", () => {
+    const state = EditorState.create({
+      doc: "```ts\nconst value = 1\n```\n\n```mermaid\nA-->B\n```",
+      extensions: [aicMarkdownLanguage()],
+    });
+    expect(CODE_FENCE_EXTENSION_CORE_VERSION).toBe("1.0.0");
+    expect(codeFences(state)).toMatchObject([
+      { language: "ts", source: "const value = 1" },
+    ]);
+  });
+
   it("creates a source-bound, text-safe preview with icon-only actions", async () => {
     const onCopy = vi.fn().mockResolvedValue(true);
     const onEdit = vi.fn();

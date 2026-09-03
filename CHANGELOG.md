@@ -1,5 +1,21 @@
 # Changelog
 
+## 17.2.0 — 2026-09-03
+
+Release sequence 17 · 2 feature outcomes · 0 fixed-bug outcomes.
+
+- F01: share the complete CodeMirror code-fence extension byte-for-byte with AIC Notes instead of
+  maintaining parallel fence discovery, replacement, selection, read-only, and clipboard logic.
+  Each product supplies only its host clipboard callback; the preview DOM remains in the same
+  dependency-free shared card module. AIC Editor Core advances to 2.9.
+- F02: register AIC under Standard Notes' supported Code note type so the app renders the `>_`
+  editor icon instead of the Markdown `[ ]` icon. Storage remains `file_type: md`, interchangeable,
+  and exact Markdown; the bundled favicon/logo now uses the same `>_` identity.
+
+Compatibility: Standard Notes custom `editor-editor` component with the Code icon and
+interchangeable Markdown storage. The hosted manifest and desktop archive keep the stable
+`com.dzyha.standard-notes-aic` identifier.
+
 ## 16.1.1 — 2026-09-03
 
 Release sequence 16 · 1 feature outcome · 1 fixed-bug outcome.

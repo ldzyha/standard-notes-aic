@@ -34,10 +34,10 @@ describe("publication metadata", () => {
     );
   });
 
-  it("documents the 16.1.1 R.F.B release and packages usage instructions", () => {
-    expect(changelog).toContain("## 16.1.1 — 2026-09-03");
+  it("documents the 17.2.0 R.F.B release and packages usage instructions", () => {
+    expect(changelog).toContain("## 17.2.0 — 2026-09-03");
     expect(changelog).toContain(
-      "Release sequence 15 · 1 feature outcome · 2 fixed-bug outcomes",
+      "Release sequence 17 · 2 feature outcomes · 0 fixed-bug outcomes",
     );
     expect(readme).toContain("## Preview and source controls");
     expect(readme).toContain(">>>|open| Title");
@@ -59,6 +59,7 @@ describe("publication metadata", () => {
       "Mermaid",
       "Code fences",
       "code-fence-preview",
+      "code-fence-extension",
       "Tables",
       "Properties",
       "Read-only",

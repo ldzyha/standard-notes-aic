@@ -1,7 +1,7 @@
 {
   "name": "standard-notes-aic-editor",
-  "version": "16.1.1",
-  "aicEditorCore": "2.8.0",
+  "version": "17.2.0",
+  "aicEditorCore": "2.9.0",
   "private": true,
   "type": "module",
   "license": "UNLICENSED",
@@ -24,7 +24,7 @@
     "area": "editor-editor",
     "spellcheckControl": true,
     "interchangeable": true,
-    "note_type": "markdown",
+    "note_type": "code",
     "file_type": "md",
     "showInGallery": false
   },

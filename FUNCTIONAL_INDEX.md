@@ -2,8 +2,8 @@
 
 This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
-managed file properties, structured preview mutation, CSS-mask icons, and the
-Mermaid viewport. Markdown remains the only cross-client storage format.
+managed file properties, structured preview mutation, the complete CodeMirror code-fence extension,
+CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client storage format.
 
 ## Global invariants
 
@@ -36,19 +36,20 @@ Mermaid viewport. Markdown remains the only cross-client storage format.
 | Tables                                      | Content-sized columns, word-only wrapping, horizontal grid scroll                  | one transient textarea popover; row/column DnD | Invalid mutation is rejected atomically          | blocks/structured-preview     |
 | Properties                                  | Static nested preview and one transient editor popover                             | add/edit/move full sibling branch              | Structural roots cannot be split/moved illegally | blocks/structured-preview     |
 | Read-only                                   | Keeps preview, navigation, selection, and copy available                           | all mutation controls disabled                 | No host write can run                            | editor/main                   |
-| Theme and icons                             | Uses host theme tokens and CSS SVG masks                                           | renderer-independent CSS                       | No inline/external SVG capability required       | editor/publication            |
+| Theme and icons                             | Uses host tokens, CSS SVG masks, and Standard Notes' supported `>_` Code icon      | renderer-independent editor actions            | No custom top-bar SVG API is assumed             | manifest/editor/publication   |
 | Distribution                                | Stable plugin identifier, hosted manifest, versioned desktop archive               | GitHub Pages plus release ZIP                  | Tag/package/manifest versions must match         | manifest/publication          |
 
 ## Shared core modules
 
-| Module               | Contract                                                                         |
-| -------------------- | -------------------------------------------------------------------------------- |
-| `draft-session`      | Explicit commit boundary and remote-update protection                            |
-| `file-properties`    | Three managed note fields, ordinary-document preservation, safe legacy migration |
-| `structured-preview` | Pure table/property source mutations with structural validation                  |
-| `code-fence-preview` | Text-safe code card plus permanent Copy/Edit actions shared by both adapters     |
-| `icons.css`          | CSS-mask action icons with inherited renderer colors                             |
-| `mermaid-viewport`   | Zoom/rotation transform and bidirectional overflow behavior                      |
+| Module                 | Contract                                                                         |
+| ---------------------- | -------------------------------------------------------------------------------- |
+| `draft-session`        | Explicit commit boundary and remote-update protection                            |
+| `file-properties`      | Three managed note fields, ordinary-document preservation, safe legacy migration |
+| `structured-preview`   | Pure table/property source mutations with structural validation                  |
+| `code-fence-preview`   | Text-safe code card plus permanent Copy/Edit actions shared by both adapters     |
+| `code-fence-extension` | Shared CodeMirror discovery, replacement, selection, read-only, and copy routing |
+| `icons.css`            | CSS-mask action icons with inherited renderer colors                             |
+| `mermaid-viewport`     | Zoom/rotation transform and bidirectional overflow behavior                      |
 
 ## Interaction contract
 
@@ -66,8 +67,10 @@ Mermaid viewport. Markdown remains the only cross-client storage format.
 
 ## Parity boundary
 
-- AIC Notes and this plugin consume byte-identical dependency-free core modules for drafts,
-  managed properties, structured mutations, code-fence cards, icons, and Mermaid viewport state.
+- AIC Notes and this plugin consume byte-identical core modules for drafts, managed properties,
+  structured mutations, code-fence cards/extensions, icons, and Mermaid viewport state. The
+  foundations remain dependency-free; the shared fence extension uses the CodeMirror public APIs
+  already pinned identically by both products.
 - Every Markdown editor interaction listed above has an adapter-owned regression test in both
   products. A release cannot describe a raw-source fallback where the paired editor exposes a
   preview action.

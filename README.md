@@ -4,7 +4,9 @@
   <img src="./public/aic-logo.svg" alt="AIC logo" width="96" height="96">
 </p>
 
-`AIC` is a Markdown editor component for Standard Notes. It keeps the note body as ordinary
+`AIC` is a Markdown editor component for Standard Notes. It registers under the Code note type so
+Standard Notes displays its supported `>_` icon, while `file_type: md` and interchangeability keep
+the note body as ordinary Markdown. It
 Markdown and derives headings, lists, task checkboxes, tables, hierarchical frontmatter properties, fenced-code
 highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
@@ -102,8 +104,9 @@ npm run dev
 
 With the development server running, install `http://localhost:5178/ext.local.json` through
 Standard Notes' custom-plugin field. The local manifest uses the same stable identifier as the
-production plugin and registers `AIC (Local)` as an `editor-editor` component with the Markdown
-note/file type. Do not keep production and local variants installed at the same time.
+production plugin and registers `AIC (Local)` as an `editor-editor` component with the Code icon
+and interchangeable Markdown file type. Do not keep production and local variants installed at
+the same time.
 
 Opening the page directly runs a standalone development document stored only in the browser's local
 storage. Inside Standard Notes, the narrow `sn-extension-api` bridge owns working-note loading,
@@ -145,6 +148,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `16.1.1` is sequence 16 with
-one feature outcome and one fixed-bug outcome; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `17.2.0` is sequence 17 with
+two feature outcomes and no fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

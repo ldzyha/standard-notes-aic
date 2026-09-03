@@ -1,42 +1,26 @@
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
-import {
-  StateEffect,
-  StateField,
-  type EditorState,
-  type Extension,
-} from "@codemirror/state";
+import { StateEffect, StateField } from "@codemirror/state";
 import {
   Decoration,
   EditorView,
   ViewPlugin,
   WidgetType,
-  type ViewUpdate,
 } from "@codemirror/view";
-import { createCodeFencePreview } from "./core/code-fence-preview.js";
+import { createCodeFencePreview } from "./code-fence-preview.js";
 import {
   selectionRevealsPreview,
   writeTextToClipboard,
-} from "./core/structured-preview.js";
+} from "./structured-preview.js";
 
-type NodeRef = Parameters<
-  Parameters<ReturnType<typeof syntaxTree>["iterate"]>[0]["enter"]
->[0];
+export const CODE_FENCE_EXTENSION_CORE_VERSION = "1.0.0";
 
-export type CodeFenceBlock = Readonly<{
-  from: number;
-  to: number;
-  textFrom: number;
-  source: string;
-  language: string;
-}>;
-
-export function fenceInfo(state: EditorState, node: NodeRef): string {
+export function fenceInfo(state, node) {
   const info = node.node.getChild("CodeInfo");
   return info ? state.sliceDoc(info.from, info.to).trim().toLowerCase() : "";
 }
 
-export function codeFences(state: EditorState): readonly CodeFenceBlock[] {
-  const blocks: CodeFenceBlock[] = [];
+export function codeFences(state) {
+  const blocks = [];
   const tree =
     ensureSyntaxTree(state, state.doc.length, 100) ?? syntaxTree(state);
   tree.iterate({
@@ -60,10 +44,7 @@ export function codeFences(state: EditorState): readonly CodeFenceBlock[] {
   return Object.freeze(blocks);
 }
 
-function selectionIntersects(
-  state: EditorState,
-  block: CodeFenceBlock,
-): boolean {
+function selectionIntersects(state, block) {
   return (
     selectionRevealsPreview(state.selection.ranges, block.from, block.to) ||
     state.selection.ranges.some(
@@ -74,29 +55,33 @@ function selectionIntersects(
 }
 
 class CodeFenceWidget extends WidgetType {
-  constructor(
-    readonly block: CodeFenceBlock,
-    readonly document: Document,
-    readonly readOnly: boolean,
-  ) {
+  constructor(block, document, readOnly, onCopy) {
     super();
+    this.block = block;
+    this.document = document;
+    this.readOnly = readOnly;
+    this.onCopy = onCopy;
   }
 
-  override eq(other: CodeFenceWidget): boolean {
+  eq(other) {
     return (
       other.block.from === this.block.from &&
       other.block.to === this.block.to &&
       other.block.language === this.block.language &&
       other.block.source === this.block.source &&
-      other.readOnly === this.readOnly
+      other.readOnly === this.readOnly &&
+      other.onCopy === this.onCopy
     );
   }
 
-  override toDOM(view: EditorView): HTMLElement {
+  toDOM(view) {
     return createCodeFencePreview(this.document, {
       ...this.block,
       readOnly: this.readOnly,
-      onCopy: (source) => writeTextToClipboard(source, this.document),
+      onCopy: (source) =>
+        this.onCopy
+          ? this.onCopy(source, this.block.language)
+          : writeTextToClipboard(source, this.document),
       onEdit: () => {
         const anchor = Math.max(
           0,
@@ -108,20 +93,20 @@ class CodeFenceWidget extends WidgetType {
     });
   }
 
-  override ignoreEvent(): boolean {
+  ignoreEvent() {
     return true;
   }
 }
 
-const refreshCodeFences = StateEffect.define<void>();
+const refreshCodeFences = StateEffect.define();
 
-function codeFenceDecorations(state: EditorState, document: Document) {
+function codeFenceDecorations(state, document, onCopy) {
   const decorations = [];
   for (const block of codeFences(state)) {
     if (selectionIntersects(state, block)) continue;
     decorations.push(
       Decoration.replace({
-        widget: new CodeFenceWidget(block, document, state.readOnly),
+        widget: new CodeFenceWidget(block, document, state.readOnly, onCopy),
         block: true,
       }).range(block.from, block.to),
     );
@@ -129,11 +114,15 @@ function codeFenceDecorations(state: EditorState, document: Document) {
   return Decoration.set(decorations, true);
 }
 
-export function makeCodeFenceExtension(
-  document: Document = globalThis.document,
-): Extension {
+export function makeCodeFenceExtension({
+  document = globalThis.document,
+  onCopy,
+} = {}) {
+  if (!document?.createElement)
+    throw new TypeError("makeCodeFenceExtension requires a document");
+
   const field = StateField.define({
-    create: (state) => codeFenceDecorations(state, document),
+    create: (state) => codeFenceDecorations(state, document, onCopy),
     update(value, transaction) {
       if (
         !transaction.docChanged &&
@@ -142,19 +131,20 @@ export function makeCodeFenceExtension(
         !transaction.effects.some((effect) => effect.is(refreshCodeFences))
       )
         return value;
-      return codeFenceDecorations(transaction.state, document);
+      return codeFenceDecorations(transaction.state, document, onCopy);
     },
     provide: (source) => EditorView.decorations.from(source),
   });
 
   const viewportRefresh = ViewPlugin.fromClass(
     class {
-      private scheduled = false;
-      private destroyed = false;
+      constructor(view) {
+        this.view = view;
+        this.scheduled = false;
+        this.destroyed = false;
+      }
 
-      constructor(private readonly view: EditorView) {}
-
-      update(update: ViewUpdate) {
+      update(update) {
         if (
           !update.viewportChanged ||
           update.docChanged ||
