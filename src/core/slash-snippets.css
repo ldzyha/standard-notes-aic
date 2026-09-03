@@ -1,0 +1,127 @@
+.cm-tooltip-autocomplete {
+  overflow: hidden;
+  border: 1px solid
+    var(
+      --aic-border,
+      var(--vscode-editorSuggestWidget-border, var(--sn-stylekit-border-color))
+    );
+  border-radius: 0.65rem;
+  background: var(
+    --aic-surface,
+    var(
+      --vscode-editorSuggestWidget-background,
+      var(--sn-stylekit-background-color)
+    )
+  );
+  color: var(
+    --aic-fg,
+    var(
+      --vscode-editorSuggestWidget-foreground,
+      var(--sn-stylekit-foreground-color)
+    )
+  );
+  box-shadow: 0 12px 30px rgb(0 0 0 / 24%);
+}
+
+.cm-tooltip-autocomplete > ul {
+  max-width: min(44rem, 88vw);
+  max-height: min(28rem, 58vh);
+  padding: 0.3rem;
+  font-family: var(
+    --sn-stylekit-sans-serif-font,
+    var(--vscode-font-family, system-ui, sans-serif)
+  );
+}
+
+.cm-tooltip-autocomplete > ul > li {
+  display: grid;
+  grid-template-columns: minmax(9rem, auto) minmax(12rem, 1fr);
+  gap: 0.8rem;
+  align-items: baseline;
+  min-height: 2rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: 0.4rem;
+}
+
+.cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(
+    --aic-accent-soft,
+    var(
+      --vscode-editorSuggestWidget-selectedBackground,
+      var(--sn-stylekit-secondary-background-color)
+    )
+  );
+  color: var(
+    --aic-fg,
+    var(
+      --vscode-editorSuggestWidget-selectedForeground,
+      var(--sn-stylekit-foreground-color)
+    )
+  );
+}
+
+.cm-tooltip-autocomplete .cm-completionSection {
+  padding: 0.55rem 0.55rem 0.2rem;
+  color: var(
+    --aic-muted,
+    var(--vscode-descriptionForeground, var(--sn-stylekit-neutral-color))
+  );
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.cm-tooltip-autocomplete .cm-completionLabel {
+  font-family: var(
+    --sn-stylekit-monospace-font,
+    var(--vscode-editor-font-family, monospace)
+  );
+  font-weight: 700;
+}
+
+.cm-tooltip-autocomplete .cm-completionDetail {
+  overflow: hidden;
+  color: var(
+    --aic-muted,
+    var(--vscode-descriptionForeground, var(--sn-stylekit-neutral-color))
+  );
+  font-style: normal;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cm-tooltip.cm-completionInfo {
+  max-width: min(30rem, 76vw);
+  padding: 0.7rem 0.8rem;
+  border: 1px solid
+    var(
+      --aic-border,
+      var(--vscode-editorSuggestWidget-border, var(--sn-stylekit-border-color))
+    );
+  border-radius: 0.55rem;
+  background: var(
+    --aic-surface,
+    var(
+      --vscode-editorSuggestWidget-background,
+      var(--sn-stylekit-background-color)
+    )
+  );
+  color: var(
+    --aic-fg,
+    var(
+      --vscode-editorSuggestWidget-foreground,
+      var(--sn-stylekit-foreground-color)
+    )
+  );
+  line-height: 1.45;
+}
+
+.cm-snippetField {
+  border-radius: 0.2rem;
+  background: color-mix(
+    in srgb,
+    var(--aic-accent, var(--vscode-focusBorder, currentColor)) 16%,
+    transparent
+  );
+}

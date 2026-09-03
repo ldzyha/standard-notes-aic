@@ -1,5 +1,20 @@
 # Changelog
 
+## 19.1.0 — 2026-09-03
+
+Release sequence 19 · 1 feature outcome · 0 fixed-bug outcomes.
+
+- F01: add a byte-identical slash-snippet core to AIC for Standard Notes and AIC Notes. Typing `/`
+  on an otherwise empty Markdown line opens a contextual catalog of complete documentation pages,
+  page sections, and formatting blocks. Each insertion is a usable example whose perspective
+  questions are editable CodeMirror snippet fields; `Tab` advances through them. Empty notes rank
+  page templates first, existing pages rank sections first, and code/read-only contexts stay
+  untouched.
+
+Compatibility: Standard Notes custom `editor-editor` component with interchangeable Markdown
+storage and the supported Code icon. AIC Notes 26.1.0 consumes the same AIC Editor Core 3.2 slash
+catalog, query boundary, insertion behavior, placeholder, and menu styling.
+
 ## 18.0.4 — 2026-09-03
 
 Release sequence 18 · 0 feature outcomes · 4 fixed-bug outcomes.

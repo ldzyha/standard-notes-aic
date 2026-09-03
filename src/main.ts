@@ -7,6 +7,7 @@ import { stampFileProperties } from "./core/file-properties.js";
 import "./styles.css";
 import "./core/icons.css";
 import "./core/mermaid-viewport.css";
+import "./core/slash-snippets.css";
 
 declare global {
   interface Window {

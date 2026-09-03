@@ -30,6 +30,10 @@ import {
 } from "@codemirror/view";
 import { blockViewExtensions } from "./block-views";
 import { makeCodeFenceExtension } from "./core/code-fence-extension.js";
+import {
+  SLASH_SNIPPET_PLACEHOLDER,
+  slashSnippetExtension,
+} from "./core/slash-snippets.js";
 import { wirePreviewSelection } from "./core/structured-preview.js";
 import { aicKeymap } from "./commands";
 import { aicMarkdownLanguage } from "./language";
@@ -172,7 +176,8 @@ export class AicEditor {
       indentOnInput(),
       highlightActiveLine(),
       EditorView.lineWrapping,
-      placeholder("Write in Markdown…"),
+      placeholder(SLASH_SNIPPET_PLACEHOLDER),
+      slashSnippetExtension(),
       EditorView.contentAttributes.of({
         "aria-label": "AIC Markdown note",
         spellcheck: "true",

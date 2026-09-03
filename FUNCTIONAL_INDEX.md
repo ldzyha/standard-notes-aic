@@ -3,7 +3,8 @@
 This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 managed file properties, structured preview mutation, the complete CodeMirror code-fence extension,
-CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client storage format.
+slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
+storage format.
 
 ## Global invariants
 
@@ -33,6 +34,7 @@ CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
 | Links                                       | Click label to open; Copy and Edit icons are always visible                                | host URL/clipboard adapters                    | Unsafe targets remain closed                     | link-actions                  |
 | Details                                     | Summary/chevron toggles independently from checkbox and body                               | exact open/closed marker                       | Fence-contained terminators do not close a card  | details                       |
 | Code fences                                 | Same preview card, language label, and permanent Copy/Edit icons as VS Code                | exact fenced body; explicit source reveal      | Unknown language remains readable and copyable   | code-fence/core/editor        |
+| Slash templates                             | `/` inserts pages, page sections, and formatting blocks with perspective questions         | snippet fields; Tab advances                   | Disabled in code and read-only notes             | slash-snippets/editor         |
 | Mermaid                                     | Render, copy, edit, zoom, reset, clockwise rotate, two-axis scroll                         | transform and viewport state only              | Render error exposes recoverable source          | mermaid/viewport              |
 | Tables                                      | Content-sized columns, word-only wrapping, horizontal grid scroll                          | one transient textarea popover; row/column DnD | Invalid mutation is rejected atomically          | blocks/structured-preview     |
 | Properties                                  | Static nested preview and one transient editor popover                                     | add/edit/move full sibling branch              | Structural roots cannot be split/moved illegally | blocks/structured-preview     |
@@ -42,16 +44,17 @@ CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
 
 ## Shared core modules
 
-| Module                 | Contract                                                                          |
-| ---------------------- | --------------------------------------------------------------------------------- |
-| `draft-session`        | Explicit commit boundary and remote-update protection                             |
-| `file-properties`      | Three managed note fields, ordinary-document preservation, safe legacy migration  |
-| `structured-preview`   | Stable preview selection plus table/property mutations with structural validation |
-| `preview-ranges`       | Atomic CodeMirror navigation contract for every replaced preview range            |
-| `code-fence-preview`   | Text-safe code card plus permanent Copy/Edit actions shared by both adapters      |
-| `code-fence-extension` | Shared CodeMirror discovery, replacement, selection, read-only, and copy routing  |
-| `icons.css`            | CSS-mask action icons with inherited renderer colors                              |
-| `mermaid-viewport`     | Zoom/rotation transform and bidirectional overflow behavior                       |
+| Module                 | Contract                                                                             |
+| ---------------------- | ------------------------------------------------------------------------------------ |
+| `draft-session`        | Explicit commit boundary and remote-update protection                                |
+| `file-properties`      | Three managed note fields, ordinary-document preservation, safe legacy migration     |
+| `structured-preview`   | Stable preview selection plus table/property mutations with structural validation    |
+| `preview-ranges`       | Atomic CodeMirror navigation contract for every replaced preview range               |
+| `code-fence-preview`   | Text-safe code card plus permanent Copy/Edit actions shared by both adapters         |
+| `code-fence-extension` | Shared CodeMirror discovery, replacement, selection, read-only, and copy routing     |
+| `slash-snippets`       | Shared catalog, contextual slash query, question fields, and completion presentation |
+| `icons.css`            | CSS-mask action icons with inherited renderer colors                                 |
+| `mermaid-viewport`     | Zoom/rotation transform and bidirectional overflow behavior                          |
 
 ## Interaction contract
 
@@ -67,11 +70,14 @@ CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
 - Native mouse selection inside preview remains selectable and copyable without
   rerendering the widget. CodeMirror selections reveal intersected source;
   `Ctrl/Cmd+A` reveals the complete note.
+- Slash on an otherwise empty Markdown line opens the contextual shared catalog. Empty notes rank
+  complete pages first; existing pages rank sections first; `Tab` advances through inserted
+  perspective questions. Code and read-only contexts never activate it.
 
 ## Parity boundary
 
 - AIC Notes and this plugin consume byte-identical core modules for drafts, managed properties,
-  structured mutations, code-fence cards/extensions, icons, and Mermaid viewport state. The
+  structured mutations, code-fence cards/extensions, slash templates, icons, and Mermaid viewport state. The
   foundations remain dependency-free; the shared fence extension uses the CodeMirror public APIs
   already pinned identically by both products.
 - Every Markdown editor interaction listed above has an adapter-owned regression test in both
@@ -84,7 +90,7 @@ CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
 
 ## Release verification
 
-- Unit/model suites cover parsing, commands, details boundaries, link actions, code-fence cards,
+- Unit/model suites cover parsing, commands, details boundaries, link actions, code-fence cards, slash templates,
   tables/properties, draft identity, host identity, file properties, selection,
   Mermaid transform/viewport, and manifest/publication metadata.
 - Browser QA covers real layout, popovers, persistent actions, table overflow,

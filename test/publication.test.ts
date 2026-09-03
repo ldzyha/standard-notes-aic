@@ -34,11 +34,13 @@ describe("publication metadata", () => {
     );
   });
 
-  it("documents the 18.0.4 R.F.B release and packages usage instructions", () => {
-    expect(changelog).toContain("## 18.0.4 — 2026-09-03");
+  it("documents the 19.1.0 R.F.B release and packages usage instructions", () => {
+    expect(changelog).toContain("## 19.1.0 — 2026-09-03");
     expect(changelog).toContain(
-      "Release sequence 18 · 0 feature outcomes · 3 fixed-bug outcomes",
+      "Release sequence 19 · 1 feature outcome · 0 fixed-bug outcomes",
     );
+    expect(readme).toContain("## Slash templates");
+    expect(readme).toContain("`Tab` to move through");
     expect(readme).toContain("## Preview and source controls");
     expect(readme).toContain(">>>|open| Title");
     expect(readme).toContain("Raw Space is");
@@ -60,6 +62,7 @@ describe("publication metadata", () => {
       "Code fences",
       "code-fence-preview",
       "code-fence-extension",
+      "slash-snippets",
       "preview-ranges",
       "Tables",
       "Properties",
