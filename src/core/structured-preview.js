@@ -1,6 +1,41 @@
-export const STRUCTURED_PREVIEW_CORE_VERSION = "2.5.0";
+export const STRUCTURED_PREVIEW_CORE_VERSION = "2.6.0";
 
 const activeCellEditors = new WeakMap();
+
+export function wirePreviewSelection(
+  editor,
+  document = editor?.dom?.ownerDocument,
+) {
+  if (!editor?.dom?.addEventListener || !document?.getSelection)
+    throw new TypeError("wirePreviewSelection requires an editor view");
+
+  const selectAll = (event) => {
+    if (
+      event.defaultPrevented ||
+      !(event.ctrlKey || event.metaKey) ||
+      event.altKey ||
+      event.key.toLowerCase() !== "a"
+    )
+      return;
+    event.preventDefault();
+    event.stopPropagation();
+    document.getSelection()?.removeAllRanges();
+    editor.dispatch({
+      selection: { anchor: 0, head: editor.state.doc.length },
+      scrollIntoView: true,
+      userEvent: "select",
+    });
+    editor.focus();
+  };
+
+  // Preview widgets are real, selectable DOM. Mouse selection intentionally
+  // stays native: replacing it with a CodeMirror range on pointerup destroyed
+  // the selected widget and made the cursor appear to jump. Source editing is
+  // entered only through the explicit Edit action; Ctrl/Cmd+A still selects
+  // the complete Markdown source and reveals every preview.
+  editor.dom.addEventListener("keydown", selectAll, true);
+  return () => editor.dom.removeEventListener("keydown", selectAll, true);
+}
 
 export function selectionRevealsPreview(ranges, from, to) {
   if (!Array.isArray(ranges) || !Number.isFinite(from) || !Number.isFinite(to))

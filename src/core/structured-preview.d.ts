@@ -1,4 +1,18 @@
-export const STRUCTURED_PREVIEW_CORE_VERSION: "2.5.0";
+export const STRUCTURED_PREVIEW_CORE_VERSION: "2.6.0";
+
+export function wirePreviewSelection(
+  editor: {
+    dom: HTMLElement;
+    state: { doc: { length: number } };
+    dispatch(spec: {
+      selection: { anchor: number; head: number };
+      scrollIntoView: boolean;
+      userEvent: string;
+    }): void;
+    focus(): void;
+  },
+  document?: Document,
+): () => void;
 
 export function selectionRevealsPreview(
   ranges: readonly { from: number; to: number }[],

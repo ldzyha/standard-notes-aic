@@ -1,5 +1,25 @@
 # Changelog
 
+## 18.0.3 — 2026-09-03
+
+Release sequence 18 · 0 feature outcomes · 3 fixed-bug outcomes.
+
+- B01: stop converting native mouse selection inside a rendered preview into a whole-block
+  CodeMirror selection on `pointerup`. Preview text now stays selectable for normal copying without
+  destroying its widget or stealing focus; explicit Edit still reveals one source block and
+  `Ctrl+A`/`Cmd+A` still reveals the complete Markdown source. The interaction lives in the
+  byte-identical AIC Editor Core 3.0 module consumed by both editors.
+- B02: update a repeated stream for the active Standard Notes UUID as one minimal, non-history
+  CodeMirror change instead of replacing the complete editor state. Cursor, selection, focus, and
+  unaffected preview DOM now survive host refreshes and the managed timestamp update on explicit
+  save.
+- B03: make theme refresh idempotent and limit Details recomputation to document/selection,
+  read-only, and Details-owned effects. Repeated host/theme signals no longer trigger unrelated
+  preview work that could disturb an in-progress interaction.
+
+Compatibility: Standard Notes custom `editor-editor` component with interchangeable Markdown
+storage and the supported Code icon. AIC Notes 25.0.2 consumes the same preview-selection core.
+
 ## 17.2.0 — 2026-09-03
 
 Release sequence 17 · 2 feature outcomes · 0 fixed-bug outcomes.

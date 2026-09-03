@@ -91,6 +91,13 @@ describe("Standard Notes editor bridge", () => {
     expect(view.state.readOnly).toBe(false);
     expect(editor.dataset.saveState).toBe("saved");
 
+    const preservedAnchor = first.indexOf("exact") + 2;
+    view.dispatch({ selection: { anchor: preservedAnchor } });
+    bridge.stream("note-first", first.replace("# First", "# First updated"));
+    expect(view.state.selection.main.head).toBe(preservedAnchor + 8);
+    bridge.stream("note-first", first);
+    expect(view.state.selection.main.head).toBe(preservedAnchor);
+
     view.dispatch({
       changes: { from: first.length, insert: "local" },
       userEvent: "input",

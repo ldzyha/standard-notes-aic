@@ -41,10 +41,11 @@ link label opens it; compact, always-visible Copy and Edit icon actions stay bes
 after activation. They add rows/columns/properties and reorder data through drag handles. Nested YAML
 maps and sequences retain their indentation as visible levels; group rows
 stay structural, leaf values remain editable, and moving a list/map row moves its complete branch
-only among valid siblings. Each interaction produces one valid Markdown transaction. A non-empty
-selection reveals raw Markdown for every preview block it crosses; `Ctrl+A`/`Cmd+A` therefore exits
-preview for the complete note. A collapsed cursor keeps preview, while the explicit Edit icon
-reveals and focuses one structure, including read-only inspection in a locked note.
+only among valid siblings. Each interaction produces one valid Markdown transaction. Dragging over
+preview text keeps a stable native selection for copying and never steals the editor cursor.
+`Ctrl+A`/`Cmd+A` selects the complete Markdown source and exits preview for the note; a CodeMirror
+selection that crosses a structure reveals that source. A collapsed cursor keeps preview, while the
+explicit Edit icon reveals and focuses one structure, including read-only inspection in a locked note.
 Table columns size to their content and wrap only at word boundaries. The table fills its card and places only the grid
 inside a horizontal scroller when its readable columns are wider than the editor. Its Copy icon
 copies the exact Markdown table source. Action graphics are embedded SVG data URIs rendered as CSS
@@ -52,8 +53,9 @@ masks; button DOM stays text-free and accessible through `aria-label` values.
 
 Non-Mermaid fenced code uses the same preview card as AIC Notes for VS Code. The language caption
 and icon-only Copy/Edit actions are always visible; Copy returns the exact fenced body, Edit reveals
-and focuses the Markdown source, and selecting across the card (including `Ctrl+A`/`Cmd+A`) reveals
-the source without changing it. Unknown languages remain readable and copyable.
+and focuses the Markdown source, and native selection inside the card remains stable for copying.
+`Ctrl+A`/`Cmd+A` reveals the full source without changing it. Unknown languages remain readable and
+copyable.
 
 Mermaid previews keep Zoom out, Zoom in, Reset, and Rotate actions permanently visible. Rotate
 turns the diagram clockwise by 90° per activation; Reset restores both 100% scale and the original
@@ -148,6 +150,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `17.2.0` is sequence 17 with
-two feature outcomes and no fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `18.0.3` is sequence 18 with
+no feature outcomes and three fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

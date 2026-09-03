@@ -56,6 +56,7 @@ const editor = new AicEditor(root, {
 });
 
 let unsubscribe = () => {};
+let activeNoteId: string | null = standalone ? "standalone" : null;
 let activeFileProperties: Readonly<{
   id: string;
   fileName: string | null;
@@ -77,6 +78,7 @@ if (standalone) {
   unsubscribe = standardNotesHost.subscribe((snapshot) => {
     remoteGeneration += 1;
     if (!snapshot.id) {
+      activeNoteId = null;
       activeFileProperties = null;
       editor.setDocument(snapshot.text);
       editor.setReadOnly(true);
@@ -93,7 +95,11 @@ if (standalone) {
       fileName: snapshot.fileName,
       createdAt: snapshot.createdAt,
     };
-    editor.setDocument(active.text);
+    if (activeNoteId === snapshot.id) editor.updateDocument(active.text);
+    else {
+      activeNoteId = snapshot.id;
+      editor.setDocument(active.text);
+    }
     hydrated = true;
     editor.setReadOnly(snapshot.locked);
     reflectSaveState();
@@ -127,7 +133,7 @@ function commitDraft(): void {
     });
     if (stamped !== active.text) {
       drafts.edit(stamped);
-      editor.setDocument(stamped);
+      editor.updateDocument(stamped);
     }
   }
   const commit = drafts.begin("explicit");

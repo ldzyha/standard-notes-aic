@@ -28,6 +28,27 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
+  it("updates the active document without resetting its selection", () => {
+    const changed = vi.fn();
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host, {
+      initialText: "alpha beta",
+      onChange: changed,
+    });
+    editor.view.dispatch({ selection: { anchor: 6, head: 10 } });
+    editor.view.focus();
+
+    expect(editor.updateDocument("prefix alpha beta")).toBe(true);
+    expect(editor.value).toBe("prefix alpha beta");
+    expect(editor.view.state.selection.main.anchor).toBe(13);
+    expect(editor.view.state.selection.main.head).toBe(17);
+    expect(editor.view.hasFocus).toBe(true);
+    expect(changed).not.toHaveBeenCalled();
+    expect(editor.updateDocument("prefix alpha beta")).toBe(false);
+    editor.destroy();
+  });
+
   it("preserves the note's CRLF line separator when saving", () => {
     const source = "# Title\r\n\r\nText\r\n";
     const changed = vi.fn();
@@ -182,6 +203,33 @@ describe("AIC editor integration", () => {
         ),
       ].every((handle) => handle.draggable),
     ).toBe(true);
+    editor.destroy();
+  });
+
+  it("keeps native text selection inside a preview stable", () => {
+    const source = "---\nstatus: idea\n---\n\nBody";
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host, { initialText: source });
+    editor.view.dispatch({ selection: { anchor: source.length } });
+    const preview = editor.element.querySelector<HTMLElement>(".cm-md-props")!;
+    const value = preview.querySelector<HTMLElement>(
+      '[aria-label="Property status value"]',
+    )!;
+    const text = value.firstChild!;
+    const range = document.createRange();
+    range.setStart(text, 0);
+    range.setEnd(text, 4);
+    const selection = document.getSelection()!;
+    selection.removeAllRanges();
+    selection.addRange(range);
+    const editorSelection = editor.view.state.selection.main;
+
+    value.dispatchEvent(new Event("pointerup", { bubbles: true }));
+
+    expect(selection.toString()).toBe("idea");
+    expect(preview.isConnected).toBe(true);
+    expect(editor.view.state.selection.main.eq(editorSelection)).toBe(true);
     editor.destroy();
   });
 

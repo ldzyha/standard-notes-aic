@@ -11,7 +11,12 @@ import {
   indentOnInput,
   syntaxHighlighting,
 } from "@codemirror/language";
-import { Compartment, EditorState, type Extension } from "@codemirror/state";
+import {
+  Compartment,
+  EditorState,
+  Transaction,
+  type Extension,
+} from "@codemirror/state";
 import {
   crosshairCursor,
   drawSelection,
@@ -25,6 +30,7 @@ import {
 } from "@codemirror/view";
 import { blockViewExtensions } from "./block-views";
 import { makeCodeFenceExtension } from "./core/code-fence-extension.js";
+import { wirePreviewSelection } from "./core/structured-preview.js";
 import { aicKeymap } from "./commands";
 import { aicMarkdownLanguage } from "./language";
 import { linkActionsExtension } from "./link-actions";
@@ -95,65 +101,6 @@ export function detectTheme(
     : "default";
 }
 
-function wirePreviewSelection(view: EditorView, document: Document): void {
-  view.dom.addEventListener(
-    "keydown",
-    (event) => {
-      if (
-        event.defaultPrevented ||
-        !(event.ctrlKey || event.metaKey) ||
-        event.altKey ||
-        event.key.toLowerCase() !== "a"
-      )
-        return;
-      event.preventDefault();
-      event.stopPropagation();
-      document.getSelection()?.removeAllRanges();
-      view.dispatch({
-        selection: { anchor: 0, head: view.state.doc.length },
-        scrollIntoView: true,
-        userEvent: "select",
-      });
-      view.focus();
-    },
-    true,
-  );
-  const previewForNode = (node: Node | null): HTMLElement | null => {
-    const element =
-      node?.nodeType === 1 ? (node as Element) : (node?.parentElement ?? null);
-    return (
-      element?.closest<HTMLElement>(
-        "[data-aic-source-from][data-aic-source-to]",
-      ) ?? null
-    );
-  };
-  view.dom.addEventListener(
-    "pointerup",
-    (event) => {
-      const target = event.target as Element | null;
-      if (target?.closest?.("textarea,input,[contenteditable='true']")) return;
-      const selection = document.getSelection();
-      if (!selection || selection.isCollapsed) return;
-      const preview =
-        previewForNode(selection.anchorNode) ??
-        previewForNode(selection.focusNode);
-      if (!preview || !view.dom.contains(preview)) return;
-      const from = Number(preview.dataset.aicSourceFrom);
-      const to = Number(preview.dataset.aicSourceTo);
-      if (!Number.isInteger(from) || !Number.isInteger(to) || from >= to)
-        return;
-      selection.removeAllRanges();
-      view.dispatch({
-        selection: { anchor: from, head: to },
-        scrollIntoView: true,
-        userEvent: "select.pointer",
-      });
-      view.focus();
-    },
-    true,
-  );
-}
-
 export class AicEditor {
   readonly element: HTMLElement;
   readonly editorHost: HTMLElement;
@@ -164,6 +111,7 @@ export class AicEditor {
   private readonly readOnlyCompartment = new Compartment();
   private readonly editableCompartment = new Compartment();
   private readonly onChange: (text: string) => void;
+  private readonly unwirePreviewSelection: () => void;
   private suppressChange = false;
   private currentReadOnly: boolean;
   private lineSeparator = "\n";
@@ -190,7 +138,10 @@ export class AicEditor {
       root: this.document,
     });
     this.view = view;
-    wirePreviewSelection(this.view, this.document);
+    this.unwirePreviewSelection = wirePreviewSelection(
+      this.view,
+      this.document,
+    );
     this.toolbar.setReadOnly(this.currentReadOnly);
     this.element.dataset.readOnly = String(this.currentReadOnly);
     this.element.dataset.saveState = "unavailable";
@@ -280,6 +231,43 @@ export class AicEditor {
     return true;
   }
 
+  updateDocument(document: string): boolean {
+    const text = String(document ?? "");
+    if (text === this.value) return false;
+    this.lineSeparator = text.includes("\r\n")
+      ? "\r\n"
+      : text.includes("\r")
+        ? "\r"
+        : "\n";
+    const next = text.replace(/\r\n?|\n/gu, "\n");
+    const current = this.view.state.doc.toString();
+    let from = 0;
+    const shared = Math.min(current.length, next.length);
+    while (from < shared && current.charCodeAt(from) === next.charCodeAt(from))
+      from += 1;
+    let currentTo = current.length;
+    let nextTo = next.length;
+    while (
+      currentTo > from &&
+      nextTo > from &&
+      current.charCodeAt(currentTo - 1) === next.charCodeAt(nextTo - 1)
+    ) {
+      currentTo -= 1;
+      nextTo -= 1;
+    }
+    this.suppressChange = true;
+    try {
+      this.view.dispatch({
+        changes: { from, to: currentTo, insert: next.slice(from, nextTo) },
+        annotations: Transaction.addToHistory.of(false),
+      });
+      this.view.requestMeasure();
+    } finally {
+      this.suppressChange = false;
+    }
+    return true;
+  }
+
   setReadOnly(readOnly: boolean): boolean {
     if (this.currentReadOnly === readOnly) return false;
     this.currentReadOnly = readOnly;
@@ -300,6 +288,7 @@ export class AicEditor {
 
   refreshTheme(): MermaidTheme {
     const theme = detectTheme(this.document);
+    if (this.element.dataset.theme === theme) return theme;
     this.element.dataset.theme = theme;
     if (this.view) this.view.dispatch({ effects: refreshMermaidTheme.of() });
     return theme;
@@ -310,6 +299,7 @@ export class AicEditor {
   }
 
   destroy(): void {
+    this.unwirePreviewSelection();
     this.view.destroy();
     this.element.remove();
   }

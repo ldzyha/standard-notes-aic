@@ -22,34 +22,34 @@ CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
 
 ## Functional matrix
 
-| Area / owner                                | Behavior                                                                           | State / side effect                            | Failure boundary                                 | Coverage                      |
-| ------------------------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------ | ----------------------------- |
-| Bootstrap (`src/main.ts`)                   | Detects standalone vs Standard Notes, mounts one editor, subscribes before editing | active UUID draft and remote generation        | Missing identity is read-only/unavailable        | main, host tests              |
-| Host adapter (`src/standard-notes-host.ts`) | Pins compatibility knowledge for `sn-extension-api` 0.4.0                          | writes preview before text                     | UUID mismatch/locked item returns false          | standard-notes-host           |
-| Draft registry                              | Isolates `DraftSession` by UUID across rapid note switches                         | dirty/current text per note                    | Remote refresh never discards dirty local text   | registry, main, draft-session |
-| Explicit save                               | Stamps managed note fields, computes plain preview, writes once                    | dirty → pending → saved/dirty                  | Failed save keeps the draft dirty                | main, editor                  |
-| Preview selection                           | Collapsed cursor previews; non-empty selection reveals intersected Markdown        | CodeMirror selection only                      | `Ctrl/Cmd+A` reveals the complete source         | preview                       |
-| Links                                       | Click label to open; Copy and Edit icons are always visible                        | host URL/clipboard adapters                    | Unsafe targets remain closed                     | link-actions                  |
-| Details                                     | Summary/chevron toggles independently from checkbox and body                       | exact open/closed marker                       | Fence-contained terminators do not close a card  | details                       |
-| Code fences                                 | Same preview card, language label, and permanent Copy/Edit icons as VS Code        | exact fenced body; explicit source reveal      | Unknown language remains readable and copyable   | code-fence/core/editor        |
-| Mermaid                                     | Render, copy, edit, zoom, reset, clockwise rotate, two-axis scroll                 | transform and viewport state only              | Render error exposes recoverable source          | mermaid/viewport              |
-| Tables                                      | Content-sized columns, word-only wrapping, horizontal grid scroll                  | one transient textarea popover; row/column DnD | Invalid mutation is rejected atomically          | blocks/structured-preview     |
-| Properties                                  | Static nested preview and one transient editor popover                             | add/edit/move full sibling branch              | Structural roots cannot be split/moved illegally | blocks/structured-preview     |
-| Read-only                                   | Keeps preview, navigation, selection, and copy available                           | all mutation controls disabled                 | No host write can run                            | editor/main                   |
-| Theme and icons                             | Uses host tokens, CSS SVG masks, and Standard Notes' supported `>_` Code icon      | renderer-independent editor actions            | No custom top-bar SVG API is assumed             | manifest/editor/publication   |
-| Distribution                                | Stable plugin identifier, hosted manifest, versioned desktop archive               | GitHub Pages plus release ZIP                  | Tag/package/manifest versions must match         | manifest/publication          |
+| Area / owner                                | Behavior                                                                               | State / side effect                            | Failure boundary                                 | Coverage                      |
+| ------------------------------------------- | -------------------------------------------------------------------------------------- | ---------------------------------------------- | ------------------------------------------------ | ----------------------------- |
+| Bootstrap (`src/main.ts`)                   | Detects standalone vs Standard Notes, mounts one editor, subscribes before editing     | active UUID draft and remote generation        | Missing identity is read-only/unavailable        | main, host tests              |
+| Host adapter (`src/standard-notes-host.ts`) | Pins compatibility knowledge for `sn-extension-api` 0.4.0                              | writes preview before text                     | UUID mismatch/locked item returns false          | standard-notes-host           |
+| Draft registry                              | Isolates `DraftSession` by UUID across rapid note switches                             | dirty/current text per note                    | Remote refresh never discards dirty local text   | registry, main, draft-session |
+| Explicit save                               | Stamps managed note fields, computes plain preview, writes once                        | dirty → pending → saved/dirty                  | Failed save keeps the draft dirty                | main, editor                  |
+| Preview selection                           | Native preview selection remains stable; source selection reveals intersected Markdown | shared keyboard/DOM boundary                   | `Ctrl/Cmd+A` reveals the complete source         | structured-preview/editor     |
+| Links                                       | Click label to open; Copy and Edit icons are always visible                            | host URL/clipboard adapters                    | Unsafe targets remain closed                     | link-actions                  |
+| Details                                     | Summary/chevron toggles independently from checkbox and body                           | exact open/closed marker                       | Fence-contained terminators do not close a card  | details                       |
+| Code fences                                 | Same preview card, language label, and permanent Copy/Edit icons as VS Code            | exact fenced body; explicit source reveal      | Unknown language remains readable and copyable   | code-fence/core/editor        |
+| Mermaid                                     | Render, copy, edit, zoom, reset, clockwise rotate, two-axis scroll                     | transform and viewport state only              | Render error exposes recoverable source          | mermaid/viewport              |
+| Tables                                      | Content-sized columns, word-only wrapping, horizontal grid scroll                      | one transient textarea popover; row/column DnD | Invalid mutation is rejected atomically          | blocks/structured-preview     |
+| Properties                                  | Static nested preview and one transient editor popover                                 | add/edit/move full sibling branch              | Structural roots cannot be split/moved illegally | blocks/structured-preview     |
+| Read-only                                   | Keeps preview, navigation, selection, and copy available                               | all mutation controls disabled                 | No host write can run                            | editor/main                   |
+| Theme and icons                             | Uses host tokens, CSS SVG masks, and Standard Notes' supported `>_` Code icon          | renderer-independent editor actions            | No custom top-bar SVG API is assumed             | manifest/editor/publication   |
+| Distribution                                | Stable plugin identifier, hosted manifest, versioned desktop archive                   | GitHub Pages plus release ZIP                  | Tag/package/manifest versions must match         | manifest/publication          |
 
 ## Shared core modules
 
-| Module                 | Contract                                                                         |
-| ---------------------- | -------------------------------------------------------------------------------- |
-| `draft-session`        | Explicit commit boundary and remote-update protection                            |
-| `file-properties`      | Three managed note fields, ordinary-document preservation, safe legacy migration |
-| `structured-preview`   | Pure table/property source mutations with structural validation                  |
-| `code-fence-preview`   | Text-safe code card plus permanent Copy/Edit actions shared by both adapters     |
-| `code-fence-extension` | Shared CodeMirror discovery, replacement, selection, read-only, and copy routing |
-| `icons.css`            | CSS-mask action icons with inherited renderer colors                             |
-| `mermaid-viewport`     | Zoom/rotation transform and bidirectional overflow behavior                      |
+| Module                 | Contract                                                                          |
+| ---------------------- | --------------------------------------------------------------------------------- |
+| `draft-session`        | Explicit commit boundary and remote-update protection                             |
+| `file-properties`      | Three managed note fields, ordinary-document preservation, safe legacy migration  |
+| `structured-preview`   | Stable preview selection plus table/property mutations with structural validation |
+| `code-fence-preview`   | Text-safe code card plus permanent Copy/Edit actions shared by both adapters      |
+| `code-fence-extension` | Shared CodeMirror discovery, replacement, selection, read-only, and copy routing  |
+| `icons.css`            | CSS-mask action icons with inherited renderer colors                              |
+| `mermaid-viewport`     | Zoom/rotation transform and bidirectional overflow behavior                       |
 
 ## Interaction contract
 
@@ -62,8 +62,9 @@ CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
 - Table/Properties Add and drag handles: serialize one valid Markdown block.
 - Task checkbox: change only its Markdown marker; disclosure controls do not
   consume checkbox activation.
-- Any non-empty selection, including `Ctrl/Cmd+A`, exits preview for every
-  intersected range so normal copy and editing remain predictable.
+- Native mouse selection inside preview remains selectable and copyable without
+  rerendering the widget. CodeMirror selections reveal intersected source;
+  `Ctrl/Cmd+A` reveals the complete note.
 
 ## Parity boundary
 

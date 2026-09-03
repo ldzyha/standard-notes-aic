@@ -4,6 +4,7 @@ import {
   type EditorState,
   type Extension,
   type Range,
+  type Transaction,
 } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import {
@@ -250,12 +251,21 @@ function previewDecorations(state: EditorState) {
   return Decoration.set(ranges, true);
 }
 
+function previewStateChanged(transaction: Transaction): boolean {
+  return (
+    transaction.docChanged ||
+    Boolean(transaction.selection) ||
+    transaction.startState.readOnly !== transaction.state.readOnly ||
+    transaction.effects.some(
+      (effect) => effect.is(toggleVisual) || effect.is(editSource),
+    )
+  );
+}
+
 const detailsField = StateField.define({
   create: previewDecorations,
   update(value, transaction) {
-    return transaction.docChanged ||
-      transaction.selection ||
-      transaction.effects.length
+    return previewStateChanged(transaction)
       ? previewDecorations(transaction.state)
       : value;
   },
@@ -299,9 +309,7 @@ function bodyDecorations(state: EditorState) {
 const detailsBodyField = StateField.define({
   create: bodyDecorations,
   update(value, transaction) {
-    return transaction.docChanged ||
-      transaction.selection ||
-      transaction.effects.length
+    return previewStateChanged(transaction)
       ? bodyDecorations(transaction.state)
       : value;
   },
