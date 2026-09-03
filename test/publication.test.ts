@@ -34,8 +34,8 @@ describe("publication metadata", () => {
     );
   });
 
-  it("documents the 15.1.2 R.F.B release and packages usage instructions", () => {
-    expect(changelog).toContain("## 15.1.2 — 2026-09-02");
+  it("documents the 16.1.1 R.F.B release and packages usage instructions", () => {
+    expect(changelog).toContain("## 16.1.1 — 2026-09-03");
     expect(changelog).toContain(
       "Release sequence 15 · 1 feature outcome · 2 fixed-bug outcomes",
     );
@@ -57,6 +57,8 @@ describe("publication metadata", () => {
       "Three managed note fields",
       "UUID mismatch/locked item returns false",
       "Mermaid",
+      "Code fences",
+      "code-fence-preview",
       "Tables",
       "Properties",
       "Read-only",

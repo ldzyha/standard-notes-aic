@@ -1,5 +1,22 @@
 # Changelog
 
+## 16.1.1 — 2026-09-03
+
+Release sequence 16 · 1 feature outcome · 1 fixed-bug outcome.
+
+- F01: move the fenced-code preview card into AIC Editor Core 2.8 and consume the byte-identical
+  module from both the Standard Notes and VS Code adapters. Non-Mermaid fences now render the same
+  language caption, text-safe scrollable body, and permanent icon-only Copy/Edit actions in both
+  products; Copy uses the exact fenced body and Edit focuses its Markdown source.
+- B01: close the editor-parity gap that left Standard Notes code fences as raw decorated source
+  while VS Code exposed a preview card. Selection and `Ctrl+A`/`Cmd+A` now reveal code source using
+  the same shared range contract, and locked notes keep Copy plus an explicit source-inspection
+  action.
+
+Compatibility: Standard Notes custom `editor-editor` component, interchangeable Markdown note/file
+type. The hosted manifest and desktop archive keep the stable
+`com.dzyha.standard-notes-aic` identifier and AIC Editor Core 2.8.
+
 ## 15.1.2 — 2026-09-02
 
 Release sequence 15 · 1 feature outcome · 2 fixed-bug outcomes.

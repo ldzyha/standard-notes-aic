@@ -48,6 +48,11 @@ inside a horizontal scroller when its readable columns are wider than the editor
 copies the exact Markdown table source. Action graphics are embedded SVG data URIs rendered as CSS
 masks; button DOM stays text-free and accessible through `aria-label` values.
 
+Non-Mermaid fenced code uses the same preview card as AIC Notes for VS Code. The language caption
+and icon-only Copy/Edit actions are always visible; Copy returns the exact fenced body, Edit reveals
+and focuses the Markdown source, and selecting across the card (including `Ctrl+A`/`Cmd+A`) reveals
+the source without changing it. Unknown languages remain readable and copyable.
+
 Mermaid previews keep Zoom out, Zoom in, Reset, and Rotate actions permanently visible. Rotate
 turns the diagram clockwise by 90° per activation; Reset restores both 100% scale and the original
 direction. The diagram viewport scrolls on both axes after zoom or rotation and can receive keyboard
@@ -140,6 +145,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `15.1.2` is sequence 15 with
-one feature outcome and two fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `16.1.1` is sequence 16 with
+one feature outcome and one fixed-bug outcome; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

@@ -31,7 +31,7 @@ Mermaid viewport. Markdown remains the only cross-client storage format.
 | Preview selection                           | Collapsed cursor previews; non-empty selection reveals intersected Markdown        | CodeMirror selection only                      | `Ctrl/Cmd+A` reveals the complete source         | preview                       |
 | Links                                       | Click label to open; Copy and Edit icons are always visible                        | host URL/clipboard adapters                    | Unsafe targets remain closed                     | link-actions                  |
 | Details                                     | Summary/chevron toggles independently from checkbox and body                       | exact open/closed marker                       | Fence-contained terminators do not close a card  | details                       |
-| Code fences                                 | Highlighted Markdown source for known languages                                    | direct CodeMirror editing and native copy      | Unknown language remains readable source         | language/editor               |
+| Code fences                                 | Same preview card, language label, and permanent Copy/Edit icons as VS Code        | exact fenced body; explicit source reveal      | Unknown language remains readable and copyable   | code-fence/core/editor        |
 | Mermaid                                     | Render, copy, edit, zoom, reset, clockwise rotate, two-axis scroll                 | transform and viewport state only              | Render error exposes recoverable source          | mermaid/viewport              |
 | Tables                                      | Content-sized columns, word-only wrapping, horizontal grid scroll                  | one transient textarea popover; row/column DnD | Invalid mutation is rejected atomically          | blocks/structured-preview     |
 | Properties                                  | Static nested preview and one transient editor popover                             | add/edit/move full sibling branch              | Structural roots cannot be split/moved illegally | blocks/structured-preview     |
@@ -46,12 +46,14 @@ Mermaid viewport. Markdown remains the only cross-client storage format.
 | `draft-session`      | Explicit commit boundary and remote-update protection                            |
 | `file-properties`    | Three managed note fields, ordinary-document preservation, safe legacy migration |
 | `structured-preview` | Pure table/property source mutations with structural validation                  |
+| `code-fence-preview` | Text-safe code card plus permanent Copy/Edit actions shared by both adapters     |
 | `icons.css`          | CSS-mask action icons with inherited renderer colors                             |
 | `mermaid-viewport`   | Zoom/rotation transform and bidirectional overflow behavior                      |
 
 ## Interaction contract
 
 - Link label: open. Adjacent Copy: copy destination. Adjacent Edit: reveal source.
+- Code Copy: exact fenced body. Code Edit: reveal and focus the fenced source.
 - Mermaid Copy: exact fenced body. Edit: reveal the complete fence.
 - Mermaid Zoom/Reset/Rotate: change preview only; never rewrite diagram source.
 - Table/Properties value activation: open one positioned textarea popover.
@@ -62,9 +64,21 @@ Mermaid viewport. Markdown remains the only cross-client storage format.
 - Any non-empty selection, including `Ctrl/Cmd+A`, exits preview for every
   intersected range so normal copy and editing remain predictable.
 
+## Parity boundary
+
+- AIC Notes and this plugin consume byte-identical dependency-free core modules for drafts,
+  managed properties, structured mutations, code-fence cards, icons, and Mermaid viewport state.
+- Every Markdown editor interaction listed above has an adapter-owned regression test in both
+  products. A release cannot describe a raw-source fallback where the paired editor exposes a
+  preview action.
+- VS Code workspace navigation, sidecar/project notes, Explorer trees, local Trash, and source-file
+  selection comments are host capabilities, not Markdown editor behavior. Standard Notes UUID,
+  lock state, note switching, and component theming are likewise host-only. Neither product fakes
+  the other host's storage model inside Markdown.
+
 ## Release verification
 
-- Unit/model suites cover parsing, commands, details boundaries, link actions,
+- Unit/model suites cover parsing, commands, details boundaries, link actions, code-fence cards,
   tables/properties, draft identity, host identity, file properties, selection,
   Mermaid transform/viewport, and manifest/publication metadata.
 - Browser QA covers real layout, popovers, persistent actions, table overflow,

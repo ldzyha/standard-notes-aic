@@ -343,6 +343,95 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
+  it("mirrors the VS Code code-fence preview with permanent Copy and Edit actions", async () => {
+    const source = [
+      "Before",
+      "",
+      "```ts",
+      "const answer = 42;",
+      "console.log(answer);",
+      "```",
+      "",
+      "After",
+    ].join("\n");
+    const code = "const answer = 42;\nconsole.log(answer);";
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText },
+    });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host, { initialText: source });
+    editor.view.dispatch({ selection: { anchor: source.length } });
+
+    await vi.waitFor(() => {
+      expect(
+        editor.element.querySelector(".cm-md-code-preview"),
+      ).not.toBeNull();
+    });
+    const preview = editor.element.querySelector<HTMLElement>(
+      ".cm-md-code-preview",
+    )!;
+    expect(preview.querySelector("pre")?.textContent).toBe(code);
+    expect(
+      preview.querySelector(".cm-md-preview-header > span")?.textContent,
+    ).toBe("ts");
+    const copy = preview.querySelector<HTMLButtonElement>(
+      '[aria-label="Copy code"]',
+    );
+    const edit = preview.querySelector<HTMLButtonElement>(
+      '[aria-label="Edit code source"]',
+    );
+    expect(copy?.dataset.aicIcon).toBe("copy");
+    expect(edit?.dataset.aicIcon).toBe("edit");
+    expect(copy?.textContent).toBe("");
+    expect(edit?.textContent).toBe("");
+
+    copy!.click();
+    await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(code));
+    await vi.waitFor(() => expect(copy!.dataset.aicIcon).toBe("check"));
+    editor.view.dispatch({ selection: { anchor: 0, head: source.length } });
+    expect(editor.element.querySelector(".cm-md-code-preview")).toBeNull();
+    editor.view.dispatch({ selection: { anchor: source.length } });
+    const restoredEdit = editor.element.querySelector<HTMLButtonElement>(
+      '[aria-label="Edit code source"]',
+    );
+    expect(restoredEdit).not.toBeNull();
+    restoredEdit!.click();
+    expect(editor.element.querySelector(".cm-md-code-preview")).toBeNull();
+    expect(editor.view.state.selection.main.head).toBe(
+      source.indexOf("const answer"),
+    );
+    editor.destroy();
+  });
+
+  it("keeps code copy available while locked and labels source inspection clearly", async () => {
+    const source = "```\nread only\n```\n\nafter";
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host, { initialText: source, readOnly: true });
+    editor.view.dispatch({ selection: { anchor: source.length } });
+    await vi.waitFor(() => {
+      expect(
+        editor.element.querySelector('[aria-label="View code source"]'),
+      ).not.toBeNull();
+    });
+    const preview = editor.element.querySelector<HTMLElement>(
+      ".cm-md-code-preview",
+    )!;
+    expect(
+      preview.querySelector<HTMLButtonElement>('[aria-label="Copy code"]')
+        ?.disabled,
+    ).toBe(false);
+    expect(
+      preview.querySelector<HTMLButtonElement>(
+        '[aria-label="View code source"]',
+      )?.dataset.aicIcon,
+    ).toBe("source");
+    editor.destroy();
+  });
+
   it("disables commands and source mutation while locked", () => {
     const host = document.createElement("div");
     document.body.append(host);

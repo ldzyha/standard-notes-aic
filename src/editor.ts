@@ -24,6 +24,7 @@ import {
   rectangularSelection,
 } from "@codemirror/view";
 import { blockViewExtensions } from "./block-views";
+import { makeCodeFenceExtension } from "./code-fence-extension";
 import { aicKeymap } from "./commands";
 import { aicMarkdownLanguage } from "./language";
 import { linkActionsExtension } from "./link-actions";
@@ -234,6 +235,7 @@ export class AicEditor {
         ...defaultKeymap,
       ]),
       markdownDecorations,
+      makeCodeFenceExtension(this.document),
       blockViewExtensions(),
       detailsExtensions(),
       makeMermaidExtension({

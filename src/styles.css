@@ -331,6 +331,39 @@ select {
   background: color-mix(in srgb, var(--aic-fg) 4%, transparent);
 }
 
+.cm-md-block-preview {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  margin: 0.65rem 0;
+  overflow: hidden;
+  border: 1px solid var(--aic-details-border);
+  border-radius: 0.55rem;
+  background: var(--aic-details-surface);
+  color: var(--aic-contrast-fg);
+}
+
+.cm-md-code-preview > pre {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  overflow: auto;
+  background: color-mix(in srgb, var(--aic-bg) 88%, var(--aic-fg) 12%);
+  color: var(--aic-fg);
+  font: inherit;
+  line-height: 1.5;
+  tab-size: 2;
+  white-space: pre;
+  overscroll-behavior: contain;
+}
+
+.cm-md-code-preview > pre > code {
+  font: inherit;
+}
+
 .cm-md-link {
   text-decoration: underline;
   text-underline-offset: 0.15em;
