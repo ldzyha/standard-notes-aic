@@ -1,7 +1,8 @@
 import { autocompletion, snippetCompletion } from "@codemirror/autocomplete";
 import { syntaxTree } from "@codemirror/language";
+import { NOTE_PROMPTS } from "./note-template.js";
 
-export const SLASH_SNIPPETS_CORE_VERSION = "1.1.0";
+export const SLASH_SNIPPETS_CORE_VERSION = "1.2.0";
 export const SLASH_SNIPPET_PLACEHOLDER =
   "Write in Markdown… Type / for templates";
 
@@ -10,7 +11,11 @@ const GROUP_BY_COMMAND = Object.freeze({
   "page-architecture": "pages",
   "page-capability": "pages",
   "page-decision": "pages",
-  purpose: "structure",
+  section: "structure",
+  context: "structure",
+  noise: "structure",
+  wave: "structure",
+  implementation: "structure",
   "high-level": "structure",
   "owned-detail": "structure",
   errors: "assurance",
@@ -18,10 +23,15 @@ const GROUP_BY_COMMAND = Object.freeze({
   "open-questions": "assurance",
   bibliography: "references",
   glossary: "references",
+  list: "data",
+  "list-numbered": "data",
+  checklist: "data",
+  table: "data",
   "mapping-table": "data",
   comparison: "data",
   tasks: "data",
   flowchart: "diagrams",
+  "entity-map": "diagrams",
   sequence: "diagrams",
   "class-diagram": "diagrams",
   timeline: "diagrams",
@@ -30,7 +40,7 @@ const GROUP_BY_COMMAND = Object.freeze({
   synthesis: "content",
 });
 
-const define = (command, kind, title, question, template) =>
+const define = (command, kind, title, question, template, searchTerms = []) =>
   Object.freeze({
     command,
     kind,
@@ -38,6 +48,7 @@ const define = (command, kind, title, question, template) =>
     title,
     question,
     template,
+    searchTerms: Object.freeze([...searchTerms]),
   });
 
 export const DOCUMENTATION_SNIPPETS = Object.freeze([
@@ -45,23 +56,28 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
     "page",
     "page",
     "Progressive documentation page",
-    "What single question does this page own, and how should understanding deepen from top to bottom?",
+    "Which questions does this page answer, for which reader, and where should they go deeper?",
     [
       "# ${1:Page title}",
       "",
-      "> **Purpose:** ${2:What does this page own, what outcome does it enable, and what remains outside its boundary?}",
+      "**Questions**",
       "",
-      "## High-level design",
+      "- ${2:What does the reader need to understand or do?}",
+      "- ${3:Which related question needs another perspective?}",
       "",
-      "*${3:What single question does this page answer, and from which perspective?}*",
+      "**Answer.** ${4:Give the useful answer now. Combine text, lists, tables or diagrams only where they help; distinguish facts, recommendations and unknowns.}",
       "",
-      "${4:Give the highest-level answer using one primary representation.}",
+      "## ${5:Subject to explore}",
       "",
-      "## ${5:Owned detail}",
+      "**${6:Which part of the answer needs a closer look?}**",
       "",
-      "*${6:What must the reader understand next?}*",
+      "${7:Answer at this scale. Link to parent context and shared definitions instead of repeating them.}",
       "",
-      "${7:Explain the lifecycle progressively from intent to structure, execution, and edge cases.}",
+      "### ${8:Further detail, if useful}",
+      "",
+      "**${9:What does the reader need to know next?}**",
+      "",
+      "${10:Add the evidence or explanation needed for this question; remove details that do not help.}",
       "",
       "${0}",
     ].join("\n"),
@@ -74,27 +90,21 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
     [
       "# ${1:System or capability}",
       "",
-      "> **Purpose:** ${2:What architecture does this page own, for whom, and at what abstraction level?}",
+      "**${2:How is this system composed, and how do its parts work together?}**",
       "",
-      "## High-level design",
+      "${3:Answer at the useful scale for the reader. Name the system boundary and link to inherited context.}",
       "",
-      "*${3:Which stable modules and ownership boundaries answer the page question?}*",
+      "## Structure and dependencies",
       "",
-      "```mermaid",
-      "classDiagram",
-      "direction LR",
-      "class ${4:Owner}",
-      "class ${5:Consumer}",
-      "${5} --> ${4}: ${6:uses contract}",
-      "```",
+      "**${4:Which entities are contained here, and which are external dependencies?}**",
       "",
-      "## ${7:Owned contract}",
+      "${5:Describe the relationships. Add an entity map or class diagram if it explains them better.}",
       "",
-      "${8:What input, responsibility, output, and boundary belong to this owner?}",
+      "## ${6:Contract or interaction to explore}",
       "",
-      "## Runtime implications",
+      "**${7:Which inputs, outputs, transitions or responsibilities need more detail?}**",
       "",
-      "${9:How does this structure affect execution, failure isolation, or change scope?}",
+      "${8:Explain this part; link to a child or shared module when its own description is needed.}",
       "",
       "${0}",
     ].join("\n"),
@@ -103,31 +113,33 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
     "page-capability",
     "page",
     "Capability profile page",
-    "Which shopper-visible behavior is enabled by configured, allowlisted, and valid data?",
+    "Which observable behavior is needed, what already supports it, and what remains unknown?",
     [
       "# ${1:Capability profile}",
       "",
-      "> **Purpose:** ${2:Which business-visible capability does this page define, and what does it deliberately not infer?}",
+      "**${2:What should the user be able to do or observe?}**",
       "",
-      "## Capability contract",
+      "${3:Answer in the reader's language. State the behavior and its boundary before implementation detail.}",
       "",
-      "*${3:What outcome can the user observe?}*",
+      "## Conditions",
       "",
-      "${4:State the behavior in business language before implementation detail.}",
+      "**${4:Under which conditions is this behavior available?}**",
       "",
-      "## Applicability",
-      "",
-      "| Requirement | Enabling data or configuration | When absent |",
+      "| Condition | Existing support or evidence | Behavior outside the condition |",
       "| --- | --- | --- |",
-      "| ${5:Capability condition} | ${6:Validated input} | ${7:Behavior remains absent} |",
+      "| ${5:Required condition} | ${6:Actual capability or configuration} | ${7:Known behavior or open decision} |",
       "",
       "## Delivery delta",
+      "",
+      "**What needed capability is missing from existing functionality and configuration?**",
       "",
       "| Requested outcome | Existing reusable capability | Product contribution or reusable development |",
       "| --- | --- | --- |",
       "| ${8:Visible change} | ${9:Current support} | ${10:Delivery class and reason} |",
       "",
       "## Verification",
+      "",
+      "**How will the reader know the expected behavior is present?**",
       "",
       "| Case or scope | Expected result or verification |",
       "| --- | --- |",
@@ -144,33 +156,44 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
     [
       "# ${1:Decision title}",
       "",
-      "> **Purpose:** ${2:What decision does this page own, what outcome follows, and what is outside its scope?}",
+      "**${2:Which decision is needed, and what result should it enable?}**",
+      "",
+      "${3:State the recommended direction and why. Explicitly mark whether it is proposed, approved or still open.}",
       "",
       "## Context",
       "",
-      "*${3:Which current constraint or problem makes a decision necessary?}*",
+      "**Which current facts and constraints support this direction?**",
       "",
-      "${4:Summarize the evidence and relevant boundary.}",
-      "",
-      "## Decision",
-      "",
-      "${5:State the chosen direction and its owner directly.}",
+      "${4:Link to evidence and inherited context. Separate observed facts from expectations.}",
       "",
       "## Migration path",
       "",
-      "1. ${6:First safe transition}",
-      "2. ${7:Next transition with verification}",
-      "3. ${8:Completion and cleanup boundary}",
+      "**What changes, in which dependency order, and how is each result verified?**",
+      "",
+      "| Step | Prerequisite | Required change | Verifiable result |",
+      "| --- | --- | --- | --- |",
+      "| 1 | ${5:Initial prerequisite} | ${6:First safe change} | ${7:Observable result} |",
+      "| 2 | Result of step 1 | ${8:Next change, including dependency removal if replacing a component} | ${9:Completion and cleanup criterion} |",
+      "",
+      "### Error handling",
+      "",
+      "**What if a transition fails?**",
+      "",
+      "${10:Name the affected step, failure signal, safe continuation or recovery and how to verify it.}",
       "",
       "## Consequences",
       "",
+      "**Which benefits, costs and limits follow from this direction?**",
+      "",
       "| Effect | Benefit, cost, or recovery |",
       "| --- | --- |",
-      "| ${9:Material consequence} | ${10:Why it is acceptable or how it is handled} |",
+      "| ${11:Material consequence} | ${12:Why it is acceptable or how it is handled} |",
       "",
       "## Open questions",
       "",
-      "1. ${11:Which genuine unresolved decision remains?}",
+      "**What still needs review before proceeding?**",
+      "",
+      "${13:Name the unresolved choice, its effect and the evidence or decision needed. Remove this section if nothing remains open.}",
       "",
       "${0}",
     ].join("\n"),
@@ -182,6 +205,8 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
     "Which external or related sources does the reader need before the page can answer its question?",
     [
       "## Bibliography",
+      "",
+      "**Which sources does this answer rely on?**",
       "",
       "- [${1:Source or page title}](${2:URL}) — ${3:Why is this source relevant?}",
       "- [${4:Related owner page}](${5:URL})",
@@ -197,6 +222,8 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
     [
       "## Glossary",
       "",
+      "**Which terms need a local definition or a link to their shared definition?**",
+      "",
       "| Term | Meaning | Example or detail |",
       "| --- | --- | --- |",
       "| ${1:Term} | ${2:What does it mean in this page?} | ${3:What example removes ambiguity?} |",
@@ -205,12 +232,18 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
     ].join("\n"),
   ),
   define(
-    "purpose",
     "section",
-    "Purpose boundary",
-    "What does this page own, what outcome does it enable, and what remains outside its boundary?",
+    "section",
+    "Question and answer section",
+    "Which part of the surrounding answer needs its own question, answer and further detail?",
     [
-      "> **Purpose:** ${1:What does this page own, what outcome does it enable, and what remains outside its boundary?}",
+      "## ${1:Subject at this scale}",
+      "",
+      "**${2:Which question or related questions does this section answer?}**",
+      "",
+      "${3:Give the direct answer. Use the forms that make it understandable.}",
+      "",
+      "${4:Add needed evidence or further detail; link to shared definitions instead of repeating them.}",
       "",
       "${0}",
     ].join("\n"),
@@ -219,13 +252,13 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
     "high-level",
     "section",
     "High-level answer",
-    "What is the highest useful answer to the page's central question?",
+    "How is the solution arranged overall, and how do its main parts relate?",
     [
       "## High-level design",
       "",
-      "*${1:What should the reader understand before any implementation detail?}*",
+      "**${1:What should the reader understand before implementation detail?}**",
       "",
-      "${2:Answer with one diagram, table, list, or prose representation.}",
+      "${2:Give the overall answer. Combine text with a diagram, table or list where it helps.}",
       "",
       "*${3:Why does this structure matter or what does it lead to?}*",
       "",
@@ -240,7 +273,7 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
     [
       "## ${1:Owned subject}",
       "",
-      "*${2:What specific question does this section answer?}*",
+      "**${2:Which part of the surrounding answer does this section explain?}**",
       "",
       "${3:Lead with the direct answer.}",
       "",
@@ -257,11 +290,13 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
     "Error handling section",
     "Which failures materially change continuation, observability, recovery, or partial success?",
     [
-      "## Error handling",
+      "### Error handling",
       "",
-      "| Condition | Behavior or recovery |",
-      "| --- | --- |",
-      "| ${1:Material failure condition} | ${2:What stops or continues, what is observable, and how is it recovered?} |",
+      "**Which implementation step can fail, and what should happen then?**",
+      "",
+      "| Step and condition | Behavior or recovery | Verifiable result |",
+      "| --- | --- | --- |",
+      "| ${1:Affected step and failure signal} | ${2:What stops or continues, and how is it recovered?} | ${3:How is safe recovery observed?} |",
       "",
       "${0}",
     ].join("\n"),
@@ -273,6 +308,8 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
     "Which branches, contracts, integrations, or failure paths need observable proof?",
     [
       "## Verification",
+      "",
+      "**Which scenarios prove the answer, including its boundaries and failures?**",
       "",
       "| Case or scope | Expected result or verification |",
       "| --- | --- |",
@@ -289,8 +326,171 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
     [
       "## Open questions",
       "",
-      "1. ${1:Which genuine unresolved decision remains?}",
-      "2. ${2:Which independent decision still needs an owner?}",
+      "**What is not yet known or agreed, and how does it affect the answer?**",
+      "",
+      "- ${1:Unresolved question} — ${2:Impact and evidence or decision needed}",
+      "",
+      "${0}",
+    ].join("\n"),
+  ),
+  define(
+    "context",
+    "section",
+    "Parent and shared context",
+    "Which parent descriptions and shared definitions does this local answer depend on?",
+    [
+      "## Context and relationships",
+      "",
+      "**What is inherited, and what does this description add?**",
+      "",
+      "${1:Name the local subject and boundary without copying the parent's explanation.}",
+      "",
+      "- Parent: [${2:Parent description}](${3:parent.md}) — ${4:Which context is inherited?}",
+      "- Shared definition: [${5:Module or rule}](${6:shared.md}) — ${7:How is it used here? This need not be a parent.}",
+      "- Detail: [${8:Child description}](${9:detail.md}) — ${10:Which part is explained at a closer scale?}",
+      "",
+      "${0}",
+    ].join("\n"),
+  ),
+  define(
+    "noise",
+    "section",
+    "Noise to investigate",
+    "What is unclear, where did it arise, and what must be learned before there is an executable path?",
+    [
+      "## Noise — ${1:Unclear subject}",
+      "",
+      `**${NOTE_PROMPTS.noiseQuestion}**`,
+      "",
+      "${2:Describe the need or uncertainty. Is this an unknown task, a short interruption or residual context from completed work?}",
+      "",
+      `**${NOTE_PROMPTS.noiseContext}**`,
+      "",
+      "${3:Link to the originating task or context. Explain the impact and whether work can continue.}",
+      "",
+      `**${NOTE_PROMPTS.noiseResearch}**`,
+      "",
+      "- ${4:Question to investigate} — ${5:Available evidence and next observation or conversation}",
+      "",
+      `**${NOTE_PROMPTS.noiseOutcome}**`,
+      "",
+      "${6:Record what became clear. Build the wave instruction in this same note when there is one task; link separate waves only for distinct results. A pause or justified refusal may also resolve the noise.}",
+      "",
+      "${0}",
+    ].join("\n"),
+  ),
+  define(
+    "wave",
+    "section",
+    "Wave with an executable path",
+    "What result will this task produce, in which dependency order, and how will it be verified?",
+    [
+      "## Wave — ${1:Expected result}",
+      "",
+      `**${NOTE_PROMPTS.waveResult}**`,
+      "",
+      "${2:State the observable result. Keep the originating noise and context linked in this same note.}",
+      "",
+      `**${NOTE_PROMPTS.waveBoundary}**`,
+      "",
+      "${3:Define the boundary, prerequisites and dependencies. If there are distinct results, link their separate waves.}",
+      "",
+      "### Instruction",
+      "",
+      `**${NOTE_PROMPTS.waveInstruction}**`,
+      "",
+      "| Step | Prerequisite | Action | Verifiable result |",
+      "| --- | --- | --- | --- |",
+      "| 1 | ${4:Required starting condition} | ${5:First action} | ${6:Evidence this step is complete} |",
+      "| 2 | Result of step 1 | ${7:Next dependent action} | ${8:Evidence the expected result is reached} |",
+      "",
+      "#### Deviations and new noise",
+      "",
+      `**${NOTE_PROMPTS.waveDeviation}**`,
+      "",
+      "${9:Name known deviations and recovery. Clarify small noises and continue; link out noise needing separate research. Stop dependent work if its path is no longer understood.}",
+      "",
+      "### Result and closure",
+      "",
+      `**${NOTE_PROMPTS.waveClosure}**`,
+      "",
+      "${10:Record evidence of the result or a justified refusal. Keep unresolved noise linked; distinguish it from residual context that needs a pause or attention reset.}",
+      "",
+      "${0}",
+    ].join("\n"),
+  ),
+  define(
+    "implementation",
+    "section",
+    "Dependency-ordered implementation",
+    "What must change, under which prerequisites, and what observable result confirms each step?",
+    [
+      "## Implementation",
+      "",
+      "**What changes are needed to produce the described answer?**",
+      "",
+      "${1:State the implementation direction and whether it is recommended or agreed. Link to required contracts and definitions.}",
+      "",
+      "| Step | Prerequisite | Required change | Verifiable result |",
+      "| --- | --- | --- | --- |",
+      "| 1 | ${2:Known prerequisite} | ${3:First change} | ${4:Observable result} |",
+      "| 2 | Result of step 1 | ${5:Dependent change} | ${6:Completion criterion, including removal of replaced dependencies} |",
+      "",
+      "### Error handling",
+      "",
+      "**What changes when a step fails or returns an unexpected result?**",
+      "",
+      "| Step and condition | Behavior or recovery | Verifiable result |",
+      "| --- | --- | --- |",
+      "| ${7:Affected step and failure signal} | ${8:Safe continuation or recovery} | ${9:Evidence recovery worked} |",
+      "",
+      "${0}",
+    ].join("\n"),
+  ),
+  define(
+    "list",
+    "block",
+    "List",
+    "Which separate points answer the current question, with one idea per item?",
+    [
+      "- ${1:What is the first point?}",
+      "- ${2:Which distinct point belongs here?}",
+      "- ${3:What else matters at this level?}",
+      "",
+      "${0}",
+    ].join("\n"),
+  ),
+  define(
+    "list-numbered",
+    "block",
+    "Numbered list",
+    "Which points need an explicit order, with one idea per item?",
+    [
+      "1. ${1:What comes first?}",
+      "2. ${2:What follows?}",
+      "3. ${3:What completes the sequence?}",
+      "",
+      "${0}",
+    ].join("\n"),
+  ),
+  define(
+    "checklist",
+    "block",
+    "Checklist",
+    "What needs to be done or checked, one item at a time?",
+    "- [ ] ${1:What needs to be done?}${0}",
+    ["checkbox", "tasklist"],
+  ),
+  define(
+    "table",
+    "block",
+    "Table",
+    "Which items share the same fields and are clearer to read row by row?",
+    [
+      "| ${1:Item} | ${2:Detail} |",
+      "| --- | --- |",
+      "| ${3:First item} | ${4:What should the reader know?} |",
+      "| ${5:Second item} | ${6:What should the reader know?} |",
       "",
       "${0}",
     ].join("\n"),
@@ -325,17 +525,45 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
   define(
     "flowchart",
     "block",
-    "Process or decision flowchart",
-    "Which decisions, branches, or transformations are difficult to understand linearly?",
+    "States and event transitions",
+    "Which states can this entity occupy, and which events and conditions change its state?",
     [
+      "**${1:Which entity or nested process is shown, at what scale?}**",
+      "",
       "```mermaid",
       "flowchart LR",
-      '    A["${1:Input or central question}"] --> B["${2:Owned decision or process}"]',
-      '    B --> C["${3:Outcome or consumer}"]',
-      '    B -. "${4:failure or optional path}" .-> D["${5:Recovery or omission}"]',
+      '    A["${2:Initial state}"] -->|"${3:Starting event}"| B["${4:In-progress state}"]',
+      '    B -->|"${5:Success event or condition}"| C["${6:Completed state}"]',
+      '    B -->|"${7:Failure event}"| D["${8:Failure state}"]',
+      '    D -->|"${9:Recovery event}"| B',
       "```",
       "",
-      "*${6:What conclusion should the reader draw from this flow?}*",
+      "*${10:Explain the boundary and link to a closer description of a state or transition when needed.}*",
+      "",
+      "${0}",
+    ].join("\n"),
+  ),
+  define(
+    "entity-map",
+    "block",
+    "Entity overview and drill-down",
+    "Which main entities are related, and where can the reader explore each at a closer scale?",
+    [
+      "**${1:Which system and its main entities does this overview cover?}**",
+      "",
+      "```mermaid",
+      "flowchart TB",
+      "    %% aic:entity-map",
+      '    System["${2:System}"] -->|contains| Module["${3:Module}"]',
+      '    Module -->|contains| Component["${4:Component}"]',
+      '    Module -. depends on .-> Shared["${5:Shared module}"]',
+      "```",
+      "",
+      "- [${3:Module}](${6:module.md}) — ${7:Which lifecycle or structure is described here?}",
+      "- [${4:Component}](${8:component.md}) — ${9:Which closer interaction or process is described here?}",
+      "- [${5:Shared module}](${10:shared.md}) — ${11:Which common definition is owned here?}",
+      "",
+      "*An entity map explains composition and relationships; use /timeline for chronological events.*",
       "",
       "${0}",
     ].join("\n"),
@@ -346,6 +574,8 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
     "Runtime sequence diagram",
     "Which calls, responses, ordering constraints, or lifecycle timing must remain explicit?",
     [
+      "**Which participants interact, and in what order?**",
+      "",
       "```mermaid",
       "sequenceDiagram",
       "    participant A as ${1:Actor}",
@@ -371,10 +601,10 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
       "classDiagram",
       "direction LR",
       "class ${1:Owner}",
-      "class ${2:Consumer}",
+      "class ${2:ContainedEntity}",
       "class ${3:Dependency}",
-      "${2} --> ${1}: ${4:uses contract}",
-      "${1} --> ${3}: ${5:delegates capability}",
+      "${1:Owner} *-- ${2:ContainedEntity}: ${4:contains}",
+      "${1:Owner} ..> ${3:Dependency}: ${5:depends on}",
       "```",
       "",
       "*${6:Which fact has one owner, and which modules only consume it?}*",
@@ -385,8 +615,8 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
   define(
     "timeline",
     "block",
-    "Delivery or lifecycle timeline",
-    "Which real phases or duration explain how the entity changes over time?",
+    "Chronological events timeline",
+    "Which events or phases occurred first and next, and which dates or periods matter?",
     [
       "```mermaid",
       "timeline",
@@ -462,13 +692,69 @@ function codeContext(state, pos) {
   return false;
 }
 
+function surroundingHeadingLevel(source) {
+  let level = 0;
+  let fence = null;
+  let frontmatter = false;
+  const lines = source.replace(/^\uFEFF/u, "").split(/\r?\n/u);
+  for (let index = 0; index < lines.length; index++) {
+    const line = lines[index];
+    if (index === 0 && line === "---") {
+      frontmatter = true;
+      continue;
+    }
+    if (frontmatter) {
+      if (/^(?:---|\.\.\.)\s*$/u.test(line)) frontmatter = false;
+      continue;
+    }
+    const run = /^ {0,3}(`{3,}|~{3,})(.*)$/u.exec(line);
+    if (run) {
+      if (!fence) fence = run[1];
+      else if (
+        run[1][0] === fence[0] &&
+        run[1].length >= fence.length &&
+        !run[2].trim()
+      )
+        fence = null;
+      continue;
+    }
+    if (fence) continue;
+    const heading = /^ {0,3}(#{1,6})(?:\s|$)/u.exec(line);
+    if (heading) level = heading[1].length;
+  }
+  return level;
+}
+
+export function slashSnippetTemplate(entry, sourceBeforeCursor = "") {
+  if (entry.kind !== "section") return entry.template;
+  const headings = [...entry.template.matchAll(/^(#{1,6})\s/gmu)];
+  if (!headings.length) return entry.template;
+  const base = Math.min(...headings.map((match) => match[1].length));
+  const target = Math.min(6, surroundingHeadingLevel(sourceBeforeCursor) + 1);
+  return entry.template.replace(/^(#{1,6})(?=\s)/gmu, (heading) =>
+    "#".repeat(Math.min(6, target + heading.length - base)),
+  );
+}
+
+/** Search aliases share one catalog item and never change the visible command. */
+export function slashSnippetSearchText(entry) {
+  return [entry.command, ...(entry.searchTerms ?? [])]
+    .map((term) => "/" + term)
+    .join(" ");
+}
+
+export function slashSnippetToken(lineBeforeCursor) {
+  const match = /\/[\p{L}\p{N}_-]*$/u.exec(lineBeforeCursor);
+  if (!match || lineBeforeCursor.slice(0, match.index).trim()) return null;
+  return match[0];
+}
+
 export function slashSnippetQuery(state, pos) {
   if (state.readOnly || codeContext(state, pos)) return null;
   const line = state.doc.lineAt(pos);
   const before = state.sliceDoc(line.from, pos);
-  const match = /\/[\p{L}\p{N}_-]*$/u.exec(before);
-  if (!match || before.slice(0, match.index).trim()) return null;
-  const text = match[0];
+  const text = slashSnippetToken(before);
+  if (!text) return null;
   return Object.freeze({
     from: pos - text.length,
     to: pos,
@@ -481,17 +767,17 @@ export function slashSnippetQuery(state, pos) {
   });
 }
 
-const GROUP_NAMES = Object.freeze({
-  pages: "Page templates",
-  structure: "Page structure",
-  assurance: "Risks & verification",
+export const SLASH_SNIPPET_GROUP_NAMES = Object.freeze({
+  pages: "Pages",
+  structure: "Structure",
+  assurance: "Review",
   references: "References",
   data: "Tables & lists",
   diagrams: "Diagrams",
-  content: "Content blocks",
+  content: "Blocks",
 });
 
-function sections(hasPageContent) {
+export function slashSnippetSections(hasPageContent) {
   const order = hasPageContent
     ? [
         "structure",
@@ -515,7 +801,7 @@ function sections(hasPageContent) {
     Object.fromEntries(
       order.map((group, rank) => [
         group,
-        Object.freeze({ name: GROUP_NAMES[group], rank }),
+        Object.freeze({ name: SLASH_SNIPPET_GROUP_NAMES[group], rank }),
       ]),
     ),
   );
@@ -524,12 +810,16 @@ function sections(hasPageContent) {
 export function slashSnippetCompletions(context) {
   const query = slashSnippetQuery(context.state, context.pos);
   if (!query) return null;
-  const menuSections = sections(query.hasPageContent);
+  const menuSections = slashSnippetSections(query.hasPageContent);
+  const sourceBeforeCursor = context.state.sliceDoc(0, query.from);
   return {
     from: query.from,
     options: DOCUMENTATION_SNIPPETS.map((entry) =>
-      snippetCompletion(entry.template, {
-        label: "/" + entry.command,
+      snippetCompletion(slashSnippetTemplate(entry, sourceBeforeCursor), {
+        label: slashSnippetSearchText(entry),
+        ...(entry.searchTerms.length
+          ? { displayLabel: "/" + entry.command, sortText: "/" + entry.command }
+          : {}),
         detail: entry.title,
         type: "text",
         section: menuSections[entry.group],
@@ -543,6 +833,7 @@ export function slashSnippetExtension() {
   return autocompletion({
     override: [slashSnippetCompletions],
     activateOnTyping: true,
+    activateOnTypingDelay: 0,
     maxRenderedOptions: 40,
     icons: false,
   });

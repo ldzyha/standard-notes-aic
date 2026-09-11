@@ -1,55 +1,63 @@
 import { EditorView } from "@codemirror/view";
+import { undo } from "@codemirror/commands";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const bridge = vi.hoisted(() => {
-  let subscriber: ((text: string) => void) | null = null;
-  let text = "";
-  let preview = "";
-  const writes: string[] = [];
-  const unsubscribe = vi.fn();
+  type Callback = (reply: unknown) => void;
+  let context: Callback | undefined;
+  const saves: {
+    text: string;
+    preview: string;
+    id: string;
+    callback?: Callback;
+  }[] = [];
   const api = {
-    initialize: vi.fn(),
-    subscribe: vi.fn((callback: (text: string) => void) => {
-      subscriber = callback;
-      return unsubscribe;
-    }),
-    locked: false,
-    lastStreamedItem: null as {
-      uuid: string;
-      created_at?: string;
-      content?: { title?: string };
-    } | null,
-    get text() {
-      return text;
-    },
-    set text(value: string) {
-      text = value;
-      writes.push(`text:${value}`);
-    },
-    get preview() {
-      return preview;
-    },
-    set preview(value: string) {
-      preview = value;
-      writes.push(`preview:${value}`);
+    initialize: vi.fn(() =>
+      api.postMessage("stream-context-item", {}, () => {}),
+    ),
+    postMessage(action: string, data: any, callback?: Callback) {
+      if (action === "stream-context-item") context = callback;
+      else if (action === "save-items") {
+        const item = data.items[0];
+        saves.push({
+          text: item.content.text,
+          preview: item.content.preview_plain,
+          id: item.uuid,
+          callback,
+        });
+      }
     },
   };
   return {
     api,
-    writes,
-    unsubscribe,
+    saves,
     stream(
       id: string,
-      value: string,
-      identity: { title?: string; createdAt?: string } = {},
+      text: string,
+      options: {
+        title?: string;
+        createdAt?: string;
+        locked?: boolean;
+        metadata?: boolean;
+      } = {},
     ) {
-      api.lastStreamedItem = {
-        uuid: id,
-        created_at: identity.createdAt,
-        content: { title: identity.title },
-      };
-      text = value;
-      subscriber?.(value);
+      context?.({
+        item: {
+          uuid: id,
+          created_at: options.createdAt,
+          isMetadataUpdate: options.metadata,
+          content: {
+            text,
+            title: options.title,
+            appData: {
+              "org.standardnotes.sn": { locked: options.locked ?? false },
+            },
+          },
+        },
+      });
+    },
+    reply(value: unknown = {}) {
+      saves.at(-1)?.callback?.(value);
     },
   };
 });
@@ -57,6 +65,7 @@ const bridge = vi.hoisted(() => {
 vi.mock("sn-extension-api", () => ({ default: bridge.api }));
 
 afterEach(() => {
+  window.dispatchEvent(new PageTransitionEvent("pagehide"));
   document.documentElement.removeAttribute("data-environment");
   document.documentElement.removeAttribute("style");
   document.head.replaceChildren();
@@ -65,66 +74,84 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+function save() {
+  document.dispatchEvent(
+    new KeyboardEvent("keydown", { key: "s", ctrlKey: true }),
+  );
+}
+
 describe("Standard Notes editor bridge", () => {
-  it("saves only on Ctrl+S and isolates dirty drafts by working-note UUID", async () => {
+  it("saves explicitly, protects unacknowledged drafts, isolates UUIDs and applies metadata locks", async () => {
     window.ReactNativeWebView = {};
     const root = document.createElement("main");
     root.id = "app";
     document.body.append(root);
     await import("../src/main");
-
     expect(bridge.api.initialize).toHaveBeenCalledWith({ debounceSave: 0 });
-    expect(bridge.api.subscribe).toHaveBeenCalledOnce();
-    expect(document.documentElement.dataset.environment).toBe("standard-notes");
-
-    const editorElement = root.querySelector<HTMLElement>(".cm-editor")!;
-    const view = EditorView.findFromDOM(editorElement);
-    if (!view) throw new Error("CodeMirror view was not mounted");
+    const view = EditorView.findFromDOM(
+      root.querySelector<HTMLElement>(".cm-editor")!,
+    )!;
     const editor = root.querySelector<HTMLElement>(".aic-editor")!;
-
     expect(view.state.readOnly).toBe(true);
     expect(editor.dataset.saveState).toBe("unavailable");
 
-    const first = "# First\n\n- [ ] exact  \n";
-    bridge.stream("note-first", first);
-    expect(view.state.doc.toString()).toBe(first);
-    expect(view.state.readOnly).toBe(false);
-    expect(editor.dataset.saveState).toBe("saved");
-
-    const preservedAnchor = first.indexOf("exact") + 2;
-    view.dispatch({ selection: { anchor: preservedAnchor } });
-    bridge.stream("note-first", first.replace("# First", "# First updated"));
-    expect(view.state.selection.main.head).toBe(preservedAnchor + 8);
-    bridge.stream("note-first", first);
-    expect(view.state.selection.main.head).toBe(preservedAnchor);
-
+    bridge.stream("note-a", "First");
+    view.dispatch({ selection: { anchor: 3 } });
+    bridge.stream("note-a", "prefix First");
+    expect(view.state.selection.main.head).toBe(10);
+    bridge.stream("note-a", "First");
     view.dispatch({
-      changes: { from: first.length, insert: "local" },
+      changes: { from: 5, insert: " local" },
       userEvent: "input",
     });
-    expect(editor.dataset.saveState).toBe("dirty");
     root.dispatchEvent(new FocusEvent("focusout", { relatedTarget: null }));
-    expect(bridge.writes).toEqual([]);
-
-    const second = "## Second\n\nremote\n";
-    bridge.stream("note-second", second);
-    expect(view.state.doc.toString()).toBe(second);
-    expect(bridge.writes).toEqual([]);
-
-    bridge.stream("note-first", first);
-    expect(view.state.doc.toString()).toBe(`${first}local`);
+    expect(bridge.saves).toHaveLength(0);
     expect(editor.dataset.saveState).toBe("dirty");
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "s", ctrlKey: true }),
-    );
-    expect(bridge.api.text).toBe(`${first}local`);
-    expect(bridge.api.preview).toBe("First exact local");
-    expect(bridge.writes).toEqual([
-      "preview:First exact local",
-      `text:${first}local`,
-    ]);
+    bridge.stream("note-b", "Second");
+    bridge.stream("note-a", "First");
+    expect(view.state.doc.toString()).toBe("First local");
+    save();
+    expect(bridge.saves).toHaveLength(1);
+    expect(bridge.saves[0]).toMatchObject({
+      id: "note-a",
+      text: "First local",
+      preview: "First local",
+    });
+    expect(editor.dataset.saveState).toBe("dirty");
+    save();
+    expect(bridge.saves).toHaveLength(1);
+    bridge.stream("note-a", "First");
+    expect(view.state.doc.toString()).toBe("First local");
+    bridge.stream("note-a", "First local");
+    expect(editor.dataset.saveState).toBe("dirty");
+    bridge.reply();
+    await vi.waitFor(() => expect(editor.dataset.saveState).toBe("saved"));
+
+    view.dispatch({ changes: { from: view.state.doc.length, insert: "!" } });
+    bridge.stream("note-a", "First local", { locked: true, metadata: true });
+    expect(view.state.readOnly).toBe(true);
+    expect(view.contentDOM.getAttribute("contenteditable")).toBe("false");
+    expect(view.state.doc.toString()).toBe("First local!");
+    expect(editor.dataset.saveState).toBe("dirty");
+    save();
+    expect(bridge.saves).toHaveLength(1);
+    bridge.stream("note-a", "First local", { metadata: true });
+    expect(view.state.readOnly).toBe(false);
+    save();
+    bridge.reply({ error: "save-error" });
+    await Promise.resolve();
+    expect(editor.dataset.saveState).toBe("dirty");
+    save();
+    bridge.stream("note-b", "Second");
+    bridge.reply();
+    await Promise.resolve();
+    expect(view.state.doc.toString()).toBe("Second");
     expect(editor.dataset.saveState).toBe("saved");
 
+    view.dispatch({ changes: { from: 0, to: 6, insert: "Shared" } });
+    bridge.stream("note-c", "Shared");
+    expect(undo(view)).toBe(false);
+    expect(view.state.doc.toString()).toBe("Shared");
     bridge.stream("note-empty", "");
     expect(editor.dataset.saveState).toBe("placeholder");
 
@@ -133,44 +160,19 @@ describe("Standard Notes editor bridge", () => {
       title: "documentation.md",
       createdAt: "2026-08-20T10:00:00.000Z",
     });
-    const writesBeforeFileSave = bridge.writes.length;
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "s", ctrlKey: true }),
-    );
-    expect(bridge.api.text).toBe(documentSource);
-    expect(view.state.doc.toString()).toBe(bridge.api.text);
-    expect(bridge.writes).toHaveLength(writesBeforeFileSave);
-    expect(editor.dataset.saveState).toBe("saved");
-
-    const noteSource = "---\nstatus: draft\n---\n\n# Note\n";
-    bridge.stream("markdown-note", noteSource, {
+    const savesBeforeDocument = bridge.saves.length;
+    save();
+    expect(bridge.saves).toHaveLength(savesBeforeDocument);
+    expect(view.state.doc.toString()).toBe(documentSource);
+    bridge.stream("markdown-note", "# Note", {
       title: "documentation.note.md",
       createdAt: "2026-08-20T10:00:00.000Z",
     });
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "s", ctrlKey: true }),
+    save();
+    expect(bridge.saves.at(-1)?.text).toMatch(
+      /^---\nfile: documentation\.note\.md\ncreated: 2026-08-20T10:00:00\.000Z\nupdated: .+Z\n---\n\n# Note$/u,
     );
-    expect(bridge.api.text).toMatch(
-      /^---\nfile: documentation\.note\.md\ncreated: 2026-08-20T10:00:00\.000Z\nupdated: .+Z\nstatus: draft\n---\n\n# Note\n$/u,
-    );
-
-    bridge.api.locked = true;
-    bridge.stream("note-empty", "");
-    expect(
-      [
-        ...root.querySelectorAll<HTMLButtonElement | HTMLSelectElement>(
-          "button,select",
-        ),
-      ].every((control) => control.disabled),
-    ).toBe(true);
-
-    bridge.api.locked = false;
-    bridge.stream("note-first", `${first}local`);
-    view.dispatch({ changes: { from: view.state.doc.length, insert: "!" } });
-    const writesBeforeUnload = [...bridge.writes];
-    window.dispatchEvent(new PageTransitionEvent("pagehide"));
-    expect(bridge.writes).toEqual(writesBeforeUnload);
-    expect(bridge.unsubscribe).toHaveBeenCalledOnce();
-    expect(root.querySelector(".aic-editor")).toBeNull();
+    bridge.reply();
+    await vi.waitFor(() => expect(editor.dataset.saveState).toBe("saved"));
   });
 });

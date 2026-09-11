@@ -1,0 +1,10 @@
+/* CodeMirror measures block widgets without their external margins. Keep all
+   vertical spacing inside the measured box (padding, borders, or child gaps).
+   Markdown blank lines remain the document's spacing between separate blocks.
+   The editor/content scope intentionally wins over host preview theme rules. */
+.cm-editor .cm-content .cm-md-block-preview,
+.cm-editor .cm-content .aic-md-block-scroll,
+.cm-editor .cm-content .cm-mermaid-inline {
+  box-sizing: border-box;
+  margin-block: 0;
+}

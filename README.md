@@ -6,11 +6,67 @@
 
 `AIC` is a Markdown editor component for Standard Notes. It registers under the Code note type so
 Standard Notes displays its supported `>_` icon, while `file_type: md` and interchangeability keep
-the note body as ordinary Markdown. It
-Markdown and derives headings, lists, task checkboxes, tables, hierarchical frontmatter properties, fenced-code
+the note body as ordinary Markdown. It derives headings, lists, task checkboxes, tables, hierarchical frontmatter properties, fenced-code
 highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
+
+## Release 21.3.5
+
+This release pairs with AIC Notes 28.4.5 and AIC Editor Core 3.4.0. The shared editor features below
+are included in the release; the visual Mermaid builder remains experimental. Automated tests,
+production builds and synthetic Windows browser checks cover the implementation. Authenticated
+Standard Notes client and live Linux smoke checks remain separate, unverified environments.
+
+- Type `/page` or `/section` for Core-aligned questions, early answers and contextual detail, without
+  compulsory Purpose/Proposal sections. `/context` links parent and shared descriptions without
+  copying them; section headings nest under the current Markdown heading.
+- Use `/noise` to investigate uncertainty, then `/wave` in the same note for a result, prerequisites,
+  dependency-ordered actions and verification. `/implementation` adds steps with error handling.
+  These are editable prompts, not automatic task states or extra required properties.
+- Basic blocks are `/list` (unordered), `/list-numbered` (ordered), `/checklist` (checkboxes)
+  and `/table` (a simple table). `/checkbox` and `/tasklist` also find `/checklist`.
+  Each list item holds one idea; no heading or metadata is imposed. Specialized `/mapping-table`,
+  `/comparison` and `/tasks` remain separate choices in Tables & lists.
+- Insert `/flowchart`, `/class-diagram`, `/sequence` or `/entity-map`, then use **Edit diagram visually**
+  in the Mermaid preview. Controls open inline in that same block, without a dialog. Drag an element
+  from the palette onto the preview, then select the node to
+  edit its label/type in the compact context bar. Drag a connection handle onto another node for
+  a solid arrow; click the line itself to edit its label/type/direction. Mermaid computes positions
+  from the source and direction; palette drop positions are not saved as coordinates. Sequence
+  ordering remains semantic. Undo/Redo, deletion, zoom, scroll and fit
+  are available. The separate source-edit action remains available.
+- Diagram controls use a compact bar independent of document font size. Endpoints, entity
+  members and related connections open only on demand. Palette and selectors share semantic
+  names; Mermaid geometry stays internal. The entity-map profile uses Entity and
+  Association/Dependency rather than lifecycle terminology.
+- The visual-editor button also appears above active Mermaid source, including immediately after
+  `/sequence` or `/class-diagram`. It does not replace source text or require leaving the selected
+  snippet field. `/class` filters to `/class-diagram`; there is no duplicate command.
+- **Apply diagram changes** updates this Markdown block; **Ctrl/Cmd+S** saves the note. Pressing
+  Ctrl/Cmd+S inside the builder applies first and then requests the same explicit host save. Cancel
+  discards the builder draft. Changes outside the block preserve it; conflicting block edits disable
+  Apply and retain a copyable draft. Switching notes retires the old session.
+- Visual editing supports a bounded flow/class/sequence grammar. Unsupported syntax opens in source
+  mode with the original text intact. Inline editing and read preview share the same Mermaid
+  renderer and layout configuration. Legacy `%% aic-builder-layout` coordinates are ignored and
+  removed only when a supported visual edit rewrites the source, not on opening or unchanged Apply.
+- Enter preserves indentation; Tab/Shift+Tab indent/outdent except while navigating snippet fields.
+  The Mermaid source textarea shares this behavior and retains native Undo in supported browsers.
+- Ctrl/Cmd+Alt+1…6 toggles headings; Ctrl/Cmd+Alt+0 restores a paragraph.
+  Ctrl/Cmd+Shift+7/8/9 toggles numbered, bullet and checkbox lists in the shared editor.
+  Formatting never bypasses explicit Ctrl/Cmd+S saving.
+- Agentic Notes scope/section utilities are present in the shared source core, but no universal
+  agent adapter or standalone writer is enabled. Host-owned live-document transactions are required
+  before agents can safely update a note that may have an unsaved editor draft.
+
+The entity map is an overview of composition and relationships; `/timeline` remains chronological
+and source-edited. Automatic drill-down/cross-scale links, noise/wave grouping UI, multiselect,
+subgraph authoring and full arbitrary Mermaid support are **not implemented**. Standard Notes does
+not automatically populate blank notes or create VS Code project structures. Existing notes remain
+unchanged until edited. Save-acknowledgement, note-identity, popup, lock and cursor-navigation fixes
+are also included in this release. A host acknowledgment confirms its local pre-sync save,
+not completion of Standard Notes cloud synchronization.
 
 ## Install
 
@@ -40,8 +96,8 @@ catalog. Empty notes put complete pages first; an existing page puts its section
 template with the keyboard or pointer, then use `Tab` to move through its highlighted thinking
 questions and replace each answer in place.
 
-The menu separates Page templates, Page structure, Risks & verification, References, Tables &
-lists, Diagrams, and Content blocks. Its examples include progressive documentation, architecture,
+The compact menu separates Pages, Structure, Review, References, Tables & lists, Diagrams, and
+Blocks. Its examples include progressive documentation, architecture,
 capability and decision pages; focused sections; tables and comparisons; Mermaid
 flow/class/sequence/timeline diagrams; code, details, tasks and synthesis. Slash completion is
 disabled in fenced/inline code and in locked notes, so `/` remains ordinary Markdown there. AIC
@@ -129,6 +185,16 @@ storage. Inside Standard Notes, the narrow `sn-extension-api` bridge owns workin
 saving, lock state, environment detection, and theme activation. The full legacy account/runtime
 stack pulled by EditorKit is deliberately not bundled into this editor.
 
+The source of shared behavior is `src/core`; with the sibling `aic-notes` checkout present,
+run `npm run core:sync` and then `npm run core:check` to distribute and compare every shared
+JavaScript, CSS and declaration file. Do not change the vendor copy independently.
+
+`npm run test:browser` runs synthetic navigation, identity, popup and diagram regressions against
+a local Vite server. It requires Playwright and a local Chromium-family browser. Set
+`AIC_REVIEW_URL` to your server (default `http://127.0.0.1:5189`), optionally
+`AIC_REVIEW_PLAYWRIGHT` to the Playwright module path and `AIC_REVIEW_BROWSER` to the executable.
+It never opens a real Standard Notes account or modifies workspace documents.
+
 ## Data contract
 
 - The exact CodeMirror document is the only value sent to Standard Notes.
@@ -147,7 +213,7 @@ stack pulled by EditorKit is deliberately not bundled into this editor.
   that UUID again at save time. Switching notes cannot redirect a draft into another note, and
   returning during the same editor session restores the correct dirty draft without storing its
   plaintext on disk.
-- A lightly green editor surface means the current text has crossed the explicit save boundary.
+- A lightly green editor surface means the host has acknowledged the current explicit save.
   The ordinary surface means it has unsaved changes; an empty placeholder is gray.
 - Mermaid uses the bundled strict runtime and performs no render-time network request.
 
@@ -164,6 +230,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `20.1.1` is sequence 20 with
-one feature outcome and one fixed-bug outcome; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `21.3.5` is sequence 21 with
+three feature outcomes and five fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

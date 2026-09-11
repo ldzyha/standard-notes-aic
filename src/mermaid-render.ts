@@ -5,8 +5,20 @@ import {
   writeTextToClipboard,
 } from "./core/structured-preview.js";
 import { createMermaidViewport } from "./core/mermaid-viewport.js";
+import {
+  renderMermaidSvg as renderSharedMermaidSvg,
+  sanitizeMermaidSvg as sanitizeSharedMermaidSvg,
+} from "./core/mermaid-runtime.js";
+export { mermaidConfig } from "./core/mermaid-runtime.js";
 
 export type MermaidTheme = "dark" | "default";
+
+export function sanitizeMermaidSvg(
+  svg: string,
+  document: Document = globalThis.document,
+): string {
+  return sanitizeSharedMermaidSvg(svg, document);
+}
 
 function abortError(): Error {
   const error = new Error("Mermaid render was superseded");
@@ -121,79 +133,20 @@ export function makeMermaidRenderQueue({
 
 export const sharedMermaidQueue = makeMermaidRenderQueue();
 
-let mermaidPromise: Promise<typeof import("mermaid").default> | null = null;
-let sequence = 0;
-
-async function loadMermaid() {
-  if (!mermaidPromise) {
-    mermaidPromise = import("mermaid")
-      .then((module) => module.default)
-      .catch((error) => {
-        mermaidPromise = null;
-        throw error;
-      });
-  }
-  return mermaidPromise;
-}
-
-export function mermaidConfig(theme: MermaidTheme) {
-  return {
-    startOnLoad: false,
-    securityLevel: "strict" as const,
-    suppressErrorRendering: true,
-    maxTextSize: 50_000,
-    theme,
-    htmlLabels: false,
-    flowchart: { useMaxWidth: true },
-  };
-}
-
-export function sanitizeMermaidSvg(
-  svg: string,
-  document: Document = globalThis.document,
-): string {
-  const parser = new document.defaultView!.DOMParser();
-  const parsed = parser.parseFromString(String(svg || ""), "image/svg+xml");
-  if (
-    parsed.querySelector("parsererror") ||
-    parsed.documentElement.localName !== "svg"
-  ) {
-    throw new Error("Mermaid returned invalid SVG");
-  }
-  parsed
-    .querySelectorAll("script,foreignObject,iframe,object,embed")
-    .forEach((element) => element.remove());
-  for (const element of parsed.querySelectorAll("*")) {
-    for (const attribute of [...element.attributes]) {
-      const name = attribute.name.toLowerCase();
-      if (name.startsWith("on") || name === "href" || name === "xlink:href") {
-        element.removeAttribute(attribute.name);
-      }
-    }
-  }
-  return new document.defaultView!.XMLSerializer().serializeToString(
-    parsed.documentElement,
-  );
-}
-
 export async function renderMermaidSvg({
   source,
   theme = "default",
   document = globalThis.document,
+  signal,
 }: {
   source: string;
   theme?: MermaidTheme;
   document?: Document;
+  signal?: AbortSignal;
 }): Promise<string> {
   const limit = mermaidLimitError(source);
   if (limit) throw limit;
-  const mermaid = await loadMermaid();
-  mermaid.initialize(mermaidConfig(theme));
-  const result = await mermaid.render(
-    `aic-standard-notes-${++sequence}`,
-    source,
-  );
-  return sanitizeMermaidSvg(result?.svg || "", document);
+  return renderSharedMermaidSvg(document, { source, theme, signal });
 }
 
 export function mermaidDiagnostic(error: unknown) {
@@ -259,7 +212,7 @@ export function createMermaidPreview({
   });
   const edit = createIconButton(document, {
     label: "Edit Mermaid source",
-    icon: "edit",
+    icon: "source",
     className: "cm-mermaid-edit cm-md-edit-source",
     onActivate: () => onEdit(),
   });
@@ -292,7 +245,13 @@ export function createMermaidPreview({
     viewportController.replaceContent(loading);
     try {
       const svg = await queue.schedule(
-        () => render({ source: nextSource, theme: nextTheme, document }),
+        () =>
+          render({
+            source: nextSource,
+            theme: nextTheme,
+            document,
+            signal: abort.signal,
+          }),
         {
           signal: abort.signal,
         },

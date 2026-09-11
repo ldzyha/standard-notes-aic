@@ -1,10 +1,5 @@
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
-import {
-  defaultKeymap,
-  history,
-  historyKeymap,
-  indentWithTab,
-} from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
 import {
   bracketMatching,
   defaultHighlightStyle,
@@ -35,7 +30,9 @@ import {
   slashSnippetExtension,
 } from "./core/slash-snippets.js";
 import { wirePreviewSelection } from "./core/structured-preview.js";
-import { aicKeymap } from "./commands";
+import { aicKeymap, continueList } from "./commands";
+import { editorIndentation } from "./core/indentation.js";
+import { markdownFormatting } from "./core/formatting.js";
 import { aicMarkdownLanguage } from "./language";
 import { linkActionsExtension } from "./link-actions";
 import { markdownDecorations } from "./markdown-decorations";
@@ -118,6 +115,7 @@ export class AicEditor {
   private readonly unwirePreviewSelection: () => void;
   private suppressChange = false;
   private currentReadOnly: boolean;
+  private documentId: string | null = null;
   private lineSeparator = "\n";
 
   constructor(parent: HTMLElement, options: AicEditorOptions = {}) {
@@ -162,7 +160,8 @@ export class AicEditor {
         EditorView.editable.of(!this.currentReadOnly),
       ),
       EditorState.allowMultipleSelections.of(true),
-      EditorState.tabSize.of(2),
+      editorIndentation({ continueList }),
+      markdownFormatting(),
       aicMarkdownLanguage(),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
       history(),
@@ -187,7 +186,6 @@ export class AicEditor {
         ...aicKeymap,
         ...closeBracketsKeymap,
         ...historyKeymap,
-        indentWithTab,
         ...defaultKeymap,
       ]),
       markdownDecorations,
@@ -229,11 +227,30 @@ export class AicEditor {
   setDocument(document: string): boolean {
     const text = String(document ?? "");
     if (text === this.value) return false;
-    this.suppressChange = true;
-    this.view.setState(this.createState(text));
-    this.view.requestMeasure();
-    this.suppressChange = false;
+    this.documentId = null;
+    this.replaceState(text);
     return true;
+  }
+
+  /** Switching identity must reset history even when both notes have equal text. */
+  switchDocument(id: string, document: string): boolean {
+    const text = String(document ?? "");
+    if (this.documentId === id) return this.updateDocument(text);
+    this.documentId = id;
+    this.replaceState(text);
+    return true;
+  }
+
+  private replaceState(text: string): void {
+    this.suppressChange = true;
+    try {
+      this.view.setState(this.createState(text));
+      this.view.scrollDOM.scrollTop = 0;
+      this.view.scrollDOM.scrollLeft = 0;
+      this.view.requestMeasure();
+    } finally {
+      this.suppressChange = false;
+    }
   }
 
   updateDocument(document: string): boolean {

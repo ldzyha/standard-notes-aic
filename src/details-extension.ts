@@ -16,6 +16,7 @@ import { safeExternalUrl } from "./block-views";
 import {
   createIconButton,
   selectionRevealsPreview,
+  selectionStaysInSource,
 } from "./core/structured-preview.js";
 import { providePreviewRanges } from "./core/preview-ranges.js";
 
@@ -63,10 +64,10 @@ const sourceOverrides = StateField.define<ReadonlySet<number>>({
           );
           return Boolean(
             block &&
-            transaction.state.selection.ranges.some((range) =>
-              range.empty
-                ? range.from > block.from && range.from < block.end
-                : range.from < block.end && range.to > block.from,
+            selectionStaysInSource(
+              transaction.state.selection.ranges,
+              block.from,
+              block.end,
             ),
           );
         }),
@@ -79,6 +80,7 @@ const sourceOverrides = StateField.define<ReadonlySet<number>>({
 class DetailsSummaryWidget extends WidgetType {
   constructor(
     private readonly block: DetailsBlock,
+    private readonly headerSource: string,
     private readonly open: boolean,
     private readonly readOnly: boolean,
   ) {
@@ -87,8 +89,8 @@ class DetailsSummaryWidget extends WidgetType {
 
   override eq(other: DetailsSummaryWidget): boolean {
     return (
-      other.block.headerFrom === this.block.headerFrom &&
-      other.block.title === this.block.title &&
+      other.headerSource === this.headerSource &&
+      JSON.stringify(other.block) === JSON.stringify(this.block) &&
       other.open === this.open &&
       other.readOnly === this.readOnly
     );
@@ -106,7 +108,15 @@ class DetailsSummaryWidget extends WidgetType {
     row.dataset.aicSourceTo = String(this.block.end);
     row.dataset.open = String(this.open);
     row.dataset.body = String(this.block.contentFrom < this.block.closeFrom);
+    const isCurrent = () =>
+      row.isConnected &&
+      this.block.headerFrom >= 0 &&
+      this.block.headerTo >= this.block.headerFrom &&
+      this.block.headerTo <= view.state.doc.length &&
+      view.state.sliceDoc(this.block.headerFrom, this.block.headerTo) ===
+        this.headerSource;
     const toggle = () => {
+      if (!isCurrent()) return;
       if (view.state.readOnly) {
         view.dispatch({ effects: toggleVisual.of(this.block.headerFrom) });
         return;
@@ -153,8 +163,10 @@ class DetailsSummaryWidget extends WidgetType {
         event.preventDefault(),
       );
       checkbox.addEventListener("click", () => {
-        if (view.state.readOnly || data.taskOffset < 0) return;
+        if (view.state.readOnly || !isCurrent() || data.taskOffset < 0) return;
         const from = this.block.titleFrom + data.taskOffset;
+        if (from < this.block.headerFrom || from + 1 > this.block.headerTo)
+          return;
         view.dispatch({
           changes: { from, to: from + 1, insert: data.checked ? " " : "x" },
           userEvent: "input",
@@ -204,6 +216,7 @@ class DetailsSummaryWidget extends WidgetType {
       icon: view.state.readOnly ? "source" : "edit",
       className: "cm-md-edit-source cm-aic-details-edit",
       onActivate: () => {
+        if (!isCurrent()) return;
         const anchor = Math.min(this.block.headerTo, this.block.headerFrom + 4);
         view.dispatch({
           selection: { anchor },
@@ -229,7 +242,12 @@ function previewDecorations(state: EditorState) {
     )
       continue;
     const open = overrides.has(block.headerFrom) ? !block.open : block.open;
-    const widget = new DetailsSummaryWidget(block, open, state.readOnly);
+    const widget = new DetailsSummaryWidget(
+      block,
+      state.sliceDoc(block.headerFrom, block.headerTo),
+      open,
+      state.readOnly,
+    );
     if (!open) {
       ranges.push(
         Decoration.replace({ block: true, widget }).range(

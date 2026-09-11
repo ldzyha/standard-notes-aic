@@ -1,6 +1,15 @@
-export const STRUCTURED_PREVIEW_CORE_VERSION = "2.6.0";
+export const STRUCTURED_PREVIEW_CORE_VERSION = "2.7.0";
 
 const activeCellEditors = new WeakMap();
+
+// Explicit source editing owns both delimiters, until the selection leaves.
+export function selectionStaysInSource(ranges, from, to) {
+  return ranges.some((range) =>
+    range.from === range.to
+      ? range.from >= from && range.from <= to
+      : range.from < to && range.to > from,
+  );
+}
 
 export function wirePreviewSelection(
   editor,
@@ -366,6 +375,7 @@ export function createCellEditor(
     label = "Edit value",
     multiline = false,
     readOnly = false,
+    getRevision,
     validate,
     onCommit,
   } = {},
@@ -385,6 +395,8 @@ export function createCellEditor(
 
   const open = () => {
     activeCellEditors.get(document)?.();
+    if (!control.isConnected) return;
+    const revision = getRevision?.();
     const popup = document.createElement("div");
     popup.className = "cm-aic-cell-popover";
     popup.setAttribute("role", "dialog");
@@ -400,6 +412,10 @@ export function createCellEditor(
     const actions = document.createElement("span");
     actions.className = "cm-aic-cell-popover-actions";
     let outsideTimer;
+    let observer;
+    let closed = false;
+    const isCurrent = () =>
+      control.isConnected && (!getRevision || getRevision() === revision);
     const reposition = () => {
       if (!popup.isConnected) return;
       const view = document.defaultView;
@@ -427,6 +443,9 @@ export function createCellEditor(
       popup.style.top = `${top}px`;
     };
     const close = () => {
+      if (closed) return;
+      closed = true;
+      observer?.disconnect();
       if (outsideTimer)
         (document.defaultView ?? globalThis).clearTimeout(outsideTimer);
       document.removeEventListener("pointerdown", onOutside, true);
@@ -438,6 +457,12 @@ export function createCellEditor(
         activeCellEditors.delete(document);
     };
     const commit = () => {
+      // A popup is not an independent editor: its owner may have changed
+      // while it lived outside the CodeMirror DOM (note switch/lock/refresh).
+      if (closed || !isCurrent()) {
+        close();
+        return false;
+      }
       const error = validate?.(field.value);
       if (typeof error === "string" && error) {
         field.setCustomValidity(error);
@@ -471,6 +496,13 @@ export function createCellEditor(
     popup.append(field, actions);
     document.body.append(popup);
     activeCellEditors.set(document, close);
+    const Observer = document.defaultView?.MutationObserver;
+    if (Observer) {
+      observer = new Observer(() => {
+        if (!isCurrent()) close();
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
     control.setAttribute("aria-expanded", "true");
     reposition();
     document.defaultView?.addEventListener("resize", reposition);
@@ -483,11 +515,15 @@ export function createCellEditor(
       if (event.key === "Escape") {
         event.preventDefault();
         close();
+        if (control.isConnected) control.focus();
       } else if (
         (event.ctrlKey || event.metaKey) &&
         event.key.toLowerCase() === "s"
       ) {
-        if (!commit()) event.preventDefault();
+        if (!commit()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
       } else if (
         event.key === "Enter" &&
         (!multiline || event.ctrlKey || event.metaKey)

@@ -84,4 +84,39 @@ describe("shared structured preview core", () => {
     expect(commit).toHaveBeenCalledWith("active");
     expect(document.querySelector(".cm-aic-cell-editor")).toBeNull();
   });
+
+  it("rejects a detached popup synchronously before its observer runs", () => {
+    const commit = vi.fn();
+    const control = createCellEditor(document, {
+      value: "A",
+      onCommit: commit,
+    });
+    document.body.append(control);
+    control.click();
+    const apply = document.querySelector<HTMLButtonElement>(
+      '[aria-label="Apply change"]',
+    )!;
+    control.remove();
+    apply.click();
+    expect(commit).not.toHaveBeenCalled();
+    expect(document.querySelector(".cm-aic-cell-popover")).toBeNull();
+  });
+
+  it("rejects a stale revision even when the same control remains mounted", () => {
+    const commit = vi.fn();
+    let revision = {};
+    const control = createCellEditor(document, {
+      value: "A",
+      getRevision: () => revision,
+      onCommit: commit,
+    });
+    document.body.append(control);
+    control.click();
+    revision = {};
+    document
+      .querySelector<HTMLButtonElement>('[aria-label="Apply change"]')!
+      .click();
+    expect(commit).not.toHaveBeenCalled();
+    expect(document.querySelector(".cm-aic-cell-popover")).toBeNull();
+  });
 });

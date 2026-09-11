@@ -1,10 +1,61 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EditorView } from "@codemirror/view";
 import { AicEditor, detectTheme } from "../src/editor";
+import { undo } from "@codemirror/commands";
 
 afterEach(() => document.body.replaceChildren());
 
 describe("AIC editor integration", () => {
+  it.each(["---\nx: y\n---\n\nbody", "---\n\nx: y\n---\n\nbody"])(
+    "refreshes property callbacks when whitespace changes without changing parsed rows: %s",
+    (initial) => {
+      const host = document.createElement("div");
+      document.body.append(host);
+      const editor = new AicEditor(host, { initialText: initial });
+      const old = editor.element.querySelector(".cm-md-props")!;
+      editor.updateDocument("---\nx: y\n\n---\n\nbody");
+      const current = editor.element.querySelector(".cm-md-props")!;
+      expect(current).not.toBe(old);
+      current
+        .querySelector<HTMLElement>('[aria-label="Property x value"]')!
+        .click();
+      document.querySelector<HTMLTextAreaElement>(
+        ".cm-aic-cell-editor",
+      )!.value = "changed";
+      document
+        .querySelector<HTMLButtonElement>('[aria-label="Apply change"]')!
+        .click();
+      expect(editor.value).toBe("---\nx: changed\n---\n\nbody");
+      editor.switchDocument("short", "x");
+      expect(() =>
+        old
+          .querySelector<HTMLButtonElement>('[aria-label="Add property"]')!
+          .click(),
+      ).not.toThrow();
+      expect(editor.value).toBe("x");
+      editor.destroy();
+    },
+  );
+
+  it("isolates Undo by identity even when two notes have equal text", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host);
+    editor.switchDocument("note-a", "Old A");
+    editor.view.dispatch({ changes: { from: 0, to: 5, insert: "Shared" } });
+    editor.view.dispatch({ selection: { anchor: 3 } });
+    expect(editor.switchDocument("note-a", "Shared")).toBe(false);
+    expect(editor.view.state.selection.main.head).toBe(3);
+    expect(undo(editor.view)).toBe(true);
+    expect(editor.value).toBe("Old A");
+    editor.view.dispatch({ changes: { from: 0, to: 5, insert: "Shared" } });
+    expect(editor.switchDocument("note-b", "Shared")).toBe(true);
+    expect(undo(editor.view)).toBe(false);
+    expect(editor.value).toBe("Shared");
+    expect(editor.view.state.selection.main.head).toBe(0);
+    editor.destroy();
+  });
+
   it("preserves exact source and emits only user document changes", () => {
     const source = "# Title\n\nText  \n";
     const changed = vi.fn();

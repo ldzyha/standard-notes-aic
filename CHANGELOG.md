@@ -1,5 +1,51 @@
 # Changelog
 
+## 21.3.5 — 2026-09-11
+
+Release sequence 21 · 3 feature outcomes · 5 fixed-bug outcomes.
+
+- F01: align the shared template catalog with Core questions, early answers, contextual sections,
+  and noise/wave investigation and execution prompts. Add plain `/list`, `/list-numbered`,
+  `/checklist` and `/table` blocks without compulsory page scaffolding or metadata; checkbox and
+  tasklist searches find the same checklist entry. Keep specialized verification and comparison
+  templates separate. Agentic Notes scope/section utilities are tested core foundations only.
+- F02: edit supported Mermaid flowcharts, class diagrams and sequence diagrams inline on their
+  actual preview. Share palette insertion, connection dragging, line selection, relationship
+  labels/types/direction, deletion and draft history with AIC Notes. Keep controls in compact bars
+  at narrow widths and enlarged document fonts, with semantic entity names and on-demand
+  endpoint/member/connection popovers. Mermaid owns layout; no arbitrary coordinates are stored.
+  Preserve labeled legacy dotted flowchart links and expose visual editing above active source,
+  including selected snippet fields. Apply changes the local draft; Ctrl/Cmd+S explicitly saves.
+- F03: share heading and list formatting commands across AIC editors: Ctrl/Cmd+Alt+1…6 toggles
+  headings, Ctrl/Cmd+Alt+0 restores a paragraph, and Ctrl/Cmd+Shift+7/8/9 toggles numbered, bullet
+  and checkbox lists. Respect protected source structures, selection boundaries and one-step Undo;
+  formatting never saves implicitly.
+- B01: start slash completion without a typing delay and keep narrow-editor menus compact.
+  Section labels flow with results instead of overlapping as stacked sticky headers; each row
+  reserves only its command and one-line description space.
+- B02: preserve indentation on Enter and indent/outdent on Tab/Shift+Tab, including Mermaid source
+  fields, while retaining snippet field navigation and native source Undo.
+- B03: keep preview spacing and source boundaries compatible with CodeMirror cursor geometry.
+  Opening a source block preserves editable fence boundaries and selection; ArrowUp does not
+  jump through hidden source or collapse navigation to the beginning of the note.
+- B04: retire stale popovers and diagram sessions on note identity changes, isolate per-note
+  history, and reject stale edit targets. Outside-block edits preserve a diagram draft; conflicting
+  edits retain it for copying rather than overwriting the changed Markdown.
+- B05: acknowledge only the exact explicit save for its working-note UUID and process metadata-only
+  lock updates without replacing local content. Failed or stale acknowledgments keep the draft
+  dirty; a host acknowledgment confirms local pre-sync acceptance, not cloud synchronization.
+
+Compatibility: Standard Notes custom `editor-editor` component with interchangeable Markdown
+storage and the supported Code icon. AIC Notes 28.4.5 consumes the same byte-identical AIC Editor
+Core 3.4.0. The stable plugin identifier is unchanged.
+
+Limitations: visual editing remains experimental and supports a bounded flow/class/sequence
+grammar; unsupported Mermaid stays editable as original source. Multiselect, subgraph authoring,
+visual timeline editing and cross-scale drill-down are not implemented. No universal agent adapter,
+standalone memory writer or cross-application synchronization transport is enabled. Verification
+uses automated suites, production builds and synthetic Windows browser checks; authenticated
+Standard Notes clients and live Linux sessions have not been smoke-tested for this release.
+
 ## 20.1.1 — 2026-09-03
 
 Release sequence 20 · 1 feature outcome · 1 fixed-bug outcome.

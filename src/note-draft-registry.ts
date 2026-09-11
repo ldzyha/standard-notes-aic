@@ -4,17 +4,33 @@ export type ActiveDraft = Readonly<{
   id: string;
   text: string;
   dirty: boolean;
+  pending: boolean;
+}>;
+
+export type DraftCommit = Readonly<{
+  id: string;
+  operationId: number;
+  text: string;
+  generation: number;
+  reason: string;
 }>;
 
 export class NoteDraftRegistry {
   private readonly sessions = new Map<string, DraftSession>();
   private activeId: string | null = null;
+  private operationId = 0;
+  private readonly pending = new Map<string, DraftCommit>();
 
   get current(): ActiveDraft | null {
     if (!this.activeId) return null;
     const session = this.sessions.get(this.activeId);
     return session
-      ? { id: this.activeId, text: session.current, dirty: session.dirty }
+      ? {
+          id: this.activeId,
+          text: session.current,
+          dirty: session.dirty,
+          pending: this.pending.has(this.activeId),
+        }
       : null;
   }
 
@@ -22,7 +38,8 @@ export class NoteDraftRegistry {
     const previousId = this.activeId;
     if (previousId && previousId !== id) {
       const previous = this.sessions.get(previousId);
-      if (previous && !previous.dirty) this.sessions.delete(previousId);
+      if (previous && !previous.dirty && !this.pending.has(previousId))
+        this.sessions.delete(previousId);
     }
 
     let session = this.sessions.get(id);
@@ -30,11 +47,16 @@ export class NoteDraftRegistry {
       session = new DraftSession();
       session.hydrate(text, generation, { discardLocal: true });
       this.sessions.set(id, session);
-    } else {
+    } else if (!session.dirty && !this.pending.has(id)) {
       session.external(text, generation);
     }
     this.activeId = id;
-    return { id, text: session.current, dirty: session.dirty };
+    return {
+      id,
+      text: session.current,
+      dirty: session.dirty,
+      pending: this.pending.has(id),
+    };
   }
 
   edit(text: string): boolean {
@@ -44,21 +66,32 @@ export class NoteDraftRegistry {
     return session?.edit(text) ?? false;
   }
 
-  begin(reason = "explicit") {
+  begin(reason = "explicit"): DraftCommit | null {
     const session = this.activeId
       ? this.sessions.get(this.activeId)
       : undefined;
-    return session?.begin(reason) ?? null;
+    if (!this.activeId || this.pending.has(this.activeId)) return null;
+    const draft = session?.begin(reason);
+    if (!draft) return null;
+    const commit = Object.freeze({
+      ...draft,
+      id: this.activeId,
+      operationId: ++this.operationId,
+    });
+    this.pending.set(this.activeId, commit);
+    return commit;
   }
 
-  acknowledge(commit: {
-    text?: string;
-    generation?: number;
-    saved?: boolean;
-  }): boolean {
-    const session = this.activeId
-      ? this.sessions.get(this.activeId)
-      : undefined;
+  acknowledge(commit: DraftCommit & { saved: boolean }): boolean {
+    const pending = this.pending.get(commit.id);
+    if (
+      !pending ||
+      pending.operationId !== commit.operationId ||
+      pending.text !== commit.text
+    )
+      return false;
+    this.pending.delete(commit.id);
+    const session = this.sessions.get(commit.id);
     return session?.acknowledge(commit) ?? false;
   }
 }

@@ -8,6 +8,10 @@ import "./styles.css";
 import "./core/icons.css";
 import "./core/mermaid-viewport.css";
 import "./core/slash-snippets.css";
+import "./core/preview-layout.css";
+import "./core/diagram-builder.css";
+import "./core/diagram-palette.css";
+import "./core/diagram-session.css";
 
 declare global {
   interface Window {
@@ -50,7 +54,9 @@ const host = standalone ? null : new StandardNotesHost();
 const editor = new AicEditor(root, {
   readOnly: !standalone,
   onChange: (text) => {
-    if (!hydrated || (!standalone && host?.locked)) return;
+    // Read-only belongs at the interaction boundary. If any mutation reaches
+    // the document, never silently discard its draft tracking.
+    if (!hydrated || !activeNoteId) return;
     drafts.edit(text);
     reflectSaveState();
   },
@@ -68,7 +74,7 @@ if (standalone) {
   const storageKey = "aic-standard-notes-standalone-document";
   const initial = localStorage.getItem(storageKey) ?? sample;
   drafts.activate("standalone", initial, remoteGeneration);
-  editor.setDocument(initial);
+  editor.switchDocument("standalone", initial);
   reflectSaveState();
   document.documentElement.dataset.environment = "standalone";
 } else {
@@ -81,9 +87,19 @@ if (standalone) {
     if (!snapshot.id) {
       activeNoteId = null;
       activeFileProperties = null;
-      editor.setDocument(snapshot.text);
+      editor.switchDocument("unavailable", snapshot.text);
       editor.setReadOnly(true);
       editor.setSaveState("unavailable");
+      return;
+    }
+    if (snapshot.kind === "metadata" && activeNoteId === snapshot.id) {
+      activeFileProperties = {
+        id: snapshot.id,
+        fileName: snapshot.fileName,
+        createdAt: snapshot.createdAt,
+      };
+      editor.setReadOnly(snapshot.locked);
+      reflectSaveState();
       return;
     }
     const active = drafts.activate(
@@ -99,7 +115,7 @@ if (standalone) {
     if (activeNoteId === snapshot.id) editor.updateDocument(active.text);
     else {
       activeNoteId = snapshot.id;
-      editor.setDocument(active.text);
+      editor.switchDocument(snapshot.id, active.text);
     }
     hydrated = true;
     editor.setReadOnly(snapshot.locked);
@@ -112,9 +128,9 @@ if (standalone) {
 function reflectSaveState(): void {
   const active = drafts.current;
   editor.setSaveState(
-    !active
+    !active || active.id !== activeNoteId
       ? "unavailable"
-      : active.dirty
+      : active.dirty || active.pending
         ? "dirty"
         : active.text.trim().length === 0
           ? "placeholder"
@@ -122,10 +138,10 @@ function reflectSaveState(): void {
   );
 }
 
-function commitDraft(): void {
+async function commitDraft(): Promise<void> {
   if (!hydrated || (!standalone && host?.locked)) return;
   const active = drafts.current;
-  if (!active) return;
+  if (!active || active.id !== activeNoteId || active.pending) return;
   if (activeFileProperties?.id === active.id) {
     const stamped = stampFileProperties(active.text, {
       fileName: activeFileProperties.fileName,
@@ -148,11 +164,16 @@ function commitDraft(): void {
       );
       saved = true;
     } else if (host) {
-      saved = host.save(
-        active.id,
+      const result = await host.save(
+        commit.id,
+        commit.operationId,
         commit.text,
         markdownPlainPreview(commit.text),
       );
+      saved =
+        result.id === commit.id &&
+        result.operationId === commit.operationId &&
+        result.status === "acknowledged";
     }
   } catch (error) {
     console.error("AIC note save failed", error);
@@ -164,7 +185,7 @@ function commitDraft(): void {
 const saveShortcut = (event: KeyboardEvent) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
     event.preventDefault();
-    commitDraft();
+    void commitDraft();
   }
 };
 document.addEventListener("keydown", saveShortcut);
@@ -181,6 +202,7 @@ window.addEventListener(
   () => {
     document.removeEventListener("keydown", saveShortcut);
     unsubscribe();
+    host?.dispose();
     themeObserver.disconnect();
     editor.destroy();
   },

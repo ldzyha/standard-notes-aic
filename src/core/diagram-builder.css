@@ -1,0 +1,419 @@
+.aic-diagram-builder {
+  --db-bg: var(--aic-bg, var(--vscode-editor-background, #fff));
+  --db-fg: var(--aic-fg, var(--vscode-editor-foreground, #242833));
+  --db-muted: var(--aic-muted, var(--vscode-descriptionForeground, #657080));
+  --db-border: var(--aic-border, var(--vscode-panel-border, #a7aeb9));
+  --db-accent: var(--aic-accent, var(--vscode-focusBorder, #247fc2));
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: min(480px, 70vh);
+  min-height: 280px;
+  min-width: 0;
+  container: aic-diagram / inline-size;
+  background: var(--db-bg);
+  color: var(--db-fg);
+  font: 13px/1.4
+    var(
+      --sn-stylekit-sans-serif-font,
+      var(--vscode-font-family, system-ui, sans-serif)
+    );
+}
+.aic-diagram-builder *,
+.aic-diagram-builder *::before {
+  box-sizing: border-box;
+}
+.aic-diagram-builder [hidden] {
+  display: none !important;
+}
+.aic-db-toolbar,
+.aic-db-footer,
+.aic-db-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+.aic-db-toolbar {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  min-height: 33px;
+  overflow-x: auto;
+  padding: 3px 4px;
+  border-bottom: 1px solid var(--db-border);
+}
+.aic-db-title {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.aic-db-palette-host {
+  flex: 0 0 auto;
+}
+.aic-diagram-builder .aic-db-button {
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 26px;
+  width: 26px;
+  height: 26px;
+  /* Shared icon buttons otherwise inherit document-sized rem minima. */
+  min-width: 26px !important;
+  min-height: 26px !important;
+  margin: 0;
+  padding: 4px;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--db-fg);
+  cursor: pointer;
+  font: inherit;
+}
+.aic-diagram-builder .cm-aic-icon-button::before {
+  width: 16px;
+  height: 16px;
+}
+.aic-db-button:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--db-accent) 15%, var(--db-bg));
+  border-color: var(--db-border);
+}
+.aic-db-button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+.aic-diagram-builder :focus-visible {
+  outline: 2px solid var(--db-accent);
+  outline-offset: 2px;
+}
+.aic-db-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: visible;
+}
+.aic-db-main.aic-db-source-mode {
+  display: flex;
+  flex-direction: column;
+}
+.aic-db-viewport {
+  flex: 1 1 auto;
+  overflow: auto;
+  min-width: 0;
+  min-height: 0;
+  scrollbar-gutter: stable;
+  padding: 10px;
+  background-image: radial-gradient(
+    circle,
+    color-mix(in srgb, var(--db-border) 50%, transparent) 0.6px,
+    transparent 0.7px
+  );
+  background-size: 18px 18px;
+}
+.aic-db-canvas-size {
+  position: relative;
+}
+.aic-db-canvas {
+  position: relative;
+  transform-origin: 0 0;
+}
+.aic-db-rendered {
+  display: block;
+  overflow: visible;
+}
+.aic-db-rendered .aic-db-node,
+.aic-db-rendered .aic-db-edge-label {
+  cursor: pointer;
+}
+.aic-db-rendered .aic-db-node.is-selected {
+  outline: 2px solid var(--db-accent);
+  outline-offset: 2px;
+}
+.aic-db-rendered .aic-db-edge-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 16px;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.aic-db-rendered .aic-db-edge-hit:hover,
+.aic-db-rendered .aic-db-edge-hit.is-selected {
+  stroke: color-mix(in srgb, var(--db-accent) 25%, transparent);
+  outline: none;
+}
+.aic-db-rendered .aic-db-port {
+  fill: var(--db-bg);
+  stroke: var(--db-accent);
+  stroke-width: 2px;
+  cursor: crosshair;
+  touch-action: none;
+  pointer-events: all;
+}
+.aic-db-rendered .aic-db-port:hover {
+  --db-port-fill: var(--db-accent);
+}
+.aic-db-rendered .aic-db-port[aria-disabled="true"] {
+  opacity: 0.35;
+  cursor: default;
+}
+.aic-db-rendered .aic-db-edge-label.is-selected {
+  outline: 1px solid var(--db-accent);
+}
+.aic-db-inspector {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  min-height: 35px;
+  padding: 4px;
+  border-bottom: 1px solid var(--db-border);
+  overflow: visible;
+}
+.aic-db-inspector:empty {
+  display: none;
+}
+.aic-db-relations {
+  display: grid;
+  gap: 3px;
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
+.aic-db-relation-link {
+  display: block;
+  width: 100%;
+  padding: 5px 6px;
+  border: 1px solid var(--db-border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--db-fg);
+  font: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+.aic-db-relation-link:hover {
+  background: color-mix(in srgb, var(--db-accent) 12%, var(--db-bg));
+}
+.aic-db-source-notice {
+  flex: 0 0 auto;
+  max-height: 40%;
+  overflow-y: auto;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--db-border);
+  background: color-mix(in srgb, var(--db-accent) 8%, var(--db-bg));
+  font-size: 12px;
+}
+.aic-db-source-notice p {
+  margin: 3px 0 0;
+  color: var(--db-muted);
+}
+.aic-db-field {
+  display: flex;
+  flex: 1 1 80px;
+  min-width: 0;
+  flex-direction: column;
+  gap: 3px;
+  margin: 0;
+  font-size: 12px;
+  color: var(--db-muted);
+}
+.aic-diagram-builder .aic-db-field :is(input, textarea, select) {
+  width: 100%;
+  min-width: 0;
+  height: 26px;
+  min-height: 26px;
+  margin: 0;
+  padding: 3px 5px;
+  border: 1px solid var(--db-border);
+  border-radius: 4px;
+  background: var(--db-bg);
+  color: var(--db-fg);
+  font: 12px/18px
+    var(
+      --sn-stylekit-sans-serif-font,
+      var(--vscode-font-family, system-ui, sans-serif)
+    );
+}
+.aic-diagram-builder .aic-db-field textarea {
+  height: 90px;
+  min-height: 54px;
+  max-height: 160px;
+  resize: vertical;
+}
+.aic-db-field[data-field-role="type"] {
+  flex: 0 1 106px;
+}
+.aic-db-field[data-field-role="direction"] {
+  flex: 0 1 140px;
+}
+.aic-db-field-label,
+.aic-db-selection-kind {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.aic-db-popover {
+  position: absolute;
+  z-index: 3;
+  inset-inline: 4px;
+  top: calc(100% + 2px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  max-height: min(220px, 45vh);
+  overflow: auto;
+  padding: 8px;
+  border: 1px solid var(--db-border);
+  border-radius: 5px;
+  background: var(--db-bg);
+  box-shadow: 0 3px 12px #0003;
+}
+.aic-db-popover .aic-db-field-label {
+  position: static;
+  width: auto;
+  height: auto;
+  clip-path: none;
+}
+.aic-db-popover > :only-child {
+  grid-column: 1 / -1;
+}
+.aic-db-popover-toggle[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--db-accent) 15%, var(--db-bg));
+}
+.aic-db-source {
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+  padding: 10px;
+  border: 0;
+  background: var(--db-bg);
+  color: var(--db-fg);
+  font: 13px/1.6
+    var(
+      --sn-stylekit-monospace-font,
+      var(--vscode-editor-font-family, monospace)
+    );
+  resize: none;
+  tab-size: 4;
+}
+.aic-db-footer {
+  flex: 0 0 auto;
+  max-height: 30%;
+  overflow-y: auto;
+  padding: 4px 6px;
+  border-top: 1px solid var(--db-border);
+}
+.aic-db-status {
+  flex: 1;
+  color: var(--db-muted);
+  font-size: 12px;
+}
+.aic-db-apply {
+  background: var(--db-accent);
+  color: var(--db-bg);
+}
+.aic-db-icon {
+  --db-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4 10h12' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
+  display: block;
+  width: 16px;
+  height: 16px;
+  background: currentColor;
+  mask: var(--db-icon) center / contain no-repeat;
+  -webkit-mask: var(--db-icon) center / contain no-repeat;
+  pointer-events: none;
+}
+.aic-db-icon[data-icon="add"] {
+  --db-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M4 10h12M10 4v12' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.aic-db-icon[data-icon="code"] {
+  --db-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m7 5-5 5 5 5m6-10 5 5-5 5M11 3 9 17' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.aic-db-icon[data-icon="diagram"],
+.aic-db-icon[data-icon="branch"] {
+  --db-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M7 2h6v5H7zM2 13h6v5H2zm10 0h6v5h-6zM10 7v3H5v3m5-3h5v3' fill='none' stroke='black' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.aic-db-icon[data-icon="undo"],
+.aic-db-icon[data-icon="redo"] {
+  --db-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m7 3-4 4 4 4M3 7h9a5 5 0 0 1 0 10h-2' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.aic-db-icon[data-icon="reverse"] {
+  --db-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 6h14m-4-4 4 4-4 4M17 14H3m4-4-4 4 4 4' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.aic-db-icon[data-icon="redo"] {
+  transform: scaleX(-1);
+}
+.aic-db-icon[data-icon="fit"] {
+  --db-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M7 3H3v4m10-4h4v4M3 13v4h4m6 0h4v-4M7 7h6v6H7z' fill='none' stroke='black' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.aic-db-icon[data-icon="close"] {
+  --db-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m5 5 10 10M15 5 5 15' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.aic-db-icon[data-icon="check"] {
+  --db-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m4 10 4 4L16 5' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.aic-db-icon[data-icon="connect"] {
+  --db-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M8 5H6a4 4 0 0 0 0 8h2m4-6h2a4 4 0 0 1 0 8h-2M6 10h8' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.aic-db-icon[data-icon="endpoints"] {
+  --db-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M2 6h5v8H2zM13 6h5v8h-5zM7 10h6m-2-2 2 2-2 2' fill='none' stroke='black' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.aic-db-icon[data-icon="members"] {
+  --db-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 3h14v14H3zM3 8h14M6 6h8M6 11h5M6 14h7' fill='none' stroke='black' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.aic-db-icon[data-icon="relationships"] {
+  --db-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M2 8h5v5H2zM13 2h5v5h-5zM13 13h5v5h-5zM7 10h3V4h3m-3 6v6h3' fill='none' stroke='black' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.aic-db-icon[data-icon="delete"] {
+  --db-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M3 5h14M8 3h4M5 5l1 12h8l1-12M8 8v6m4-6v6' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.aic-db-icon[data-icon="left"],
+.aic-db-icon[data-icon="right"],
+.aic-db-icon[data-icon="up"],
+.aic-db-icon[data-icon="down"] {
+  --db-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='m7 4 6 6-6 6' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.aic-db-icon[data-icon="left"] {
+  transform: rotate(180deg);
+}
+.aic-db-icon[data-icon="up"] {
+  transform: rotate(-90deg);
+}
+.aic-db-icon[data-icon="down"] {
+  transform: rotate(90deg);
+}
+@container aic-diagram (max-width: 320px) {
+  .aic-db-field[data-field-role="type"] {
+    flex-basis: 90px;
+  }
+  .aic-db-actions {
+    gap: 0;
+  }
+}
+@container aic-diagram (max-width: 420px) {
+  /* Sequence ordering adds controls: keep a readable name, then one short
+     action row rather than squeezing the label to a few pixels. */
+  .aic-db-inspector:has(> .aic-db-actions) {
+    flex-wrap: wrap;
+  }
+  .aic-db-inspector:has(> .aic-db-actions)
+    > .aic-db-field[data-field-role="type"] {
+    flex: 0 0 100px;
+  }
+  .aic-db-inspector:has(> .aic-db-actions)
+    > .aic-db-field[data-field-role="label"] {
+    flex: 1 0 calc(100% - 106px);
+  }
+}

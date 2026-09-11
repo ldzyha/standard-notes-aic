@@ -248,6 +248,15 @@ class TableWidget extends WidgetType {
     wrapper.setAttribute("aria-label", "Interactive Markdown table");
     const parsed = parseTable(this.source);
     const replace = (model: TableModel) => {
+      if (
+        view.state.readOnly ||
+        !wrapper.isConnected ||
+        this.from < 0 ||
+        this.from + this.source.length > view.state.doc.length ||
+        view.state.sliceDoc(this.from, this.from + this.source.length) !==
+          this.source
+      )
+        return;
       const markdown = serializeTable(model);
       if (!markdown || markdown === this.source) return;
       view.dispatch({
@@ -331,6 +340,7 @@ class TableWidget extends WidgetType {
           label: `Column ${columnIndex + 1} name`,
           multiline: true,
           readOnly: this.readOnly,
+          getRevision: () => view.state.doc,
           onCommit: (next) =>
             replace(updateTableCell(parsed, -1, columnIndex, next)),
         }),
@@ -372,6 +382,7 @@ class TableWidget extends WidgetType {
             label: `Row ${rowIndex + 1}, column ${columnIndex + 1}`,
             multiline: true,
             readOnly: this.readOnly,
+            getRevision: () => view.state.doc,
             onCommit: (next) =>
               replace(updateTableCell(parsed, rowIndex, columnIndex, next)),
           }),
@@ -405,6 +416,7 @@ class TableWidget extends WidgetType {
 class FrontmatterWidget extends WidgetType {
   constructor(
     private readonly block: FrontmatterBlock,
+    private readonly source: string,
     private readonly readOnly: boolean,
   ) {
     super();
@@ -413,7 +425,9 @@ class FrontmatterWidget extends WidgetType {
   override eq(other: FrontmatterWidget): boolean {
     return (
       other.readOnly === this.readOnly &&
-      JSON.stringify(other.block.rows) === JSON.stringify(this.block.rows)
+      other.block.from === this.block.from &&
+      other.block.to === this.block.to &&
+      other.source === this.source
     );
   }
 
@@ -425,15 +439,23 @@ class FrontmatterWidget extends WidgetType {
     wrapper.dataset.aicSourceTo = String(this.block.to);
     wrapper.setAttribute("role", "region");
     wrapper.setAttribute("aria-label", "Interactive Markdown properties");
+    const isCurrent = () =>
+      wrapper.isConnected &&
+      this.block.from >= 0 &&
+      this.block.to >= this.block.from &&
+      this.block.to <= view.state.doc.length &&
+      view.state.sliceDoc(this.block.from, this.block.to) === this.source;
     const replace = (rows: readonly PropertyRow[]) => {
+      if (view.state.readOnly || !isCurrent()) return;
       const markdown = serializeFrontmatter(rows);
-      if (!markdown) return;
+      if (!markdown || markdown === this.source) return;
       view.dispatch({
         changes: { from: this.block.from, to: this.block.to, insert: markdown },
         userEvent: "input",
       });
     };
     const reveal = () => {
+      if (!isCurrent()) return;
       const anchor = Math.min(view.state.doc.length, this.block.from + 4);
       view.dispatch({
         selection: { anchor },
@@ -497,6 +519,7 @@ class FrontmatterWidget extends WidgetType {
             value: item.key,
             label: `Property ${index + 1} name`,
             readOnly: this.readOnly,
+            getRevision: () => view.state.doc,
             validate: (value) =>
               validPropertyKey(value.trim())
                 ? ""
@@ -530,6 +553,7 @@ class FrontmatterWidget extends WidgetType {
             label: `Property ${item.key || "list item"} value`,
             multiline: true,
             readOnly: this.readOnly,
+            getRevision: () => view.state.doc,
             onCommit: (next) =>
               replace(updateProperty(this.block.rows, index, "value", next)),
           }),
@@ -631,7 +655,11 @@ function frontmatterDecorations(state: EditorState) {
   return Decoration.set(
     [
       Decoration.replace({
-        widget: new FrontmatterWidget(block, state.readOnly),
+        widget: new FrontmatterWidget(
+          block,
+          state.sliceDoc(block.from, block.to),
+          state.readOnly,
+        ),
         block: true,
       }).range(block.from, block.to),
     ],

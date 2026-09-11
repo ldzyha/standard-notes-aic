@@ -8,9 +8,12 @@
 }
 
 .cm-editor .cm-tooltip-autocomplete > ul {
-  max-width: min(44rem, 88vw);
-  max-height: min(28rem, 58vh);
-  padding: 0.3rem;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: min(20rem, calc(100vw - 1rem));
+  max-width: min(34rem, calc(100vw - 1rem));
+  max-height: min(24rem, 54vh);
+  padding: 0.25rem;
   background-color: var(--aic-bg);
   color: var(--aic-fg);
   font-family: var(
@@ -21,12 +24,12 @@
 
 .cm-editor .cm-tooltip-autocomplete > ul > li {
   display: grid;
-  grid-template-columns: minmax(7.5rem, auto) minmax(0, 1fr);
-  gap: 0.8rem;
-  align-items: baseline;
-  min-height: 2rem;
-  padding: 0.35rem 0.55rem;
-  border-radius: 0.4rem;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: center;
+  min-height: 1.75rem;
+  padding: 0.25rem 0.45rem;
+  border-radius: 0.35rem;
   background-color: transparent;
   color: var(--aic-fg);
 }
@@ -36,19 +39,26 @@
   color: var(--aic-fg);
 }
 
-.cm-editor .cm-tooltip-autocomplete completion-section {
-  position: sticky;
-  top: 0;
-  z-index: 1;
-  margin: 0.25rem 0 0;
-  padding: 0.6rem 0.55rem 0.3rem;
-  border-bottom: 1px solid var(--aic-border);
+.cm-editor .cm-tooltip-autocomplete > ul > completion-section {
+  position: static;
+  display: block;
+  margin: 0.15rem 0.35rem 0;
+  padding: 0.45rem 0.1rem 0.2rem;
+  border: 0;
+  border-top: 1px solid var(--aic-border);
   background-color: var(--aic-bg);
   color: var(--aic-muted);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  line-height: 1;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
+}
+
+.cm-editor .cm-tooltip-autocomplete > ul > completion-section:first-child {
+  margin-top: 0;
+  padding-top: 0.2rem;
+  border-top: 0;
 }
 
 .cm-editor .cm-tooltip-autocomplete .cm-completionLabel {
@@ -57,6 +67,7 @@
     var(--vscode-editor-font-family, monospace)
   );
   font-weight: 700;
+  white-space: nowrap;
 }
 
 .cm-editor .cm-tooltip-autocomplete .cm-completionDetail {

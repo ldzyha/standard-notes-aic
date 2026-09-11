@@ -19,6 +19,9 @@ export default defineConfig({
   },
   test: {
     environment: "jsdom",
+    // Each Mermaid/jsdom worker loads a substantial DOM and parser runtime.
+    // Bound concurrency so complete suites remain reliable on desktop and CI.
+    maxWorkers: 1,
     setupFiles: ["./test/setup.ts"],
     coverage: {
       reporter: ["text", "html"],

@@ -1,4 +1,10 @@
-export const STRUCTURED_PREVIEW_CORE_VERSION: "2.6.0";
+export const STRUCTURED_PREVIEW_CORE_VERSION: "2.7.0";
+
+export function selectionStaysInSource(
+  ranges: readonly { from: number; to: number }[],
+  from: number,
+  to: number,
+): boolean;
 
 export function wirePreviewSelection(
   editor: {
@@ -45,6 +51,7 @@ export function createCellEditor(
     label?: unknown;
     multiline?: boolean;
     readOnly?: boolean;
+    getRevision?: () => unknown;
     validate?: (value: string) => string | boolean | void;
     onCommit?: (value: string) => unknown;
   }>,

@@ -84,9 +84,9 @@ describe("Mermaid rendering boundary", () => {
     expect(config).toMatchObject({
       securityLevel: "strict",
       htmlLabels: false,
-      flowchart: { useMaxWidth: true },
+      flowchart: { useMaxWidth: false, htmlLabels: false },
     });
-    expect(config.flowchart).not.toHaveProperty("htmlLabels");
+    expect(config.flowchart).toHaveProperty("htmlLabels", false);
   });
 
   it("renders a real diagram with the pinned strict runtime", async () => {
@@ -183,7 +183,7 @@ describe("Mermaid rendering boundary", () => {
     const edit =
       preview.element.querySelector<HTMLButtonElement>(".cm-mermaid-edit")!;
     expect(edit.textContent).toBe("");
-    expect(edit.dataset.aicIcon).toBe("edit");
+    expect(edit.dataset.aicIcon).toBe("source");
     edit.click();
     expect(onEdit).toHaveBeenCalledOnce();
     const canvas =

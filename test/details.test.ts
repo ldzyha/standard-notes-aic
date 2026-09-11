@@ -37,6 +37,32 @@ describe("AIC details grammar", () => {
 });
 
 describe("AIC details interaction", () => {
+  it("refreshes captured task offsets after header whitespace changes and rejects detached controls", () => {
+    const initial = ">>>|open| - [ ] [Task](x)\nbody\n<<<\n\nafter";
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host, { initialText: initial });
+    editor.view.dispatch({ selection: { anchor: initial.length } });
+    const old = editor.element.querySelector(".cm-aic-details-summary")!;
+    const changed = initial.replace("|open| ", "|open|  ");
+    editor.updateDocument(changed);
+    const current = editor.element.querySelector(".cm-aic-details-summary")!;
+    expect(current).not.toBe(old);
+    old.querySelector<HTMLButtonElement>('[role="checkbox"]')!.click();
+    expect(editor.value).toBe(changed);
+    current.querySelector<HTMLButtonElement>('[role="checkbox"]')!.click();
+    expect(editor.value).toBe(changed.replace("[ ]", "[x]"));
+    editor.switchDocument("short", "x");
+    expect(() =>
+      old
+        .querySelector<HTMLButtonElement>(".cm-aic-details-disclosure")!
+        .click(),
+    ).not.toThrow();
+    expect(editor.value).toBe("x");
+    editor.destroy();
+    host.remove();
+  });
+
   it("toggles from title/CSS icon, keeps linked controls separate, and edits source explicitly", () => {
     const source =
       ">>> - [ ] [Source](src/app.ts#L2-L4)\ncomment\n<<<\n\nafter";
@@ -87,6 +113,12 @@ describe("AIC details interaction", () => {
     summary.querySelector<HTMLButtonElement>(".cm-md-edit-source")!.click();
     expect(editor.element.querySelector(".cm-aic-details-summary")).toBeNull();
     expect(editor.value).toBe(beforeEdit);
+    // Home and selection of the opening marker must not immediately restore
+    // the atomic preview while the user is explicitly editing this block.
+    editor.view.dispatch({ selection: { anchor: 0 } });
+    expect(editor.element.querySelector(".cm-aic-details-summary")).toBeNull();
+    editor.view.dispatch({ selection: { anchor: 0, head: 3 } });
+    expect(editor.element.querySelector(".cm-aic-details-summary")).toBeNull();
     editor.view.dispatch({ selection: { anchor: editor.value.length } });
     expect(
       editor.element.querySelector(".cm-aic-details-summary"),

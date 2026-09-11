@@ -5,6 +5,7 @@ import { createCodeFencePreview } from "./code-fence-preview.js";
 import { providePreviewRanges } from "./preview-ranges.js";
 import {
   selectionRevealsPreview,
+  selectionStaysInSource,
   writeTextToClipboard,
 } from "./structured-preview.js";
 
@@ -67,10 +68,10 @@ const codeFenceSource = StateField.define({
       (candidate) => candidate.from === next,
     );
     if (!block) return null;
-    return transaction.state.selection.ranges.some((range) =>
-      range.empty
-        ? range.from >= block.from && range.from <= block.to
-        : range.from < block.to && range.to > block.from,
+    return selectionStaysInSource(
+      transaction.state.selection.ranges,
+      block.from,
+      block.to,
     )
       ? next
       : null;

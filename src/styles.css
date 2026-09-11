@@ -336,7 +336,8 @@ select {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  margin: 0.65rem 0;
+  /* CodeMirror does not include outer margins in its block-widget height map. */
+  margin: 0;
   overflow: hidden;
   border: 1px solid var(--aic-details-border);
   border-radius: 0.55rem;
@@ -382,7 +383,7 @@ select {
   width: 100%;
   max-width: 100%;
   min-width: 0;
-  margin: 0.65rem 0;
+  margin: 0;
   overflow-x: auto;
   overflow-y: hidden;
   border: 1px solid var(--aic-details-border);
@@ -639,7 +640,7 @@ select {
 }
 
 .cm-mermaid-inline {
-  margin: 0.75rem 0;
+  margin: 0;
   overflow: hidden;
   border: 1px solid var(--aic-details-border);
   border-radius: 0.65rem;

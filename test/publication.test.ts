@@ -34,10 +34,10 @@ describe("publication metadata", () => {
     );
   });
 
-  it("documents the 20.1.1 R.F.B release and packages usage instructions", () => {
-    expect(changelog).toContain("## 20.1.1 — 2026-09-03");
+  it("documents the 21.3.5 R.F.B release and packages usage instructions", () => {
+    expect(changelog).toContain("## 21.3.5 — 2026-09-11");
     expect(changelog).toContain(
-      "Release sequence 20 · 1 feature outcome · 1 fixed-bug outcome",
+      "Release sequence 21 · 3 feature outcomes · 5 fixed-bug outcomes",
     );
     expect(readme).toContain("## Slash templates");
     expect(readme).toContain("`Tab` to move through");
