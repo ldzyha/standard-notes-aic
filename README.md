@@ -16,10 +16,14 @@ The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_I
 ### Authenticator JSON conversion
 
 Open the original Authenticator JSON array in AIC, or select the complete array inside
-a Markdown document. A contextual **Convert to security blocks** action appears for
+a Markdown document. A contextual **Convert and save security blocks** action appears for
 recognized `service`, `account`, `secret` records. One click converts every record in
-that array into its own `aic-security` block. Nothing is converted on opening or saved
-automatically; use Undo to restore the source and Ctrl/Cmd+S to save the result.
+that array into its own `aic-security` block and explicitly saves the changed note.
+Wait for **Note saved** before leaving. A failed save keeps the draft and offers
+**Retry save**. The toolbar's Save note icon also saves dirty drafts after switching
+back to a note, including on mobile. Nothing is converted on opening; typing and
+blur never save. Undo restores the source as a new draft; Save note or Ctrl/Cmd+S
+commits that undo or later edits.
 
 `service` and `account` stay visible; `secret` becomes hidden `TOTP*`, `password` becomes
 hidden `Password*`, and `notes` becomes Notes. Safe HTTP(S) service URLs, including simple
@@ -64,9 +68,9 @@ unbiased sampling and no weak fallback. Controls are inspired by
 not its proprietary implementation. [Clipboard permissions](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API)
 vary between browsers/embedded clients. Markdown and copied values remain plaintext.
 
-## Release 25.1.0
+## Release 26.0.1
 
-This release pairs with AIC Notes 34.1.0 and AIC Editor Core 3.7.0. This document
+This release pairs with AIC Notes 35.0.1 and AIC Editor Core 3.7.1. This document
 describes the release source and its contracts; deployment and the hosted manifest
 are verified separately by the release workflow.
 
@@ -76,7 +80,7 @@ field in preview, while `Password: value` is visible. **Edit** opens Markdown
 source; there is no inline manual value editor. Preview can copy individual values, a current
 one-time code from a Base32/`otpauth://totp` key, or the **entire fenced block**.
 Safe HTTP(S) URLs also have Open. Add section, quick field actions and New block
-create independent content without saving. Ctrl/Cmd+S remains the save action.
+create independent content without saving. Save note or Ctrl/Cmd+S commits those changes.
 The ordinary code-fence preview and Standard Notes plain-text note preview
 exclude security contents.
 
@@ -315,8 +319,8 @@ It never opens a real Standard Notes account or modifies workspace documents.
 - AIC stays read-only until Standard Notes supplies the first working-note payload.
 - Saves attach a bounded plain-text preview derived from visible Markdown content, redact complete
   security blocks, and clear stale HTML previews; the stored body remains exact Markdown.
-- Input stays in the shared dependency-free draft core. Standard Notes is updated only when the
-  user presses Ctrl+S/Cmd+S; input, blur, and page unload never save a note.
+- Input stays in the shared dependency-free draft core. Standard Notes is updated only through
+  explicit Save note, Ctrl+S/Cmd+S, or Convert and save actions; input, blur, and page unload never save a note.
 - For `*.note.md` items, explicit save keeps `file`, stable `created`, and automatically refreshed
   `updated` metadata while preserving every authored property. Dates render in the user's locale.
   Ordinary `*.md` items receive no generated properties or automatic cleanup. Existing authored
@@ -346,6 +350,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `25.1.0` is sequence 25 with
-one feature outcome and zero fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `26.0.1` is sequence 26 with
+zero feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

@@ -84,7 +84,181 @@ function save() {
 }
 
 describe("Standard Notes editor bridge", () => {
+  it("explicitly converts and saves security blocks, retries a failed save and reopens the saved Markdown", async () => {
+    vi.resetModules();
+    bridge.saves.length = 0;
+    window.ReactNativeWebView = {};
+    const root = document.createElement("main");
+    root.id = "app";
+    document.body.append(root);
+    await import("../src/main");
+    const view = EditorView.findFromDOM(
+      root.querySelector<HTMLElement>(".cm-editor")!,
+    )!;
+    const editor = root.querySelector<HTMLElement>(".aic-editor")!;
+    const secret = "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ";
+    const password = "SYNTHETIC-IMPORT-PASSWORD";
+    const source = JSON.stringify([
+      {
+        service: "Synthetic service",
+        account: "synthetic@example.invalid",
+        secret,
+        password,
+      },
+    ]);
+
+    bridge.stream("synthetic-authenticator", source);
+    expect(view.state.doc.toString()).toBe(source);
+    view.dispatch({ changes: { from: source.length, insert: "\n" } });
+    root.dispatchEvent(new FocusEvent("focusout", { relatedTarget: null }));
+    expect(bridge.saves).toHaveLength(0);
+    root
+      .querySelector<HTMLButtonElement>(
+        'button[aria-label="Convert and save security blocks"]',
+      )!
+      .click();
+    const converted = view.state.doc.toString();
+    expect(converted).toContain("```aic-security");
+    expect(converted).not.toBe(source);
+    expect(root.querySelectorAll(".cm-aic-security")).toHaveLength(1);
+    expect(root.innerHTML).not.toContain(secret);
+    expect(root.innerHTML).not.toContain(password);
+    expect(editor.dataset.saveState).toBe("dirty");
+    expect(bridge.saves).toHaveLength(1);
+    expect(bridge.saves[0]).toMatchObject({
+      id: "synthetic-authenticator",
+      text: converted,
+    });
+    expect(bridge.saves[0]!.preview).not.toContain(secret);
+    expect(bridge.saves[0]!.preview).not.toContain(password);
+    expect(root.querySelector('[role="status"]')?.textContent).toContain(
+      "Saving note",
+    );
+    bridge.stream("synthetic-authenticator", source);
+    expect(view.state.doc.toString()).toBe(converted);
+    bridge.reply({ error: "save-error" });
+    await vi.waitFor(() =>
+      expect(root.querySelector('[role="status"]')?.textContent).toContain(
+        "Note not saved. Keep it open and retry.",
+      ),
+    );
+    expect(editor.dataset.saveState).toBe("dirty");
+    root.dispatchEvent(new FocusEvent("focusout", { relatedTarget: null }));
+    expect(bridge.saves).toHaveLength(1);
+    root
+      .querySelector<HTMLButtonElement>('button[aria-label="Retry save"]')!
+      .click();
+    expect(bridge.saves).toHaveLength(2);
+    expect(bridge.saves[1]!.text).toBe(converted);
+    expect(view.state.doc.toString()).toBe(converted);
+    expect(root.querySelectorAll(".cm-aic-security")).toHaveLength(1);
+    bridge.reply({ error: "save-error" });
+    await vi.waitFor(() =>
+      expect(root.querySelector('[role="status"]')?.textContent).toContain(
+        "not saved",
+      ),
+    );
+
+    bridge.stream("other-synthetic-note", "Other note");
+    bridge.stream("synthetic-authenticator", source);
+    expect(view.state.doc.toString()).toBe(converted);
+    expect(root.querySelectorAll(".cm-aic-security")).toHaveLength(1);
+    expect(root.querySelector('[aria-label="Retry save"]')).toBeNull();
+    const touchSave = root.querySelector<HTMLButtonElement>(
+      'button[aria-label="Save note"]',
+    )!;
+    expect(touchSave.hidden).toBe(false);
+    expect(touchSave.disabled).toBe(false);
+    bridge.stream("synthetic-authenticator", source, {
+      locked: true,
+      metadata: true,
+    });
+    expect(touchSave.disabled).toBe(true);
+    touchSave.click();
+    expect(bridge.saves).toHaveLength(2);
+    bridge.stream("synthetic-authenticator", source, { metadata: true });
+    expect(touchSave.disabled).toBe(false);
+    touchSave.click();
+    expect(bridge.saves).toHaveLength(3);
+    expect(bridge.saves[2]!.text).toBe(converted);
+    expect(touchSave.disabled).toBe(true);
+    bridge.reply({ error: "save-error" });
+    await vi.waitFor(() => expect(touchSave.disabled).toBe(false));
+    expect(touchSave.hidden).toBe(false);
+    expect(editor.dataset.saveState).toBe("dirty");
+    touchSave.click();
+    expect(bridge.saves).toHaveLength(4);
+    expect(bridge.saves[3]!.text).toBe(converted);
+    bridge.reply();
+    await vi.waitFor(() => expect(editor.dataset.saveState).toBe("saved"));
+    expect(touchSave.hidden).toBe(true);
+
+    bridge.stream("other-synthetic-note", "Other note");
+    bridge.stream("synthetic-authenticator", bridge.saves[3]!.text);
+    expect(view.state.doc.toString()).toBe(converted);
+    expect(root.querySelectorAll(".cm-aic-security")).toHaveLength(1);
+    expect(root.innerHTML).not.toContain(secret);
+    expect(root.innerHTML).not.toContain(password);
+    expect(editor.dataset.saveState).toBe("saved");
+  });
+
+  it("keeps newer edits dirty and clears failed-conversion feedback after a toolbar save is acknowledged", async () => {
+    vi.resetModules();
+    bridge.saves.length = 0;
+    window.ReactNativeWebView = {};
+    const root = document.createElement("main");
+    root.id = "app";
+    document.body.append(root);
+    await import("../src/main");
+    const view = EditorView.findFromDOM(
+      root.querySelector<HTMLElement>(".cm-editor")!,
+    )!;
+    const editor = root.querySelector<HTMLElement>(".aic-editor")!;
+    bridge.stream(
+      "synthetic-delayed-save",
+      JSON.stringify([
+        { service: "Synthetic", account: "fixture", secret: "MZXW6YTB" },
+      ]),
+    );
+    root
+      .querySelector<HTMLButtonElement>(
+        'button[aria-label="Convert and save security blocks"]',
+      )!
+      .click();
+    bridge.reply({ error: "save-error" });
+    const status = () => root.querySelector('[role="status"]')?.textContent;
+    await vi.waitFor(() => expect(status()).toContain("not saved"));
+    const touchSave = root.querySelector<HTMLButtonElement>(
+      'button[aria-label="Save note"]',
+    )!;
+    touchSave.click();
+    expect(bridge.saves).toHaveLength(2);
+    expect(touchSave.disabled).toBe(true);
+    view.dispatch({
+      changes: { from: view.state.doc.length, insert: "\nNew local edit" },
+    });
+    const newerDraft = view.state.doc.toString();
+    expect(bridge.saves).toHaveLength(2);
+    bridge.reply();
+    await vi.waitFor(() => expect(touchSave.disabled).toBe(false));
+    expect(editor.dataset.saveState).toBe("dirty");
+    expect(touchSave.hidden).toBe(false);
+    expect(view.state.doc.toString()).toBe(newerDraft);
+    expect(status()).toContain("not saved");
+
+    touchSave.click();
+    expect(bridge.saves).toHaveLength(3);
+    expect(bridge.saves[2]!.text).toBe(newerDraft);
+    bridge.reply();
+    await vi.waitFor(() => expect(status()).toBe("Note saved"));
+    expect(editor.dataset.saveState).toBe("saved");
+    expect(touchSave.hidden).toBe(true);
+    expect(root.querySelector('[aria-label="Retry save"]')).toBeNull();
+  });
+
   it("saves explicitly, protects unacknowledged drafts, isolates UUIDs and applies metadata locks", async () => {
+    vi.resetModules();
+    bridge.saves.length = 0;
     window.ReactNativeWebView = {};
     const root = document.createElement("main");
     root.id = "app";

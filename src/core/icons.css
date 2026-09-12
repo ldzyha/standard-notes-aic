@@ -29,6 +29,9 @@
 .cm-aic-icon-button[data-aic-icon="copy"] {
   --aic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5 5h8v8H5zM3 11H2V2h9v1' fill='none' stroke='black' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
+.cm-aic-icon-button[data-aic-icon="save"] {
+  --aic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M2 2h9l3 3v9H2zM5 2v4h6V2M5 14V9h6v5' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
 .cm-aic-icon-button[data-aic-icon="paste"] {
   --aic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5 3H3v11h10V3h-2M5 1.5h6v3H5zM8 6v5m-2-2 2 2 2-2' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }

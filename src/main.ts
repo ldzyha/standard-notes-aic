@@ -55,6 +55,7 @@ const drafts = new NoteDraftRegistry();
 const host = standalone ? null : new StandardNotesHost();
 const editor = new AicEditor(root, {
   readOnly: !standalone,
+  onSave: commitDraft,
   onChange: (text) => {
     // Read-only belongs at the interaction boundary. If any mutation reaches
     // the document, never silently discard its draft tracking.
@@ -137,13 +138,14 @@ function reflectSaveState(): void {
         : active.text.trim().length === 0
           ? "placeholder"
           : "saved",
+    Boolean(active?.pending),
   );
 }
 
-async function commitDraft(): Promise<void> {
-  if (!hydrated || (!standalone && host?.locked)) return;
+async function commitDraft(): Promise<boolean> {
+  if (!hydrated || (!standalone && host?.locked)) return false;
   const active = drafts.current;
-  if (!active || active.id !== activeNoteId || active.pending) return;
+  if (!active || active.id !== activeNoteId || active.pending) return false;
   if (activeFileProperties?.id === active.id) {
     const stamped = stampFileProperties(active.text, {
       fileName: activeFileProperties.fileName,
@@ -156,7 +158,8 @@ async function commitDraft(): Promise<void> {
     }
   }
   const commit = drafts.begin("explicit");
-  if (!commit) return;
+  if (!commit) return !drafts.current?.dirty;
+  reflectSaveState();
   let saved = false;
   try {
     if (standalone) {
@@ -182,6 +185,7 @@ async function commitDraft(): Promise<void> {
   }
   drafts.acknowledge({ ...commit, saved });
   reflectSaveState();
+  return Boolean(saved && activeNoteId === commit.id && !drafts.current?.dirty);
 }
 
 const saveShortcut = (event: KeyboardEvent) => {

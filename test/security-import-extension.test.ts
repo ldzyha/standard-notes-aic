@@ -20,7 +20,11 @@ const tick = String.fromCharCode(96);
 const securityFence = tick.repeat(3) + "aic-security";
 const views: EditorView[] = [];
 
-function fixture(source = json, selection?: { anchor: number; head: number }) {
+function fixture(
+  source = json,
+  selection?: { anchor: number; head: number },
+  onSave?: () => boolean | Promise<boolean>,
+) {
   const host = document.createElement("div");
   document.body.append(host);
   const readonly = new Compartment();
@@ -37,7 +41,7 @@ function fixture(source = json, selection?: { anchor: number; head: number }) {
         EditorState.allowMultipleSelections.of(true),
         readonly.of(EditorState.readOnly.of(false)),
         EditorView.updateListener.of(onUpdate),
-        importer.of(makeSecurityImportExtension()),
+        importer.of(makeSecurityImportExtension({ onSave })),
         makeSecurityBlockExtension({ document }),
       ],
     }),
@@ -58,6 +62,117 @@ afterEach(() => {
 });
 
 describe("contextual authenticator import", () => {
+  it("saves explicitly after conversion, waits for acknowledgement and retries without reconversion", async () => {
+    let resolve: (saved: boolean) => void = () => {};
+    const onSave = vi.fn(
+      () =>
+        new Promise<boolean>((done) => {
+          resolve = done;
+        }),
+    );
+    const { host, view, onUpdate } = fixture(json, undefined, onSave);
+    const button = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Convert and save security blocks"]',
+    )!;
+    button.click();
+    expect(view.state.doc.toString()).toContain(securityFence);
+    expect(onSave).toHaveBeenCalledOnce();
+    expect(host.querySelector('[role="status"]')?.textContent).toBe(
+      "Saving note…",
+    );
+    button.click();
+    expect(onSave).toHaveBeenCalledOnce();
+    // A host may stamp metadata during save. That must not erase its status.
+    view.dispatch({ changes: { from: 0, insert: "# Imported\n\n" } });
+    resolve(false);
+    await Promise.resolve();
+    expect(host.querySelector('[role="status"]')?.textContent).toContain(
+      "not saved",
+    );
+    const converted = view.state.doc.toString();
+    const changes = onUpdate.mock.calls.filter(
+      ([update]) => update.docChanged,
+    ).length;
+    host
+      .querySelector<HTMLButtonElement>('button[aria-label="Retry save"]')!
+      .click();
+    expect(onSave).toHaveBeenCalledTimes(2);
+    expect(view.state.doc.toString()).toBe(converted);
+    expect(
+      onUpdate.mock.calls.filter(([update]) => update.docChanged),
+    ).toHaveLength(changes);
+    resolve(true);
+    await Promise.resolve();
+    expect(host.querySelector('[role="status"]')?.textContent).toBe(
+      "Note saved",
+    );
+    view.dispatch({
+      changes: { from: view.state.doc.length, insert: "\nLater edit" },
+    });
+    expect(
+      host.querySelector('.cm-aic-security-import-bar [role="status"]'),
+    ).toBeNull();
+    expect(onSave).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps save failures value-free and disables retries when locked", async () => {
+    const onSave = vi.fn(() => {
+      throw new Error(fakeSecret);
+    });
+    const { host, view, readonly } = fixture(json, undefined, onSave);
+    host
+      .querySelector<HTMLButtonElement>(
+        'button[aria-label="Convert and save security blocks"]',
+      )!
+      .click();
+    const bar = host.querySelector(".cm-aic-security-import-bar")!;
+    expect(bar.textContent).toContain("not saved");
+    expect(bar.outerHTML).not.toContain(fakeSecret);
+    const retry = host.querySelector<HTMLButtonElement>(
+      'button[aria-label="Retry save"]',
+    )!;
+    view.dispatch({
+      effects: readonly.reconfigure(EditorState.readOnly.of(true)),
+    });
+    expect(
+      host.querySelector<HTMLButtonElement>('button[aria-label="Retry save"]')!
+        .disabled,
+    ).toBe(true);
+    retry.click();
+    expect(onSave).toHaveBeenCalledOnce();
+  });
+
+  it("ignores late save acknowledgements after switching sessions or removing the extension", async () => {
+    for (const remove of [false, true]) {
+      let resolve: (saved: boolean) => void = () => {};
+      const { host, view, importer } = fixture(
+        json,
+        undefined,
+        () =>
+          new Promise<boolean>((done) => {
+            resolve = done;
+          }),
+      );
+      host
+        .querySelector<HTMLButtonElement>(
+          'button[aria-label="Convert and save security blocks"]',
+        )!
+        .click();
+      if (remove) view.dispatch({ effects: importer.reconfigure([]) });
+      else
+        view.setState(
+          EditorState.create({
+            doc: "Another note",
+            extensions: [makeSecurityImportExtension()],
+          }),
+        );
+      resolve(true);
+      await Promise.resolve();
+      expect(host.querySelector(".cm-aic-security-import-bar")).toBeNull();
+      if (!remove) expect(view.state.doc.toString()).toBe("Another note");
+    }
+  });
+
   it("shows only a count, never values, and does not convert until clicked", () => {
     const { host, view, onUpdate } = fixture();
     const bar = host.querySelector(".cm-aic-security-import-bar")!;

@@ -1,5 +1,15 @@
 # Changelog
 
+## 26.0.1 — 2026-09-12
+
+Release sequence 26 · 0 feature outcomes · 1 fixed-bug outcome.
+
+### Fix
+
+1. Persist Authenticator conversion from the explicit Convert and save action, including on mobile. Previously it changed only the draft and reopening could show the original JSON. The normal host save manager now sends converted Markdown immediately, shows success only after acknowledgement, and keeps failed drafts available for retry. A compact toolbar Save action remains available for dirty drafts restored after switching notes. Input/blur autosave remains disabled; raw values, masking and atomic conversion are unchanged.
+
+Compatibility: AIC Notes 35.0.1 mirrors AIC Editor Core 3.7.1. The Standard Notes adapter supplies acknowledged persistence; VS Code retains explicit Ctrl/Cmd+S saving. No authentication, synchronization or sphere changes.
+
 ## 25.1.0 — 2026-09-12
 
 Release sequence 25 · 1 feature outcome · 0 fixed-bug outcomes.

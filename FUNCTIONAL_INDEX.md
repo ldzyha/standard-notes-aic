@@ -4,7 +4,7 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 managed file properties, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 25.1.0 pairs with AIC Notes 34.1.0 and AIC Editor Core 3.7.0.
+storage format. Release 26.0.1 pairs with AIC Notes 35.0.1 and AIC Editor Core 3.7.1.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
@@ -12,11 +12,15 @@ GitHub Pages deployment or hosted manifest has already been published.
 
 - `core/security-import` and `security-import-extension` convert the recognized
   current Authenticator JSON array or selection into one security block per record. This is
-  an explicit, all-or-nothing, undoable draft edit; no clipboard, network, note-type change,
-  account scan or automatic save. TOTP/password and extra string fields are hidden, original
+  an explicit, all-or-nothing, undoable draft edit; no clipboard, note-type change or
+  account scan. Standard Notes supplies its normal save manager: Convert and save commits
+  immediately, confirms host acknowledgement, and exposes failed-save retry. Dirty drafts
+  also have a toolbar Save action after switching notes. Input/blur never save.
+  VS Code keeps its existing explicit Ctrl/Cmd+S save boundary. TOTP/password and extra string fields are hidden, original
   values remain exact, and malformed/duplicate/oversized input is rejected without partial
   conversion or secret diagnostics. The shared contextual panel is used in both hosts.
-  Tests: `security-import`, `security-import-extension`, browser security regressions.
+  Tests: `security-import`, `security-import-extension`, `main`, browser security and
+  mobile import-save transport regressions (synthetic host, not a physical device).
 
 - `security-password` owns WebCrypto-only bounded unbiased generation, length8–128,
   default24 with all enabled groups required. Only empty recognized hidden password labels

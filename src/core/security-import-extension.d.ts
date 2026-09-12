@@ -1,4 +1,13 @@
-import type { Extension } from "@codemirror/state";
+import type { Extension, StateEffectType } from "@codemirror/state";
 
-/** Shows an explicit conversion action for authenticator JSON in this editor. */
-export function makeSecurityImportExtension(): Extension;
+export const securityImportSaved: StateEffectType<null>;
+
+/** The host must return true only after acknowledging the current saved draft. */
+export type SecurityImportOptions = {
+  onSave?: () => boolean | Promise<boolean>;
+};
+
+/** Converts explicitly; save-capable hosts commit through their normal manager. */
+export function makeSecurityImportExtension(
+  options?: SecurityImportOptions,
+): Extension;

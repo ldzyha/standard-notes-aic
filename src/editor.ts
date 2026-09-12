@@ -26,12 +26,18 @@ import {
 import { blockViewExtensions } from "./block-views";
 import { makeCodeFenceExtension } from "./core/code-fence-extension.js";
 import { makeSecurityBlockExtension } from "./core/security-block.js";
-import { makeSecurityImportExtension } from "./core/security-import-extension.js";
+import {
+  makeSecurityImportExtension,
+  securityImportSaved,
+} from "./core/security-import-extension.js";
 import {
   SLASH_SNIPPET_PLACEHOLDER,
   slashSnippetExtension,
 } from "./core/slash-snippets.js";
-import { wirePreviewSelection } from "./core/structured-preview.js";
+import {
+  createIconButton,
+  wirePreviewSelection,
+} from "./core/structured-preview.js";
 import { aicKeymap, continueList } from "./commands";
 import { editorIndentation } from "./core/indentation.js";
 import { markdownFormatting } from "./core/formatting.js";
@@ -48,6 +54,7 @@ export type AicEditorOptions = {
   initialText?: string;
   readOnly?: boolean;
   onChange?: (text: string) => void;
+  onSave?: () => boolean | Promise<boolean>;
 };
 
 export type SaveState = "dirty" | "saved" | "placeholder" | "unavailable";
@@ -114,6 +121,9 @@ export class AicEditor {
   private readonly readOnlyCompartment = new Compartment();
   private readonly editableCompartment = new Compartment();
   private readonly onChange: (text: string) => void;
+  private readonly onSave: AicEditorOptions["onSave"];
+  private readonly saveButton: HTMLButtonElement | null;
+  private savePending = false;
   private readonly unwirePreviewSelection: () => void;
   private suppressChange = false;
   private currentReadOnly: boolean;
@@ -123,6 +133,7 @@ export class AicEditor {
   constructor(parent: HTMLElement, options: AicEditorOptions = {}) {
     this.document = options.document ?? parent.ownerDocument;
     this.onChange = options.onChange ?? (() => {});
+    this.onSave = options.onSave;
     this.currentReadOnly = options.readOnly ?? false;
     this.element = this.document.createElement("section");
     this.element.className = "aic-editor";
@@ -133,6 +144,28 @@ export class AicEditor {
       if (!view) throw new Error("AIC editor is not ready");
       return view;
     }, this.document);
+    // Persistence belongs to the host manager, not to an individual block.
+    // Keep a touch-accessible save action when a dirty draft is restored.
+    this.saveButton = this.onSave
+      ? createIconButton(this.document, {
+          label: "Save note",
+          icon: "save",
+          className: "aic-toolbar-button aic-save-button",
+          onActivate: () => {
+            if (
+              this.currentReadOnly ||
+              this.savePending ||
+              this.saveButton?.hidden
+            )
+              return;
+            void Promise.resolve(this.onSave?.()).catch(() => {});
+          },
+        })
+      : null;
+    if (this.saveButton) {
+      this.saveButton.hidden = true;
+      this.toolbar.element.prepend(this.saveButton);
+    }
     this.element.append(this.toolbar.element, this.editorHost);
     parent.append(this.element);
 
@@ -195,7 +228,7 @@ export class AicEditor {
       makeSecurityBlockExtension({
         document: this.document,
       }),
-      makeSecurityImportExtension(),
+      makeSecurityImportExtension({ onSave: this.onSave }),
       blockViewExtensions(),
       detailsExtensions(),
       makeMermaidExtension({
@@ -306,12 +339,34 @@ export class AicEditor {
       ],
     });
     this.toolbar.setReadOnly(readOnly);
+    this.reflectSaveAction();
     this.element.dataset.readOnly = String(readOnly);
     return true;
   }
 
-  setSaveState(state: SaveState): void {
+  setSaveState(state: SaveState, pending = false): void {
     this.element.dataset.saveState = state;
+    this.savePending = pending;
+    this.reflectSaveAction();
+    if (state === "saved") {
+      const doc = this.view.state.doc;
+      // Save reflection can run inside an editor update listener. Notify the
+      // shared status after that transaction, only for this still-saved draft.
+      queueMicrotask(() => {
+        if (
+          this.element.isConnected &&
+          this.view.state.doc === doc &&
+          this.element.dataset.saveState === "saved"
+        )
+          this.view.dispatch({ effects: securityImportSaved.of(null) });
+      });
+    }
+  }
+
+  private reflectSaveAction(): void {
+    if (!this.saveButton) return;
+    this.saveButton.hidden = this.element.dataset.saveState !== "dirty";
+    this.saveButton.disabled = this.currentReadOnly || this.savePending;
   }
 
   refreshTheme(): MermaidTheme {

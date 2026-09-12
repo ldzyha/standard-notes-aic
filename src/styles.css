@@ -82,6 +82,10 @@ select {
   overscroll-behavior-x: contain;
 }
 
+.aic-save-button[hidden] {
+  display: none;
+}
+
 .aic-toolbar-group {
   display: inline-flex;
   flex: 0 0 auto;

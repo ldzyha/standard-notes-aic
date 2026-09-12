@@ -1,6 +1,7 @@
 .cm-aic-security-import-bar {
   display: flex;
   align-items: center;
+  gap: 0.5rem;
   min-height: 2rem;
   padding: 0.2rem 0.45rem;
   border-bottom: 1px solid var(--aic-border);

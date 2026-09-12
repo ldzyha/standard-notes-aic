@@ -1,6 +1,6 @@
 import { isolateHistory } from "@codemirror/commands";
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
-import { StateField } from "@codemirror/state";
+import { StateEffect, StateField } from "@codemirror/state";
 import { showPanel } from "@codemirror/view";
 import { GFM, parser } from "@lezer/markdown";
 import { fenceInfo } from "./code-fence-extension.js";
@@ -14,6 +14,9 @@ const JSON_FENCE =
 const REQUIRED_KEYS = [/"service"\s*:/u, /"account"\s*:/u, /"secret"\s*:/u];
 const MAX_SOURCE_LENGTH = 1_048_576;
 const markdownParser = parser.configure(GFM);
+
+/** Host acknowledgement, including a manual save after a failed conversion. */
+export const securityImportSaved = StateEffect.define();
 
 function fencedSelection(state, from, to) {
   let result = { from, to };
@@ -172,20 +175,79 @@ function boundaryText(before, markdown, after) {
   return prefix + body + suffix;
 }
 
-function makePanel(view, description, field) {
+function makePanel(view, description, field, saveEffect, onSave) {
   const document = view.dom.ownerDocument;
   const dom = document.createElement("div");
   dom.className = "cm-aic-security-import-bar";
   dom.setAttribute("role", "group");
   dom.setAttribute("aria-label", "Authenticator import");
-  if (description.kind === "invalid") {
+  const save = (token) => {
+    // The adapter owns persistence and its acknowledgement. Never infer a save
+    // from the conversion transaction, a blur, or an optimistic host update.
+    const finish = (saved) => {
+      if (
+        !view.dom.isConnected ||
+        view.state.field(field, false)?.saveToken !== token
+      )
+        return;
+      view.dispatch({
+        effects: saveEffect.of({
+          kind: saved === true ? "saved" : "failed",
+          saveToken: token,
+        }),
+      });
+    };
+    try {
+      Promise.resolve(onSave()).then(finish, () => finish(false));
+    } catch {
+      finish(false);
+    }
+  };
+  if (description.saveToken) {
+    const status = document.createElement("span");
+    status.className = "cm-aic-security-import-guidance";
+    status.setAttribute("role", "status");
+    status.textContent =
+      description.kind === "saving"
+        ? "Saving note…"
+        : description.kind === "saved"
+          ? "Note saved"
+          : "Note not saved. Keep it open and retry.";
+    dom.append(status);
+    if (description.kind === "failed") {
+      dom.append(
+        createIconButton(document, {
+          label: "Retry save",
+          icon: "reset",
+          className: "cm-aic-security-import-action",
+          disabled: view.state.readOnly,
+          onActivate: () => {
+            if (
+              !dom.isConnected ||
+              view.state.readOnly ||
+              view.state.field(field, false) !== description
+            )
+              return;
+            const token = {};
+            view.dispatch({
+              effects: saveEffect.of({ kind: "saving", saveToken: token }),
+            });
+            save(token);
+          },
+        }),
+      );
+    }
+  } else if (description.kind === "invalid") {
     const guidance = document.createElement("span");
     guidance.className = "cm-aic-security-import-guidance";
     guidance.textContent = INVALID_GUIDANCE;
     dom.append(guidance);
   } else {
+    const actionLabel = onSave
+      ? "Convert and save security blocks"
+      : "Convert to security blocks";
     const button = createIconButton(document, {
-      label: "Convert to security blocks",
+      label: actionLabel,
       icon: "code",
       className: "cm-aic-security-import-action",
       onActivate: () => {
@@ -214,18 +276,23 @@ function makePanel(view, description, field) {
           )
         )
           return;
+        const token = onSave ? {} : null;
         view.dispatch({
           changes: { from: target.from, to: target.to, insert },
           selection: { anchor: target.from + insert.length },
+          effects: token
+            ? saveEffect.of({ kind: "saving", saveToken: token })
+            : [],
           annotations: isolateHistory.of("full"),
           userEvent: "input",
         });
         view.focus();
+        if (token) save(token);
       },
     });
     const label = document.createElement("span");
     label.className = "cm-aic-security-import-action-label";
-    label.textContent = "Convert to security blocks";
+    label.textContent = actionLabel;
     const count = document.createElement("span");
     count.className = "cm-aic-security-import-count";
     count.textContent = `${description.count} ${description.count === 1 ? "block" : "blocks"}`;
@@ -236,12 +303,27 @@ function makePanel(view, description, field) {
 }
 
 /** Contextual, explicit conversion for the current editor document only. */
-export function makeSecurityImportExtension() {
+export function makeSecurityImportExtension({ onSave } = {}) {
+  const saveEffect = StateEffect.define();
   const field = StateField.define({
     create: inspect,
     update(value, transaction) {
+      for (const effect of transaction.effects)
+        if (effect.is(saveEffect)) return effect.value;
+        else if (effect.is(securityImportSaved) && value?.saveToken)
+          return { ...value, kind: "saved" };
+      if (value?.saveToken) {
+        // Host metadata stamping can change the document while the save is in
+        // flight. Its result remains bound to this state/session token.
+        if (value.kind === "saving" || !transaction.docChanged)
+          return transaction.startState.readOnly === transaction.state.readOnly
+            ? value
+            : { ...value };
+        if (value.kind === "failed") return inspect(transaction.state) ?? value;
+      }
       if (
         value &&
+        !value.saveToken &&
         !transaction.docChanged &&
         transaction.startState.readOnly === transaction.state.readOnly &&
         sameCandidateSelection(value, transaction.state)
@@ -252,7 +334,8 @@ export function makeSecurityImportExtension() {
     provide: (sourceField) =>
       showPanel.from(sourceField, (description) =>
         description
-          ? (view) => makePanel(view, description, sourceField)
+          ? (view) =>
+              makePanel(view, description, sourceField, saveEffect, onSave)
           : null,
       ),
   });
