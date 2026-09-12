@@ -1,6 +1,6 @@
 import type { EditorState, Extension } from "@codemirror/state";
 
-export const SECURITY_BLOCK_CORE_VERSION: "1.2.0";
+export const SECURITY_BLOCK_CORE_VERSION: "1.2.1";
 export type SecurityBlock = Readonly<{
   from: number;
   to: number;

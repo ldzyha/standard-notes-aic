@@ -15,11 +15,19 @@ The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_I
 
 Tap/click a field label or value to copy **only its value**; “Copied” appears beside
 the field after success. Tab moves focus; Enter/Space activates a focused field.
-The field icon is **Paste**. Whole-block Copy remains in the header. Paste does not
-preview hidden values. Populated-field replacement requires confirmation without showing
-contents; empty clipboard text cannot erase. If clipboard access is denied, use native
-Paste in the masked paste-only control; typing is blocked. Manual editing/clearing uses
-**Edit** (Markdown). All changes remain drafts until **Ctrl/Cmd+S**.
+The field icon is **Paste**, enabled only while the field is empty. Filled fields keep a
+disabled Paste button: there is no Replace action. Copy remains available; manual editing
+or clearing uses **Edit** for the complete Markdown block. Whole-block Copy stays in the header.
+All changes remain drafts until **Ctrl/Cmd+S**.
+
+Paste reads the latest clipboard text directly on the click and fills the empty field.
+There is no AIC dialog, history picker or intermediate input on a successful read.
+VS Code uses its [native clipboard API](https://code.visualstudio.com/api/references/vscode-api#Clipboard);
+Standard Notes uses the [browser Clipboard API](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard/readText).
+The browser may require its own permission prompt, which the component cannot bypass.
+Only if clipboard access is denied, unavailable or times out does AIC offer an inline,
+masked paste-only input. Direct typing is blocked and hidden values are never previewed.
+Empty clipboard text makes no change. AIC does not enumerate or store clipboard history.
 
 Empty hidden password fields (`Password*`, `PWD*`, `Пароль*`, `WebDAV Password*` and
 recognized service-qualified labels) offer **Generate password**. Default: 24 characters,
@@ -34,9 +42,9 @@ unbiased sampling and no weak fallback. Controls are inspired by
 not its proprietary implementation. [Clipboard permissions](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API)
 vary between browsers/embedded clients. Markdown and copied values remain plaintext.
 
-## Release 23.2.1
+## Release 24.0.1
 
-This release pairs with AIC Notes 32.2.1 and AIC Editor Core 3.6.0. This document
+This release pairs with AIC Notes 33.0.1 and AIC Editor Core 3.6.1. This document
 describes the release source and its contracts; deployment and the hosted manifest
 are verified separately by the release workflow.
 
@@ -316,6 +324,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `23.2.1` is sequence 23 with
-two feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `24.0.1` is sequence 24 with
+zero feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

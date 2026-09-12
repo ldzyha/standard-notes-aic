@@ -1,5 +1,15 @@
 # Changelog
 
+## 24.0.1 — 2026-09-12
+
+Release sequence 24 · 0 feature outcomes · 1 fixed-bug outcome.
+
+### Fix
+
+1. Paste is now strictly empty-field-only for every security field. Filled fields keep a disabled Paste icon and can only be copied or changed through full-block Markdown Edit; there is no Replace action. Paste reads the latest clipboard value directly without an AIC picker, intermediate input or visible reading panel. Only clipboard denial/unavailability/timeout offers inline masked paste-only capture. Empty input, stale completion or a field filled in the meantime cannot overwrite a value. The browser may still require its own clipboard permission; no history storage or platform-specific helper is introduced.
+
+Compatibility: AIC Notes 33.0.1 shares AIC Editor Core 3.6.1. Password generation, field Copy and explicit Ctrl/Cmd+S saving are unchanged. Raw Markdown and clipboard values remain plaintext.
+
 ## 23.2.1 — 2026-09-12
 
 Release sequence 23 · 2 feature outcomes · 1 fixed-bug outcome.

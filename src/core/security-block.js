@@ -23,7 +23,7 @@ import {
   writeTextToClipboard,
 } from "./structured-preview.js";
 
-export const SECURITY_BLOCK_CORE_VERSION = "1.2.0";
+export const SECURITY_BLOCK_CORE_VERSION = "1.2.1";
 const CLIPBOARD_READ_TIMEOUT_MS = 3000;
 
 /** Only the explicit aic-security fence belongs to this renderer. */
@@ -328,31 +328,34 @@ class SecurityBlockWidget extends WidgetType {
 
   pasteField(view, rowElement, sectionIndex, fieldIndex) {
     const snapshot = this.fieldSnapshot(view, sectionIndex, fieldIndex);
-    if (!snapshot) return;
+    if (!snapshot || snapshot.field.value.length > 0) return;
+    this.closePanel?.();
+    const status = rowElement.querySelector(".cm-aic-security-field-status");
+    let panel = null;
     let cancelRead = null;
-    const { panel, close } = this.panel(
-      this.document,
-      rowElement,
-      "Paste " + snapshot.field.label,
-      () => cancelRead?.(),
-    );
-    const message = this.document.createElement("span");
-    message.className = "cm-aic-security-panel-message";
-    message.setAttribute("role", "status");
-    const actions = this.document.createElement("span");
-    actions.className = "cm-aic-security-panel-actions";
-    panel.append(message, actions);
-
+    const close = () => {
+      if (this.closePanel !== close) return;
+      cancelRead?.();
+      cancelRead = null;
+      panel?.remove();
+      if (status?.isConnected) status.textContent = "";
+      this.closePanel = null;
+    };
+    this.closePanel = close;
     const stillCurrent = () =>
+      snapshot.field.value.length === 0 &&
       this.fieldStillCurrent(view, snapshot, sectionIndex, fieldIndex) &&
-      panel.isConnected;
+      rowElement.isConnected &&
+      this.closePanel === close;
     const commit = (value) => {
       if (!stillCurrent()) return close();
       if (typeof value !== "string" || !value.length) {
-        message.textContent = "Clipboard is empty";
+        if (panel)
+          panel.querySelector(".cm-aic-security-panel-message").textContent =
+            "Clipboard is empty";
+        else if (status) status.textContent = "Clipboard is empty";
         return;
       }
-      if (value === snapshot.field.value) return close();
       const changed = this.replaceModel(
         view,
         (model) => {
@@ -360,7 +363,7 @@ class SecurityBlockWidget extends WidgetType {
           if (
             !target ||
             target.label !== snapshot.field.label ||
-            target.value !== snapshot.field.value ||
+            target.value.length > 0 ||
             target.hide !== snapshot.field.hide
           )
             return false;
@@ -368,16 +371,24 @@ class SecurityBlockWidget extends WidgetType {
         },
         snapshot,
       );
-      if (!changed && panel.isConnected)
-        message.textContent = "Value could not be pasted";
-      else close();
+      if (!changed) {
+        if (panel)
+          panel.querySelector(".cm-aic-security-panel-message").textContent =
+            "Value could not be pasted";
+        else if (status) status.textContent = "Paste failed";
+      } else close();
     };
-    const capture = (timedOut = false) => {
+    const capture = (reason) => {
       if (!stillCurrent()) return close();
-      message.textContent = timedOut
-        ? "Clipboard read timed out. Paste into the secure capture field"
-        : "Paste into the secure capture field";
-      actions.replaceChildren();
+      if (status) status.textContent = "";
+      panel = this.document.createElement("div");
+      panel.className = "cm-aic-security-panel";
+      panel.setAttribute("role", "group");
+      panel.setAttribute("aria-label", "Paste " + snapshot.field.label);
+      const message = this.document.createElement("span");
+      message.className = "cm-aic-security-panel-message";
+      message.setAttribute("role", "status");
+      message.textContent = reason + " Paste here (Ctrl/Cmd+V).";
       const input = this.document.createElement("input");
       input.type = "password";
       input.className = "cm-aic-security-paste-capture";
@@ -400,13 +411,16 @@ class SecurityBlockWidget extends WidgetType {
       input.addEventListener("keydown", (event) => {
         if (event.key === "Escape") close();
       });
-      actions.append(input, this.panelButton(this.document, "Cancel", close));
+      const actions = this.document.createElement("span");
+      actions.className = "cm-aic-security-panel-actions";
+      actions.append(this.panelButton(this.document, "Cancel", close));
+      panel.append(message, input, actions);
+      rowElement.after(panel);
       input.focus();
     };
     const read = async () => {
       if (!stillCurrent()) return close();
-      message.textContent = "Reading clipboard…";
-      actions.replaceChildren(this.panelButton(this.document, "Cancel", close));
+      if (status) status.textContent = "Pasting…";
       let reader;
       try {
         reader =
@@ -414,10 +428,14 @@ class SecurityBlockWidget extends WidgetType {
           this.document.defaultView?.navigator.clipboard?.readText?.bind(
             this.document.defaultView.navigator.clipboard,
           );
-        if (!reader) return capture();
+        if (!reader) return capture("Clipboard access unavailable.");
         // Invoke in the original user gesture. Do not defer the native read
         // behind a Promise callback, which can lose clipboard activation.
         const pending = reader();
+        if (!stillCurrent()) {
+          void Promise.resolve(pending).catch(() => {});
+          return close();
+        }
         let settleDeadline;
         const deadline = new Promise((resolve) => {
           settleDeadline = resolve;
@@ -442,23 +460,20 @@ class SecurityBlockWidget extends WidgetType {
         clearTimeout(timer);
         cancelRead = null;
         if (outcome.kind === "cancel") return;
+        if (!stillCurrent()) return close();
         if (outcome.kind === "value") commit(outcome.value);
-        else capture(outcome.kind === "timeout");
+        else
+          capture(
+            outcome.kind === "timeout"
+              ? "Clipboard read timed out."
+              : "Clipboard access unavailable.",
+          );
       } catch {
-        capture();
+        if (stillCurrent()) capture("Clipboard access unavailable.");
       }
     };
-    if (snapshot.field.value) {
-      message.textContent = "Replace existing value?";
-      actions.append(
-        this.panelButton(this.document, "Replace", read, true),
-        this.panelButton(this.document, "Cancel", close),
-      );
-    } else {
-      // Keep the clipboard read in the original click activation when the
-      // destination is empty. Failed API access opens paste-only capture.
-      void read();
-    }
+    // Invoke the clipboard API synchronously in the Paste click gesture.
+    void read();
   }
 
   generateField(view, rowElement, sectionIndex, fieldIndex) {
@@ -667,8 +682,13 @@ class SecurityBlockWidget extends WidgetType {
         }
         if (!this.readOnly) {
           fieldActions.append(
-            button(document, "Paste " + label, "paste", () =>
-              this.pasteField(view, output.element, sectionIndex, fieldIndex),
+            button(
+              document,
+              "Paste " + label,
+              "paste",
+              () =>
+                this.pasteField(view, output.element, sectionIndex, fieldIndex),
+              value.length > 0,
             ),
           );
           if (!value && masked && isPasswordField(field))

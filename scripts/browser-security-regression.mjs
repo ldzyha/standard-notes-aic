@@ -174,27 +174,49 @@ try {
       secret,
     );
     await masked(secret);
-    assert.equal(await button("Generate Password").count(), 0);
-    assert.equal(await page.evaluate(() => securityQa.changes.length), 1);
-    await button("Paste Password").tap();
     assert.equal(
       await page.evaluate(() => securityQa.reads),
       1,
-      "filled field requires consent before reading clipboard",
+      "Paste directly reads the latest clipboard text",
     );
-    await root.getByRole("button", { name: "Cancel", exact: true }).tap();
+    assert.equal(
+      await root
+        .locator(
+          ".cm-aic-security-panel:visible, .cm-aic-security-paste-capture",
+        )
+        .count(),
+      0,
+      "successful direct paste needs no panel/input",
+    );
+    assert.equal(await page.evaluate(() => securityQa.changes.length), 1);
+    assert.ok(await button("Paste Password").isDisabled());
+    assert.ok(await button("Paste Email").isDisabled());
+    await button("Paste Password").dispatchEvent("click");
+    assert.equal(await root.locator(".cm-aic-security-panel").count(), 0);
+    assert.equal(
+      await root.getByRole("button", { name: "Replace", exact: true }).count(),
+      0,
+    );
     assert.equal(await page.evaluate(() => securityQa.reads), 1);
-    await button("Paste Password").tap();
+    assert.equal(await page.evaluate(() => securityQa.changes.length), 1);
+    passed.push(
+      theme +
+        ": direct API paste without popup; filled Paste disabled and no Replace",
+    );
+    assert.equal(await button("Generate Password").count(), 0);
+    assert.equal(await page.evaluate(() => securityQa.changes.length), 1);
+    assert.ok(await button("Paste Password").isDisabled());
+    assert.equal(await page.evaluate(() => securityQa.reads), 1);
+    await load();
     await page.evaluate(() => {
       securityQa.text = "";
     });
-    await root.getByRole("button", { name: "Replace", exact: true }).tap();
+    await button("Paste Password").tap();
     await root.getByText("Clipboard is empty", { exact: true }).waitFor();
-    assert.ok((await value()).includes(secret));
-    await masked(secret);
+    assert.equal(await value(), source);
     passed.push(
       theme +
-        ": paste stays masked; replacement consent and empty-clipboard protection",
+        ": direct Paste stays masked; empty clipboard cannot dirty a field",
     );
 
     await load();
@@ -280,6 +302,15 @@ try {
       securityQa.mode = "pending";
     });
     await button("Paste Password").tap();
+    assert.equal(await page.evaluate(() => securityQa.reads), 1);
+    assert.equal(
+      await root
+        .locator(".cm-aic-security-panel, .cm-aic-security-paste-capture")
+        .count(),
+      0,
+      "pending direct read does not open an AIC panel",
+    );
+    assert.equal(await button("Paste latest").count(), 0);
     await button("Edit security block").tap();
     await page.evaluate((text) => securityQa.resolveRead(text), secret);
     assert.equal(await value(), source);

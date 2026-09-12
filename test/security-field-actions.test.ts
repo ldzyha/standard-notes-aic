@@ -62,6 +62,10 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
+async function settlePromises() {
+  for (let index = 0; index < 6; index++) await Promise.resolve();
+}
+
 afterEach(() => {
   for (const view of views.splice(0)) view.destroy();
   document.body.replaceChildren();
@@ -96,16 +100,18 @@ describe("security field actions", () => {
     expect(host.querySelector('[aria-label="Copy Password code"]')).toBeNull();
   });
 
-  it("pastes one masked source edit, remains preview, and can undo once", async () => {
+  it("reads immediately, makes one masked undoable edit, and shows no panel", async () => {
     const read = vi.fn(async () => "new-secret-value");
     const { host, view, control } = fixture(source, { onReadClipboard: read });
     control("Paste Password").click();
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(host.querySelector(".cm-aic-security-panel")).toBeNull();
     await vi.waitFor(() =>
       expect(view.state.doc.toString()).toContain(
         "Password*: new-secret-value",
       ),
     );
-    expect(read).toHaveBeenCalledTimes(1);
+    expect(host.querySelector(".cm-aic-security-panel")).toBeNull();
     expect(host.querySelector(".cm-aic-security")).not.toBeNull();
     expect(host.textContent).not.toContain("new-secret-value");
     expect(view.state.selection.main.from).not.toBeGreaterThan(0);
@@ -113,49 +119,16 @@ describe("security field actions", () => {
     expect(view.state.doc.toString()).toBe(source);
   });
 
-  it("confirms replacement before reading, rejects empty reads, and prevents stale writes", async () => {
-    const pending = deferred<string>();
-    const read = vi.fn(() => pending.promise);
-    const filled = source.replace("Password*:", "Password*: original-secret");
-    const { host, view, control } = fixture(filled, { onReadClipboard: read });
-    control("Paste Password").click();
-    expect(read).not.toHaveBeenCalled();
-    expect(host.textContent).toContain("Replace existing value?");
-    [
-      ...host.querySelectorAll<HTMLButtonElement>(
-        ".cm-aic-security-panel-button",
-      ),
-    ]
-      .find((button) => button.textContent === "Replace")!
-      .click();
-    expect(read).toHaveBeenCalledTimes(1);
-    view.dispatch({
-      changes: { from: view.state.doc.length, insert: "\nOther" },
-    });
-    pending.resolve("stale-secret");
-    await Promise.resolve();
-    expect(view.state.doc.toString()).not.toContain("stale-secret");
-    expect(host.textContent).not.toContain("original-secret");
-    expect(host.textContent).not.toContain("stale-secret");
-  });
-
-  it("rejects an empty clipboard without erasing the existing value", async () => {
-    const filled = source.replace("Password*:", "Password*: original-secret");
-    const { host, view, control } = fixture(filled, {
+  it("rejects an empty clipboard without changing the empty field", async () => {
+    const { host, view, control } = fixture(source, {
       onReadClipboard: async () => "",
     });
     control("Paste Password").click();
-    [
-      ...host.querySelectorAll<HTMLButtonElement>(
-        ".cm-aic-security-panel-button",
-      ),
-    ]
-      .find((button) => button.textContent === "Replace")!
-      .click();
     await vi.waitFor(() =>
       expect(host.textContent).toContain("Clipboard is empty"),
     );
-    expect(view.state.doc.toString()).toBe(filled);
+    expect(view.state.doc.toString()).toBe(source);
+    expect(host.querySelector(".cm-aic-security-paste-capture")).toBeNull();
   });
 
   it("drops a pending clipboard result when Edit switches to source", async () => {
@@ -175,30 +148,62 @@ describe("security field actions", () => {
     expect(cleared).toHaveBeenCalledWith(deadline);
     expect(host.querySelector(".cm-aic-security-panel")).toBeNull();
     pending.resolve("late-secret");
-    await Promise.resolve();
+    await settlePromises();
     expect(view.state.doc.toString()).not.toContain("late-secret");
     expect(host.textContent).not.toContain("late-secret");
   });
 
-  it("accepts an identical replacement as a no-op without dirtying the note", async () => {
+  it("keeps Paste disabled for filled hidden, visible, and whitespace fields", () => {
+    const read = vi.fn(async () => "forbidden-value");
+    for (const filled of [
+      source.replace("Password*:", "Password*: original-secret"),
+      source.replace("Password*:", "Password*:  "),
+      source,
+    ]) {
+      const { host, view, control } = fixture(filled, {
+        onReadClipboard: read,
+      });
+      const targets =
+        filled === source ? ["Paste Email"] : ["Paste Password", "Paste Email"];
+      for (const label of targets) {
+        const paste = control(label);
+        expect(paste.disabled).toBe(true);
+        paste.click();
+        paste.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      }
+      expect(host.querySelector(".cm-aic-security-panel")).toBeNull();
+      expect(view.state.doc.toString()).toBe(filled);
+    }
+    expect(read).not.toHaveBeenCalled();
+  });
+
+  it("enables Paste after a filled field is cleared in source Edit", () => {
     const filled = source.replace("Password*:", "Password*: original-secret");
-    const { host, view, control } = fixture(filled, {
-      onReadClipboard: async () => "original-secret",
+    const { view, control } = fixture(filled + "\n\nOutside");
+    expect(control("Paste Password").disabled).toBe(true);
+    control("Edit security block").click();
+    const from = view.state.doc.toString().indexOf(" original-secret");
+    view.dispatch({
+      changes: { from, to: from + " original-secret".length, insert: "" },
     });
-    const originalDoc = view.state.doc;
+    view.dispatch({ selection: { anchor: view.state.doc.length } });
+    expect(control("Paste Password").disabled).toBe(false);
+  });
+
+  it("never overwrites a field filled while a read is pending", async () => {
+    const pending = deferred<string>();
+    const read = vi.fn(() => pending.promise);
+    const { host, view, control } = fixture(source, { onReadClipboard: read });
     control("Paste Password").click();
-    [
-      ...host.querySelectorAll<HTMLButtonElement>(
-        ".cm-aic-security-panel-button",
-      ),
-    ]
-      .find((button) => button.textContent === "Replace")!
-      .click();
-    await vi.waitFor(() =>
-      expect(host.querySelector(".cm-aic-security-panel")).toBeNull(),
-    );
-    expect(view.state.doc).toBe(originalDoc);
-    expect(host.textContent).not.toContain("original-secret");
+    expect(host.querySelector(".cm-aic-security-panel")).toBeNull();
+    const from =
+      view.state.doc.toString().indexOf("Password*:") + "Password*:".length;
+    view.dispatch({ changes: { from, insert: " newly-filled" } });
+    pending.resolve("stale-secret");
+    await settlePromises();
+    expect(view.state.doc.toString()).toContain("Password*: newly-filled");
+    expect(view.state.doc.toString()).not.toContain("stale-secret");
+    expect(read).toHaveBeenCalledTimes(1);
   });
 
   it("distinguishes invalid options from unavailable secure randomness without edits", () => {
@@ -233,7 +238,8 @@ describe("security field actions", () => {
     });
     vi.useFakeTimers();
     control("Paste Password").click();
-    expect(host.textContent).toContain("Reading clipboard");
+    expect(host.querySelector(".cm-aic-security-panel")).toBeNull();
+    expect(host.textContent).toContain("Pasting");
     await vi.advanceTimersByTimeAsync(3000);
     const capture = host.querySelector<HTMLInputElement>(
       ".cm-aic-security-paste-capture",
@@ -243,34 +249,39 @@ describe("security field actions", () => {
     await vi.advanceTimersByTimeAsync(10);
     expect(vi.getTimerCount()).toBe(0);
     pending.resolve("late-secret");
-    await Promise.resolve();
+    await settlePromises();
     expect(view.state.doc.toString()).toBe(source);
     expect(host.textContent).not.toContain("late-secret");
     expect(capture?.value).toBe("");
   });
 
-  it("Cancel clears the read deadline and ignores late rejection", async () => {
-    const pending = deferred<string>();
-    const { host, view, control } = fixture(source, {
-      onReadClipboard: () => pending.promise,
-    });
+  it("a second Paste cancels the prior deadline and ignores its late rejection", async () => {
+    const first = deferred<string>();
+    const second = deferred<string>();
+    const read = vi
+      .fn()
+      .mockImplementationOnce(() => first.promise)
+      .mockImplementationOnce(() => second.promise);
+    const { host, view, control } = fixture(source, { onReadClipboard: read });
     vi.useFakeTimers();
+    const scheduled = vi.spyOn(globalThis, "setTimeout");
+    const cleared = vi.spyOn(globalThis, "clearTimeout");
     control("Paste Password").click();
-    expect(vi.getTimerCount()).toBe(1);
-    [
-      ...host.querySelectorAll<HTMLButtonElement>(
-        ".cm-aic-security-panel-button",
-      ),
-    ]
-      .find((button) => button.textContent === "Cancel")!
-      .click();
-    expect(vi.getTimerCount()).toBe(0);
+    const deadline = scheduled.mock.results.find(
+      (_result, index) => scheduled.mock.calls[index]?.[1] === 3000,
+    )?.value;
+    expect(deadline).toBeDefined();
+    control("Paste Password").click();
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(cleared).toHaveBeenCalledWith(deadline);
     expect(host.querySelector(".cm-aic-security-panel")).toBeNull();
-    pending.reject(new Error("late clipboard error"));
-    await Promise.resolve();
-    await vi.advanceTimersByTimeAsync(3000);
+    first.reject(new Error("late clipboard error"));
+    await settlePromises();
     expect(view.state.doc.toString()).toBe(source);
-    expect(host.querySelector(".cm-aic-security-paste-capture")).toBeNull();
+    second.resolve("fresh-secret");
+    await vi.advanceTimersByTimeAsync(0);
+    expect(view.state.doc.toString()).toContain("Password*: fresh-secret");
+    expect(host.textContent).not.toContain("fresh-secret");
   });
 
   it("widget destruction clears a pending read deadline immediately", async () => {
@@ -287,7 +298,7 @@ describe("security field actions", () => {
     expect(vi.getTimerCount()).toBe(0);
     expect(host.querySelector(".cm-aic-security-panel")).toBeNull();
     pending.resolve("late-secret");
-    await Promise.resolve();
+    await settlePromises();
     expect(view.state.doc.toString()).toBe("Replaced note");
   });
 
@@ -296,9 +307,7 @@ describe("security field actions", () => {
       onReadClipboard: async () => "x".repeat(16 * 1024 + 1),
     });
     control("Paste Password").click();
-    await vi.waitFor(() =>
-      expect(host.textContent).toContain("Value could not be pasted"),
-    );
+    await vi.waitFor(() => expect(host.textContent).toContain("Paste failed"));
     expect(view.state.doc.toString()).toBe(source);
     expect(host.textContent).not.toContain("x".repeat(100));
   });
