@@ -1,5 +1,15 @@
 # Changelog
 
+## 25.1.0 — 2026-09-12
+
+Release sequence 25 · 1 feature outcome · 0 fixed-bug outcomes.
+
+### Feature
+
+1. Add a shared, explicit Authenticator JSON converter: one record becomes one security block, with exact-value preservation, hidden TOTP/password fields, bounded all-or-nothing validation and one-step Undo. The contextual action works on the current array or selection without clipboard access, account scanning or automatic saving. Duplicate keys, unrepresentable fields and unsafe nested Markdown contexts reject conversion without partial edits.
+
+Compatibility: AIC Notes 34.1.0 shares AIC Editor Core 3.7.0 with the same converter and contextual controls. Authentication, synchronization, clipboard actions and the file-context sphere are unchanged. Markdown remains plaintext outside host encryption.
+
 ## 24.0.1 — 2026-09-12
 
 Release sequence 24 · 0 feature outcomes · 1 fixed-bug outcome.

@@ -1,0 +1,49 @@
+.cm-aic-security-import-bar {
+  display: flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.2rem 0.45rem;
+  border-bottom: 1px solid var(--aic-border);
+  background: var(--aic-contrast);
+  color: var(--aic-contrast-fg);
+  font: 0.78rem/1.3 var(--sn-stylekit-sans-serif-font, system-ui, sans-serif);
+}
+
+.cm-aic-security-import-action.cm-aic-icon-button {
+  display: inline-flex;
+  width: auto;
+  height: auto;
+  min-height: 1.7rem !important;
+  gap: 0.4rem;
+  padding: 0.2rem 0.45rem !important;
+  border: 1px solid var(--aic-border);
+  border-radius: 0.35rem;
+  background: transparent;
+  color: inherit;
+  font: inherit !important;
+  line-height: 1.2 !important;
+  cursor: pointer;
+}
+
+.cm-aic-security-import-action:hover {
+  background: color-mix(in srgb, var(--aic-contrast-fg) 8%, transparent);
+}
+
+.cm-aic-security-import-action:focus-visible {
+  outline: 2px solid var(--aic-accent);
+  outline-offset: 1px;
+}
+
+.cm-aic-security-import-count {
+  opacity: 0.72;
+}
+
+.cm-aic-security-import-guidance {
+  overflow-wrap: anywhere;
+}
+
+@media (pointer: coarse) {
+  .cm-aic-security-import-action.cm-aic-icon-button {
+    min-height: 2.75rem !important;
+  }
+}

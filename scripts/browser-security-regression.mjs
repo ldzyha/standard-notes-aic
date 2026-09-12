@@ -376,6 +376,85 @@ try {
     passed.push(
       theme + ": mobile target sizes, contrast and field-row geometry",
     );
+
+    const authenticatorSource = JSON.stringify([
+      {
+        service: "[Example](https://example.invalid/login)",
+        account: "synthetic@example.invalid",
+        secret: "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
+        password: "DUMMY-IMPORT-PASSWORD",
+        notes: "Synthetic record only",
+      },
+      {
+        service: "Second service",
+        account: "synthetic-two",
+        secret: "MZXW6YTB",
+        password: "DUMMY-SECOND-PASSWORD",
+      },
+    ]);
+    await load(authenticatorSource);
+    assert.equal(await value(), authenticatorSource, "opening never converts");
+    assert.equal(await page.evaluate(() => securityQa.changes.length), 0);
+    const importBar = root.getByRole("group", {
+      name: "Authenticator import",
+      exact: true,
+    });
+    assert.doesNotMatch(
+      await importBar.innerHTML(),
+      /DUMMY-|GEZDGNBV|synthetic@/u,
+    );
+    await button("Convert to security blocks").tap();
+    await page.waitForFunction(
+      () =>
+        securityQa.securityBlocks(securityQa.editor.view.state).length === 2,
+    );
+    const imported = await value();
+    assert.equal((imported.match(/```aic-security/gu) || []).length, 2);
+    assert.match(imported, /TOTP\*: GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ/u);
+    assert.match(imported, /URL: https:\/\/example\.invalid\/login/u);
+    assert.doesNotMatch(
+      await root.innerHTML(),
+      /DUMMY-IMPORT-PASSWORD|DUMMY-SECOND-PASSWORD|GEZDGNBVGY3TQOJQ/u,
+    );
+    assert.equal(
+      await page.evaluate(() => securityQa.changes.length),
+      1,
+      "one atomic draft edit",
+    );
+    assert.equal(
+      await page.evaluate(() => securityQa.reads),
+      0,
+      "conversion never reads clipboard",
+    );
+    assert.deepEqual(await page.evaluate(() => securityQa.writes), []);
+    await page.keyboard.press("Control+z");
+    assert.equal(
+      await value(),
+      authenticatorSource,
+      "one Undo restores the entire array",
+    );
+    await page.keyboard.press("Control+y");
+    assert.equal(
+      await value(),
+      imported,
+      "Redo restores the complete conversion",
+    );
+    await load(
+      authenticatorSource.replace(
+        '"account":',
+        '"account":false,"duplicateAccount":',
+      ),
+    );
+    assert.equal(
+      await button("Convert to security blocks").count(),
+      0,
+      "invalid array cannot partially convert",
+    );
+    assert.equal(await page.evaluate(() => securityQa.changes.length), 0);
+    passed.push(
+      theme +
+        ": Authenticator array converts atomically to masked blocks with Undo/Redo and no clipboard access",
+    );
     await context.close();
   }
   assert.deepEqual(errors, []);

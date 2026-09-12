@@ -13,6 +13,7 @@ import "./core/diagram-builder.css";
 import "./core/diagram-palette.css";
 import "./core/diagram-session.css";
 import "./core/security-block.css";
+import "./core/security-import-extension.css";
 
 declare global {
   interface Window {

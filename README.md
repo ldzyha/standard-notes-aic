@@ -13,6 +13,28 @@ The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_I
 
 ## Security field actions
 
+### Authenticator JSON conversion
+
+Open the original Authenticator JSON array in AIC, or select the complete array inside
+a Markdown document. A contextual **Convert to security blocks** action appears for
+recognized `service`, `account`, `secret` records. One click converts every record in
+that array into its own `aic-security` block. Nothing is converted on opening or saved
+automatically; use Undo to restore the source and Ctrl/Cmd+S to save the result.
+
+`service` and `account` stay visible; `secret` becomes hidden `TOTP*`, `password` becomes
+hidden `Password*`, and `notes` becomes Notes. Safe HTTP(S) service URLs, including simple
+Markdown links, also get an Open-capable URL field without changing the original service.
+Extra string fields are retained and hidden. Invalid records, duplicate keys and unsupported
+values stop the entire conversion without losing part of the array. Limits: 256 records
+and 1 MiB of UTF-8 source. Original credential strings are preserved exactly: malformed JSON
+escapes must be corrected in the export, not guessed by the converter.
+
+This converts the current JSON body or selection, not all notes in your account. It does
+not change Standard Notes note types or read the clipboard. Raw JSON, Markdown and exports
+remain plaintext; use your normal protected account, not the standalone demo, for secrets.
+
+### Copy, Paste and generation
+
 Tap/click a field label or value to copy **only its value**; “Copied” appears beside
 the field after success. Tab moves focus; Enter/Space activates a focused field.
 The field icon is **Paste**, enabled only while the field is empty. Filled fields keep a
@@ -42,9 +64,9 @@ unbiased sampling and no weak fallback. Controls are inspired by
 not its proprietary implementation. [Clipboard permissions](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API)
 vary between browsers/embedded clients. Markdown and copied values remain plaintext.
 
-## Release 24.0.1
+## Release 25.1.0
 
-This release pairs with AIC Notes 33.0.1 and AIC Editor Core 3.6.1. This document
+This release pairs with AIC Notes 34.1.0 and AIC Editor Core 3.7.0. This document
 describes the release source and its contracts; deployment and the hosted manifest
 are verified separately by the release workflow.
 
@@ -66,8 +88,8 @@ value. Sections and fields can be repeated independently.
 This is **visual masking, not encryption of the Markdown itself**: raw source,
 other Markdown editors, exports, copied blocks and local files can expose the
 values. The standalone browser demo uses unencrypted `localStorage`; do not
-enter real credentials there. No conversion from the native Standard Notes
-Authenticator note type, AIC-managed cross-application synchronization, QR image
+enter real credentials there. The converter handles Authenticator JSON bodies,
+not native note-type migration. No AIC-managed cross-application synchronization, QR image
 import UI or QR-code generation is provided. Standard Notes itself owns account
 sign-in, note encryption and its synchronization service. The paired VS Code
 integration provides authentication only, with no note synchronization.
@@ -324,6 +346,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `24.0.1` is sequence 24 with
-zero feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `25.1.0` is sequence 25 with
+one feature outcome and zero fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).
