@@ -11,7 +11,7 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
-## Release 22.1.7
+## Release 22.1.8
 
 This release pairs with AIC Notes 31.3.8 and AIC Editor Core 3.5.0. This document
 describes the release source and its contracts; deployment and the hosted manifest
@@ -293,6 +293,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `22.1.7` is sequence 22 with
+release-local feature outcomes, and release-local fixed-bug outcomes. `22.1.8` is sequence 22 with
 one feature outcome and seven fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

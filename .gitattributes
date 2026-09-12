@@ -1,2 +1,3 @@
+* text=auto eol=lf
 # Shared core hashes must stay identical on Windows and Linux checkouts.
 src/core/* text eol=lf

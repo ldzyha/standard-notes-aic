@@ -4,7 +4,7 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 managed file properties, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 22.1.7 pairs with AIC Notes 31.3.8 and AIC Editor Core 3.5.0.
+storage format. Release 22.1.8 pairs with AIC Notes 31.3.8 and AIC Editor Core 3.5.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 

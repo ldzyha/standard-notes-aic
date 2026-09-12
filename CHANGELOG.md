@@ -1,8 +1,8 @@
 # Changelog
 
-## 22.1.7 — 2026-09-12
+## 22.1.8 — 2026-09-12
 
-Release sequence 22 · 1 feature outcome · 7 fixed-bug outcomes.
+Release sequence 22 · 1 feature outcome · 8 fixed-bug outcomes.
 
 - F01: shared `/security` blocks use independent sections and `Label*: value` masking.
   Preview supports explicit field/block Copy, safe URL Open, source Edit, section/field
@@ -22,6 +22,9 @@ Release sequence 22 · 1 feature outcome · 7 fixed-bug outcomes.
   retire widget timers and prevent overlapping TOTP updates or detached-widget writes.
 - B07: lock Mermaid resource-sensitive configuration against note directives, test the actual
   renderer, and enforce the visual-model element limit even on the final source line.
+- B08: normalize text checkout line endings across Windows and Linux so the same formatting
+  and release checks apply on both platforms. The blocked `v22.1.7` tag was not published as a
+  release and is retained unchanged for traceability.
 
 Compatibility: AIC Notes 31.3.8 consumes the same explicit AIC Editor Core 3.5.0 inventory.
 The sphere renderer is shared, but workspace graph collection is VS Code-only. No note
