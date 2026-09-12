@@ -53,6 +53,8 @@
   "security-model.js",
   "security-otp.d.ts",
   "security-otp.js",
+  "security-password.d.ts",
+  "security-password.js",
   "security-qr.d.ts",
   "security-qr.js",
   "slash-snippets.css",

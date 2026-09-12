@@ -117,14 +117,15 @@ describe("shared security block", () => {
     expect(securityBlocks(second.view.state)).toHaveLength(2);
   });
 
-  it("adds an explicitly hidden field and enters Markdown source", () => {
+  it("adds an explicitly hidden field while retaining masked preview", () => {
     const { host, view } = fixture();
     control(host, "Add Password").click();
     expect(view.state.doc.toString()).toContain("Password*:");
-    expect(host.querySelector(".cm-aic-security")).toBeNull();
+    expect(host.querySelector(".cm-aic-security")).not.toBeNull();
+    expect(host.textContent).not.toContain(secret);
   });
 
-  it("focuses the section that received a new field even when labels repeat", () => {
+  it("adds only to the requested section when labels repeat and retains preview", () => {
     const { host, view } = fixture(
       [
         "```aic-security",
@@ -136,8 +137,13 @@ describe("shared security block", () => {
       ].join("\n"),
     );
     control(host, "Add Password").click();
-    const text = view.state.doc.toString();
-    expect(view.state.selection.main.head).toBe(text.indexOf("\n## Second"));
+    const parsed = parseSecurityBlock(securityBlocks(view.state)[0]!.body);
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) {
+      expect(parsed.model.sections[0]!.fields).toHaveLength(2);
+      expect(parsed.model.sections[1]!.fields).toHaveLength(1);
+    }
+    expect(host.querySelector(".cm-aic-security")).not.toBeNull();
   });
 
   it("repairs malformed blocks through Edit without exposing their contents", () => {

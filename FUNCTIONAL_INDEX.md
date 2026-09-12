@@ -4,11 +4,20 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 managed file properties, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 22.1.8 pairs with AIC Notes 31.3.8 and AIC Editor Core 3.5.0.
+storage format. Release 23.2.1 pairs with AIC Notes 32.2.1 and AIC Editor Core 3.6.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
 ## Current security and lifecycle contracts
+
+- `security-password` owns WebCrypto-only bounded unbiased generation, length8–128,
+  default24 with all enabled groups required. Only empty recognized hidden password labels
+  can generate; existing values/TOTP/API keys are excluded. Tests: `security-password`.
+- Field label/value tap copies only its value with local feedback; Tab navigates normally.
+  Field action is Paste. Filled replacement is confirmed; empty reads cannot erase. Pending,
+  stale or readonly operations cannot edit another note. Clipboard denial offers a masked
+  paste-only control; source Edit is the only manual value editor. Whole-block Copy stays.
+  Tests: `security-field-actions`, `security-block-ui`.
 
 - `core/security-model`, `security-block` and `security-otp` own one fenced
   `aic-security` Markdown format in both hosts. `/security` inserts a parseable

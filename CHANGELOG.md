@@ -1,5 +1,20 @@
 # Changelog
 
+## 23.2.1 — 2026-09-12
+
+Release sequence 23 · 2 feature outcomes · 1 fixed-bug outcome.
+
+### Features
+
+1. Security fields: tap/click a label or value to copy only its value with local success feedback. The field icon pastes from the clipboard without revealing hidden values. Filled-field replacement requires confirmation; empty clipboard data cannot erase a field. Browser denial or a three-second timeout offers paste-only capture. Late results are rejected after cancellation, document changes, source Edit or disposal. All changes remain drafts until Ctrl/Cmd+S; whole-block Copy remains available.
+2. Empty hidden password fields offer a configurable WebCrypto-only generator: default 24 characters, uppercase/lowercase/digits/symbols; length 8–128. Every enabled class is included with unbiased sampling and no weak fallback. It never overwrites a filled field or generates TOTP/API keys. Clear the value through Markdown Edit before generating again.
+
+### Fix
+
+1. Security controls use explicit theme foreground/background colors and 44px coarse-pointer targets. Field label/value activation and keyboard navigation are distinct: Tab navigates, Enter/Space activates, and secrets never appear in feedback.
+
+Compatibility: AIC Notes 32.2.1 consumes the same explicit AIC Editor Core 3.6.0 inventory. No new dependencies, account migration, note synchronization or native Authenticator conversion. Markdown masking is not encryption; source, files, exports and clipboard remain plaintext. Physical mobile client clipboard permissions still depend on the embedding app.
+
 ## 22.1.8 — 2026-09-12
 
 Release sequence 22 · 1 feature outcome · 8 fixed-bug outcomes.

@@ -1,101 +1,226 @@
 .cm-aic-security {
   display: block;
   margin: 0.45rem 0;
-  border: 1px solid var(--aic-border);
+  border: 1px solid
+    color-mix(in srgb, var(--aic-border) 65%, var(--aic-contrast-fg) 35%);
   border-radius: 0.65rem;
   background: var(--aic-contrast);
   color: var(--aic-contrast-fg);
   font: 0.88rem/1.4 var(--sn-stylekit-sans-serif-font, system-ui, sans-serif);
   overflow: hidden;
 }
-
 .cm-aic-security .cm-md-preview-header {
   min-height: 2.2rem;
   padding: 0.25rem 0.65rem;
   border-bottom: 1px solid var(--aic-border);
+  background: color-mix(
+    in srgb,
+    var(--aic-contrast) 94%,
+    var(--aic-contrast-fg) 6%
+  );
+  color: var(--aic-contrast-fg);
 }
-
 .cm-aic-security-body {
   display: grid;
 }
-
 .cm-aic-security-section + .cm-aic-security-section {
   border-top: 1px solid var(--aic-border);
 }
-
 .cm-aic-security-section-title {
   display: block;
   padding: 0.4rem 0.65rem 0.25rem;
-  color: var(--aic-muted);
+  color: color-mix(
+    in srgb,
+    var(--aic-contrast-fg) 76%,
+    var(--aic-contrast) 24%
+  );
   font-size: 0.78rem;
 }
-
 .cm-aic-security-row {
   display: grid;
-  grid-template-columns: minmax(5rem, 30%) minmax(0, 1fr) auto;
+  grid-template-columns: minmax(4rem, 28%) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 0.4rem;
-  min-height: 1.9rem;
-  padding: 0.2rem 0.65rem;
+  gap: 0.3rem;
+  min-height: 2rem;
+  padding: 0.2rem 0.55rem;
 }
-
 .cm-aic-security-row + .cm-aic-security-row {
-  border-top: 1px solid color-mix(in srgb, var(--aic-border) 45%, transparent);
+  border-top: 1px solid color-mix(in srgb, var(--aic-border) 65%, transparent);
 }
-
+.cm-aic-security-label,
+.cm-aic-security-value {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  border-radius: 0.3rem;
+  padding: 0.15rem 0.2rem;
+  background: transparent;
+  color: var(--aic-contrast-fg);
+  font: inherit;
+  text-align: left;
+  cursor: copy;
+}
 .cm-aic-security-label {
   font-weight: 600;
   overflow-wrap: break-word;
 }
-
 .cm-aic-security-value {
-  min-width: 0;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
 }
-
+.cm-aic-security-label:hover,
+.cm-aic-security-value:hover,
+.cm-aic-security-action:hover,
+.cm-aic-security-action:focus-visible,
+.cm-aic-security-panel-button:hover {
+  background: color-mix(
+    in srgb,
+    var(--aic-contrast) 88%,
+    var(--aic-contrast-fg) 12%
+  );
+}
+.cm-aic-security-label:focus-visible,
+.cm-aic-security-value:focus-visible,
+.cm-aic-security-panel :focus-visible,
+.cm-aic-security-action:focus-visible {
+  outline: 2px solid var(--aic-accent);
+  outline-offset: 1px;
+}
 .cm-aic-security-code {
   font: 700 1rem/1.2 var(--sn-stylekit-monospace-font, monospace);
   letter-spacing: 0.08em;
   font-variant-numeric: tabular-nums;
 }
-
+.cm-aic-security-row-trailing,
 .cm-aic-security-row-actions,
-.cm-aic-security-quick-add {
+.cm-aic-security-quick-add,
+.cm-aic-security-panel-actions {
   display: inline-flex;
   align-items: center;
   gap: 0.2rem;
 }
-
+.cm-aic-security-field-status {
+  color: var(--aic-contrast-fg);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.cm-aic-security-field-status:empty {
+  display: none;
+}
 .cm-aic-security-quick-add {
   display: flex;
   flex-wrap: wrap;
   gap: 0.25rem;
   padding: 0.25rem 0.65rem 0.4rem;
 }
-
 .cm-aic-security-quick-add .cm-aic-security-action {
   display: inline-flex;
   gap: 0.2rem;
   width: auto !important;
-  min-height: 1.5rem !important;
-  padding: 0.1rem 0.4rem !important;
+  min-height: 1.75rem !important;
+  padding: 0.15rem 0.45rem !important;
   border: 1px solid var(--aic-border);
   border-radius: 0.4rem;
+  background: var(--aic-contrast);
+  color: var(--aic-contrast-fg);
   font-size: 0.72rem !important;
   line-height: 1.2 !important;
 }
-
 .cm-aic-security-action {
-  color: var(--aic-muted);
+  border: 1px solid transparent;
+  border-radius: 0.35rem;
+  background: transparent;
+  color: var(--aic-contrast-fg);
 }
-
 .cm-aic-security-action:hover,
 .cm-aic-security-action:focus-visible {
+  border-color: var(--aic-border);
+  color: var(--aic-contrast-fg);
+}
+.cm-aic-security-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem 0.7rem;
+  margin: 0.15rem 0.55rem 0.45rem;
+  padding: 0.5rem;
+  border: 1px solid var(--aic-border);
+  border-radius: 0.45rem;
+  background: color-mix(
+    in srgb,
+    var(--aic-contrast) 92%,
+    var(--aic-contrast-fg) 8%
+  );
+  color: var(--aic-contrast-fg);
+}
+.cm-aic-security-panel label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+.cm-aic-security-panel input[type="number"] {
+  width: 4rem;
+}
+.cm-aic-security-paste-capture {
+  width: min(10rem, 100%);
+}
+.cm-aic-security-panel input {
+  box-sizing: border-box;
+  accent-color: var(--aic-accent);
+  border: 1px solid var(--aic-border);
+  border-radius: 0.3rem;
+  background: var(--aic-contrast);
+  color: var(--aic-contrast-fg);
+  font: inherit;
+}
+.cm-aic-security-panel input[type="number"],
+.cm-aic-security-paste-capture {
+  min-height: 2rem;
+  padding: 0.2rem 0.35rem;
+}
+.cm-aic-security-panel-message {
+  flex: 1 1 auto;
+}
+.cm-aic-security-panel-actions {
+  flex-wrap: wrap;
+}
+.cm-aic-security-panel-button {
+  min-height: 2rem;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--aic-border);
+  border-radius: 0.35rem;
+  background: var(--aic-contrast);
+  color: var(--aic-contrast-fg);
+  font: inherit;
+  cursor: pointer;
+}
+.cm-aic-security-panel-button.is-primary {
+  border-color: var(--aic-accent);
   color: var(--aic-accent);
 }
-
 .cm-aic-security-error {
   margin: 0.5rem 0.65rem;
   color: var(--aic-danger);
+}
+@media (pointer: coarse) {
+  .cm-aic-security-action.cm-aic-icon-button {
+    width: 2.75rem;
+    min-width: 2.75rem !important;
+    height: 2.75rem;
+    min-height: 2.75rem !important;
+  }
+  .cm-aic-security-label,
+  .cm-aic-security-value,
+  .cm-aic-security-panel-button,
+  .cm-aic-security-panel input,
+  .cm-aic-security-quick-add .cm-aic-security-action {
+    min-height: 2.75rem !important;
+  }
+  .cm-aic-security-row {
+    grid-template-columns: minmax(3.5rem, 26%) minmax(0, 1fr) auto;
+    padding-inline: 0.3rem;
+    gap: 0.15rem;
+  }
 }

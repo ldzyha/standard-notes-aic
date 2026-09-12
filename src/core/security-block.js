@@ -12,14 +12,19 @@ import {
 } from "./security-model.js";
 import { parseTotpInput, totpAt } from "./security-otp.js";
 import {
+  DEFAULT_PASSWORD_OPTIONS,
+  generatePassword,
+  isPasswordField,
+} from "./security-password.js";
+import {
   createIconButton,
   selectionRevealsPreview,
   selectionStaysInSource,
-  showIconFeedback,
   writeTextToClipboard,
 } from "./structured-preview.js";
 
-export const SECURITY_BLOCK_CORE_VERSION = "1.1.0";
+export const SECURITY_BLOCK_CORE_VERSION = "1.2.0";
+const CLIPBOARD_READ_TIMEOUT_MS = 3000;
 
 /** Only the explicit aic-security fence belongs to this renderer. */
 export function securityBlocks(state) {
@@ -77,18 +82,37 @@ const securitySource = StateField.define({
   },
 });
 
-function row(document, label, value, copy) {
+function row(document, label, value, actions, onCopy, copyDescription = label) {
   const element = document.createElement("div");
   element.className = "cm-aic-security-row";
-  const name = document.createElement("span");
+  const name = document.createElement("button");
+  name.type = "button";
   name.className = "cm-aic-security-label";
   name.textContent = label;
-  const content = document.createElement("span");
+  name.setAttribute("aria-label", "Copy " + copyDescription);
+  const content = document.createElement("button");
+  content.type = "button";
   content.className = "cm-aic-security-value";
   content.textContent = value || "—";
-  element.append(name, content);
-  if (copy) element.append(copy);
-  return { element, content };
+  content.setAttribute("aria-label", "Copy " + copyDescription + " value");
+  const status = document.createElement("span");
+  status.className = "cm-aic-security-field-status";
+  status.setAttribute("role", "status");
+  const activate = (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    void onCopy(status);
+  };
+  for (const control of [name, content]) {
+    control.addEventListener("pointerdown", (event) => event.preventDefault());
+    control.addEventListener("click", activate);
+  }
+  const trailing = document.createElement("span");
+  trailing.className = "cm-aic-security-row-trailing";
+  if (actions) trailing.append(actions);
+  trailing.append(status);
+  element.append(name, content, trailing);
+  return { element, content, status };
 }
 
 function button(document, label, icon, onActivate, disabled = false) {
@@ -113,11 +137,19 @@ function selectionIntersects(state, block) {
 }
 
 class SecurityBlockWidget extends WidgetType {
-  constructor(block, document, readOnly, onCopy, onOpen) {
+  constructor(block, document, readOnly, onCopy, onOpen, onReadClipboard) {
     super();
-    Object.assign(this, { block, document, readOnly, onCopy, onOpen });
+    Object.assign(this, {
+      block,
+      document,
+      readOnly,
+      onCopy,
+      onOpen,
+      onReadClipboard,
+    });
     this.destroyed = false;
     this.timer = null;
+    this.closePanel = null;
   }
 
   eq(other) {
@@ -125,7 +157,8 @@ class SecurityBlockWidget extends WidgetType {
       this.block.body === other.block.body &&
       this.readOnly === other.readOnly &&
       this.onCopy === other.onCopy &&
-      this.onOpen === other.onOpen;
+      this.onOpen === other.onOpen &&
+      this.onReadClipboard === other.onReadClipboard;
     if (same) this.block = other.block;
     return same;
   }
@@ -136,6 +169,7 @@ class SecurityBlockWidget extends WidgetType {
 
   destroy() {
     this.destroyed = true;
+    this.closePanel?.();
     if (this.timer !== null) clearInterval(this.timer);
     this.timer = null;
   }
@@ -162,69 +196,85 @@ class SecurityBlockWidget extends WidgetType {
     view.focus();
   }
 
-  replaceModel(view, mutate, focus) {
-    if (this.destroyed || view.state.readOnly) return;
+  fieldSnapshot(view, sectionIndex, fieldIndex) {
+    if (this.destroyed || view.state.readOnly) return null;
     const block = this.currentBlock(view);
-    if (!block) return;
+    if (!block || view.state.field(securitySource) === block.from) return null;
     const parsed = parseSecurityBlock(block.body);
-    if (!parsed.ok) return;
+    if (!parsed.ok) return null;
+    const field = parsed.model.sections[sectionIndex]?.fields[fieldIndex];
+    if (!field) return null;
+    return { doc: view.state.doc, block, field: { ...field } };
+  }
+
+  fieldStillCurrent(view, snapshot, sectionIndex, fieldIndex) {
+    if (
+      this.destroyed ||
+      view.state.readOnly ||
+      view.state.doc !== snapshot.doc
+    )
+      return false;
+    const current = this.fieldSnapshot(view, sectionIndex, fieldIndex);
+    return (
+      current?.block.from === snapshot.block.from &&
+      current.block.body === snapshot.block.body &&
+      current.field.label === snapshot.field.label &&
+      current.field.value === snapshot.field.value &&
+      current.field.hide === snapshot.field.hide
+    );
+  }
+
+  replaceModel(view, mutate, snapshot = null) {
+    if (this.destroyed || view.state.readOnly) return false;
+    if (snapshot && view.state.doc !== snapshot.doc) return false;
+    const block = this.currentBlock(view);
+    if (!block || (snapshot && block.body !== snapshot.block.body))
+      return false;
+    const parsed = parseSecurityBlock(block.body);
+    if (!parsed.ok) return false;
     const model = {
       sections: parsed.model.sections.map((section) => ({
         label: section.label,
         fields: section.fields.map((field) => ({ ...field })),
       })),
     };
-    mutate(model);
+    if (mutate(model) === false) return false;
     let source;
     try {
       source = serializeSecurityBlock(model);
     } catch {
-      return;
+      return false;
     }
-    const position = focus(model, source);
-    const anchor = block.bodyFrom + position;
+    if (source === block.body) return false;
     view.dispatch({
       changes: {
         from: block.bodyFrom,
         to: block.bodyTo,
         insert: source.endsWith("\n") ? source : source + "\n",
       },
-      selection: { anchor },
-      effects: editSecuritySource.of(block.from),
-      scrollIntoView: true,
+      selection: { anchor: block.from },
       userEvent: "input",
     });
-    view.focus();
+    return true;
   }
 
   addSection(view) {
-    this.replaceModel(
-      view,
-      (model) => {
-        model.sections.push({
-          label: "Section " + (model.sections.length + 1),
-          fields: [],
-        });
-      },
-      (_model, source) => source.length - 1,
-    );
+    this.replaceModel(view, (model) => {
+      model.sections.push({
+        label: "Section " + (model.sections.length + 1),
+        fields: [],
+      });
+    });
   }
 
   addField(view, sectionIndex, label, hide) {
-    this.replaceModel(
-      view,
-      (model) => {
-        model.sections[sectionIndex].fields.push({
-          label,
-          value: "",
-          hide,
-        });
-      },
-      (model) =>
-        serializeSecurityBlock({
-          sections: model.sections.slice(0, sectionIndex + 1),
-        }).length - 1,
-    );
+    this.replaceModel(view, (model) => {
+      model.sections[sectionIndex].fields.push({
+        label,
+        value: "",
+        hide,
+      });
+    });
   }
 
   insertNewBlock(view) {
@@ -241,12 +291,271 @@ class SecurityBlockWidget extends WidgetType {
     const from = block.to + prefix.length;
     view.dispatch({
       changes: { from: block.to, insert: prefix + template + suffix },
-      selection: { anchor: from + template.indexOf("\n") + 1 },
-      effects: editSecuritySource.of(from),
-      scrollIntoView: true,
+      selection: { anchor: from },
       userEvent: "input",
     });
-    view.focus();
+  }
+
+  panel(document, rowElement, label, onClose) {
+    this.closePanel?.();
+    const panel = document.createElement("div");
+    panel.className = "cm-aic-security-panel";
+    panel.setAttribute("role", "group");
+    panel.setAttribute("aria-label", label);
+    const close = () => {
+      onClose?.();
+      panel.remove();
+      if (this.closePanel === close) this.closePanel = null;
+    };
+    this.closePanel = close;
+    rowElement.after(panel);
+    return { panel, close };
+  }
+
+  panelButton(document, label, action, primary = false) {
+    const control = document.createElement("button");
+    control.type = "button";
+    control.className =
+      "cm-aic-security-panel-button" + (primary ? " is-primary" : "");
+    control.textContent = label;
+    control.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      void action();
+    });
+    return control;
+  }
+
+  pasteField(view, rowElement, sectionIndex, fieldIndex) {
+    const snapshot = this.fieldSnapshot(view, sectionIndex, fieldIndex);
+    if (!snapshot) return;
+    let cancelRead = null;
+    const { panel, close } = this.panel(
+      this.document,
+      rowElement,
+      "Paste " + snapshot.field.label,
+      () => cancelRead?.(),
+    );
+    const message = this.document.createElement("span");
+    message.className = "cm-aic-security-panel-message";
+    message.setAttribute("role", "status");
+    const actions = this.document.createElement("span");
+    actions.className = "cm-aic-security-panel-actions";
+    panel.append(message, actions);
+
+    const stillCurrent = () =>
+      this.fieldStillCurrent(view, snapshot, sectionIndex, fieldIndex) &&
+      panel.isConnected;
+    const commit = (value) => {
+      if (!stillCurrent()) return close();
+      if (typeof value !== "string" || !value.length) {
+        message.textContent = "Clipboard is empty";
+        return;
+      }
+      if (value === snapshot.field.value) return close();
+      const changed = this.replaceModel(
+        view,
+        (model) => {
+          const target = model.sections[sectionIndex]?.fields[fieldIndex];
+          if (
+            !target ||
+            target.label !== snapshot.field.label ||
+            target.value !== snapshot.field.value ||
+            target.hide !== snapshot.field.hide
+          )
+            return false;
+          target.value = value;
+        },
+        snapshot,
+      );
+      if (!changed && panel.isConnected)
+        message.textContent = "Value could not be pasted";
+      else close();
+    };
+    const capture = (timedOut = false) => {
+      if (!stillCurrent()) return close();
+      message.textContent = timedOut
+        ? "Clipboard read timed out. Paste into the secure capture field"
+        : "Paste into the secure capture field";
+      actions.replaceChildren();
+      const input = this.document.createElement("input");
+      input.type = "password";
+      input.className = "cm-aic-security-paste-capture";
+      input.setAttribute(
+        "aria-label",
+        "Paste " + snapshot.field.label + " here",
+      );
+      input.setAttribute("autocomplete", "off");
+      input.addEventListener("beforeinput", (event) => event.preventDefault());
+      input.addEventListener("input", () => {
+        input.value = "";
+      });
+      input.addEventListener("paste", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        const value = event.clipboardData?.getData("text/plain") ?? "";
+        input.value = "";
+        commit(value);
+      });
+      input.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") close();
+      });
+      actions.append(input, this.panelButton(this.document, "Cancel", close));
+      input.focus();
+    };
+    const read = async () => {
+      if (!stillCurrent()) return close();
+      message.textContent = "Reading clipboard…";
+      actions.replaceChildren(this.panelButton(this.document, "Cancel", close));
+      let reader;
+      try {
+        reader =
+          this.onReadClipboard ??
+          this.document.defaultView?.navigator.clipboard?.readText?.bind(
+            this.document.defaultView.navigator.clipboard,
+          );
+        if (!reader) return capture();
+        // Invoke in the original user gesture. Do not defer the native read
+        // behind a Promise callback, which can lose clipboard activation.
+        const pending = reader();
+        let settleDeadline;
+        const deadline = new Promise((resolve) => {
+          settleDeadline = resolve;
+        });
+        const timer = setTimeout(
+          () => settleDeadline({ kind: "timeout" }),
+          CLIPBOARD_READ_TIMEOUT_MS,
+        );
+        cancelRead = () => {
+          clearTimeout(timer);
+          settleDeadline({ kind: "cancel" });
+        };
+        // The platform promise may not be cancellable. The race detaches this
+        // widget's wait; its late success/rejection is consumed but ignored.
+        const outcome = await Promise.race([
+          Promise.resolve(pending).then(
+            (value) => ({ kind: "value", value }),
+            () => ({ kind: "error" }),
+          ),
+          deadline,
+        ]);
+        clearTimeout(timer);
+        cancelRead = null;
+        if (outcome.kind === "cancel") return;
+        if (outcome.kind === "value") commit(outcome.value);
+        else capture(outcome.kind === "timeout");
+      } catch {
+        capture();
+      }
+    };
+    if (snapshot.field.value) {
+      message.textContent = "Replace existing value?";
+      actions.append(
+        this.panelButton(this.document, "Replace", read, true),
+        this.panelButton(this.document, "Cancel", close),
+      );
+    } else {
+      // Keep the clipboard read in the original click activation when the
+      // destination is empty. Failed API access opens paste-only capture.
+      void read();
+    }
+  }
+
+  generateField(view, rowElement, sectionIndex, fieldIndex) {
+    const snapshot = this.fieldSnapshot(view, sectionIndex, fieldIndex);
+    if (
+      !snapshot ||
+      snapshot.field.value ||
+      !snapshot.field.hide ||
+      !isPasswordField(snapshot.field)
+    )
+      return;
+    const { panel, close } = this.panel(
+      this.document,
+      rowElement,
+      "Generate password",
+    );
+    const options = { ...DEFAULT_PASSWORD_OPTIONS };
+    const lengthLabel = this.document.createElement("label");
+    lengthLabel.textContent = "Length ";
+    const length = this.document.createElement("input");
+    length.type = "number";
+    length.min = "8";
+    length.max = "128";
+    length.value = String(options.length);
+    length.setAttribute("aria-label", "Password length");
+    lengthLabel.append(length);
+    panel.append(lengthLabel);
+    for (const [key, title] of [
+      ["uppercase", "Uppercase"],
+      ["lowercase", "Lowercase"],
+      ["numbers", "Numbers"],
+      ["symbols", "Symbols"],
+    ]) {
+      const label = this.document.createElement("label");
+      const input = this.document.createElement("input");
+      input.type = "checkbox";
+      input.checked = options[key];
+      input.addEventListener("change", () => {
+        options[key] = input.checked;
+      });
+      label.append(input, this.document.createTextNode(title));
+      panel.append(label);
+    }
+    const message = this.document.createElement("span");
+    message.className = "cm-aic-security-panel-message";
+    message.setAttribute("role", "status");
+    const actions = this.document.createElement("span");
+    actions.className = "cm-aic-security-panel-actions";
+    actions.append(
+      this.panelButton(
+        this.document,
+        "Generate",
+        () => {
+          if (!this.fieldStillCurrent(view, snapshot, sectionIndex, fieldIndex))
+            return close();
+          options.length = Number(length.value);
+          if (
+            !Number.isInteger(options.length) ||
+            options.length < 8 ||
+            options.length > 128 ||
+            !["uppercase", "lowercase", "numbers", "symbols"].some(
+              (key) => options[key],
+            )
+          ) {
+            message.textContent =
+              "Choose 8–128 characters and at least one group";
+            return;
+          }
+          let value;
+          try {
+            value = generatePassword(options);
+          } catch {
+            message.textContent = "Secure password generation is unavailable";
+            return;
+          }
+          const changed = this.replaceModel(
+            view,
+            (model) => {
+              const target = model.sections[sectionIndex]?.fields[fieldIndex];
+              if (
+                !target ||
+                target.value ||
+                !target.hide ||
+                !isPasswordField(target)
+              )
+                return false;
+              target.value = value;
+            },
+            snapshot,
+          );
+          if (changed) close();
+        },
+        true,
+      ),
+      this.panelButton(this.document, "Cancel", close),
+    );
+    panel.append(message, actions);
   }
 
   toDOM(view) {
@@ -263,8 +572,8 @@ class SecurityBlockWidget extends WidgetType {
     header.append(title, actions);
     wrapper.append(header);
 
-    const copyValue = async (value, label, control) => {
-      if (!value || !wrapper.isConnected) return;
+    const copyValue = async (value, label, status) => {
+      if (!value || this.destroyed || !wrapper.isConnected) return;
       let copied;
       try {
         copied = this.onCopy
@@ -273,18 +582,23 @@ class SecurityBlockWidget extends WidgetType {
       } catch {
         copied = false;
       }
-      if (copied) showIconFeedback(control, { restoreLabel: "Copy " + label });
+      if (!this.destroyed && wrapper.isConnected && status?.isConnected)
+        status.textContent = copied ? "Copied" : "Copy failed";
     };
+    const headerStatus = document.createElement("span");
+    headerStatus.className = "cm-aic-security-field-status";
+    headerStatus.setAttribute("role", "status");
     actions.append(
-      button(document, "Copy security block", "copy", async (control) => {
+      button(document, "Copy security block", "copy", async () => {
         const block = this.currentBlock(view);
         if (!block || !wrapper.isConnected) return;
         await copyValue(
           view.state.sliceDoc(block.from, block.to),
           "security block",
-          control,
+          headerStatus,
         );
       }),
+      headerStatus,
     );
     const parsed = parseSecurityBlock(this.block.body);
     if (!this.readOnly) {
@@ -328,39 +642,11 @@ class SecurityBlockWidget extends WidgetType {
       sectionHeading.textContent =
         section.label || "Section " + (sectionIndex + 1);
       group.append(sectionHeading);
-      for (const field of section.fields) {
+      section.fields.forEach((field, fieldIndex) => {
         const label = field.label || "Field";
         const value = field.value;
-        if (field.hide && isOneTimeCode(label)) {
-          const copy = button(
-            document,
-            "Copy " + label + " code",
-            "copy",
-            async (control) => {
-              if (!value || !wrapper.isConnected) return;
-              try {
-                const current = await totpAt(value);
-                await copyValue(current.code, label + " code", control);
-              } catch {
-                output.content.textContent = "Code unavailable";
-              }
-            },
-            !value,
-          );
-          const output = row(document, label, value ? "••••••" : "", copy);
-          output.content.classList.add("cm-aic-security-code");
-          group.append(output.element);
-          if (value) codes.push({ value, output: output.content });
-          continue;
-        }
+        const code = field.hide && isOneTimeCode(label);
         const masked = isSecretField(field);
-        const copy = button(
-          document,
-          "Copy " + label,
-          "copy",
-          (control) => copyValue(value, label, control),
-          !value,
-        );
         const destination = masked ? "" : safeSecurityUrl(value);
         const fieldActions = document.createElement("span");
         fieldActions.className = "cm-aic-security-row-actions";
@@ -379,16 +665,49 @@ class SecurityBlockWidget extends WidgetType {
             }),
           );
         }
-        fieldActions.append(copy);
-        group.append(
-          row(
-            document,
-            label,
-            value ? (masked ? "••••••••" : value) : "",
-            fieldActions,
-          ).element,
+        if (!this.readOnly) {
+          fieldActions.append(
+            button(document, "Paste " + label, "paste", () =>
+              this.pasteField(view, output.element, sectionIndex, fieldIndex),
+            ),
+          );
+          if (!value && masked && isPasswordField(field))
+            fieldActions.append(
+              button(document, "Generate " + label, "generate", () =>
+                this.generateField(
+                  view,
+                  output.element,
+                  sectionIndex,
+                  fieldIndex,
+                ),
+              ),
+            );
+        }
+        const output = row(
+          document,
+          label,
+          value ? (code ? "••••••" : masked ? "••••••••" : value) : "",
+          fieldActions,
+          async (status) => {
+            if (!value || !wrapper.isConnected) return;
+            if (code) {
+              try {
+                const current = await totpAt(value);
+                await copyValue(current.code, label + " code", status);
+              } catch {
+                if (output.element.isConnected)
+                  output.content.textContent = "Code unavailable";
+              }
+            } else await copyValue(value, label, status);
+          },
+          code ? label + " code" : label,
         );
-      }
+        if (code) {
+          output.content.classList.add("cm-aic-security-code");
+          if (value) codes.push({ value, output: output.content });
+        }
+        group.append(output.element);
+      });
       if (!this.readOnly) {
         const quick = document.createElement("div");
         quick.className = "cm-aic-security-quick-add";
@@ -464,6 +783,7 @@ export function makeSecurityBlockExtension({
   document = globalThis.document,
   onCopy,
   onOpen,
+  onReadClipboard,
 } = {}) {
   if (!document?.createElement)
     throw new TypeError("Security blocks require a document");
@@ -494,6 +814,7 @@ export function makeSecurityBlockExtension({
               state.readOnly,
               onCopy,
               onOpen,
+              onReadClipboard,
             ),
           }).range(block.from, block.to),
         ),
