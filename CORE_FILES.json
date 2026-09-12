@@ -41,6 +41,8 @@
   "preview-layout.css",
   "preview-ranges.d.ts",
   "preview-ranges.js",
+  "properties-model.d.ts",
+  "properties-model.js",
   "render-queue.d.ts",
   "render-queue.js",
   "save-boundary.d.ts",

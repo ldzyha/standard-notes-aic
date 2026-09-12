@@ -76,6 +76,28 @@ try {
     );
   }
   passed.push("ArrowUp adjacent navigation: plain/code/table/properties/mixed");
+  const propertiesSource =
+    "---\nfile: example.note.md\ncreated: 2026-09-12T10:00:00Z\ncustom*: synthetic-only-secret\n---\n\nBody";
+  await load(propertiesSource, "properties-preview");
+  const properties = root.locator(".cm-aic-properties");
+  await properties.waitFor();
+  assert.equal(
+    (await properties.textContent()).includes("synthetic-only-secret"),
+    false,
+  );
+  assert.equal(
+    await properties.getByRole("button", { name: "Paste file" }).count(),
+    0,
+  );
+  assert.equal(await properties.locator(".cm-aic-drag-handle").count(), 0);
+  await properties.getByRole("button", { name: "Edit properties" }).click();
+  assert.equal(await root.locator(".cm-aic-properties").count(), 0);
+  assert.equal(await value(), propertiesSource);
+  await load("Other note", "properties-switch");
+  assert.equal(await root.locator(".cm-aic-security-panel").count(), 0);
+  passed.push(
+    "Properties preview masks nested-capable fields, keeps metadata read-only, and reveals source explicitly",
+  );
   await load("Note A old", "A");
   await page.evaluate(() =>
     regressionEditor.view.dispatch({
@@ -101,7 +123,7 @@ try {
   await load("Other note", "other");
   assert.equal(await page.locator(".cm-aic-cell-popover").count(), 0);
   assert.equal(await value(), "Other note");
-  passed.push("stale property/table popup closes on note switch");
+  passed.push("stale table popup closes on note switch");
 
   await load(">>> Title\nbody\n<<<\n\nLast");
   await root.locator(".cm-aic-details-summary .cm-md-edit-source").click();

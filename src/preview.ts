@@ -10,7 +10,11 @@ function withoutFrontmatter(source: string): string {
   const closing = lines.findIndex(
     (line, index) => index > 0 && /^(?:---|\.\.\.)\s*$/u.test(line),
   );
-  return closing < 0 ? source : lines.slice(closing + 1).join("\n");
+  if (closing >= 0) return lines.slice(closing + 1).join("\n");
+  // A truncated preview or unfinished frontmatter can still contain secrets.
+  // Do not publish starred Properties keys merely because its closing marker
+  // is missing. Ordinary thematic breaks followed by prose remain visible.
+  return /^\s*[^\n:]*\*["']?\s*:/mu.test(source) ? "" : source;
 }
 
 function isTableSeparator(line: string): boolean {

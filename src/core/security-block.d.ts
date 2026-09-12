@@ -1,4 +1,8 @@
-import type { EditorState, Extension } from "@codemirror/state";
+import type {
+  EditorState,
+  Extension,
+  StateEffectType,
+} from "@codemirror/state";
 
 export const SECURITY_BLOCK_CORE_VERSION: "1.3.0";
 export type SecurityBlock = Readonly<{
@@ -9,14 +13,32 @@ export type SecurityBlock = Readonly<{
   body: string;
 }>;
 export function securityBlocks(state: EditorState): readonly SecurityBlock[];
-export function makeSecurityBlockExtension(
-  options?: Readonly<{
-    document?: Document;
-    onCopy?: (
-      value: string,
-      label: string,
-    ) => boolean | void | Promise<boolean | void>;
-    onOpen?: (url: string) => void | Promise<void>;
-    onReadClipboard?: () => Promise<string>;
-  }>,
+export function propertiesBlocks(state: EditorState): readonly SecurityBlock[];
+export type PropertyRelationship = Readonly<{
+  relation: string;
+  label: string;
+  path: string;
+  depth?: number;
+  exists?: boolean;
+  isCurrent?: boolean;
+}>;
+export const setPropertyRelationships: StateEffectType<
+  readonly PropertyRelationship[]
+>;
+type BlockOptions = Readonly<{
+  document?: Document;
+  onCopy?: (
+    value: string,
+    label: string,
+  ) => boolean | void | Promise<boolean | void>;
+  onOpen?: (url: string) => void | Promise<void>;
+  onReadClipboard?: () => Promise<string>;
+}>;
+export function makeSecurityBlockExtension(options?: BlockOptions): Extension;
+export function makePropertiesBlockExtension(
+  options?: BlockOptions &
+    Readonly<{
+      initialRelationships?: () => readonly PropertyRelationship[];
+      onRelationshipOpen?: (path: string) => void | Promise<void>;
+    }>,
 ): Extension;

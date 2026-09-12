@@ -2,6 +2,23 @@ import { describe, expect, it } from "vitest";
 import { markdownPlainPreview, NOTE_PREVIEW_LIMIT } from "../src/preview";
 
 describe("Markdown note preview", () => {
+  it("does not publish secret Properties from closed, unfinished or truncated headers", () => {
+    expect(
+      markdownPlainPreview(
+        '---\n"Password*": private-value\n---\n\nPublic note',
+      ),
+    ).toBe("Public note");
+    expect(
+      markdownPlainPreview("---\ncredentials*:\n  password: private-value"),
+    ).toBe("");
+    expect(
+      markdownPlainPreview(
+        "---\nPassword*: private-value\nnotes: " +
+          "x".repeat(50_000) +
+          "\n---\nBody",
+      ),
+    ).toBe("");
+  });
   it("never publishes security values from quoted or listed fences", () => {
     for (const [open, prefix] of [
       ["> ```aic-security", "> "],

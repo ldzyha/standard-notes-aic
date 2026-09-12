@@ -51,58 +51,92 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
-  it("rejects duplicate property names in the cell editor and keeps the original source", () => {
-    const source = "---\nstatus: idea\ntags: notes\n---\n\nBody";
+  it("keeps managed metadata read-only and copies the original value", async () => {
+    const source =
+      "---\nfile: example.note.md\ncreated: 2026-09-12T10:00:00Z\nupdated: 2026-09-12T11:00:00Z\nstatus: idea\n---\n\nBody";
+    const writes: string[] = [];
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: async (value: string) => void writes.push(value) },
+    });
     const host = document.createElement("div");
     document.body.append(host);
     const editor = new AicEditor(host, { initialText: source });
-    editor.element
-      .querySelector<HTMLElement>('[aria-label="Property 2 name"]')!
+    const properties =
+      editor.element.querySelector<HTMLElement>(".cm-aic-properties")!;
+    expect(properties).not.toBeNull();
+    expect(properties.querySelector('[aria-label="Paste file"]')).toBeNull();
+    expect(
+      properties.querySelector('[aria-label="Delete empty file field"]'),
+    ).toBeNull();
+    properties
+      .querySelector<HTMLButtonElement>('[aria-label="Copy created value"]')!
       .click();
-    const input = document.querySelector<HTMLInputElement>(
-      ".cm-aic-cell-editor",
-    )!;
-    input.value = "status";
-    document
-      .querySelector<HTMLButtonElement>('[aria-label="Apply change"]')!
-      .click();
+    await vi.waitFor(() => expect(writes).toContain("2026-09-12T10:00:00Z"));
     expect(editor.value).toBe(source);
-    expect(input.validationMessage).toBe(
-      "A property with this name already exists in this group",
-    );
-    expect(document.querySelector(".cm-aic-cell-editor")).toBe(input);
+    expect(properties.querySelector(".cm-aic-drag-handle")).toBeNull();
     editor.destroy();
   });
   it.each(["---\nx: y\n---\n\nbody", "---\n\nx: y\n---\n\nbody"])(
-    "refreshes property callbacks when whitespace changes without changing parsed rows: %s",
+    "refreshes property copy callbacks after source whitespace changes: %s",
     (initial) => {
+      const writes: string[] = [];
+      Object.defineProperty(window.navigator, "clipboard", {
+        configurable: true,
+        value: { writeText: async (value: string) => void writes.push(value) },
+      });
       const host = document.createElement("div");
       document.body.append(host);
       const editor = new AicEditor(host, { initialText: initial });
-      const old = editor.element.querySelector(".cm-md-props")!;
+      const old = editor.element.querySelector(".cm-aic-properties")!;
       editor.updateDocument("---\nx: y\n\n---\n\nbody");
-      const current = editor.element.querySelector(".cm-md-props")!;
+      const current = editor.element.querySelector(".cm-aic-properties")!;
       expect(current).not.toBe(old);
       current
-        .querySelector<HTMLElement>('[aria-label="Property x value"]')!
+        .querySelector<HTMLElement>('[aria-label="Copy x value"]')!
         .click();
-      document.querySelector<HTMLTextAreaElement>(
-        ".cm-aic-cell-editor",
-      )!.value = "changed";
-      document
-        .querySelector<HTMLButtonElement>('[aria-label="Apply change"]')!
-        .click();
-      expect(editor.value).toBe("---\nx: changed\n---\n\nbody");
+      expect(editor.value).toBe("---\nx: y\n\n---\n\nbody");
+      expect(document.querySelector(".cm-aic-cell-editor")).toBeNull();
       editor.switchDocument("short", "x");
       expect(() =>
         old
-          .querySelector<HTMLButtonElement>('[aria-label="Add property"]')!
+          .querySelector<HTMLButtonElement>('[aria-label="Copy x value"]')!
           .click(),
       ).not.toThrow();
       expect(editor.value).toBe("x");
+      expect(writes).toContain("y");
       editor.destroy();
     },
   );
+
+  it("does not paste a stale property clipboard read into a replacement note", async () => {
+    let resolveRead: ((value: string) => void) | undefined;
+    const readText = vi.fn(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveRead = resolve;
+        }),
+    );
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: { readText, writeText: async () => {} },
+    });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host, {
+      initialText: "---\nempty*: \n---\n\nOriginal",
+    });
+    editor.element
+      .querySelector<HTMLButtonElement>('[aria-label="Paste empty"]')!
+      .click();
+    expect(readText).toHaveBeenCalledTimes(1);
+    editor.switchDocument("replacement", "Replacement note");
+    resolveRead!("synthetic-only-secret");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(editor.value).toBe("Replacement note");
+    expect(editor.element.querySelector(".cm-aic-properties")).toBeNull();
+    editor.destroy();
+  });
 
   it("isolates Undo by identity even when two notes have equal text", () => {
     const host = document.createElement("div");
@@ -239,7 +273,7 @@ describe("AIC editor integration", () => {
     const editor = new AicEditor(host, { initialText: source });
     editor.view.dispatch({ selection: { anchor: source.length } });
     await vi.waitFor(() => {
-      expect(editor.element.querySelector(".cm-md-props")).not.toBeNull();
+      expect(editor.element.querySelector(".cm-aic-properties")).not.toBeNull();
       expect(editor.element.querySelector(".cm-md-table table")).not.toBeNull();
     });
     const task = editor.element.querySelector<HTMLElement>(
@@ -251,16 +285,22 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
-  it("keeps single clicks in preview and reveals source for Ctrl+A or Edit", () => {
+  it("keeps property clicks in preview and reveals source only for Ctrl+A or Edit", async () => {
     const source = "---\nstatus: idea\nowner: team\n---\n\nBody";
+    const writes: string[] = [];
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: async (value: string) => void writes.push(value) },
+    });
     const host = document.createElement("div");
     document.body.append(host);
     const editor = new AicEditor(host, { initialText: source });
-    let properties = editor.element.querySelector<HTMLElement>(".cm-md-props");
+    let properties =
+      editor.element.querySelector<HTMLElement>(".cm-aic-properties");
     expect(properties).not.toBeNull();
     properties!.click();
     properties!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-    expect(editor.element.querySelector(".cm-md-props")).not.toBeNull();
+    expect(editor.element.querySelector(".cm-aic-properties")).not.toBeNull();
 
     editor.view.contentDOM.dispatchEvent(
       new KeyboardEvent("keydown", {
@@ -272,56 +312,38 @@ describe("AIC editor integration", () => {
     );
     expect(editor.view.state.selection.main.from).toBe(0);
     expect(editor.view.state.selection.main.to).toBe(source.length);
-    expect(editor.element.querySelector(".cm-md-props")).toBeNull();
+    expect(editor.element.querySelector(".cm-aic-properties")).toBeNull();
 
     editor.view.dispatch({ selection: { anchor: source.length } });
-    properties = editor.element.querySelector<HTMLElement>(".cm-md-props");
+    properties =
+      editor.element.querySelector<HTMLElement>(".cm-aic-properties");
     expect(properties).not.toBeNull();
 
     const edit = properties!.querySelector<HTMLButtonElement>(
-      '[aria-label="Edit properties source"]',
+      '[aria-label="Edit properties"]',
     );
     expect(edit).not.toBeNull();
     expect(edit!.textContent).toBe("");
     expect(edit!.dataset.aicIcon).toBe("edit");
     edit!.click();
-    expect(editor.element.querySelector(".cm-md-props")).toBeNull();
+    expect(editor.element.querySelector(".cm-aic-properties")).toBeNull();
     expect(editor.view.state.selection.main.head).toBe(4);
 
     editor.view.dispatch({ selection: { anchor: source.length } });
-    properties = editor.element.querySelector<HTMLElement>(".cm-md-props");
+    properties =
+      editor.element.querySelector<HTMLElement>(".cm-aic-properties");
     expect(properties).not.toBeNull();
     const status = editor.element.querySelector<HTMLElement>(
-      '[aria-label="Property status value"]',
+      '[aria-label="Copy status value"]',
     );
     expect(status).not.toBeNull();
-    expect(status!.tagName).toBe("SPAN");
+    expect(status!.tagName).toBe("BUTTON");
     expect(properties!.querySelector("input, textarea")).toBeNull();
     status!.click();
-    const statusEditor = document.body.querySelector<HTMLTextAreaElement>(
-      ".cm-aic-cell-editor",
-    );
-    expect(statusEditor).not.toBeNull();
-    statusEditor!.value = "active";
-    document.body
-      .querySelector<HTMLButtonElement>('[aria-label="Apply change"]')!
-      .click();
-    expect(editor.value).toContain("status: active");
-    const add = editor.element.querySelector<HTMLButtonElement>(
-      '[aria-label="Add property"]',
-    );
-    expect(add).not.toBeNull();
-    expect(add!.textContent).toBe("");
-    expect(add!.dataset.aicIcon).toBe("add-property");
-    add!.click();
-    expect(editor.value).toContain("property: ");
-    expect(
-      [
-        ...editor.element.querySelectorAll<HTMLButtonElement>(
-          ".cm-aic-drag-handle",
-        ),
-      ].every((handle) => handle.draggable),
-    ).toBe(true);
+    await vi.waitFor(() => expect(writes).toContain("idea"));
+    expect(editor.value).toBe(source);
+    expect(document.body.querySelector(".cm-aic-cell-editor")).toBeNull();
+    expect(properties!.querySelector(".cm-aic-drag-handle")).toBeNull();
     editor.destroy();
   });
 
@@ -331,9 +353,10 @@ describe("AIC editor integration", () => {
     document.body.append(host);
     const editor = new AicEditor(host, { initialText: source });
     editor.view.dispatch({ selection: { anchor: source.length } });
-    const preview = editor.element.querySelector<HTMLElement>(".cm-md-props")!;
+    const preview =
+      editor.element.querySelector<HTMLElement>(".cm-aic-properties")!;
     const value = preview.querySelector<HTMLElement>(
-      '[aria-label="Property status value"]',
+      '[aria-label="Copy status value"]',
     )!;
     const text = value.firstChild!;
     const range = document.createRange();
@@ -352,15 +375,16 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
-  it("renders nested property levels and edits only leaf values", () => {
+  it("masks nested secret properties and leaves source and comments intact", async () => {
     const source = [
       "---",
+      "# Keep this authored comment",
       "document:",
       "  type: index",
       "traceability:",
       "  requirements:",
       "    - type: jira",
-      "      id: EPC-32962",
+      "      token*: synthetic-only-secret",
       "      role: v1-study",
       "---",
       "",
@@ -368,33 +392,23 @@ describe("AIC editor integration", () => {
     ].join("\n");
     const host = document.createElement("div");
     document.body.append(host);
+    const writes: string[] = [];
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: async (value: string) => void writes.push(value) },
+    });
     const editor = new AicEditor(host, { initialText: source });
     const properties =
-      editor.element.querySelector<HTMLElement>(".cm-md-props");
+      editor.element.querySelector<HTMLElement>(".cm-aic-properties");
     expect(properties).not.toBeNull();
-    expect(properties!.querySelectorAll("tr[data-depth='0']")).toHaveLength(2);
-    expect(properties!.querySelectorAll("tr[data-depth='3']")).toHaveLength(2);
-    expect(properties!.querySelectorAll(".cm-aic-property-level")).toHaveLength(
-      7,
-    );
-    expect(properties!.querySelectorAll(".cm-aic-property-group")).toHaveLength(
-      3,
-    );
-
-    const ticket = properties!.querySelector<HTMLElement>(
-      '[aria-label="Property id value"]',
-    );
-    expect(ticket).not.toBeNull();
-    ticket!.click();
-    const ticketEditor = document.body.querySelector<HTMLTextAreaElement>(
-      ".cm-aic-cell-editor",
-    );
-    ticketEditor!.value = "EPC-33349";
-    document.body
-      .querySelector<HTMLButtonElement>('[aria-label="Apply change"]')!
+    expect(properties!.textContent).not.toContain("synthetic-only-secret");
+    expect(properties!.querySelector(".cm-aic-drag-handle")).toBeNull();
+    properties!
+      .querySelector<HTMLButtonElement>('[aria-label="Copy token value"]')!
       .click();
-    expect(editor.value).toContain("      id: EPC-33349");
-    expect(editor.value).toContain("    - type: jira");
+    await vi.waitFor(() => expect(writes).toContain("synthetic-only-secret"));
+    expect(editor.value).toBe(source);
+    expect(document.querySelector(".cm-aic-cell-editor")).toBeNull();
     editor.destroy();
   });
 

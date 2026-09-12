@@ -671,42 +671,9 @@ select {
   border-color: var(--aic-accent);
 }
 
-.cm-md-table thead th,
-.cm-md-props th {
+.cm-md-table thead th {
   background: var(--aic-chip);
   font-weight: 750;
-}
-
-.cm-md-props th {
-  color: var(--aic-accent);
-}
-
-.cm-aic-property-key-cell {
-  width: 1%;
-  min-width: 8rem;
-  max-width: min(20rem, 45vw);
-  padding: 0.12rem 0.35rem !important;
-}
-
-.cm-aic-property-key {
-  display: flex;
-  align-items: center;
-  gap: 0.2rem;
-  padding-inline-start: calc(var(--aic-property-depth, 0) * 0.9rem);
-}
-
-.cm-aic-property-level {
-  width: 0.9rem;
-  flex: 0 0 0.9rem;
-  color: var(--aic-muted);
-  text-align: center;
-}
-
-.cm-aic-property-item,
-.cm-aic-property-group {
-  color: var(--aic-muted);
-  font-style: italic;
-  font-weight: 400;
 }
 
 .cm-md-table-link {

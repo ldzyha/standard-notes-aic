@@ -13,29 +13,23 @@ import {
   WidgetType,
 } from "@codemirror/view";
 import {
-  addProperty,
   addTableColumn,
   addTableRow,
   createCellEditor,
   createIconButton,
-  formatPropertyValue,
-  moveProperty,
   moveTableColumn,
   moveTableRow,
   parseFrontmatterRows,
   selectionRevealsPreview,
   showIconFeedback,
-  serializeFrontmatter,
   serializeTable,
-  updateProperty,
   updateTableCell,
-  validPropertyKey,
-  validPropertyRename,
   writeTextToClipboard,
   type PropertyRow,
   type TableModel,
 } from "./core/structured-preview.js";
 import { providePreviewRanges } from "./core/preview-ranges.js";
+import { makePropertiesBlockExtension } from "./core/security-block.js";
 
 export type FrontmatterRow = Readonly<PropertyRow>;
 export type FrontmatterBlock = Readonly<{
@@ -77,7 +71,7 @@ export function parseFrontmatter(document: string): FrontmatterBlock | null {
 export type ParsedTable = Readonly<TableModel>;
 
 type SourceOverride = Readonly<{
-  kind: "table" | "frontmatter";
+  kind: "table";
   from: number;
 }>;
 
@@ -416,174 +410,6 @@ class TableWidget extends WidgetType {
   }
 }
 
-class FrontmatterWidget extends WidgetType {
-  constructor(
-    private readonly block: FrontmatterBlock,
-    private readonly source: string,
-    private readonly readOnly: boolean,
-  ) {
-    super();
-  }
-
-  override eq(other: FrontmatterWidget): boolean {
-    return (
-      other.readOnly === this.readOnly &&
-      other.block.from === this.block.from &&
-      other.block.to === this.block.to &&
-      other.source === this.source
-    );
-  }
-
-  override toDOM(view: EditorView): HTMLElement {
-    const document = view.dom.ownerDocument;
-    const wrapper = document.createElement("div");
-    wrapper.className = "cm-md-props aic-md-block-scroll cm-md-block-preview";
-    wrapper.dataset.aicSourceFrom = String(this.block.from);
-    wrapper.dataset.aicSourceTo = String(this.block.to);
-    wrapper.setAttribute("role", "region");
-    wrapper.setAttribute("aria-label", "Interactive Markdown properties");
-    const isCurrent = () =>
-      wrapper.isConnected &&
-      this.block.from >= 0 &&
-      this.block.to >= this.block.from &&
-      this.block.to <= view.state.doc.length &&
-      view.state.sliceDoc(this.block.from, this.block.to) === this.source;
-    const replace = (rows: readonly PropertyRow[]) => {
-      if (view.state.readOnly || !isCurrent()) return;
-      const markdown = serializeFrontmatter(rows);
-      if (!markdown || markdown === this.source) return;
-      view.dispatch({
-        changes: { from: this.block.from, to: this.block.to, insert: markdown },
-        userEvent: "input",
-      });
-    };
-    const reveal = () => {
-      if (!isCurrent()) return;
-      const anchor = Math.min(view.state.doc.length, this.block.from + 4);
-      view.dispatch({
-        selection: { anchor },
-        effects: editBlockSource.of({
-          kind: "frontmatter",
-          from: this.block.from,
-        }),
-        scrollIntoView: true,
-      });
-      view.focus();
-    };
-    wrapper.append(
-      previewHeader(document, "Properties", [
-        action(
-          document,
-          "Add property",
-          "add-property",
-          () => replace(addProperty(this.block.rows)),
-          this.readOnly,
-        ),
-        action(
-          document,
-          this.readOnly ? "View properties source" : "Edit properties source",
-          this.readOnly ? "source" : "edit",
-          reveal,
-        ),
-      ]),
-    );
-    const table = document.createElement("table");
-    const body = document.createElement("tbody");
-    this.block.rows.forEach((item, index) => {
-      const row = document.createElement("tr");
-      row.dataset.depth = String(item.depth ?? 0);
-      row.dataset.sequence = String(Boolean(item.sequence));
-      const handle = document.createElement("th");
-      handle.className = "cm-aic-structure-handle-cell";
-      handle.append(
-        dragHandle(
-          document,
-          `Move property ${index + 1}`,
-          "property",
-          index,
-          this.readOnly,
-        ),
-      );
-      const key = document.createElement("th");
-      key.className = "cm-aic-property-key-cell";
-      const keyContent = document.createElement("div");
-      keyContent.className = "cm-aic-property-key";
-      keyContent.style.setProperty(
-        "--aic-property-depth",
-        String(Math.max(0, Math.min(12, item.depth ?? 0))),
-      );
-      const marker = document.createElement("span");
-      marker.className = "cm-aic-property-level";
-      marker.textContent = item.sequence ? "•" : item.depth ? "↳" : "";
-      keyContent.append(marker);
-      if (!item.scalar) {
-        keyContent.append(
-          createCellEditor(document, {
-            value: item.key,
-            label: `Property ${index + 1} name`,
-            readOnly: this.readOnly,
-            getRevision: () => view.state.doc,
-            validate: (value) =>
-              !validPropertyKey(value.trim())
-                ? "Use letters, numbers, dot, underscore, or dash"
-                : validPropertyRename(this.block.rows, index, value.trim())
-                  ? ""
-                  : "A property with this name already exists in this group",
-            onCommit: (next) =>
-              replace(updateProperty(this.block.rows, index, "key", next)),
-          }),
-        );
-      } else {
-        const itemLabel = document.createElement("span");
-        itemLabel.className = "cm-aic-property-item";
-        itemLabel.textContent = "item";
-        keyContent.append(itemLabel);
-      }
-      key.append(keyContent);
-      const value = document.createElement("td");
-      const hasChildren =
-        !item.value &&
-        index + 1 < this.block.rows.length &&
-        (this.block.rows[index + 1]?.indent ?? 0) > (item.indent ?? 0);
-      if (hasChildren) {
-        const group = document.createElement("span");
-        group.className = "cm-aic-property-group";
-        group.textContent = "Group";
-        value.append(group);
-      } else {
-        value.append(
-          createCellEditor(document, {
-            value: item.value,
-            displayValue: formatPropertyValue(item.key, item.value),
-            label: `Property ${item.key || "list item"} value`,
-            multiline: true,
-            readOnly: this.readOnly,
-            getRevision: () => view.state.doc,
-            onCommit: (next) =>
-              replace(updateProperty(this.block.rows, index, "value", next)),
-          }),
-        );
-      }
-      dropTarget(
-        row,
-        "property",
-        index,
-        (from, to) => replace(moveProperty(this.block.rows, from, to)),
-        this.readOnly,
-      );
-      row.append(handle, key, value);
-      body.append(row);
-    });
-    table.append(body);
-    wrapper.append(table);
-    return wrapper;
-  }
-
-  override ignoreEvent(): boolean {
-    return true;
-  }
-}
-
 function tableNodes(state: EditorState): Array<{ from: number; to: number }> {
   const nodes: Array<{ from: number; to: number }> = [];
   const tree =
@@ -600,12 +426,6 @@ function sourceRange(
   state: EditorState,
   override: SourceOverride,
 ): { from: number; to: number } | null {
-  if (override.kind === "frontmatter") {
-    const block = parseFrontmatter(state.doc.toString());
-    return block?.from === override.from
-      ? { from: block.from, to: block.to }
-      : null;
-  }
   return tableNodes(state).find(({ from }) => from === override.from) ?? null;
 }
 
@@ -648,30 +468,6 @@ function tableDecorations(state: EditorState) {
   return Decoration.set(replacements, true);
 }
 
-function frontmatterDecorations(state: EditorState) {
-  const block = parseFrontmatter(state.doc.toString());
-  const source = state.field(sourceOverrideField);
-  if (
-    !block ||
-    (source?.kind === "frontmatter" && source.from === block.from) ||
-    selectionRevealsPreview(state.selection.ranges, block.from, block.to)
-  )
-    return Decoration.none;
-  return Decoration.set(
-    [
-      Decoration.replace({
-        widget: new FrontmatterWidget(
-          block,
-          state.sliceDoc(block.from, block.to),
-          state.readOnly,
-        ),
-        block: true,
-      }).range(block.from, block.to),
-    ],
-    true,
-  );
-}
-
 const refreshBlockViews = StateEffect.define<void>();
 
 const tableField = StateField.define({
@@ -685,20 +481,6 @@ const tableField = StateField.define({
     )
       return value;
     return tableDecorations(transaction.state);
-  },
-  provide: providePreviewRanges,
-});
-
-const frontmatterField = StateField.define({
-  create: frontmatterDecorations,
-  update(value, transaction) {
-    if (
-      !transaction.docChanged &&
-      !transaction.selection &&
-      transaction.startState.readOnly === transaction.state.readOnly
-    )
-      return value;
-    return frontmatterDecorations(transaction.state);
   },
   provide: providePreviewRanges,
 });
@@ -732,6 +514,13 @@ const viewportRefresh = ViewPlugin.fromClass(
   },
 );
 
-export function blockViewExtensions(): Extension {
-  return [sourceOverrideField, tableField, frontmatterField, viewportRefresh];
+export function blockViewExtensions(
+  document: Document = globalThis.document,
+): Extension {
+  return [
+    sourceOverrideField,
+    tableField,
+    makePropertiesBlockExtension({ document }),
+    viewportRefresh,
+  ];
 }

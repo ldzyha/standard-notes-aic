@@ -6,6 +6,10 @@ import { fenceInfo } from "./code-fence-extension.js";
 import { providePreviewRanges } from "./preview-ranges.js";
 import { saveAction } from "./save-boundary.js";
 import {
+  parsePropertiesBody,
+  serializePropertiesBody,
+} from "./properties-model.js";
+import {
   isSecretField,
   parseSecurityBlock,
   safeSecurityUrl,
@@ -33,6 +37,7 @@ import {
 
 export const SECURITY_BLOCK_CORE_VERSION = "1.3.0";
 const CLIPBOARD_READ_TIMEOUT_MS = 3000;
+const EMPTY_RELATIONSHIPS = Object.freeze([]);
 
 /** Only the explicit aic-security fence belongs to this renderer. */
 export function securityBlocks(state) {
@@ -64,6 +69,40 @@ export function securityBlocks(state) {
   return Object.freeze(blocks);
 }
 
+/** A complete YAML frontmatter document at offset zero, never ordinary Markdown. */
+export function propertiesBlocks(state) {
+  if (!state.doc.lines || !/^---[ \t]*$/u.test(state.doc.line(1).text))
+    return Object.freeze([]);
+  const first = state.doc.line(1);
+  for (let number = 2; number <= state.doc.lines; number += 1) {
+    const line = state.doc.line(number);
+    if (!/^(?:---|\.\.\.)[ \t]*$/u.test(line.text)) continue;
+    return Object.freeze([
+      Object.freeze({
+        from: first.from,
+        to: line.to,
+        bodyFrom: first.to + 1,
+        bodyTo: line.from,
+        body: state.sliceDoc(first.to + 1, line.from),
+      }),
+    ]);
+  }
+  return Object.freeze([]);
+}
+
+const securityFormat = Object.freeze({
+  kind: "security",
+  blocks: securityBlocks,
+  parse: parseSecurityBlock,
+  serialize: (model) => serializeSecurityBlock(model),
+});
+const propertiesFormat = Object.freeze({
+  kind: "properties",
+  blocks: propertiesBlocks,
+  parse: parsePropertiesBody,
+  serialize: serializePropertiesBody,
+});
+
 const editSecuritySource = StateEffect.define({
   map: (value, mapping) => mapping.mapPos(value, -1),
 });
@@ -76,9 +115,10 @@ const securitySource = StateField.define({
       if (effect.is(editSecuritySource)) next = effect.value;
     }
     if (next == null) return null;
-    const block = securityBlocks(transaction.state).find(
-      (candidate) => candidate.from === next,
-    );
+    const block = [
+      ...securityBlocks(transaction.state),
+      ...propertiesBlocks(transaction.state),
+    ].find((candidate) => candidate.from === next);
     if (!block) return null;
     return selectionStaysInSource(
       transaction.state.selection.ranges,
@@ -137,6 +177,19 @@ function isOneTimeCode(label) {
   return /^(?:totp|two-factor|2fa|mfa)(?: code)?$/iu.test(label.trim());
 }
 
+function displayedValue(field) {
+  if (typeof field.displayValue === "string") return field.displayValue;
+  if (field.readOnly && /^(?:created|updated)$/iu.test(field.label)) {
+    const date = new Date(field.value);
+    if (!Number.isNaN(date.getTime()))
+      return new Intl.DateTimeFormat(undefined, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(date);
+  }
+  return field.value;
+}
+
 function selectionIntersects(state, block) {
   return (
     state.field(securitySource) === block.from ||
@@ -144,8 +197,68 @@ function selectionIntersects(state, block) {
   );
 }
 
+export const setPropertyRelationships = StateEffect.define();
+
+function relationshipTree(document, items, onOpen) {
+  if (!items?.length) return null;
+  const region = document.createElement("section");
+  region.className = "cm-aic-note-relations";
+  region.setAttribute("aria-label", "Related notes");
+  const heading = document.createElement("div");
+  heading.className = "cm-aic-note-relations-heading";
+  heading.textContent = "Context";
+  const tree = document.createElement("ul");
+  tree.setAttribute("role", "tree");
+  for (const item of items) {
+    const node = document.createElement("li");
+    node.setAttribute("role", "treeitem");
+    node.setAttribute(
+      "aria-current",
+      String(Boolean(item.isCurrent || item.relation === "current")),
+    );
+    node.style.setProperty(
+      "--aic-note-depth",
+      String(Math.max(0, Math.min(8, Number(item.depth) || 0))),
+    );
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "cm-aic-note-relation-open";
+    open.setAttribute("aria-label", `Open ${item.relation} note ${item.label}`);
+    open.addEventListener("pointerdown", (event) => event.preventDefault());
+    open.addEventListener("click", (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      if (onOpen) void Promise.resolve(onOpen(item.path)).catch(() => {});
+    });
+    const marker = document.createElement("span");
+    marker.className = "cm-aic-note-relation-marker";
+    marker.textContent = item.exists ? "●" : "○";
+    const label = document.createElement("span");
+    label.className = "cm-aic-note-relation-label";
+    label.textContent = item.label;
+    const relation = document.createElement("span");
+    relation.className = "cm-aic-note-relation-kind";
+    relation.textContent = item.relation;
+    open.append(marker, label, relation);
+    node.append(open);
+    tree.append(node);
+  }
+  region.append(heading, tree);
+  return region;
+}
+
 class SecurityBlockWidget extends WidgetType {
-  constructor(block, document, readOnly, onCopy, onOpen, onReadClipboard) {
+  constructor(
+    block,
+    document,
+    readOnly,
+    onCopy,
+    onOpen,
+    onReadClipboard,
+    format = securityFormat,
+    relationships = EMPTY_RELATIONSHIPS,
+    onRelationshipOpen,
+  ) {
     super();
     Object.assign(this, {
       block,
@@ -154,6 +267,9 @@ class SecurityBlockWidget extends WidgetType {
       onCopy,
       onOpen,
       onReadClipboard,
+      format,
+      relationships,
+      onRelationshipOpen,
     });
     this.destroyed = false;
     this.timer = null;
@@ -167,7 +283,10 @@ class SecurityBlockWidget extends WidgetType {
       this.readOnly === other.readOnly &&
       this.onCopy === other.onCopy &&
       this.onOpen === other.onOpen &&
-      this.onReadClipboard === other.onReadClipboard;
+      this.onReadClipboard === other.onReadClipboard &&
+      this.format === other.format &&
+      this.onRelationshipOpen === other.onRelationshipOpen &&
+      this.relationships === other.relationships;
     if (same) {
       this.block = other.block;
       // CodeMirror retains the old DOM but adopts the new descriptor. Keep
@@ -197,9 +316,9 @@ class SecurityBlockWidget extends WidgetType {
   }
 
   currentBlock(view) {
-    const candidates = securityBlocks(view.state).filter(
-      (candidate) => candidate.body === this.block.body,
-    );
+    const candidates = this.format
+      .blocks(view.state)
+      .filter((candidate) => candidate.body === this.block.body);
     return (
       candidates.find((candidate) => candidate.from === this.block.from) ??
       (candidates.length === 1 ? candidates[0] : null)
@@ -222,10 +341,11 @@ class SecurityBlockWidget extends WidgetType {
     if (this.destroyed || view.state.readOnly) return null;
     const block = this.currentBlock(view);
     if (!block || view.state.field(securitySource) === block.from) return null;
-    const parsed = parseSecurityBlock(block.body);
+    const parsed = this.format.parse(block.body);
     if (!parsed.ok) return null;
-    const field = parsed.model.sections[sectionIndex]?.fields[fieldIndex];
-    if (!field) return null;
+    const section = parsed.model.sections[sectionIndex];
+    const field = section?.fields[fieldIndex];
+    if (!field || field.readOnly || section.readOnly) return null;
     return { doc: view.state.doc, block, field: { ...field } };
   }
 
@@ -252,18 +372,19 @@ class SecurityBlockWidget extends WidgetType {
     const block = this.currentBlock(view);
     if (!block || (snapshot && block.body !== snapshot.block.body))
       return false;
-    const parsed = parseSecurityBlock(block.body);
+    const parsed = this.format.parse(block.body);
     if (!parsed.ok) return false;
     const model = {
+      ...parsed.model,
       sections: parsed.model.sections.map((section) => ({
-        label: section.label,
+        ...section,
         fields: section.fields.map((field) => ({ ...field })),
       })),
     };
     if (mutate(model) === false) return false;
     let source;
     try {
-      source = serializeSecurityBlock(model);
+      source = this.format.serialize(model, block.body);
     } catch {
       return false;
     }
@@ -322,6 +443,7 @@ class SecurityBlockWidget extends WidgetType {
   }
 
   addSection(view) {
+    if (this.format !== securityFormat) return;
     this.replaceModel(view, (model) => {
       model.sections.push({
         label: "Section " + (model.sections.length + 1),
@@ -332,15 +454,28 @@ class SecurityBlockWidget extends WidgetType {
 
   addField(view, sectionIndex, label, hide) {
     this.replaceModel(view, (model) => {
-      model.sections[sectionIndex].fields.push({
-        label,
+      const section = model.sections[sectionIndex];
+      if (!section || section.readOnly || section.allowAdd === false)
+        return false;
+      let name = label;
+      if (this.format === propertiesFormat) {
+        let ordinal = 2;
+        while (section.fields.some((field) => field.label === name))
+          name = `${label} ${ordinal++}`;
+      }
+      const inheritedHidden =
+        this.format === propertiesFormat &&
+        /(?:^|\/)[^/]*\*(?:\/|$)/u.test(section.label);
+      section.fields.push({
+        label: name,
         value: "",
-        hide,
+        hide: hide || inheritedHidden,
       });
     });
   }
 
   insertNewBlock(view) {
+    if (this.format !== securityFormat) return;
     if (this.destroyed || view.state.readOnly) return;
     const block = this.currentBlock(view);
     if (!block) return;
@@ -662,6 +797,9 @@ class SecurityBlockWidget extends WidgetType {
       this.onCopy,
       this.onOpen,
       this.onReadClipboard,
+      this.format,
+      this.relationships,
+      this.onRelationshipOpen,
     );
     const dom = mount.renderDOM(view);
     this.mounts.set(dom, mount);
@@ -671,15 +809,23 @@ class SecurityBlockWidget extends WidgetType {
   renderDOM(view) {
     const document = this.document;
     const wrapper = document.createElement("section");
-    wrapper.className = "cm-aic-security cm-md-block-preview";
-    wrapper.setAttribute("aria-label", "Security block");
+    const isProperties = this.format === propertiesFormat;
+    wrapper.className =
+      "cm-aic-security cm-md-block-preview" +
+      (isProperties ? " cm-aic-properties" : "");
+    wrapper.setAttribute(
+      "aria-label",
+      isProperties ? "Properties" : "Security block",
+    );
     const header = document.createElement("div");
     header.className = "cm-md-preview-header";
     const title = document.createElement("strong");
-    const parsed = parseSecurityBlock(this.block.body);
-    title.textContent = parsed.ok
-      ? parsed.model.sections[0].label || "Security"
-      : "Security";
+    const parsed = this.format.parse(this.block.body);
+    title.textContent = isProperties
+      ? "Properties"
+      : parsed.ok
+        ? parsed.model.sections[0].label || "Security"
+        : "Security";
     const actions = document.createElement("span");
     actions.className = "cm-md-preview-actions";
     header.append(title, actions);
@@ -702,19 +848,24 @@ class SecurityBlockWidget extends WidgetType {
     headerStatus.className = "cm-aic-security-field-status";
     headerStatus.setAttribute("role", "status");
     actions.append(
-      button(document, "Copy security block", "copy", async () => {
-        const block = this.currentBlock(view);
-        if (!block || !wrapper.isConnected) return;
-        await copyValue(
-          view.state.sliceDoc(block.from, block.to),
-          "security block",
-          headerStatus,
-        );
-      }),
+      button(
+        document,
+        isProperties ? "Copy properties" : "Copy security block",
+        "copy",
+        async () => {
+          const block = this.currentBlock(view);
+          if (!block || !wrapper.isConnected) return;
+          await copyValue(
+            view.state.sliceDoc(block.from, block.to),
+            isProperties ? "properties" : "security block",
+            headerStatus,
+          );
+        },
+      ),
       headerStatus,
     );
     if (!this.readOnly) {
-      if (parsed.ok)
+      if (!isProperties && parsed.ok)
         actions.append(
           button(
             document,
@@ -724,20 +875,27 @@ class SecurityBlockWidget extends WidgetType {
             parsed.model.sections.length >= 16,
           ),
         );
+      if (!isProperties)
+        actions.append(
+          button(document, "New security block", "add-row", () =>
+            this.insertNewBlock(view),
+          ),
+        );
       actions.append(
-        button(document, "New security block", "add-row", () =>
-          this.insertNewBlock(view),
-        ),
-        button(document, "Edit security block", "edit", () =>
-          this.editSource(view),
+        button(
+          document,
+          isProperties ? "Edit properties" : "Edit security block",
+          "edit",
+          () => this.editSource(view),
         ),
       );
     }
     if (!parsed.ok) {
       const error = document.createElement("p");
       error.className = "cm-aic-security-error";
-      error.textContent =
-        "Security block format needs repair in Markdown source.";
+      error.textContent = isProperties
+        ? "Properties format needs repair in Markdown source."
+        : "Security block format needs repair in Markdown source.";
       wrapper.append(error);
       return wrapper;
     }
@@ -758,6 +916,8 @@ class SecurityBlockWidget extends WidgetType {
       section.fields.forEach((field, fieldIndex) => {
         const label = field.label || "Field";
         const value = field.value;
+        const fieldReadOnly =
+          this.readOnly || section.readOnly || field.readOnly;
         if (value && isRecoveryField(field)) {
           const recovery = parseRecoveryCodes(value);
           const list = document.createElement("section");
@@ -781,7 +941,7 @@ class SecurityBlockWidget extends WidgetType {
               const checkbox = document.createElement("input");
               checkbox.type = "checkbox";
               checkbox.checked = entry.used;
-              checkbox.disabled = this.readOnly;
+              checkbox.disabled = fieldReadOnly;
               checkbox.setAttribute(
                 "aria-label",
                 `Mark recovery code ${number} as ${entry.used ? "unused" : "used"}`,
@@ -816,9 +976,12 @@ class SecurityBlockWidget extends WidgetType {
           group.append(list);
           return;
         }
-        const code = field.hide && isOneTimeCode(label);
+        const propertyCopyOnly =
+          isProperties && (section.readOnly || field.readOnly);
+        const code = !propertyCopyOnly && field.hide && isOneTimeCode(label);
         const masked = isSecretField(field);
-        const destination = masked ? "" : safeSecurityUrl(value);
+        const destination =
+          propertyCopyOnly || masked ? "" : safeSecurityUrl(value);
         const fieldActions = document.createElement("span");
         fieldActions.className = "cm-aic-security-row-actions";
         if (destination) {
@@ -836,7 +999,7 @@ class SecurityBlockWidget extends WidgetType {
             }),
           );
         }
-        if (!this.readOnly && value.length === 0) {
+        if (!fieldReadOnly && value.length === 0) {
           fieldActions.append(
             button(document, "Paste " + label, "paste", () =>
               this.pasteField(view, output.element, sectionIndex, fieldIndex),
@@ -860,7 +1023,13 @@ class SecurityBlockWidget extends WidgetType {
         const output = row(
           document,
           label,
-          value ? (code ? "••••••" : masked ? "••••••••" : value) : "",
+          value
+            ? code
+              ? "••••••"
+              : masked
+                ? "••••••••"
+                : displayedValue(field)
+            : "",
           fieldActions,
           async (status) => {
             if (!value || !wrapper.isConnected) return;
@@ -882,15 +1051,16 @@ class SecurityBlockWidget extends WidgetType {
         }
         group.append(output.element);
       });
-      if (!this.readOnly) {
+      if (!this.readOnly && !section.readOnly && section.allowAdd !== false) {
         const quick = document.createElement("div");
         quick.className = "cm-aic-security-quick-add";
         for (const [label, hide] of [
+          ...(isProperties ? [["Field", false]] : []),
           ["Password", true],
           ["Recovery codes", true],
           ["Email", false],
           ["URL", false],
-          ["PSP", false],
+          ...(!isProperties ? [["PSP", false]] : []),
         ]) {
           const control = button(
             document,
@@ -905,6 +1075,22 @@ class SecurityBlockWidget extends WidgetType {
         group.append(quick);
       }
       body.append(group);
+      if (isProperties && sectionIndex === 0) {
+        const relationships = relationshipTree(
+          document,
+          this.relationships,
+          (path) => {
+            if (
+              this.destroyed ||
+              !wrapper.isConnected ||
+              !this.currentBlock(view)
+            )
+              return;
+            return this.onRelationshipOpen?.(path);
+          },
+        );
+        if (relationships) body.append(relationships);
+      }
     });
 
     let refreshingCodes = false;
@@ -954,14 +1140,30 @@ class SecurityBlockWidget extends WidgetType {
   }
 }
 
-export function makeSecurityBlockExtension({
-  document = globalThis.document,
-  onCopy,
-  onOpen,
-  onReadClipboard,
-} = {}) {
+function makeBlockExtension(
+  format,
+  {
+    document = globalThis.document,
+    onCopy,
+    onOpen,
+    onReadClipboard,
+    initialRelationships,
+    onRelationshipOpen,
+  } = {},
+) {
   if (!document?.createElement)
     throw new TypeError("Security blocks require a document");
+  const relationshipState =
+    format === propertiesFormat
+      ? StateField.define({
+          create: () => initialRelationships?.() ?? [],
+          update(value, transaction) {
+            for (const effect of transaction.effects)
+              if (effect.is(setPropertyRelationships)) return effect.value;
+            return value;
+          },
+        })
+      : null;
   const field = StateField.define({
     create: (state) => decorations(state),
     update(value, transaction) {
@@ -969,6 +1171,9 @@ export function makeSecurityBlockExtension({
         !transaction.docChanged &&
         !transaction.selection &&
         !transaction.effects.some((effect) => effect.is(editSecuritySource)) &&
+        !transaction.effects.some((effect) =>
+          effect.is(setPropertyRelationships),
+        ) &&
         transaction.startState.readOnly === transaction.state.readOnly
       )
         return value;
@@ -978,7 +1183,8 @@ export function makeSecurityBlockExtension({
   });
   const decorations = (state) =>
     Decoration.set(
-      securityBlocks(state)
+      format
+        .blocks(state)
         .filter((block) => !selectionIntersects(state, block))
         .map((block) =>
           Decoration.replace({
@@ -990,10 +1196,25 @@ export function makeSecurityBlockExtension({
               onCopy,
               onOpen,
               onReadClipboard,
+              format,
+              relationshipState
+                ? state.field(relationshipState)
+                : EMPTY_RELATIONSHIPS,
+              onRelationshipOpen,
             ),
           }).range(block.from, block.to),
         ),
       true,
     );
-  return [securitySource, field];
+  return relationshipState
+    ? [securitySource, relationshipState, field]
+    : [securitySource, field];
+}
+
+export function makeSecurityBlockExtension(options = {}) {
+  return makeBlockExtension(securityFormat, options);
+}
+
+export function makePropertiesBlockExtension(options = {}) {
+  return makeBlockExtension(propertiesFormat, options);
 }

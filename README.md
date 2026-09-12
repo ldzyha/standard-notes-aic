@@ -82,11 +82,48 @@ The first section title replaces the card name in its header. Use `## Account na
 to name it or a bare `##` for the default Security header; no duplicate title row is added.
 Later named sections retain their own compact heading.
 
-## Release 27.4.4
+## Properties in Markdown
 
-This release pairs with AIC Notes 36.4.4 and AIC Editor Core 4.0.0. This document
+Properties are the existing YAML frontmatter at the start of a note, not a new note
+type or a second stored format:
+
+```yaml
+---
+file: example.note.md
+created: 2026-09-12T10:00:00Z
+updated: 2026-09-12T11:00:00Z
+project: AIC
+credentials:
+  API key*: example-only-placeholder
+---
+```
+
+The preview uses the same row actions as security blocks. A property whose key ends in
+`*` is visually masked, including inside nested YAML maps or lists. Copy on its label
+or value copies the original value without displaying it; an empty property can be
+filled with Paste or deleted. Change a filled value or key through **Edit properties**,
+which reveals the original YAML for direct editing. The star controls visual
+masking only: Markdown source, exports, other editors and copied values remain plaintext.
+
+For contextual `*.note.md` files, `file`, `created` and `updated` appear as read-only
+metadata in the preview. Dates are formatted for reading, while Copy returns their
+original source values. Other properties appear in separate sections and remain authored YAML;
+comments, nested structure and unrelated Markdown are preserved. Related notes, when
+available from the host, appear after metadata as read-only navigation and are never
+written into frontmatter. Ordinary Markdown notes do not acquire generated metadata.
+
+## Release 28.1.4
+
+This release pairs with AIC Notes 37.1.4 and AIC Editor Core 4.1.0. This document
 describes the release source and its contracts; deployment and the hosted manifest
 are verified separately by the release workflow.
+
+The new outcome is the shared Security-style Properties preview for YAML frontmatter,
+including masked custom fields and copy-only managed metadata. Targeted YAML edits now
+retain nested, quoted and multiline ownership, exact numeric and creation-value types;
+unchanged Security cards keep their live DOM, and starred Properties are redacted from
+unfinished plain-text excerpts. The security recovery, optional-title and save-boundary
+features below shipped in 27.4.4 and remain available; they are not new 28.1.4 outcomes.
 
 `/security` inserts a shared `aic-security` Markdown block in the Standard Notes
 editor and AIC Notes. `## Main` starts a section; `Password*: value` masks a
@@ -236,11 +273,10 @@ Notes uses this same catalog in both ordinary `.md` documents and contextual `.n
 
 AIC keeps Markdown as the source of truth without duplicating it into tooltip editors. Clicking a
 link label opens it; compact, always-visible Copy and Edit icon actions stay beside the label.
-**Table** and **Properties** previews show static values and open one focused editor popover only
-after activation. They add rows/columns/properties and reorder data through drag handles. Nested YAML
-maps and sequences retain their indentation as visible levels; group rows
-stay structural, leaf values remain editable, and moving a list/map row moves its complete branch
-only among valid siblings. Each interaction produces one valid Markdown transaction. Dragging over
+**Table** preview shows static values and opens one focused editor popover after activation;
+it adds and reorders table rows through drag handles. **Properties** preview uses the
+security-style copy, empty-field Paste/Delete and explicit source Edit described above.
+Nested YAML maps and sequences retain their structure in the source. Dragging over
 preview text keeps a stable native selection for copying and never steals the editor cursor.
 `Ctrl+A`/`Cmd+A` selects the complete Markdown source and exits preview for the note; a CodeMirror
 selection that crosses a structure reveals that source. A collapsed cursor keeps preview, while the
@@ -366,6 +402,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `27.4.4` is sequence 27 with
-four feature outcomes and four fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `28.1.4` is sequence 28 with
+one feature outcome and four fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

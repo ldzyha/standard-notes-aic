@@ -250,7 +250,7 @@ export class AicEditor {
         document: this.document,
       }),
       makeSecurityImportExtension({ onSave: this.onSave }),
-      blockViewExtensions(),
+      blockViewExtensions(this.document),
       detailsExtensions(),
       makeMermaidExtension({
         theme: () => detectTheme(this.document),

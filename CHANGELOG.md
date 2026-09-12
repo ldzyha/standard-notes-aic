@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+## 28.1.4 — 2026-09-13
+
+Release sequence 28 · 1 feature outcome · 4 fixed-bug outcomes.
+
+### Feature
+
+1. Properties frontmatter now uses the shared Security-card renderer: copy-only managed metadata, root and nested custom YAML fields, explicit `*` masking, empty-field actions and source-only editing of filled values. The paired VS Code host places its read-only related-note tree after metadata; no relationship is written into YAML.
+
+### Fixes
+
+1. Keep nested, quoted and multiline YAML values and their ownership intact during targeted field actions; preserve authored comments, ordering and unrelated Markdown rather than rewriting the whole header.
+2. Preserve exact numeric scalars and the original `created` value type while managed note metadata is stamped. Display formatting never substitutes for the authored value copied from the property.
+3. Preserve the unchanged Security block DOM and live actions during Properties cursor/selection changes; detached widget callbacks remain retired.
+4. Redact starred Properties from unfinished or truncated plain-text note excerpts, including nested secrets, without claiming to encrypt raw Markdown or exports.
+
+Compatibility: AIC Notes 37.1.4 mirrors AIC Editor Core 4.1.0. No new runtime dependency, note synchronization or authentication change. The 27.4.4 security recovery, title and save-boundary features remain available; they are not new outcomes in this release. Publication and host deployment require separate verification.
+
 ## 27.4.4 — 2026-09-12
 
 Release sequence 27 · 4 feature outcomes · 4 fixed-bug outcomes.
