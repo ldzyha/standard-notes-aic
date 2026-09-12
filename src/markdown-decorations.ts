@@ -4,7 +4,6 @@ import {
   Decoration,
   EditorView,
   ViewPlugin,
-  WidgetType,
   type DecorationSet,
   type ViewUpdate,
 } from "@codemirror/view";
@@ -65,67 +64,7 @@ function lineRevealed(state: EditorState, from: number): boolean {
   });
 }
 
-class TaskWidget extends WidgetType {
-  constructor(
-    private readonly from: number,
-    private readonly checked: boolean,
-    private readonly readOnly: boolean,
-  ) {
-    super();
-  }
-
-  override eq(other: TaskWidget): boolean {
-    return (
-      other.from === this.from &&
-      other.checked === this.checked &&
-      other.readOnly === this.readOnly
-    );
-  }
-
-  override toDOM(view: EditorView): HTMLElement {
-    const element = document.createElement("span");
-    element.className = `cm-md-task${this.checked ? " checked" : ""}`;
-    element.setAttribute("role", "checkbox");
-    element.setAttribute("aria-checked", String(this.checked));
-    element.setAttribute("aria-disabled", String(this.readOnly));
-    element.setAttribute(
-      "aria-label",
-      this.checked ? "Mark task incomplete" : "Mark task complete",
-    );
-    element.tabIndex = this.readOnly ? -1 : 0;
-    const box = document.createElement("span");
-    box.className = "cm-md-task-box";
-    element.append(box);
-
-    const toggle = () => {
-      if (view.state.readOnly) return;
-      const markerText = view.state.sliceDoc(this.from, this.from + 3);
-      const match = /^\[([ xX])\]$/u.exec(markerText);
-      if (!match) return;
-      view.dispatch({
-        changes: {
-          from: this.from + 1,
-          to: this.from + 2,
-          insert: match[1] === " " ? "x" : " ",
-        },
-        userEvent: "input",
-      });
-    };
-    element.addEventListener("pointerdown", (event) => event.preventDefault());
-    element.addEventListener("click", toggle);
-    element.addEventListener("keydown", (event) => {
-      if (event.key !== " " && event.key !== "Enter") return;
-      event.preventDefault();
-      event.stopPropagation();
-      toggle();
-    });
-    return element;
-  }
-
-  override ignoreEvent(): boolean {
-    return true;
-  }
-}
+import { TaskMarkerWidget as TaskWidget } from "./core/task-marker.js";
 
 function markerRanges(
   node: NodeRef,

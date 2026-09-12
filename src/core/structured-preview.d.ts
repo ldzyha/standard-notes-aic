@@ -109,6 +109,11 @@ export function moveTableColumn(
   to: number,
 ): TableModel;
 export function validPropertyKey(value: string): boolean;
+export function validPropertyRename(
+  rows: readonly PropertyRow[],
+  index: number,
+  value: string,
+): boolean;
 export function parseFrontmatterRows(source: string): PropertyRow[] | null;
 export function uniquePropertyKey(
   rows: readonly PropertyRow[],

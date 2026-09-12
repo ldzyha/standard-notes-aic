@@ -28,7 +28,7 @@ export function codeFences(state) {
     enter(node) {
       if (node.name !== "FencedCode") return;
       const language = fenceInfo(state, node).split(/\s+/u)[0] ?? "";
-      if (language === "mermaid") return;
+      if (language === "mermaid" || language === "aic-security") return;
       const text = node.node.getChild("CodeText");
       const afterOpen = Math.min(state.doc.lineAt(node.from).to + 1, node.to);
       blocks.push(

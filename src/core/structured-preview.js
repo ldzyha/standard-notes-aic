@@ -19,8 +19,14 @@ export function wirePreviewSelection(
     throw new TypeError("wirePreviewSelection requires an editor view");
 
   const selectAll = (event) => {
+    const target = event.target;
+    const nestedEditor = target?.closest?.(".cm-editor");
     if (
       event.defaultPrevented ||
+      target?.closest?.("input, textarea, select") ||
+      (nestedEditor && nestedEditor !== editor.dom) ||
+      (target?.closest?.('[contenteditable="true"]') &&
+        target.closest('[contenteditable="true"]') !== editor.contentDOM) ||
       !(event.ctrlKey || event.metaKey) ||
       event.altKey ||
       event.key.toLowerCase() !== "a"
@@ -76,9 +82,13 @@ function tableCell(value) {
 function tableModel(model) {
   const header = [...(model?.header ?? [])].map(text);
   const aligns = header.map((_, index) => model?.aligns?.[index] ?? "");
-  const rows = [...(model?.rows ?? [])].map((row) =>
-    header.map((_, index) => text(row?.[index] ?? "")),
-  );
+  const rows = [...(model?.rows ?? [])].map((row) => {
+    // GFM ignores trailing cells beyond the header, but they remain authored
+    // source. Editing a visible cell must not silently discard those cells.
+    const cells = [...(row ?? [])].map(text);
+    while (cells.length < header.length) cells.push("");
+    return cells;
+  });
   return { header, aligns, rows };
 }
 
@@ -124,9 +134,10 @@ export function addTableRow(model) {
 
 export function addTableColumn(model, label = "Column") {
   const next = tableModel(model);
+  const oldWidth = next.header.length;
   next.header.push(text(label));
   next.aligns.push("");
-  for (const row of next.rows) row.push("");
+  for (const row of next.rows) row.splice(oldWidth, 0, "");
   return next;
 }
 
@@ -156,14 +167,44 @@ export function moveTableRow(model, from, to) {
 
 export function moveTableColumn(model, from, to) {
   const next = tableModel(model);
+  const width = next.header.length;
   next.header = moveItem(next.header, from, to);
   next.aligns = moveItem(next.aligns, from, to);
-  next.rows = next.rows.map((row) => moveItem(row, from, to));
+  next.rows = next.rows.map((row) => [
+    ...moveItem(row.slice(0, width), from, to),
+    ...row.slice(width),
+  ]);
   return next;
 }
 
 export function validPropertyKey(value) {
   return /^[A-Za-z0-9_.-]+$/.test(String(value ?? ""));
+}
+
+function propertyParent(rows, index) {
+  for (let cursor = index - 1; cursor >= 0; cursor--)
+    if (rows[cursor].indent < rows[index].indent) return cursor;
+  return -1;
+}
+
+/** A sequence mapping starts a new item; ordinary mapping keys must be unique
+ * only among siblings of that same item or map. */
+export function validPropertyRename(rows, index, value) {
+  const key = String(value ?? "").trim();
+  if (!Number.isInteger(index) || index < 0 || index >= rows.length)
+    return false;
+  if (rows[index]?.scalar || !validPropertyKey(key)) return false;
+  if (rows[index].sequence) return true;
+  const parent = propertyParent(rows, index);
+  return !rows.some(
+    (row, other) =>
+      other !== index &&
+      !row.scalar &&
+      !row.sequence &&
+      row.key === key &&
+      row.indent === rows[index].indent &&
+      propertyParent(rows, other) === parent,
+  );
 }
 
 export function parseFrontmatterRows(source) {
@@ -236,7 +277,10 @@ export function serializeFrontmatter(rows, lineEnding = "\n") {
   const normalized = propertyRows(rows);
   if (
     !normalized.length ||
-    normalized.some((row) => !row.scalar && !validPropertyKey(row.key))
+    normalized.some(
+      (row, index) =>
+        !row.scalar && !validPropertyRename(normalized, index, row.key),
+    )
   )
     return "";
   return [
@@ -288,16 +332,10 @@ export function moveProperty(rows, from, to) {
     from === to
   )
     return next;
-  const parentOf = (index) => {
-    for (let cursor = index - 1; cursor >= 0; cursor--) {
-      if (next[cursor].indent < next[index].indent) return cursor;
-    }
-    return -1;
-  };
   if (
     next[from].indent !== next[to].indent ||
     next[from].sequence !== next[to].sequence ||
-    parentOf(from) !== parentOf(to)
+    propertyParent(next, from) !== propertyParent(next, to)
   )
     return next;
   const subtreeEnd = (index) => {

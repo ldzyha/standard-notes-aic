@@ -80,13 +80,36 @@ export class StandardNotesHost {
       if (action !== "stream-context-item")
         return original.call(transport, action, data, callback);
       original.call(transport, action, data, (reply) => {
-        callback?.(reply);
-        if (this.disposed || !object(reply) || !object(reply.item)) return;
-        const item = reply.item as StreamedItem;
-        this.currentItem = item;
-        const id = nonempty(item.uuid);
-        const metadataOnly = item.isMetadataUpdate === true;
+        if (this.disposed || !object(reply)) return;
+        if (!object(reply.item)) {
+          if (!Object.hasOwn(reply, "item")) return;
+          this.currentItem = null;
+          this.currentSnapshot = {
+            id: null,
+            text: "",
+            locked: true,
+            fileName: null,
+            createdAt: null,
+            kind: "content",
+          };
+          this.listeners.forEach((listener) => listener(this.currentSnapshot!));
+          return;
+        }
+        const streamed = reply.item as StreamedItem;
+        const metadataOnly = streamed.isMetadataUpdate === true;
         const previous = this.currentSnapshot;
+        // Metadata can omit unchanged fields. Preserve the full item used by
+        // save-items, but never carry content across different note identities.
+        const item: StreamedItem =
+          metadataOnly && nonempty(streamed.uuid) === previous?.id
+            ? {
+                ...this.currentItem,
+                ...streamed,
+                content: { ...this.currentItem?.content, ...streamed.content },
+              }
+            : streamed;
+        const id = nonempty(item.uuid);
+        this.currentItem = item;
         const text =
           typeof item.content?.text === "string"
             ? item.content.text
@@ -96,14 +119,15 @@ export class StandardNotesHost {
         this.currentSnapshot = {
           id,
           text,
-          locked: Boolean(
-            item.content?.appData?.["org.standardnotes.sn"]?.locked,
-          ),
+          locked:
+            (metadataOnly && typeof item.content?.text !== "string") ||
+            Boolean(item.content?.appData?.["org.standardnotes.sn"]?.locked),
           fileName: nonempty(item.content?.title),
           createdAt: nonempty(item.created_at),
           kind: metadataOnly ? "metadata" : "content",
         };
         this.listeners.forEach((listener) => listener(this.currentSnapshot!));
+        callback?.(reply);
       });
     };
     try {
@@ -153,7 +177,14 @@ export class StandardNotesHost {
     const item = JSON.parse(
       JSON.stringify({
         ...this.currentItem,
-        content: { ...this.currentItem.content, text, preview_plain: preview },
+        content: {
+          ...this.currentItem.content,
+          text,
+          preview_plain: preview,
+          // A previous editor's HTML preview can contain stale sensitive text.
+          // AIC publishes only its freshly derived, redacted plain preview.
+          preview_html: "",
+        },
         children: null,
         parent: null,
       }),
@@ -189,6 +220,8 @@ export class StandardNotesHost {
 
   dispose(): void {
     this.disposed = true;
+    this.currentItem = null;
+    this.currentSnapshot = null;
     this.listeners.clear();
     this.cancellations.forEach((cancel) => cancel());
   }

@@ -148,6 +148,19 @@ describe("guarded shared Mermaid model", async () => {
     },
   );
 
+  it("keeps the 200-element visual limit even when the final line crosses it", () => {
+    const source = [
+      "flowchart LR",
+      ...Array.from({ length: 201 }, (_, index) => ` N${index}`),
+    ].join("\n");
+    const result = parseDiagram(source);
+    expect(result).toMatchObject({
+      ok: false,
+      line: 202,
+      reason: expect.stringContaining("200 visual elements"),
+    });
+  });
+
   it("moves sequence messages semantically but never across a branch boundary", async () => {
     const model = read(examples.sequenceDiagram);
     const before = model.steps

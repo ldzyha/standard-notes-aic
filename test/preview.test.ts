@@ -2,6 +2,25 @@ import { describe, expect, it } from "vitest";
 import { markdownPlainPreview, NOTE_PREVIEW_LIMIT } from "../src/preview";
 
 describe("Markdown note preview", () => {
+  it("never publishes security values from quoted or listed fences", () => {
+    for (const [open, prefix] of [
+      ["> ```aic-security", "> "],
+      ["- ```aic-security", "  "],
+    ]) {
+      expect(
+        markdownPlainPreview(
+          [
+            "Before",
+            open,
+            prefix + "## Main",
+            prefix + "Password*: private-value",
+            prefix + "```",
+            "After",
+          ].join("\n"),
+        ),
+      ).toBe("Before After");
+    }
+  });
   it("keeps meaningful content and removes Markdown syntax noise", () => {
     const source = `---
 status: active

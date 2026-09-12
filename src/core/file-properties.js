@@ -97,29 +97,9 @@ export function stampFileProperties(
 
   const match = FRONTMATTER.exec(source);
   if (!isManagedNoteName(file)) {
-    // v16.2 briefly stamped ordinary Markdown files. Remove only that exact
-    // managed signature, and never treat arbitrary authored dates as ours.
-    if (
-      !match ||
-      baseName(property(match[1], "file")).toLowerCase() !==
-        file.toLowerCase() ||
-      !property(match[1], "created") ||
-      !property(match[1], "updated")
-    )
-      return source;
-    const eol = lineEnding(source);
-    const authored = match[1]
-      .split(/\r\n|\n|\r/u)
-      .filter((line) => !/^(?:file|created|updated):[ \t]*/u.test(line));
-    while (authored[0] === "") authored.shift();
-    while (authored.at(-1) === "") authored.pop();
-    const body = source.slice(match[0].length);
-    if (authored.length) {
-      const header = ["---", ...authored, "---"].join(eol);
-      if (!body) return `${header}${eol}`;
-      return `${header}${eol}${body.startsWith(eol) ? "" : eol}${body}`;
-    }
-    return body.startsWith(eol) ? body.slice(eol.length) : body;
+    // Earlier versions stamped ordinary Markdown, but this triplet has no
+    // provenance marker. It may be authored YAML, so never remove it here.
+    return source;
   }
 
   const created =

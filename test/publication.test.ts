@@ -30,14 +30,14 @@ describe("publication metadata", () => {
       'gh release view "$RELEASE_TAG" >/dev/null 2>&1',
     );
     expect(releaseWorkflow).toContain(
-      'gh release upload "$RELEASE_TAG" "$ASSET" --clobber',
+      'gh release upload "$RELEASE_TAG" "$ASSET" "$ASSET.sha256" --clobber',
     );
   });
 
-  it("documents the 21.3.5 R.F.B release and packages usage instructions", () => {
-    expect(changelog).toContain("## 21.3.5 — 2026-09-11");
+  it("documents the 22.1.7 R.F.B release and packages usage instructions", () => {
+    expect(changelog).toContain("## 22.1.7 — 2026-09-12");
     expect(changelog).toContain(
-      "Release sequence 21 · 3 feature outcomes · 5 fixed-bug outcomes",
+      "Release sequence 22 · 1 feature outcome · 7 fixed-bug outcomes",
     );
     expect(readme).toContain("## Slash templates");
     expect(readme).toContain("`Tab` to move through");
@@ -57,8 +57,8 @@ describe("publication metadata", () => {
     for (const contract of [
       "working-note UUID",
       "Ctrl/Cmd+S",
-      "Three managed note fields",
-      "UUID mismatch/locked item returns false",
+      "Only a title ending in `.note.md` receives managed",
+      "refuses saves with missing identity, unknown text, a lock or mismatched UUID",
       "Mermaid",
       "Code fences",
       "code-fence-preview",

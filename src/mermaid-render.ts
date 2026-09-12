@@ -20,118 +20,8 @@ export function sanitizeMermaidSvg(
   return sanitizeSharedMermaidSvg(svg, document);
 }
 
-function abortError(): Error {
-  const error = new Error("Mermaid render was superseded");
-  error.name = "AbortError";
-  return error;
-}
-
-type QueueJob<T> = {
-  task: () => Promise<T> | T;
-  signal: AbortSignal | null;
-  resolve: (value: T) => void;
-  reject: (reason: unknown) => void;
-  active: boolean;
-  settled: boolean;
-  abort: () => void;
-};
-
-export function makeMermaidRenderQueue({
-  concurrency = 1,
-  maxPending = 128,
-} = {}) {
-  const activeLimit = Math.max(1, Math.trunc(concurrency));
-  const pendingLimit = Math.max(1, Math.trunc(maxPending));
-  const pending: QueueJob<unknown>[] = [];
-  let active = 0;
-
-  const drain = () => {
-    while (active < activeLimit && pending.length) {
-      const job = pending.shift()!;
-      if (job.settled) {
-        job.signal?.removeEventListener("abort", job.abort);
-        continue;
-      }
-      if (job.signal?.aborted) {
-        job.settled = true;
-        job.reject(abortError());
-        continue;
-      }
-      active++;
-      job.active = true;
-      Promise.resolve()
-        .then(job.task)
-        .then(
-          (value) => {
-            if (job.settled) return;
-            job.settled = true;
-            if (job.signal?.aborted) job.reject(abortError());
-            else job.resolve(value);
-          },
-          (error) => {
-            if (job.settled) return;
-            job.settled = true;
-            job.reject(job.signal?.aborted ? abortError() : error);
-          },
-        )
-        .finally(() => {
-          job.signal?.removeEventListener("abort", job.abort);
-          active--;
-          drain();
-        });
-    }
-  };
-
-  function schedule<T>(
-    task: () => Promise<T> | T,
-    { signal = null }: { signal?: AbortSignal | null } = {},
-  ) {
-    if (signal?.aborted) return Promise.reject(abortError());
-    if (pending.filter((job) => !job.settled).length >= pendingLimit) {
-      return Promise.reject(
-        new Error(
-          `Mermaid render queue is limited to ${pendingLimit} pending diagrams.`,
-        ),
-      );
-    }
-    return new Promise<T>((resolve, reject) => {
-      const job: QueueJob<T> = {
-        task,
-        signal,
-        resolve,
-        reject,
-        active: false,
-        settled: false,
-        abort: () => {},
-      };
-      job.abort = () => {
-        if (job.settled) return;
-        job.settled = true;
-        reject(abortError());
-        if (!job.active) {
-          const index = pending.indexOf(job as QueueJob<unknown>);
-          if (index >= 0) pending.splice(index, 1);
-          signal?.removeEventListener("abort", job.abort);
-          drain();
-        }
-      };
-      signal?.addEventListener("abort", job.abort, { once: true });
-      pending.push(job as QueueJob<unknown>);
-      drain();
-    });
-  }
-
-  return Object.freeze({
-    schedule,
-    state: () =>
-      Object.freeze({
-        active,
-        pending: pending.filter((job) => !job.settled).length,
-      }),
-  });
-}
-
-export const sharedMermaidQueue = makeMermaidRenderQueue();
+import { makeMermaidRenderQueue } from "./core/render-queue.js";
+export { makeMermaidRenderQueue } from "./core/render-queue.js";
 
 export async function renderMermaidSvg({
   source,
@@ -182,7 +72,7 @@ export function createMermaidPreview({
   theme,
   onEdit,
   render = renderMermaidSvg,
-  queue = sharedMermaidQueue,
+  queue,
   document = globalThis.document,
 }: {
   source: string;
@@ -233,6 +123,7 @@ export function createMermaidPreview({
     nextSource: string,
     nextTheme: MermaidTheme = theme,
   ) => {
+    if (destroyed) return false;
     currentSource = nextSource;
     const token = ++epoch;
     activeAbort?.abort();
@@ -244,18 +135,18 @@ export function createMermaidPreview({
     loading.textContent = "Rendering diagram…";
     viewportController.replaceContent(loading);
     try {
-      const svg = await queue.schedule(
-        () =>
-          render({
-            source: nextSource,
-            theme: nextTheme,
-            document,
-            signal: abort.signal,
-          }),
-        {
+      const task = () =>
+        render({
+          source: nextSource,
+          theme: nextTheme,
+          document,
           signal: abort.signal,
-        },
-      );
+        });
+      // The shared runtime already owns the engine queue. A queue is injectable
+      // only for host tests/custom renderers, never stacked in normal operation.
+      const svg = await (queue
+        ? queue.schedule(task, { signal: abort.signal })
+        : task());
       if (destroyed || token !== epoch) return false;
       activeAbort = null;
       const holder = document.createElement("div");

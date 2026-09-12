@@ -1,13 +1,27 @@
 // One renderer/configuration for read previews and inline visual editing.
+import { makeMermaidRenderQueue } from "./render-queue.js";
 let mermaidPromise;
-let renderTail = Promise.resolve();
+const renderQueue = makeMermaidRenderQueue();
 let renderSerial = 0;
-let pending = 0;
 
 export function mermaidConfig(theme = "default") {
   return {
     startOnLoad: false,
     securityLevel: "strict",
+    // Mermaid's default secure list does not protect source-provided themeCSS
+    // or fontFamily. Both can inject external CSS resources through %%init%%.
+    secure: [
+      "secure",
+      "securityLevel",
+      "startOnLoad",
+      "maxTextSize",
+      "suppressErrorRendering",
+      "maxEdges",
+      "themeCSS",
+      "fontFamily",
+      "altFontFamily",
+      "htmlLabels",
+    ],
     suppressErrorRendering: true,
     maxTextSize: 50000,
     theme: theme === "dark" ? "dark" : "default",
@@ -37,6 +51,8 @@ export function mermaidConfig(theme = "default") {
   };
 }
 
+/** Defense in depth for SVG returned by the pinned strict Mermaid renderer.
+ * This is not a general-purpose sanitizer for arbitrary SVG or authored CSS. */
 export function sanitizeMermaidSvg(svg, document = globalThis.document) {
   const window = document.defaultView;
   const parsed = new window.DOMParser().parseFromString(
@@ -84,45 +100,28 @@ export function renderMermaidSvg(
     return Promise.reject(
       new Error("Mermaid source is limited to 50000 characters."),
     );
-  if (pending >= 128)
-    return Promise.reject(
-      new Error("Mermaid render queue is limited to 128 pending diagrams."),
-    );
-  pending++;
-  let counted = true;
-  const release = () => {
-    if (counted) {
-      pending--;
-      counted = false;
-    }
-  };
-  signal?.addEventListener("abort", release, { once: true });
-  const task = renderTail.then(async () => {
-    checkAborted();
-    mermaidPromise ??= import("mermaid")
-      .then((module) => module.default)
-      .catch((error) => {
-        mermaidPromise = undefined;
-        throw error;
-      });
-    const mermaid = await mermaidPromise;
-    checkAborted();
-    // initialize mutates global state: retain the queue through the entire render.
-    mermaid.initialize(mermaidConfig(theme));
-    const id = `aic-mermaid-${++renderSerial}`;
-    try {
-      const result = await mermaid.render(id, source);
-      // Never invoke source-provided bindFunctions / click callbacks.
-      return sanitizeMermaidSvg(result.svg, document);
-    } finally {
-      document.getElementById(`d${id}`)?.remove();
-    }
-  });
-  renderTail = task
-    .catch(() => {})
-    .finally(() => {
-      release();
-      signal?.removeEventListener("abort", release);
-    });
-  return task;
+  return renderQueue.schedule(
+    async () => {
+      checkAborted();
+      mermaidPromise ??= import("mermaid")
+        .then((module) => module.default)
+        .catch((error) => {
+          mermaidPromise = undefined;
+          throw error;
+        });
+      const mermaid = await mermaidPromise;
+      checkAborted();
+      // initialize mutates global state: retain the queue through the entire render.
+      mermaid.initialize(mermaidConfig(theme));
+      const id = `aic-mermaid-${++renderSerial}`;
+      try {
+        const result = await mermaid.render(id, source);
+        // Never invoke source-provided bindFunctions / click callbacks.
+        return sanitizeMermaidSvg(result.svg, document);
+      } finally {
+        document.getElementById(`d${id}`)?.remove();
+      }
+    },
+    { signal },
+  );
 }

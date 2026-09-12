@@ -24,6 +24,9 @@ function harness() {
     api,
     host,
     saves,
+    reply(value: unknown) {
+      stream?.(value);
+    },
     stream(id: string, text = "Original", locked = false, metadata = false) {
       const item = {
         uuid: id,
@@ -44,6 +47,74 @@ function harness() {
 afterEach(() => vi.useRealTimers());
 
 describe("Standard Notes host adapter", () => {
+  it("invalidates a removed context and blocks saves to its previous UUID", async () => {
+    const { host, stream, reply, saves } = harness();
+    const listener = vi.fn();
+    host.subscribe(listener);
+    stream("note-a");
+    reply({ item: null });
+    expect(host.currentNoteId).toBeNull();
+    expect(host.locked).toBe(true);
+    expect(listener).toHaveBeenLastCalledWith(
+      expect.objectContaining({ id: null, text: "", locked: true }),
+    );
+    await expect(host.save("note-a", 1, "Stale", "")).resolves.toMatchObject({
+      status: "failed",
+    });
+    expect(saves).toHaveLength(0);
+    host.dispose();
+  });
+
+  it("retains omitted fields through partial metadata without crossing identities", async () => {
+    const { host, stream, reply, saves } = harness();
+    const listener = vi.fn();
+    host.subscribe(listener);
+    stream("note-a", "Original", true);
+    reply({
+      item: {
+        uuid: "note-a",
+        isMetadataUpdate: true,
+        content: { title: "Renamed" },
+      },
+    });
+    expect(listener).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        text: "Original",
+        fileName: "Renamed",
+        locked: true,
+        createdAt: "2026-08-20T10:00:00.000Z",
+      }),
+    );
+    reply({
+      item: {
+        uuid: "note-a",
+        isMetadataUpdate: true,
+        content: { appData: { "org.standardnotes.sn": { locked: false } } },
+      },
+    });
+    const result = host.save("note-a", 1, "Changed", "Preview");
+    expect(saves[0]!.data).toMatchObject({
+      items: [{ content: { title: "Renamed", text: "Changed" } }],
+    });
+    saves[0]!.callback?.({});
+    await expect(result).resolves.toMatchObject({ status: "acknowledged" });
+    reply({
+      item: { uuid: "note-b", isMetadataUpdate: true, content: { title: "B" } },
+    });
+    expect(listener).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        id: "note-b",
+        text: "",
+        fileName: "B",
+        createdAt: null,
+        locked: true,
+      }),
+    );
+    await expect(
+      host.save("note-b", 2, "Unknown content", ""),
+    ).resolves.toMatchObject({ status: "failed" });
+    host.dispose();
+  });
   it("publishes metadata independently and waits for positive local host acknowledgement", async () => {
     const { api, host, saves, stream } = harness();
     const listener = vi.fn();

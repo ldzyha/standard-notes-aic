@@ -1,3 +1,5 @@
+import { redactSecurityBlocks } from "./core/security-model.js";
+
 export const NOTE_PREVIEW_LIMIT = 240;
 
 const PREVIEW_INPUT_LIMIT = 50_000;
@@ -32,8 +34,7 @@ function truncate(value: string): string {
 
 export function markdownPlainPreview(markdown: string): string {
   const source = withoutFrontmatter(
-    String(markdown ?? "")
-      .slice(0, PREVIEW_INPUT_LIMIT)
+    redactSecurityBlocks(String(markdown ?? "").slice(0, PREVIEW_INPUT_LIMIT))
       .replaceAll("\r\n", "\n")
       .replaceAll("\r", "\n"),
   );

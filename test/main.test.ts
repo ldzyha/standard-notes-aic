@@ -31,6 +31,9 @@ const bridge = vi.hoisted(() => {
   return {
     api,
     saves,
+    clear() {
+      context?.({ item: null });
+    },
     stream(
       id: string,
       text: string,
@@ -107,6 +110,15 @@ describe("Standard Notes editor bridge", () => {
     root.dispatchEvent(new FocusEvent("focusout", { relatedTarget: null }));
     expect(bridge.saves).toHaveLength(0);
     expect(editor.dataset.saveState).toBe("dirty");
+    bridge.clear();
+    expect(view.state.readOnly).toBe(true);
+    expect(view.state.doc.toString()).toBe("");
+    expect(editor.dataset.saveState).toBe("unavailable");
+    save();
+    expect(bridge.saves).toHaveLength(0);
+    bridge.stream("note-a", "First");
+    expect(view.state.doc.toString()).toBe("First local");
+    expect(view.state.readOnly).toBe(false);
     bridge.stream("note-b", "Second");
     bridge.stream("note-a", "First");
     expect(view.state.doc.toString()).toBe("First local");

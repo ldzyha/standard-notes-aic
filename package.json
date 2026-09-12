@@ -1,7 +1,7 @@
 {
   "name": "standard-notes-aic-editor",
-  "version": "21.3.5",
-  "aicEditorCore": "3.4.0",
+  "version": "22.1.7",
+  "aicEditorCore": "3.5.0",
   "private": true,
   "type": "module",
   "license": "UNLICENSED",
@@ -32,6 +32,7 @@
     "core:sync": "node scripts/sync-editor-core.mjs",
     "core:check": "node scripts/sync-editor-core.mjs --check",
     "test:browser": "node scripts/browser-regression.mjs",
+    "test:browser:lifecycle": "node scripts/browser-lifecycle-regression.mjs",
     "build": "vite build",
     "dev": "vite --host 0.0.0.0",
     "format": "prettier --write .",
@@ -56,6 +57,7 @@
     "@codemirror/state": "6.6.0",
     "@codemirror/view": "6.43.1",
     "@lezer/markdown": "1.6.4",
+    "jsqr": "1.4.0",
     "mermaid": "11.16.1",
     "sn-extension-api": "0.4.0",
     "yaml": "2.9.0"

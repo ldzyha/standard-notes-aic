@@ -25,6 +25,7 @@ import {
 } from "@codemirror/view";
 import { blockViewExtensions } from "./block-views";
 import { makeCodeFenceExtension } from "./core/code-fence-extension.js";
+import { makeSecurityBlockExtension } from "./core/security-block.js";
 import {
   SLASH_SNIPPET_PLACEHOLDER,
   slashSnippetExtension,
@@ -190,6 +191,9 @@ export class AicEditor {
       ]),
       markdownDecorations,
       makeCodeFenceExtension({ document: this.document }),
+      makeSecurityBlockExtension({
+        document: this.document,
+      }),
       blockViewExtensions(),
       detailsExtensions(),
       makeMermaidExtension({

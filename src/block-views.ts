@@ -30,6 +30,7 @@ import {
   updateProperty,
   updateTableCell,
   validPropertyKey,
+  validPropertyRename,
   writeTextToClipboard,
   type PropertyRow,
   type TableModel,
@@ -212,10 +213,12 @@ function dropTarget(
     event.dataTransfer.dropEffect = "move";
   });
   element.addEventListener("drop", (event) => {
-    const from = Number(
-      event.dataTransfer?.getData(`application/x-aic-${kind}`) ?? "",
-    );
-    if (!Number.isInteger(from)) return;
+    const type = `application/x-aic-${kind}`;
+    if (!event.dataTransfer?.types.includes(type)) return;
+    const value = event.dataTransfer.getData(type);
+    if (!/^\d+$/u.test(value)) return;
+    const from = Number(value);
+    if (!Number.isSafeInteger(from)) return;
     event.preventDefault();
     onMove(from, index);
   });
@@ -247,16 +250,14 @@ class TableWidget extends WidgetType {
     wrapper.setAttribute("role", "region");
     wrapper.setAttribute("aria-label", "Interactive Markdown table");
     const parsed = parseTable(this.source);
+    const isCurrent = () =>
+      wrapper.isConnected &&
+      this.from >= 0 &&
+      this.from + this.source.length <= view.state.doc.length &&
+      view.state.sliceDoc(this.from, this.from + this.source.length) ===
+        this.source;
     const replace = (model: TableModel) => {
-      if (
-        view.state.readOnly ||
-        !wrapper.isConnected ||
-        this.from < 0 ||
-        this.from + this.source.length > view.state.doc.length ||
-        view.state.sliceDoc(this.from, this.from + this.source.length) !==
-          this.source
-      )
-        return;
+      if (view.state.readOnly || !isCurrent()) return;
       const markdown = serializeTable(model);
       if (!markdown || markdown === this.source) return;
       view.dispatch({
@@ -269,6 +270,7 @@ class TableWidget extends WidgetType {
       });
     };
     const reveal = () => {
+      if (!isCurrent()) return;
       view.dispatch({
         selection: { anchor: this.from },
         effects: editBlockSource.of({ kind: "table", from: this.from }),
@@ -277,6 +279,7 @@ class TableWidget extends WidgetType {
       view.focus();
     };
     const copy = async (button: HTMLButtonElement) => {
+      if (!isCurrent()) return;
       if (!(await writeTextToClipboard(this.source, document))) return;
       showIconFeedback(button, { restoreLabel: "Copy table" });
     };
@@ -521,9 +524,11 @@ class FrontmatterWidget extends WidgetType {
             readOnly: this.readOnly,
             getRevision: () => view.state.doc,
             validate: (value) =>
-              validPropertyKey(value.trim())
-                ? ""
-                : "Use letters, numbers, dot, underscore, or dash",
+              !validPropertyKey(value.trim())
+                ? "Use letters, numbers, dot, underscore, or dash"
+                : validPropertyRename(this.block.rows, index, value.trim())
+                  ? ""
+                  : "A property with this name already exists in this group",
             onCommit: (next) =>
               replace(updateProperty(this.block.rows, index, "key", next)),
           }),

@@ -21,6 +21,17 @@ export class NoteDraftRegistry {
   private operationId = 0;
   private readonly pending = new Map<string, DraftCommit>();
 
+  private prune(id: string) {
+    const session = this.sessions.get(id);
+    if (
+      id !== this.activeId &&
+      session &&
+      !session.dirty &&
+      !this.pending.has(id)
+    )
+      this.sessions.delete(id);
+  }
+
   get current(): ActiveDraft | null {
     if (!this.activeId) return null;
     const session = this.sessions.get(this.activeId);
@@ -36,11 +47,8 @@ export class NoteDraftRegistry {
 
   activate(id: string, text: string, generation = 0): ActiveDraft {
     const previousId = this.activeId;
-    if (previousId && previousId !== id) {
-      const previous = this.sessions.get(previousId);
-      if (previous && !previous.dirty && !this.pending.has(previousId))
-        this.sessions.delete(previousId);
-    }
+    this.activeId = id;
+    if (previousId) this.prune(previousId);
 
     let session = this.sessions.get(id);
     if (!session) {
@@ -50,7 +58,6 @@ export class NoteDraftRegistry {
     } else if (!session.dirty && !this.pending.has(id)) {
       session.external(text, generation);
     }
-    this.activeId = id;
     return {
       id,
       text: session.current,
@@ -92,6 +99,8 @@ export class NoteDraftRegistry {
       return false;
     this.pending.delete(commit.id);
     const session = this.sessions.get(commit.id);
-    return session?.acknowledge(commit) ?? false;
+    const accepted = session?.acknowledge(commit) ?? false;
+    this.prune(commit.id);
+    return accepted;
   }
 }

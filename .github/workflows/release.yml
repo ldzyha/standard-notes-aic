@@ -12,7 +12,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test-platforms:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20.19.2
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+
   release:
+    needs: test-platforms
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
@@ -48,6 +64,8 @@ jobs:
           cp -R dist/. .release/dist/
           cd .release
           zip -qr "../standard-notes-aic-$PACKAGE_VERSION.zip" package.json README.md CHANGELOG.md FUNCTIONAL_INDEX.md dist
+          cd ..
+          sha256sum "standard-notes-aic-$PACKAGE_VERSION.zip" > "standard-notes-aic-$PACKAGE_VERSION.zip.sha256"
 
       - name: Publish GitHub release
         env:
@@ -57,10 +75,10 @@ jobs:
           PACKAGE_VERSION="${RELEASE_TAG#v}"
           ASSET="standard-notes-aic-$PACKAGE_VERSION.zip"
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" "$ASSET" --clobber
+            gh release upload "$RELEASE_TAG" "$ASSET" "$ASSET.sha256" --clobber
           else
             gh release create "$RELEASE_TAG" \
-              "$ASSET" \
+              "$ASSET" "$ASSET.sha256" \
               --verify-tag \
               --title "AIC $PACKAGE_VERSION" \
               --notes "Website: https://dzyha.com/" \

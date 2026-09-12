@@ -11,12 +11,71 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
-## Release 21.3.5
+## Release 22.1.7
 
-This release pairs with AIC Notes 28.4.5 and AIC Editor Core 3.4.0. The shared editor features below
-are included in the release; the visual Mermaid builder remains experimental. Automated tests,
-production builds and synthetic Windows browser checks cover the implementation. Authenticated
-Standard Notes client and live Linux smoke checks remain separate, unverified environments.
+This release pairs with AIC Notes 31.3.8 and AIC Editor Core 3.5.0. This document
+describes the release source and its contracts; deployment and the hosted manifest
+are verified separately by the release workflow.
+
+`/security` inserts a shared `aic-security` Markdown block in the Standard Notes
+editor and AIC Notes. `## Main` starts a section; `Password*: value` masks a
+field in preview, while `Password: value` is visible. **Edit** opens Markdown
+source; there is no inline form. Preview can copy individual values, a current
+one-time code from a Base32/`otpauth://totp` key, or the **entire fenced block**.
+Safe HTTP(S) URLs also have Open. Add section, quick field actions and New block
+create independent content without saving. Ctrl/Cmd+S remains the save action.
+The ordinary code-fence preview and Standard Notes plain-text note preview
+exclude security contents.
+
+Masking follows the marker, not the field's name: `Label*: value` is hidden and
+`Label: value` is visible. A starred `TOTP*: ...` field displays the current code
+without displaying its seed; an unstarred TOTP field remains an ordinary visible
+value. Sections and fields can be repeated independently.
+
+This is **visual masking, not encryption of the Markdown itself**: raw source,
+other Markdown editors, exports, copied blocks and local files can expose the
+values. The standalone browser demo uses unencrypted `localStorage`; do not
+enter real credentials there. No conversion from the native Standard Notes
+Authenticator note type, AIC-managed cross-application synchronization, QR image
+import UI or QR-code generation is provided. Standard Notes itself owns account
+sign-in, note encryption and its synchronization service. The paired VS Code
+integration provides authentication only, with no note synchronization.
+
+Task checkboxes, details parsing, code-language aliases and the bounded Mermaid render queue now
+have canonical implementations in `src/core`, consumed by both this editor and AIC Notes.
+Nested text controls retain their own Ctrl/Cmd+A selection. Completed inactive drafts are pruned
+after their matching save acknowledgement; newer, failed and pending drafts remain intact.
+Canceled pending Mermaid work releases its payload immediately, while an active render retains
+the engine slot until it actually finishes.
+
+`CORE_FILES.json` explicitly selects the distributed modules. `npm run core:sync` mirrors them;
+`node scripts/sync-editor-core.mjs --snapshot` also generates extension provenance. Uncommitted
+canonical sources are marked as working-tree input and blocked from extension publication.
+The shared context-sphere model and styles are distributed, but graph/region
+navigation is mounted only by the VS Code host. This plugin does not receive
+the workspace data needed to populate that interface.
+
+The host adapter clears unavailable note contexts, retains omitted same-note
+metadata without crossing UUIDs, and waits for the matching save acknowledgement.
+Security blocks are excluded from plain previews even inside quotes/lists; each
+save also clears a previous editor's stale HTML preview. Invalid drag payloads
+cannot reorder data, duplicate sibling property names are rejected, and table
+edits retain extra authored cells. Retired controls and TOTP refreshes cannot
+update a replacement document.
+
+Run `npm run test:browser:lifecycle` against a local Vite server on port 5189 to exercise 200
+synthetic editor lifecycles. Like `test:browser`, it uses an available Playwright installation;
+`AIC_REVIEW_PLAYWRIGHT`, `AIC_REVIEW_BROWSER` and `AIC_REVIEW_URL` can select the local test runtime.
+It checks collectible editor roots and stable DOM/listener counts, not every possible memory leak.
+No Standard Notes account data was used for these synthetic tests. Actual live
+sign-in and Linux runtime behavior have not been verified.
+
+## Editor features
+
+The shared editor features below are included in the release source; the visual
+Mermaid builder remains experimental. Automated suites and synthetic browser
+checks cover the implementation. They do not certify authenticated Standard Notes
+clients or a live Linux session.
 
 - Type `/page` or `/section` for Core-aligned questions, early answers and contextual detail, without
   compulsory Purpose/Proposal sections. `/context` links parent and shared descriptions without
@@ -201,20 +260,24 @@ It never opens a real Standard Notes account or modifies workspace documents.
 - Rendered tables, properties, checkboxes, syntax highlighting, and Mermaid SVG are never persisted.
 - Switching to Plain Text exposes the same Markdown source.
 - AIC stays read-only until Standard Notes supplies the first working-note payload.
-- Saves attach a bounded plain-text preview derived from visible Markdown content; the stored note
-  body remains exact Markdown.
+- Saves attach a bounded plain-text preview derived from visible Markdown content, redact complete
+  security blocks, and clear stale HTML previews; the stored body remains exact Markdown.
 - Input stays in the shared dependency-free draft core. Standard Notes is updated only when the
   user presses Ctrl+S/Cmd+S; input, blur, and page unload never save a note.
 - For `*.note.md` items, explicit save keeps `file`, stable `created`, and automatically refreshed
   `updated` metadata while preserving every authored property. Dates render in the user's locale.
-  Ordinary `*.md` items receive no generated properties; an exact legacy three-field auto-header is
-  removed without touching other frontmatter.
+  Ordinary `*.md` items receive no generated properties or automatic cleanup. Existing authored
+  `file`, `created`, and `updated` fields, including an exact three-field header, remain intact.
 - The Standard Notes host adapter binds each in-memory draft to the working-note UUID and checks
   that UUID again at save time. Switching notes cannot redirect a draft into another note, and
   returning during the same editor session restores the correct dirty draft without storing its
   plaintext on disk.
 - A lightly green editor surface means the host has acknowledged the current explicit save.
   The ordinary surface means it has unsaved changes; an empty placeholder is gray.
+- A null context makes the editor unavailable and read-only. Partial metadata preserves omitted
+  fields only for the same UUID; a newly identified note without its text remains locked.
+- Failed, unknown, timed-out or disposed saves do not mark drafts saved. An acknowledgement
+  confirms the Standard Notes host's local save, not completion of cloud synchronization.
 - Mermaid uses the bundled strict runtime and performs no render-time network request.
 
 ## Distribution
@@ -230,6 +293,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `21.3.5` is sequence 21 with
-three feature outcomes and five fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `22.1.7` is sequence 22 with
+one feature outcome and seven fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

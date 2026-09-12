@@ -377,6 +377,16 @@ export function parseDiagram(source) {
       "An open class or sequence fragment is not closed.",
       lines.length,
     );
+  // The final statement can add several nodes/edges, so the in-loop guard
+  // alone would accept an over-limit diagram at end of input.
+  if (
+    model.nodes.length + model.edges.length + model.steps.length >
+    maxElements
+  )
+    return failure(
+      "Large diagrams stay in source mode (200 visual elements maximum).",
+      lines.length,
+    );
   if (layout) {
     for (const [id, position] of Object.entries(layout.nodes)) {
       if (

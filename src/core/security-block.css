@@ -1,0 +1,101 @@
+.cm-aic-security {
+  display: block;
+  margin: 0.45rem 0;
+  border: 1px solid var(--aic-border);
+  border-radius: 0.65rem;
+  background: var(--aic-contrast);
+  color: var(--aic-contrast-fg);
+  font: 0.88rem/1.4 var(--sn-stylekit-sans-serif-font, system-ui, sans-serif);
+  overflow: hidden;
+}
+
+.cm-aic-security .cm-md-preview-header {
+  min-height: 2.2rem;
+  padding: 0.25rem 0.65rem;
+  border-bottom: 1px solid var(--aic-border);
+}
+
+.cm-aic-security-body {
+  display: grid;
+}
+
+.cm-aic-security-section + .cm-aic-security-section {
+  border-top: 1px solid var(--aic-border);
+}
+
+.cm-aic-security-section-title {
+  display: block;
+  padding: 0.4rem 0.65rem 0.25rem;
+  color: var(--aic-muted);
+  font-size: 0.78rem;
+}
+
+.cm-aic-security-row {
+  display: grid;
+  grid-template-columns: minmax(5rem, 30%) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 1.9rem;
+  padding: 0.2rem 0.65rem;
+}
+
+.cm-aic-security-row + .cm-aic-security-row {
+  border-top: 1px solid color-mix(in srgb, var(--aic-border) 45%, transparent);
+}
+
+.cm-aic-security-label {
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+
+.cm-aic-security-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.cm-aic-security-code {
+  font: 700 1rem/1.2 var(--sn-stylekit-monospace-font, monospace);
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+}
+
+.cm-aic-security-row-actions,
+.cm-aic-security-quick-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.cm-aic-security-quick-add {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.25rem 0.65rem 0.4rem;
+}
+
+.cm-aic-security-quick-add .cm-aic-security-action {
+  display: inline-flex;
+  gap: 0.2rem;
+  width: auto !important;
+  min-height: 1.5rem !important;
+  padding: 0.1rem 0.4rem !important;
+  border: 1px solid var(--aic-border);
+  border-radius: 0.4rem;
+  font-size: 0.72rem !important;
+  line-height: 1.2 !important;
+}
+
+.cm-aic-security-action {
+  color: var(--aic-muted);
+}
+
+.cm-aic-security-action:hover,
+.cm-aic-security-action:focus-visible {
+  color: var(--aic-accent);
+}
+
+.cm-aic-security-error {
+  margin: 0.5rem 0.65rem;
+  color: var(--aic-danger);
+}

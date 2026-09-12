@@ -8,7 +8,7 @@ import {
 } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import {
-  parseDetailsBlocks,
+  detailsForDocument,
   toggleDetailsMarker,
   type DetailsBlock,
 } from "./details-model";
@@ -56,7 +56,7 @@ const sourceOverrides = StateField.define<ReadonlySet<number>>({
       next = copy;
     }
     if (transaction.selection && next.size) {
-      const blocks = parseDetailsBlocks(transaction.state.doc.toString());
+      const blocks = detailsForDocument(transaction.state.doc);
       next = new Set(
         [...next].filter((position) => {
           const block = blocks.find(
@@ -235,7 +235,7 @@ function previewDecorations(state: EditorState) {
   const overrides = state.field(visualOverrides);
   const source = state.field(sourceOverrides);
   const ranges: Range<Decoration>[] = [];
-  for (const block of parseDetailsBlocks(state.doc.toString())) {
+  for (const block of detailsForDocument(state.doc)) {
     if (
       source.has(block.headerFrom) ||
       selectionRevealsPreview(state.selection.ranges, block.from, block.end)
@@ -295,7 +295,7 @@ function bodyDecorations(state: EditorState) {
   const overrides = state.field(visualOverrides);
   const source = state.field(sourceOverrides);
   const ranges: Range<Decoration>[] = [];
-  for (const block of parseDetailsBlocks(state.doc.toString())) {
+  for (const block of detailsForDocument(state.doc)) {
     if (
       source.has(block.headerFrom) ||
       selectionRevealsPreview(state.selection.ranges, block.from, block.end)

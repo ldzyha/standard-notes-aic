@@ -13,6 +13,7 @@ import {
   serializeTable,
   updateProperty,
   updateTableCell,
+  validPropertyRename,
 } from "../src/core/structured-preview.js";
 
 describe("shared structured preview core", () => {
@@ -44,6 +45,23 @@ describe("shared structured preview core", () => {
     expect(initial.rows).toEqual([["1", "2"]]);
   });
 
+  it("preserves extra authored cells outside a GFM table's header width", () => {
+    const table = {
+      header: ["A", "B"],
+      aligns: ["", ""] as const,
+      rows: [["one", "two", "retained"]],
+    };
+    expect(serializeTable(updateTableCell(table, 0, 0, "changed"))).toContain(
+      "| changed | two | retained |",
+    );
+    expect(serializeTable(addTableColumn(table, "C"))).toContain(
+      "| one | two |  | retained |",
+    );
+    expect(serializeTable(moveTableColumn(table, 0, 1))).toContain(
+      "| two | one | retained |",
+    );
+  });
+
   it("updates, adds, and reorders valid simple YAML properties", () => {
     const initial = [{ key: "status", value: "idea" }];
     const added = addProperty(addProperty(initial));
@@ -52,6 +70,29 @@ describe("shared structured preview core", () => {
     expect(serializeFrontmatter(moved)).toBe(
       "---\nproperty: in progress\nstatus: idea\nproperty_2: \n---",
     );
+  });
+
+  it("rejects duplicate mapping siblings without conflating separate sequence items", () => {
+    const rows = [
+      { key: "left", value: "", indent: 0 },
+      { key: "name", value: "one", indent: 2 },
+      { key: "right", value: "", indent: 0 },
+      { key: "name", value: "two", indent: 2 },
+    ];
+    expect(validPropertyRename(rows, 2, "left")).toBe(false);
+    expect(validPropertyRename(rows, 3, "name")).toBe(true);
+    expect(serializeFrontmatter(updateProperty(rows, 2, "key", "left"))).toBe(
+      "",
+    );
+    const sequence = [
+      { key: "items", value: "", indent: 0 },
+      { key: "type", value: "one", indent: 2, sequence: true },
+      { key: "name", value: "A", indent: 4 },
+      { key: "type", value: "two", indent: 2, sequence: true },
+      { key: "name", value: "B", indent: 4 },
+    ];
+    expect(validPropertyRename(sequence, 4, "name")).toBe(true);
+    expect(serializeFrontmatter(sequence)).toContain("  - type: two");
   });
 
   it("formats managed dates for preview without changing their source", () => {

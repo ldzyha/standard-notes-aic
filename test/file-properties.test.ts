@@ -98,7 +98,7 @@ describe("shared file properties core", () => {
     ).toBe(source);
   });
 
-  it("removes the legacy managed signature from ordinary Markdown", () => {
+  it("preserves ambiguous legacy-looking properties in ordinary Markdown", () => {
     const source =
       "---\nfile: map.md\ncreated: 2026-08-20\nupdated: 2026-09-01\nstatus: draft\n---\n\n# Map\n";
     expect(
@@ -106,6 +106,6 @@ describe("shared file properties core", () => {
         fileName: "map.md",
         updatedAt: "2026-09-02T08:00:00.000Z",
       }),
-    ).toBe("---\nstatus: draft\n---\n\n# Map\n");
+    ).toBe(source);
   });
 });

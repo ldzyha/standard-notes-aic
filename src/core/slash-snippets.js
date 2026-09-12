@@ -1,6 +1,7 @@
 import { autocompletion, snippetCompletion } from "@codemirror/autocomplete";
 import { syntaxTree } from "@codemirror/language";
 import { NOTE_PROMPTS } from "./note-template.js";
+import { securityTemplate } from "./security-model.js";
 
 export const SLASH_SNIPPETS_CORE_VERSION = "1.2.0";
 export const SLASH_SNIPPET_PLACEHOLDER =
@@ -37,6 +38,7 @@ const GROUP_BY_COMMAND = Object.freeze({
   timeline: "diagrams",
   code: "content",
   details: "content",
+  security: "content",
   synthesis: "content",
 });
 
@@ -680,6 +682,14 @@ export const DOCUMENTATION_SNIPPETS = Object.freeze([
       "",
       "${0}",
     ].join("\n"),
+  ),
+  define(
+    "security",
+    "block",
+    "Security block",
+    "Which service, login, one-time code and labeled credentials belong together?",
+    securityTemplate(),
+    ["password", "authenticator", "two-factor", "2fa", "secret"],
   ),
 ]);
 

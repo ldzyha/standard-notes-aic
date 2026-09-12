@@ -6,6 +6,73 @@ import { undo } from "@codemirror/commands";
 afterEach(() => document.body.replaceChildren());
 
 describe("AIC editor integration", () => {
+  it("preserves extra authored table cells when editing a visible cell", () => {
+    const source = "| A |\n| --- |\n| visible | extra-authored-cell |\n\nAfter";
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host, { initialText: source });
+    editor.element
+      .querySelector<HTMLElement>('[aria-label="Row 1, column 1"]')!
+      .click();
+    document.querySelector<HTMLTextAreaElement>(".cm-aic-cell-editor")!.value =
+      "Changed";
+    document
+      .querySelector<HTMLButtonElement>('[aria-label="Apply change"]')!
+      .click();
+    expect(editor.value).toContain("| Changed | extra-authored-cell |");
+    editor.destroy();
+  });
+  it("ignores unrelated and malformed drops instead of moving the first row", () => {
+    const source = "| A |\n| --- |\n| first |\n| second |\n\nAfter";
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host, { initialText: source });
+    const target = editor.element.querySelectorAll(".cm-md-table tbody tr")[1]!;
+    for (const [types, value] of [
+      [[], ""],
+      [["text/plain"], "0"],
+      [["application/x-aic-row"], ""],
+    ] as const) {
+      const event = new Event("drop", { bubbles: true, cancelable: true });
+      Object.defineProperty(event, "dataTransfer", {
+        value: { types, getData: () => value },
+      });
+      target.dispatchEvent(event);
+      expect(editor.value).toBe(source);
+      expect(event.defaultPrevented).toBe(false);
+    }
+    const event = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "dataTransfer", {
+      value: { types: ["application/x-aic-row"], getData: () => "0" },
+    });
+    target.dispatchEvent(event);
+    expect(editor.value).toContain("| second |\n| first |");
+    expect(event.defaultPrevented).toBe(true);
+    editor.destroy();
+  });
+
+  it("rejects duplicate property names in the cell editor and keeps the original source", () => {
+    const source = "---\nstatus: idea\ntags: notes\n---\n\nBody";
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host, { initialText: source });
+    editor.element
+      .querySelector<HTMLElement>('[aria-label="Property 2 name"]')!
+      .click();
+    const input = document.querySelector<HTMLInputElement>(
+      ".cm-aic-cell-editor",
+    )!;
+    input.value = "status";
+    document
+      .querySelector<HTMLButtonElement>('[aria-label="Apply change"]')!
+      .click();
+    expect(editor.value).toBe(source);
+    expect(input.validationMessage).toBe(
+      "A property with this name already exists in this group",
+    );
+    expect(document.querySelector(".cm-aic-cell-editor")).toBe(input);
+    editor.destroy();
+  });
   it.each(["---\nx: y\n---\n\nbody", "---\n\nx: y\n---\n\nbody"])(
     "refreshes property callbacks when whitespace changes without changing parsed rows: %s",
     (initial) => {

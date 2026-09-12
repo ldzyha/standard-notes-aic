@@ -1,5 +1,33 @@
 # Changelog
 
+## 22.1.7 — 2026-09-12
+
+Release sequence 22 · 1 feature outcome · 7 fixed-bug outcomes.
+
+- F01: shared `/security` blocks use independent sections and `Label*: value` masking.
+  Preview supports explicit field/block Copy, safe URL Open, source Edit, section/field
+  insertion and New block. TOTP derives current codes locally; legacy YAML stays readable.
+  Masking is not encryption: Markdown, exports and copied blocks contain plaintext secrets.
+- B01: invalidate null host contexts, preserve omitted same-note metadata, block unknown-note
+  text from accidental replacement and clear stale HTML previews on explicit save.
+- B02: retain dirty or pending drafts across delayed acknowledgements; prune only inactive,
+  clean, acknowledged sessions. A save ACK is host acceptance, not a cloud-sync guarantee.
+- B03: centralize task controls, fence languages and details parsing; preserve nested-control
+  selection and reject detached controls instead of stealing focus or editing another note.
+- B04: reject duplicate property names and unrelated drag data; preserve extra authored cells
+  when editing ragged tables, and retire stale table/popover actions.
+- B05: preserve ordinary Markdown frontmatter byte-for-byte. Only `.note.md` receives managed
+  file/created/updated properties; ambiguous legacy metadata is not deleted automatically.
+- B06: bound and cancel pending Mermaid work, retain the active engine mutex until completion,
+  retire widget timers and prevent overlapping TOTP updates or detached-widget writes.
+- B07: lock Mermaid resource-sensitive configuration against note directives, test the actual
+  renderer, and enforce the visual-model element limit even on the final source line.
+
+Compatibility: AIC Notes 31.3.8 consumes the same explicit AIC Editor Core 3.5.0 inventory.
+The sphere renderer is shared, but workspace graph collection is VS Code-only. No note
+synchronization transport, QR import UI or encrypted Markdown storage is introduced.
+See FUNCTIONAL_INDEX.md for feature owners, contracts and verification limits.
+
 ## 21.3.5 — 2026-09-11
 
 Release sequence 21 · 3 feature outcomes · 5 fixed-bug outcomes.

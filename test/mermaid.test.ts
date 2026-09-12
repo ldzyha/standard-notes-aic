@@ -131,6 +131,25 @@ describe("Mermaid rendering boundary", () => {
     await active;
   });
 
+  it("keeps the engine slot through active cancellation and preserves falsy rejection reasons", async () => {
+    const queue = makeMermaidRenderQueue();
+    const first = deferred<void>();
+    const abort = new AbortController();
+    const one = queue.schedule(() => first.promise, { signal: abort.signal });
+    await Promise.resolve();
+    abort.abort();
+    await expect(one).rejects.toMatchObject({ name: "AbortError" });
+    const next = vi.fn(() => "next");
+    const two = queue.schedule(next);
+    await Promise.resolve();
+    expect(next).not.toHaveBeenCalled();
+    expect(queue.state()).toEqual({ active: 1, pending: 1 });
+    first.resolve();
+    await expect(two).resolves.toBe("next");
+    await expect(queue.schedule(() => Promise.reject(null))).rejects.toBeNull();
+    expect(queue.state()).toEqual({ active: 0, pending: 0 });
+  });
+
   it("removes active content and navigation from rendered SVG", () => {
     const unsafe =
       '<svg xmlns="http://www.w3.org/2000/svg" onload="bad()"><script>bad()</script><a href="https://example.com"><text>safe</text></a><foreignObject>bad</foreignObject></svg>';
