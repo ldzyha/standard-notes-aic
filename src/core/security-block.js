@@ -1,8 +1,10 @@
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
+import { isolateHistory } from "@codemirror/commands";
 import { StateEffect, StateField } from "@codemirror/state";
 import { Decoration, WidgetType } from "@codemirror/view";
 import { fenceInfo } from "./code-fence-extension.js";
 import { providePreviewRanges } from "./preview-ranges.js";
+import { saveAction } from "./save-boundary.js";
 import {
   isSecretField,
   parseSecurityBlock,
@@ -11,6 +13,12 @@ import {
   serializeSecurityBlock,
 } from "./security-model.js";
 import { parseTotpInput, totpAt } from "./security-otp.js";
+import {
+  isRecoveryField,
+  parseRecoveryCodes,
+  parseRecoveryCodesPaste,
+  serializeRecoveryCodes,
+} from "./security-recovery.js";
 import {
   DEFAULT_PASSWORD_OPTIONS,
   generatePassword,
@@ -23,7 +31,7 @@ import {
   writeTextToClipboard,
 } from "./structured-preview.js";
 
-export const SECURITY_BLOCK_CORE_VERSION = "1.2.1";
+export const SECURITY_BLOCK_CORE_VERSION = "1.3.0";
 const CLIPBOARD_READ_TIMEOUT_MS = 3000;
 
 /** Only the explicit aic-security fence belongs to this renderer. */
@@ -150,6 +158,7 @@ class SecurityBlockWidget extends WidgetType {
     this.destroyed = false;
     this.timer = null;
     this.closePanel = null;
+    this.mounts = new Map();
   }
 
   eq(other) {
@@ -159,7 +168,13 @@ class SecurityBlockWidget extends WidgetType {
       this.onCopy === other.onCopy &&
       this.onOpen === other.onOpen &&
       this.onReadClipboard === other.onReadClipboard;
-    if (same) this.block = other.block;
+    if (same) {
+      this.block = other.block;
+      // CodeMirror retains the old DOM but adopts the new descriptor. Keep
+      // its live renderers attached to that descriptor and current positions.
+      other.mounts = this.mounts;
+      for (const mount of this.mounts.values()) mount.block = other.block;
+    }
     return same;
   }
 
@@ -167,7 +182,14 @@ class SecurityBlockWidget extends WidgetType {
     return true;
   }
 
-  destroy() {
+  destroy(dom) {
+    const mount = this.mounts.get(dom);
+    if (!mount) return;
+    this.mounts.delete(dom);
+    mount.dispose();
+  }
+
+  dispose() {
     this.destroyed = true;
     this.closePanel?.();
     if (this.timer !== null) clearInterval(this.timer);
@@ -253,9 +275,50 @@ class SecurityBlockWidget extends WidgetType {
         insert: source.endsWith("\n") ? source : source + "\n",
       },
       selection: { anchor: block.from },
+      annotations: [saveAction.of(true), isolateHistory.of("full")],
       userEvent: "input",
     });
     return true;
+  }
+
+  removeEmptyField(view, sectionIndex, fieldIndex) {
+    const snapshot = this.fieldSnapshot(view, sectionIndex, fieldIndex);
+    // Whitespace is a stored value too. Never trim or clear a populated field
+    // as a side effect of this preview-only removal action.
+    if (!snapshot || snapshot.field.value.length !== 0) return false;
+    return this.replaceModel(
+      view,
+      (model) => {
+        const section = model.sections[sectionIndex];
+        const field = section?.fields[fieldIndex];
+        if (
+          !field ||
+          field.value.length !== 0 ||
+          field.label !== snapshot.field.label ||
+          field.hide !== snapshot.field.hide
+        )
+          return false;
+        section.fields.splice(fieldIndex, 1);
+      },
+      snapshot,
+    );
+  }
+
+  markRecoveryCode(view, sectionIndex, fieldIndex, codeIndex, used) {
+    const snapshot = this.fieldSnapshot(view, sectionIndex, fieldIndex);
+    if (!snapshot || !isRecoveryField(snapshot.field)) return false;
+    const parsed = parseRecoveryCodes(snapshot.field.value);
+    if (!parsed.ok || !parsed.codes[codeIndex]) return false;
+    if (parsed.codes[codeIndex].used === used) return false;
+    parsed.codes[codeIndex].used = used;
+    return this.replaceModel(
+      view,
+      (model) => {
+        model.sections[sectionIndex].fields[fieldIndex].value =
+          serializeRecoveryCodes(parsed.codes);
+      },
+      snapshot,
+    );
   }
 
   addSection(view) {
@@ -292,6 +355,7 @@ class SecurityBlockWidget extends WidgetType {
     view.dispatch({
       changes: { from: block.to, insert: prefix + template + suffix },
       selection: { anchor: from },
+      annotations: [saveAction.of(true), isolateHistory.of("full")],
       userEvent: "input",
     });
   }
@@ -355,6 +419,20 @@ class SecurityBlockWidget extends WidgetType {
             "Clipboard is empty";
         else if (status) status.textContent = "Clipboard is empty";
         return;
+      }
+      if (isRecoveryField(snapshot.field)) {
+        const recovery = parseRecoveryCodesPaste(value);
+        if (!recovery.ok || recovery.codes.length === 0) {
+          const message = panel
+            ? panel.querySelector(".cm-aic-security-panel-message")
+            : status;
+          if (message)
+            message.textContent = recovery.ok
+              ? "Clipboard is empty"
+              : "Codes could not be pasted. Use one code per line (up to 256).";
+          return;
+        }
+        value = serializeRecoveryCodes(recovery.codes);
       }
       const changed = this.replaceModel(
         view,
@@ -574,6 +652,23 @@ class SecurityBlockWidget extends WidgetType {
   }
 
   toDOM(view) {
+    // A decoration descriptor can leave the viewport and mount again without
+    // a document transaction. Give each DOM its own permanently ended lifetime
+    // so remounting enables new controls without reviving old async work.
+    const mount = new SecurityBlockWidget(
+      this.block,
+      this.document,
+      this.readOnly,
+      this.onCopy,
+      this.onOpen,
+      this.onReadClipboard,
+    );
+    const dom = mount.renderDOM(view);
+    this.mounts.set(dom, mount);
+    return dom;
+  }
+
+  renderDOM(view) {
     const document = this.document;
     const wrapper = document.createElement("section");
     wrapper.className = "cm-aic-security cm-md-block-preview";
@@ -581,7 +676,10 @@ class SecurityBlockWidget extends WidgetType {
     const header = document.createElement("div");
     header.className = "cm-md-preview-header";
     const title = document.createElement("strong");
-    title.textContent = "Security";
+    const parsed = parseSecurityBlock(this.block.body);
+    title.textContent = parsed.ok
+      ? parsed.model.sections[0].label || "Security"
+      : "Security";
     const actions = document.createElement("span");
     actions.className = "cm-md-preview-actions";
     header.append(title, actions);
@@ -615,7 +713,6 @@ class SecurityBlockWidget extends WidgetType {
       }),
       headerStatus,
     );
-    const parsed = parseSecurityBlock(this.block.body);
     if (!this.readOnly) {
       if (parsed.ok)
         actions.append(
@@ -652,14 +749,73 @@ class SecurityBlockWidget extends WidgetType {
     parsed.model.sections.forEach((section, sectionIndex) => {
       const group = document.createElement("section");
       group.className = "cm-aic-security-section";
-      const sectionHeading = document.createElement("strong");
-      sectionHeading.className = "cm-aic-security-section-title";
-      sectionHeading.textContent =
-        section.label || "Section " + (sectionIndex + 1);
-      group.append(sectionHeading);
+      if (sectionIndex > 0 && section.label) {
+        const sectionHeading = document.createElement("strong");
+        sectionHeading.className = "cm-aic-security-section-title";
+        sectionHeading.textContent = section.label;
+        group.append(sectionHeading);
+      }
       section.fields.forEach((field, fieldIndex) => {
         const label = field.label || "Field";
         const value = field.value;
+        if (value && isRecoveryField(field)) {
+          const recovery = parseRecoveryCodes(value);
+          const list = document.createElement("section");
+          list.className = "cm-aic-security-recovery";
+          list.setAttribute("aria-label", label);
+          const heading = document.createElement("strong");
+          heading.className = "cm-aic-security-section-title";
+          heading.textContent = label;
+          list.append(heading);
+          if (!recovery.ok) {
+            const error = document.createElement("p");
+            error.className = "cm-aic-security-error";
+            error.textContent =
+              "Recovery codes need repair in Markdown source. Use one code per line.";
+            list.append(error);
+          } else {
+            recovery.codes.forEach((entry, codeIndex) => {
+              const number = codeIndex + 1;
+              const used = document.createElement("label");
+              used.className = "cm-aic-security-recovery-used";
+              const checkbox = document.createElement("input");
+              checkbox.type = "checkbox";
+              checkbox.checked = entry.used;
+              checkbox.disabled = this.readOnly;
+              checkbox.setAttribute(
+                "aria-label",
+                `Mark recovery code ${number} as ${entry.used ? "unused" : "used"}`,
+              );
+              checkbox.addEventListener("change", () => {
+                if (!list.isConnected || this.destroyed) return;
+                if (
+                  !this.markRecoveryCode(
+                    view,
+                    sectionIndex,
+                    fieldIndex,
+                    codeIndex,
+                    checkbox.checked,
+                  )
+                )
+                  checkbox.checked = entry.used;
+              });
+              used.append(checkbox, document.createTextNode("Used"));
+              const output = row(
+                document,
+                "Code " + number,
+                "••••••••",
+                used,
+                (status) =>
+                  copyValue(entry.value, "recovery code " + number, status),
+                "recovery code " + number,
+              );
+              output.element.dataset.used = String(entry.used);
+              list.append(output.element);
+            });
+          }
+          group.append(list);
+          return;
+        }
         const code = field.hide && isOneTimeCode(label);
         const masked = isSecretField(field);
         const destination = masked ? "" : safeSecurityUrl(value);
@@ -680,15 +836,13 @@ class SecurityBlockWidget extends WidgetType {
             }),
           );
         }
-        if (!this.readOnly) {
+        if (!this.readOnly && value.length === 0) {
           fieldActions.append(
-            button(
-              document,
-              "Paste " + label,
-              "paste",
-              () =>
-                this.pasteField(view, output.element, sectionIndex, fieldIndex),
-              value.length > 0,
+            button(document, "Paste " + label, "paste", () =>
+              this.pasteField(view, output.element, sectionIndex, fieldIndex),
+            ),
+            button(document, "Delete empty " + label + " field", "trash", () =>
+              this.removeEmptyField(view, sectionIndex, fieldIndex),
             ),
           );
           if (!value && masked && isPasswordField(field))
@@ -733,6 +887,7 @@ class SecurityBlockWidget extends WidgetType {
         quick.className = "cm-aic-security-quick-add";
         for (const [label, hide] of [
           ["Password", true],
+          ["Recovery codes", true],
           ["Email", false],
           ["URL", false],
           ["PSP", false],

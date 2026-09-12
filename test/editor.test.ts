@@ -659,5 +659,15 @@ describe("AIC editor integration", () => {
       "#ffffff",
     );
     expect(detectTheme(document)).toBe("default");
+    document.documentElement.style.setProperty(
+      "--sn-stylekit-editor-background-color",
+      "#171b22",
+    );
+    expect(detectTheme(document)).toBe("dark");
+    document.documentElement.style.setProperty(
+      "--sn-stylekit-editor-background-color",
+      "#ffffff",
+    );
+    expect(detectTheme(document)).toBe("default");
   });
 });

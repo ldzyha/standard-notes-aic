@@ -48,7 +48,10 @@ function normalize(model) {
     return null;
   const result = [];
   for (const section of sections) {
-    if (!exactly(section, ["label", "fields"]) || !name(get(section, "label")))
+    if (
+      !exactly(section, ["label", "fields"]) ||
+      !(get(section, "label") === "" || name(get(section, "label")))
+    )
       return null;
     const fields = get(section, "fields");
     if (!Array.isArray(fields) || fields.length > MAX_FIELDS) return null;
@@ -118,9 +121,10 @@ function parseLines(body) {
   let current = null;
   for (const line of lines) {
     if (line.trim() === "") continue;
-    if (line.startsWith("## ")) {
-      const label = line.slice(3);
-      if (!name(label) || sections.length >= MAX_SECTIONS) return null;
+    if (line === "##" || line.startsWith("## ")) {
+      const label = line === "##" ? "" : line.slice(3);
+      if ((line !== "##" && !name(label)) || sections.length >= MAX_SECTIONS)
+        return null;
       current = { label, fields: [] };
       sections.push(current);
       continue;
@@ -270,9 +274,10 @@ export function parseSecurityBlock(body) {
   if (typeof body !== "string" || body.length > MAX_BODY_LENGTH) return INVALID;
   try {
     const first = body.trimStart().split(/\r\n|\n|\r/u, 1)[0];
-    const model = first.startsWith("## ")
-      ? parseLines(body)
-      : parseLegacy(body);
+    const model =
+      first === "##" || first.startsWith("## ")
+        ? parseLines(body)
+        : parseLegacy(body);
     return model ? { ok: true, model } : INVALID;
   } catch {
     return INVALID;
@@ -285,7 +290,7 @@ export function serializeSecurityBlock(model) {
   if (!normalized) throw new TypeError("invalid security block");
   const lines = [];
   for (const section of normalized.sections) {
-    lines.push(`## ${section.label}`);
+    lines.push(section.label ? `## ${section.label}` : "##");
     for (const field of section.fields) {
       const value = encode(field.value);
       lines.push(
@@ -303,7 +308,7 @@ export function securityTemplate() {
   const body = serializeSecurityBlock({
     sections: [
       {
-        label: "Main",
+        label: "",
         fields: [
           { label: "Service", value: "", hide: false },
           { label: "Account", value: "", hide: false },

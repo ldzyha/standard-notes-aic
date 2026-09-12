@@ -64,6 +64,22 @@ afterEach(() => {
 });
 
 describe("shared security block", () => {
+  it("uses the optional first section title in the card header without a duplicate row", () => {
+    const named = fixture(source.replace("## Main", "## Work account"));
+    expect(
+      named.host.querySelector(".cm-md-preview-header strong")?.textContent,
+    ).toBe("Work account");
+    expect(
+      named.host.querySelector(".cm-aic-security-section-title"),
+    ).toBeNull();
+    const unnamed = fixture(source.replace("## Main", "##"));
+    expect(
+      unnamed.host.querySelector(".cm-md-preview-header strong")?.textContent,
+    ).toBe("Security");
+    expect(
+      unnamed.host.querySelector(".cm-aic-security-section-title"),
+    ).toBeNull();
+  });
   it("uses the common slash snippet", () => {
     expect(
       DOCUMENTATION_SNIPPETS.find((item) => item.command === "security")

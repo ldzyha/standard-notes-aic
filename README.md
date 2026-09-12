@@ -21,9 +21,9 @@ recognized `service`, `account`, `secret` records. One click converts every reco
 that array into its own `aic-security` block and explicitly saves the changed note.
 Wait for **Note saved** before leaving. A failed save keeps the draft and offers
 **Retry save**. The toolbar's Save note icon also saves dirty drafts after switching
-back to a note, including on mobile. Nothing is converted on opening; typing and
-blur never save. Undo restores the source as a new draft; Save note or Ctrl/Cmd+S
-commits that undo or later edits.
+back to a note, including on mobile. Nothing is converted on opening or on each
+keystroke. Ctrl/Cmd+S, Save note and leaving the editing surface save a draft;
+security preview actions save immediately. Undo is a new draft until a save boundary.
 
 `service` and `account` stay visible; `secret` becomes hidden `TOTP*`, `password` becomes
 hidden `Password*`, and `notes` becomes Notes. Safe HTTP(S) service URLs, including simple
@@ -41,10 +41,12 @@ remain plaintext; use your normal protected account, not the standalone demo, fo
 
 Tap/click a field label or value to copy **only its value**; “Copied” appears beside
 the field after success. Tab moves focus; Enter/Space activates a focused field.
-The field icon is **Paste**, enabled only while the field is empty. Filled fields keep a
-disabled Paste button: there is no Replace action. Copy remains available; manual editing
+The field icon is **Paste**, present only while the field is empty. Empty fields also offer
+Delete; filled fields have neither button. There is no Replace action. Copy remains available; manual editing
 or clearing uses **Edit** for the complete Markdown block. Whole-block Copy stays in the header.
-All changes remain drafts until **Ctrl/Cmd+S**.
+Preview mutations request an immediate save through the host manager. Ordinary typing
+stays a draft until Ctrl/Cmd+S, Save or leaving the editor. Wait for the acknowledged save
+state before closing the app; an interrupted process cannot guarantee completion.
 
 Paste reads the latest clipboard text directly on the click and fills the empty field.
 There is no AIC dialog, history picker or intermediate input on a successful read.
@@ -68,9 +70,21 @@ unbiased sampling and no weak fallback. Controls are inspired by
 not its proprietary implementation. [Clipboard permissions](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API)
 vary between browsers/embedded clients. Markdown and copied values remain plaintext.
 
-## Release 26.0.1
+### Recovery codes and optional titles
 
-This release pairs with AIC Notes 35.0.1 and AIC Editor Core 3.7.1. This document
+**Add Recovery codes** adds an empty hidden field. Paste a batch with one code per line;
+blank lines are ignored, but spaces inside a code and duplicate codes are preserved.
+Each code stays masked, copies independently and has a reversible **Used** checkbox.
+Copying does not claim that a service accepted a code. Whole-block Copy preserves the codes
+and their used flags when moving the block to another document. No code is deleted by marking it.
+
+The first section title replaces the card name in its header. Use `## Account name`
+to name it or a bare `##` for the default Security header; no duplicate title row is added.
+Later named sections retain their own compact heading.
+
+## Release 27.4.4
+
+This release pairs with AIC Notes 36.4.4 and AIC Editor Core 4.0.0. This document
 describes the release source and its contracts; deployment and the hosted manifest
 are verified separately by the release workflow.
 
@@ -80,7 +94,7 @@ field in preview, while `Password: value` is visible. **Edit** opens Markdown
 source; there is no inline manual value editor. Preview can copy individual values, a current
 one-time code from a Base32/`otpauth://totp` key, or the **entire fenced block**.
 Safe HTTP(S) URLs also have Open. Add section, quick field actions and New block
-create independent content without saving. Save note or Ctrl/Cmd+S commits those changes.
+create independent content and request a save through the same host manager.
 The ordinary code-fence preview and Standard Notes plain-text note preview
 exclude security contents.
 
@@ -108,9 +122,8 @@ the engine slot until it actually finishes.
 `CORE_FILES.json` explicitly selects the distributed modules. `npm run core:sync` mirrors them;
 `node scripts/sync-editor-core.mjs --snapshot` also generates extension provenance. Uncommitted
 canonical sources are marked as working-tree input and blocked from extension publication.
-The shared context-sphere model and styles are distributed, but graph/region
-navigation is mounted only by the VS Code host. This plugin does not receive
-the workspace data needed to populate that interface.
+The retired File Context sphere is not distributed. Removing it does not affect
+Markdown diagrams or the VS Code note relationship tree.
 
 The host adapter clears unavailable note contexts, retains omitted same-note
 metadata without crossing UUIDs, and waits for the matching save acknowledgement.
@@ -171,7 +184,7 @@ clients or a live Linux session.
   The Mermaid source textarea shares this behavior and retains native Undo in supported browsers.
 - Ctrl/Cmd+Alt+1…6 toggles headings; Ctrl/Cmd+Alt+0 restores a paragraph.
   Ctrl/Cmd+Shift+7/8/9 toggles numbered, bullet and checkbox lists in the shared editor.
-  Formatting never bypasses explicit Ctrl/Cmd+S saving.
+  Formatting does not save on input; the common Save/shortcut/leave boundary applies.
 - Agentic Notes scope/section utilities are present in the shared source core, but no universal
   agent adapter or standalone writer is enabled. Host-owned live-document transactions are required
   before agents can safely update a note that may have an unsaved editor draft.
@@ -319,8 +332,10 @@ It never opens a real Standard Notes account or modifies workspace documents.
 - AIC stays read-only until Standard Notes supplies the first working-note payload.
 - Saves attach a bounded plain-text preview derived from visible Markdown content, redact complete
   security blocks, and clear stale HTML previews; the stored body remains exact Markdown.
-- Input stays in the shared dependency-free draft core. Standard Notes is updated only through
-  explicit Save note, Ctrl+S/Cmd+S, or Convert and save actions; input, blur, and page unload never save a note.
+- Input stays in the shared draft core. Save note, Ctrl+S/Cmd+S, leaving the editing surface or
+  switching notes request persistence. Security preview mutations save immediately. No timer
+  saves on every input; failed saves remain dirty with Retry. Page/process termination is not
+  an acknowledged save guarantee.
 - For `*.note.md` items, explicit save keeps `file`, stable `created`, and automatically refreshed
   `updated` metadata while preserving every authored property. Dates render in the user's locale.
   Ordinary `*.md` items receive no generated properties or automatic cleanup. Existing authored
@@ -329,8 +344,9 @@ It never opens a real Standard Notes account or modifies workspace documents.
   that UUID again at save time. Switching notes cannot redirect a draft into another note, and
   returning during the same editor session restores the correct dirty draft without storing its
   plaintext on disk.
-- A lightly green editor surface means the host has acknowledged the current explicit save.
-  The ordinary surface means it has unsaved changes; an empty placeholder is gray.
+- Save state has a colour indicator and readable feedback. A neutral surface means the current
+  text is acknowledged; dirty drafts are amber, pending saves distinct, failures visible, and
+  empty placeholders gray. A saved state is never inferred from sending a request.
 - A null context makes the editor unavailable and read-only. Partial metadata preserves omitted
   fields only for the same UUID; a newly identified note without its text remains locked.
 - Failed, unknown, timed-out or disposed saves do not mark drafts saved. An acknowledgement
@@ -350,6 +366,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `26.0.1` is sequence 26 with
-zero feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `27.4.4` is sequence 27 with
+four feature outcomes and four fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

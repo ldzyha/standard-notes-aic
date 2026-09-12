@@ -153,23 +153,25 @@ describe("security field actions", () => {
     expect(host.textContent).not.toContain("late-secret");
   });
 
-  it("keeps Paste disabled for filled hidden, visible, and whitespace fields", () => {
+  it("omits Paste and Delete for filled hidden, visible, and whitespace fields", () => {
     const read = vi.fn(async () => "forbidden-value");
     for (const filled of [
       source.replace("Password*:", "Password*: original-secret"),
       source.replace("Password*:", "Password*:  "),
       source,
     ]) {
-      const { host, view, control } = fixture(filled, {
+      const { host, view } = fixture(filled, {
         onReadClipboard: read,
       });
       const targets =
         filled === source ? ["Paste Email"] : ["Paste Password", "Paste Email"];
       for (const label of targets) {
-        const paste = control(label);
-        expect(paste.disabled).toBe(true);
-        paste.click();
-        paste.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        expect(host.querySelector(`button[aria-label="${label}"]`)).toBeNull();
+        expect(
+          host.querySelector(
+            `button[aria-label="Delete empty ${label.slice(6)} field"]`,
+          ),
+        ).toBeNull();
       }
       expect(host.querySelector(".cm-aic-security-panel")).toBeNull();
       expect(view.state.doc.toString()).toBe(filled);
@@ -179,8 +181,8 @@ describe("security field actions", () => {
 
   it("enables Paste after a filled field is cleared in source Edit", () => {
     const filled = source.replace("Password*:", "Password*: original-secret");
-    const { view, control } = fixture(filled + "\n\nOutside");
-    expect(control("Paste Password").disabled).toBe(true);
+    const { host, view, control } = fixture(filled + "\n\nOutside");
+    expect(host.querySelector('[aria-label="Paste Password"]')).toBeNull();
     control("Edit security block").click();
     const from = view.state.doc.toString().indexOf(" original-secret");
     view.dispatch({
@@ -188,6 +190,54 @@ describe("security field actions", () => {
     });
     view.dispatch({ selection: { anchor: view.state.doc.length } });
     expect(control("Paste Password").disabled).toBe(false);
+    expect(control("Delete empty Password field").disabled).toBe(false);
+  });
+
+  it("deletes only an empty field and keeps filled values and the empty section", () => {
+    const mixed = source;
+    const { host, view, control } = fixture(mixed);
+    control("Delete empty Password field").click();
+    expect(view.state.doc.toString()).not.toContain("Password*:");
+    expect(view.state.doc.toString()).toContain("Email: alice@example.com");
+    expect(view.state.doc.toString()).toContain("TOTP*:");
+    expect(
+      host.querySelector('[aria-label="Delete empty Email field"]'),
+    ).toBeNull();
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(mixed);
+    const single = fixture("```aic-security\n## Keep section\nEmail:\n```\n");
+    single.control("Delete empty Email field").click();
+    expect(single.view.state.doc.toString()).toBe(
+      "```aic-security\n## Keep section\n```\n",
+    );
+    expect(single.host.querySelector(".cm-aic-security-error")).toBeNull();
+    expect(single.control("Add Email")).not.toBeNull();
+  });
+
+  it("cannot delete through a stale control after its field is filled or another note opens", () => {
+    const { view, control } = fixture();
+    const stale = control("Delete empty Password field");
+    const from = source.indexOf("Password*:") + "Password*:".length;
+    view.dispatch({ changes: { from, insert: " newly-filled" } });
+    stale.click();
+    expect(view.state.doc.toString()).toContain("Password*: newly-filled");
+    view.setState(EditorState.create({ doc: "Different note" }));
+    stale.click();
+    expect(view.state.doc.toString()).toBe("Different note");
+  });
+
+  it("drops a pending paste when its empty field is removed", async () => {
+    const pending = deferred<string>();
+    const { view, control } = fixture(source, {
+      onReadClipboard: () => pending.promise,
+    });
+    control("Paste Password").click();
+    control("Delete empty Password field").click();
+    pending.resolve("stale-paste-value");
+    await settlePromises();
+    expect(view.state.doc.toString()).not.toContain("Password*:");
+    expect(view.state.doc.toString()).not.toContain("stale-paste-value");
+    expect(view.state.doc.toString()).toContain("Email: alice@example.com");
   });
 
   it("never overwrites a field filled while a read is pending", async () => {
@@ -392,10 +442,13 @@ describe("security field actions", () => {
     expect(host.querySelector(".cm-aic-security-panel")).toBeNull();
   });
 
-  it("omits paste and generation in read-only mode", () => {
+  it("omits paste, deletion and generation in read-only mode", () => {
     const { host } = fixture(source, { readOnly: true });
     expect(host.querySelector('[aria-label="Paste Password"]')).toBeNull();
     expect(host.querySelector('[aria-label="Generate Password"]')).toBeNull();
+    expect(
+      host.querySelector('[aria-label="Delete empty Password field"]'),
+    ).toBeNull();
     expect(host.querySelector('[aria-label="Copy Password"]')).not.toBeNull();
   });
 });

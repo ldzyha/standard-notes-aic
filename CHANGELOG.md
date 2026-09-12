@@ -1,5 +1,25 @@
 # Changelog
 
+## 27.4.4 — 2026-09-12
+
+Release sequence 27 · 4 feature outcomes · 4 fixed-bug outcomes.
+
+### Features
+
+1. Hidden recovery-code batches: paste one code per line, copy each code independently, and retain reversible Used flags without deleting values. Whole-block Copy preserves the complete batch and flags.
+2. Delete genuinely empty security fields in preview; populated and whitespace-only fields cannot be removed by this action.
+3. Optional security titles occupy the existing card header instead of a duplicate row; a bare `##` section marker keeps the default Security title.
+4. Shared Save/Ctrl+S/leave-editor boundaries and immediate security preview saves, owned by the host managers. No per-keystroke autosave; queued requests stay bound to their original note, with acknowledged status and failed-save retry.
+
+### Fixes
+
+1. Restore working Copy/Paste after conversion, scrolling and CodeMirror viewport remounts. Each live DOM has its own lifetime; detached controls, clipboard completions and TOTP timers stay retired.
+2. Remove Paste from filled fields instead of leaving a misleading disabled icon; failed/empty clipboard reads remain non-destructive.
+3. Improve light/dark text, controls, cards and status contrast using paired editor-theme colours. Mermaid theme detection follows editor-specific theme overrides too.
+4. Remove the retired File Context sphere from shared distribution and the paired extension, including its UI, commands, setting and background analysis. Markdown diagrams and parent-note relationships are unaffected.
+
+Compatibility: AIC Notes 36.4.4 mirrors AIC Editor Core 4.0.0. The core major removes the experimental sphere exports. No new runtime dependency, AIC note synchronization or authentication change. Masking is not encryption; raw Markdown and copied blocks remain plaintext. Host save acknowledgement does not certify cloud synchronization or survival of a forced app termination before acknowledgement.
+
 ## 26.0.1 — 2026-09-12
 
 Release sequence 26 · 0 feature outcomes · 1 fixed-bug outcome.

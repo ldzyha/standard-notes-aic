@@ -33,14 +33,17 @@ export class NoteDraftRegistry {
   }
 
   get current(): ActiveDraft | null {
-    if (!this.activeId) return null;
-    const session = this.sessions.get(this.activeId);
+    return this.activeId ? this.snapshot(this.activeId) : null;
+  }
+
+  snapshot(id: string): ActiveDraft | null {
+    const session = this.sessions.get(id);
     return session
       ? {
-          id: this.activeId,
+          id,
           text: session.current,
           dirty: session.dirty,
-          pending: this.pending.has(this.activeId),
+          pending: this.pending.has(id),
         }
       : null;
   }
@@ -74,18 +77,20 @@ export class NoteDraftRegistry {
   }
 
   begin(reason = "explicit"): DraftCommit | null {
-    const session = this.activeId
-      ? this.sessions.get(this.activeId)
-      : undefined;
-    if (!this.activeId || this.pending.has(this.activeId)) return null;
+    return this.activeId ? this.beginFor(this.activeId, reason) : null;
+  }
+
+  beginFor(id: string, reason = "explicit"): DraftCommit | null {
+    const session = this.sessions.get(id);
+    if (this.pending.has(id)) return null;
     const draft = session?.begin(reason);
     if (!draft) return null;
     const commit = Object.freeze({
       ...draft,
-      id: this.activeId,
+      id,
       operationId: ++this.operationId,
     });
-    this.pending.set(this.activeId, commit);
+    this.pending.set(id, commit);
     return commit;
   }
 

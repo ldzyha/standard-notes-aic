@@ -38,7 +38,7 @@ describe("security block model", () => {
     expect(template).toBe(
       [
         "```aic-security",
-        "## Main",
+        "##",
         "Service:",
         "Account:",
         "Email:",
@@ -55,7 +55,7 @@ describe("security block model", () => {
       model: {
         sections: [
           {
-            label: "Main",
+            label: "",
             fields: [
               { label: "Service", value: "", hide: false },
               { label: "Account", value: "", hide: false },
@@ -68,6 +68,24 @@ describe("security block model", () => {
         ],
       },
     });
+  });
+
+  it("round-trips an optional title without permissive fallback to legacy YAML", () => {
+    const unnamed: SecurityModel = {
+      sections: [
+        {
+          label: "",
+          fields: [{ label: "Password", value: "synthetic", hide: true }],
+        },
+      ],
+    };
+    expect(serializeSecurityBlock(unnamed)).toBe("##\nPassword*: synthetic\n");
+    expect(parseSecurityBlock(serializeSecurityBlock(unnamed))).toEqual({
+      ok: true,
+      model: unnamed,
+    });
+    expect(parseSecurityBlock("Password*: synthetic")).toEqual(invalid);
+    expect(parseSecurityBlock("## \nPassword*: synthetic")).toEqual(invalid);
   });
 
   it("round-trips independent sections, duplicates, and mixed hidden/visible fields", () => {

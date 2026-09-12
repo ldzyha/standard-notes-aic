@@ -189,9 +189,9 @@ try {
       "successful direct paste needs no panel/input",
     );
     assert.equal(await page.evaluate(() => securityQa.changes.length), 1);
-    assert.ok(await button("Paste Password").isDisabled());
-    assert.ok(await button("Paste Email").isDisabled());
-    await button("Paste Password").dispatchEvent("click");
+    assert.equal(await button("Paste Password").count(), 0);
+    assert.equal(await button("Paste Email").count(), 0);
+    assert.equal(await button("Delete empty Password field").count(), 0);
     assert.equal(await root.locator(".cm-aic-security-panel").count(), 0);
     assert.equal(
       await root.getByRole("button", { name: "Replace", exact: true }).count(),
@@ -201,11 +201,11 @@ try {
     assert.equal(await page.evaluate(() => securityQa.changes.length), 1);
     passed.push(
       theme +
-        ": direct API paste without popup; filled Paste disabled and no Replace",
+        ": direct API paste without popup; filled Paste absent and no Replace",
     );
     assert.equal(await button("Generate Password").count(), 0);
     assert.equal(await page.evaluate(() => securityQa.changes.length), 1);
-    assert.ok(await button("Paste Password").isDisabled());
+    assert.equal(await button("Paste Password").count(), 0);
     assert.equal(await page.evaluate(() => securityQa.reads), 1);
     await load();
     await page.evaluate(() => {
@@ -326,18 +326,43 @@ try {
       const preview = el.closest(".cm-aic-security");
       const fg = getComputedStyle(el).color;
       const bg = getComputedStyle(preview).backgroundColor;
-      const components = (color) =>
-        color
-          .match(/[\d.]+/g)
+      // Chrome may serialize color-mix() as color(srgb ...) rather than rgb().
+      // Canvas normalizes both forms, percentages, and rgba alpha to sRGB.
+      const components = (color) => {
+        const canvas = document.createElement("canvas");
+        canvas.width = canvas.height = 1;
+        const context = canvas.getContext("2d");
+        context.fillStyle = color;
+        context.fillRect(0, 0, 1, 1);
+        return [...context.getImageData(0, 0, 1, 1).data];
+      };
+      const background = components(bg);
+      const foreground = components(fg);
+      const composite = (front, back) =>
+        front
           .slice(0, 3)
-          .map(Number);
-      const luminance = (color) =>
-        components(color)
+          .map(
+            (channel, index) =>
+              (channel * front[3] + back[index] * (255 - front[3])) / 255,
+          );
+      const visibleBackground =
+        background[3] === 255
+          ? background.slice(0, 3)
+          : composite(
+              background,
+              components(getComputedStyle(document.body).backgroundColor),
+            );
+      const visibleForeground =
+        foreground[3] === 255
+          ? foreground.slice(0, 3)
+          : composite(foreground, [...visibleBackground, 255]);
+      const luminance = (rgb) =>
+        rgb
           .map((v) => v / 255)
           .map((v) => (v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4))
           .reduce((sum, v, i) => sum + v * [0.2126, 0.7152, 0.0722][i], 0);
-      const a = luminance(fg),
-        b = luminance(bg);
+      const a = luminance(visibleForeground),
+        b = luminance(visibleBackground);
       return {
         width: rect.width,
         height: rect.height,
@@ -454,6 +479,63 @@ try {
     passed.push(
       theme +
         ": Authenticator array converts atomically to masked blocks with Undo/Redo and no clipboard access",
+    );
+    await load("```aic-security\n## Synthetic recovery\nRecovery codes*:\n```");
+    await page.evaluate(() => {
+      securityQa.text = "SYNTHETIC-ONE\nSYNTHETIC-TWO";
+    });
+    await button("Paste Recovery codes").tap();
+    await button("Copy recovery code 1 value").waitFor();
+    await masked("SYNTHETIC-ONE");
+    await masked("SYNTHETIC-TWO");
+    assert.equal(await button("Paste Recovery codes").count(), 0);
+    assert.equal(await button("Delete empty Recovery codes field").count(), 0);
+    assert.equal(
+      await root.locator(".cm-md-preview-header strong").textContent(),
+      "Synthetic recovery",
+    );
+    await button("Copy recovery code 2 value").tap();
+    assert.deepEqual(await page.evaluate(() => securityQa.writes), [
+      "SYNTHETIC-TWO",
+    ]);
+    await root
+      .getByRole("checkbox", {
+        name: "Mark recovery code 2 as used",
+        exact: true,
+      })
+      .tap();
+    assert.equal(
+      await root
+        .getByRole("checkbox", {
+          name: "Mark recovery code 2 as unused",
+          exact: true,
+        })
+        .isChecked(),
+      true,
+    );
+    assert.match(await value(), /\[x\] SYNTHETIC-TWO/u);
+    const recoveryStored = await value();
+    await load(recoveryStored);
+    assert.equal(
+      await root
+        .getByRole("checkbox", {
+          name: "Mark recovery code 2 as unused",
+          exact: true,
+        })
+        .isChecked(),
+      true,
+    );
+    await page.setViewportSize({ width: 320, height: 844 });
+    const recoveryOverflow = await root
+      .locator(".cm-aic-security-recovery")
+      .evaluate((element) => element.scrollWidth - element.clientWidth);
+    assert.ok(
+      recoveryOverflow <= 1,
+      "recovery rows fit a 320px mobile surface",
+    );
+    passed.push(
+      theme +
+        ": recovery batch paste, exact copy, reversible used state and masked narrow layout",
     );
     await context.close();
   }

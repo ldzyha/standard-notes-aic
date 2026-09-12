@@ -1,16 +1,48 @@
 :root {
   color-scheme: light dark;
-  --aic-bg: var(--sn-stylekit-background-color, #f7f8fa);
-  --aic-fg: var(--sn-stylekit-foreground-color, #20242b);
-  --aic-muted: var(--sn-stylekit-neutral-color, #68717d);
+  --aic-bg: var(
+    --sn-stylekit-editor-background-color,
+    var(--sn-stylekit-background-color, #f7f8fa)
+  );
+  --aic-fg: var(
+    --sn-stylekit-editor-foreground-color,
+    var(--sn-stylekit-foreground-color, #20242b)
+  );
+  /* The bundled Stylekit neutral/contrast defaults stay light until a host
+     overrides each token. Derive editor surfaces from the active base pair so
+     partial theme overrides cannot leave pale text on a dark preview. */
+  --aic-muted: color-mix(in srgb, var(--aic-fg) 76%, var(--aic-bg));
   --aic-border: var(--sn-stylekit-border-color, #d8dde5);
-  --aic-contrast: var(--sn-stylekit-contrast-background-color, #ffffff);
-  --aic-contrast-fg: var(--sn-stylekit-contrast-foreground-color, #20242b);
-  --aic-accent: var(--sn-stylekit-info-color, #1976d2);
+  --aic-contrast: color-mix(in srgb, var(--aic-bg) 94%, var(--aic-fg));
+  --aic-contrast-fg: var(--aic-fg);
+  --aic-surface-muted: color-mix(
+    in srgb,
+    var(--aic-contrast-fg) 76%,
+    var(--aic-contrast)
+  );
+  --aic-control-border: color-mix(
+    in srgb,
+    var(--aic-contrast-fg) 52%,
+    var(--aic-contrast)
+  );
+  --aic-accent: color-mix(
+    in srgb,
+    var(--sn-stylekit-info-color, #1976d2) 62%,
+    var(--aic-fg)
+  );
   --aic-accent-contrast: var(--sn-stylekit-info-contrast-color, #ffffff);
   --aic-chip: color-mix(in srgb, var(--aic-fg) 7%, transparent);
   --aic-marker: color-mix(in srgb, var(--aic-muted) 80%, var(--aic-fg));
-  --aic-danger: var(--sn-stylekit-danger-color, #c62828);
+  --aic-danger: color-mix(
+    in srgb,
+    var(--sn-stylekit-danger-color, #c62828) 62%,
+    var(--aic-fg)
+  );
+  --aic-success: color-mix(
+    in srgb,
+    var(--sn-stylekit-success-color, #2b9612) 62%,
+    var(--aic-fg)
+  );
   --aic-details-surface: color-mix(
     in srgb,
     var(--aic-contrast) 94%,
@@ -82,8 +114,51 @@ select {
   overscroll-behavior-x: contain;
 }
 
-.aic-save-button[hidden] {
+.aic-save-button[hidden],
+.aic-save-controls[hidden] {
   display: none;
+}
+
+.aic-save-controls {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.35rem;
+  max-width: min(65%, 17rem);
+  padding: 0.15rem 0.35rem 0.15rem 0;
+  background: var(--aic-contrast);
+  border-radius: 0.35rem;
+}
+.aic-save-controls .aic-save-button {
+  flex: 0 0 auto;
+}
+
+.aic-save-status {
+  flex: 1 1 auto;
+  min-width: 0;
+  color: var(--aic-surface-muted);
+  font: 650 0.76rem/1.3
+    var(--sn-stylekit-sans-serif-font, system-ui, sans-serif);
+  white-space: normal;
+}
+
+.aic-save-status:empty {
+  display: none;
+}
+
+.aic-editor[data-save-feedback="saving"] .aic-save-status {
+  color: var(--aic-accent);
+}
+
+.aic-editor[data-save-feedback="saved"] .aic-save-status {
+  color: var(--aic-success);
+}
+
+.aic-editor[data-save-feedback="failed"] .aic-save-status {
+  color: var(--aic-danger);
 }
 
 .aic-toolbar-group {
@@ -122,7 +197,7 @@ select {
 .aic-toolbar-select {
   max-width: 8.6rem;
   padding: 0 1.65rem 0 0.55rem;
-  border-color: var(--aic-border);
+  border-color: var(--aic-control-border);
   background: var(--aic-contrast);
 }
 
@@ -143,7 +218,7 @@ select {
 
 .aic-toolbar :disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  opacity: 0.72;
 }
 
 .aic-editor-host {
@@ -434,7 +509,7 @@ select {
   min-height: 2rem;
   padding: 0.16rem 0.32rem 0.16rem 0.62rem;
   border-bottom: 1px solid var(--aic-details-border);
-  color: var(--aic-muted);
+  color: var(--aic-surface-muted);
   font: 650 0.76rem/1.2
     var(--sn-stylekit-sans-serif-font, system-ui, sans-serif);
   letter-spacing: 0.025em;
@@ -504,7 +579,7 @@ select {
 }
 
 .cm-aic-cell-value[data-empty="true"] {
-  color: var(--aic-muted);
+  color: var(--aic-surface-muted);
   font-style: italic;
 }
 
@@ -551,10 +626,10 @@ select {
 }
 
 .cm-aic-cell-popover-action {
-  border: 1px solid var(--aic-border);
+  border: 1px solid var(--aic-control-border);
   border-radius: 0.35rem;
   background: transparent;
-  color: var(--aic-muted);
+  color: var(--aic-fg);
 }
 
 .cm-aic-cell-popover-action:hover,
@@ -659,7 +734,7 @@ select {
   min-height: 38px;
   padding: 0.2rem 0.4rem 0.2rem 0.7rem;
   border-bottom: 1px solid var(--aic-border);
-  color: var(--aic-muted);
+  color: var(--aic-surface-muted);
   font: 650 0.78rem/1.2
     var(--sn-stylekit-sans-serif-font, system-ui, sans-serif);
   letter-spacing: 0.03em;
@@ -828,8 +903,8 @@ select {
 .cm-aic-link-action {
   min-height: 24px;
   padding: 0 0.35rem;
-  border: 1px solid var(--aic-border);
-  color: var(--aic-muted);
+  border: 1px solid var(--aic-control-border);
+  color: var(--aic-fg);
   font-size: 0.78em;
   text-decoration: none;
 }

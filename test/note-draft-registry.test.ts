@@ -74,4 +74,23 @@ describe("working-note draft registry", () => {
       dirty: false,
     });
   });
+
+  it("begins a queued old-note draft without activating or retargeting it", () => {
+    const drafts = new NoteDraftRegistry();
+    drafts.activate("a", "A", 1);
+    drafts.edit("A first");
+    const first = drafts.beginFor("a")!;
+    drafts.edit("A latest");
+    drafts.activate("b", "B", 2);
+    drafts.acknowledge({ ...first, saved: true });
+    expect(drafts.current).toMatchObject({ id: "b", text: "B" });
+    expect(drafts.snapshot("a")).toMatchObject({
+      text: "A latest",
+      dirty: true,
+    });
+    const queued = drafts.beginFor("a")!;
+    expect(queued).toMatchObject({ id: "a", text: "A latest" });
+    drafts.acknowledge({ ...queued, saved: true });
+    expect(drafts.current).toMatchObject({ id: "b", text: "B" });
+  });
 });

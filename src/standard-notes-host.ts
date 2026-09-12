@@ -39,6 +39,16 @@ export type StandardNotesSaveResult = Readonly<{
   status: "acknowledged" | "failed";
 }>;
 
+export type StandardNotesSaveTarget = Readonly<{
+  id: string;
+  save: (
+    operationId: number,
+    text: string,
+    preview: string,
+  ) => Promise<StandardNotesSaveResult>;
+  dispose: () => void;
+}>;
+
 function object(value: unknown): value is Reply {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -47,11 +57,48 @@ function nonempty(value: unknown): string | null {
   return typeof value === "string" && value.trim() ? value.trim() : null;
 }
 
+function mergeMetadataAppData(
+  previous: StreamedItem["content"],
+  incoming: StreamedItem["content"],
+): Record<string, { locked?: unknown }> {
+  const namespaces = new Map<string, { locked?: unknown }>();
+  for (const [name, value] of Object.entries(previous?.appData ?? {}))
+    if (object(value)) namespaces.set(name, value);
+  for (const [name, value] of Object.entries(incoming?.appData ?? {})) {
+    if (!object(value)) continue;
+    const prior = namespaces.get(name);
+    const merged = { ...prior, ...value };
+    if (name === "org.standardnotes.sn" && typeof value.locked !== "boolean") {
+      if (prior && Object.hasOwn(prior, "locked")) merged.locked = prior.locked;
+      else delete merged.locked;
+    }
+    namespaces.set(name, merged);
+  }
+  return Object.fromEntries(namespaces);
+}
+
+function explicitMetadataLock(item: StreamedItem): boolean | undefined {
+  const namespace = item.content?.appData?.["org.standardnotes.sn"];
+  return object(namespace) &&
+    Object.hasOwn(namespace, "locked") &&
+    typeof namespace.locked === "boolean"
+    ? namespace.locked
+    : undefined;
+}
+
 export class StandardNotesHost {
   private readonly listeners = new Set<
     (snapshot: StandardNotesSnapshot) => void
   >();
   private readonly cancellations = new Set<() => void>();
+  private readonly beforeContextChange = new Set<
+    (previousId: string, nextId: string | null) => void
+  >();
+  private readonly saveTargets = new Set<{
+    id: string;
+    invalidate: () => void;
+    refresh: (item: StreamedItem) => void;
+  }>();
   private currentItem: StreamedItem | null = null;
   private currentSnapshot: StandardNotesSnapshot | null = null;
   private initialized = false;
@@ -83,6 +130,11 @@ export class StandardNotesHost {
         if (this.disposed || !object(reply)) return;
         if (!object(reply.item)) {
           if (!Object.hasOwn(reply, "item")) return;
+          const previousId = this.currentSnapshot?.id;
+          if (previousId)
+            this.beforeContextChange.forEach((listener) =>
+              listener(previousId, null),
+            );
           this.currentItem = null;
           this.currentSnapshot = {
             id: null,
@@ -98,6 +150,11 @@ export class StandardNotesHost {
         const streamed = reply.item as StreamedItem;
         const metadataOnly = streamed.isMetadataUpdate === true;
         const previous = this.currentSnapshot;
+        const nextId = nonempty(streamed.uuid);
+        if (previous?.id && previous.id !== nextId)
+          this.beforeContextChange.forEach((listener) =>
+            listener(previous.id!, nextId),
+          );
         // Metadata can omit unchanged fields. Preserve the full item used by
         // save-items, but never carry content across different note identities.
         const item: StreamedItem =
@@ -105,7 +162,14 @@ export class StandardNotesHost {
             ? {
                 ...this.currentItem,
                 ...streamed,
-                content: { ...this.currentItem?.content, ...streamed.content },
+                content: {
+                  ...this.currentItem?.content,
+                  ...streamed.content,
+                  appData: mergeMetadataAppData(
+                    this.currentItem?.content,
+                    streamed.content,
+                  ),
+                },
               }
             : streamed;
         const id = nonempty(item.uuid);
@@ -116,16 +180,24 @@ export class StandardNotesHost {
             : metadataOnly && previous?.id === id
               ? previous.text
               : "";
+        const lockSignal = explicitMetadataLock(streamed);
         this.currentSnapshot = {
           id,
           text,
-          locked:
-            (metadataOnly && typeof item.content?.text !== "string") ||
-            Boolean(item.content?.appData?.["org.standardnotes.sn"]?.locked),
+          locked: metadataOnly
+            ? previous?.id !== id || typeof item.content?.text !== "string"
+              ? true
+              : (lockSignal ?? previous?.locked ?? true)
+            : Boolean(item.content?.appData?.["org.standardnotes.sn"]?.locked),
           fileName: nonempty(item.content?.title),
           createdAt: nonempty(item.created_at),
           kind: metadataOnly ? "metadata" : "content",
         };
+        for (const target of this.saveTargets)
+          if (target.id === id) {
+            if (this.currentSnapshot.locked) target.invalidate();
+            else target.refresh(item);
+          }
         this.listeners.forEach((listener) => listener(this.currentSnapshot!));
         callback?.(reply);
       });
@@ -144,6 +216,13 @@ export class StandardNotesHost {
     return () => this.listeners.delete(callback);
   }
 
+  onBeforeContextChange(
+    callback: (previousId: string, nextId: string | null) => void,
+  ): () => void {
+    this.beforeContextChange.add(callback);
+    return () => this.beforeContextChange.delete(callback);
+  }
+
   get currentNoteId(): string | null {
     return this.currentSnapshot?.id ?? null;
   }
@@ -158,6 +237,66 @@ export class StandardNotesHost {
     text: string,
     preview: string,
   ): Promise<StandardNotesSaveResult> {
+    const target = this.captureSaveTarget(expectedNoteId);
+    if (!target)
+      return Promise.resolve({
+        id: expectedNoteId,
+        operationId,
+        status: "failed",
+      });
+    return target.save(operationId, text, preview).finally(target.dispose);
+  }
+
+  captureSaveTarget(expectedNoteId: string): StandardNotesSaveTarget | null {
+    if (
+      !this.initialized ||
+      this.disposed ||
+      this.currentNoteId !== expectedNoteId ||
+      this.locked ||
+      !this.currentItem?.content
+    )
+      return null;
+    let captured = JSON.parse(JSON.stringify(this.currentItem)) as StreamedItem;
+    let valid = true;
+    const record = {
+      id: expectedNoteId,
+      invalidate: () => {
+        valid = false;
+      },
+      refresh: (item: StreamedItem) => {
+        if (valid && item.uuid === expectedNoteId)
+          captured = JSON.parse(JSON.stringify(item)) as StreamedItem;
+      },
+    };
+    this.saveTargets.add(record);
+    const dispose = () => {
+      valid = false;
+      this.saveTargets.delete(record);
+    };
+    const save: StandardNotesSaveTarget["save"] = (
+      operationId,
+      text,
+      preview,
+    ) =>
+      this.saveCaptured(
+        expectedNoteId,
+        operationId,
+        captured,
+        text,
+        preview,
+        () => valid,
+      );
+    return { id: expectedNoteId, save, dispose };
+  }
+
+  private saveCaptured(
+    expectedNoteId: string,
+    operationId: number,
+    captured: StreamedItem,
+    text: string,
+    preview: string,
+    valid: () => boolean,
+  ): Promise<StandardNotesSaveResult> {
     const result = (saved: boolean): StandardNotesSaveResult => ({
       id: expectedNoteId,
       operationId,
@@ -166,9 +305,9 @@ export class StandardNotesHost {
     if (
       !this.initialized ||
       this.disposed ||
-      this.currentNoteId !== expectedNoteId ||
-      this.locked ||
-      !this.currentItem?.content
+      !valid() ||
+      captured.uuid !== expectedNoteId ||
+      !captured.content
     )
       return Promise.resolve(result(false));
 
@@ -176,9 +315,9 @@ export class StandardNotesHost {
     // change this operation, and sending must not mutate the last host stream.
     const item = JSON.parse(
       JSON.stringify({
-        ...this.currentItem,
+        ...captured,
         content: {
-          ...this.currentItem.content,
+          ...captured.content,
           text,
           preview_plain: preview,
           // A previous editor's HTML preview can contain stale sensitive text.
@@ -223,6 +362,9 @@ export class StandardNotesHost {
     this.currentItem = null;
     this.currentSnapshot = null;
     this.listeners.clear();
+    this.beforeContextChange.clear();
+    for (const target of this.saveTargets) target.invalidate();
+    this.saveTargets.clear();
     this.cancellations.forEach((cancel) => cancel());
   }
 }

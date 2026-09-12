@@ -4,19 +4,35 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 managed file properties, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 26.0.1 pairs with AIC Notes 35.0.1 and AIC Editor Core 3.7.1.
+storage format. Release 27.4.4 pairs with AIC Notes 36.4.4 and AIC Editor Core 4.0.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
 ## Current security and lifecycle contracts
+
+- `security-recovery` parses hidden Recovery codes/Backup codes batches into independent,
+  bounded codes; exact values and duplicates are preserved. The shared UI masks each code,
+  supports individual Copy and reversible Used flags, and serializes flags into the Markdown
+  value. Marking never deletes a code, and copying alone never marks a code accepted by a service.
+  Empty fields offer Paste/Delete; filled fields cannot be replaced. Tests: `security-recovery`,
+  `security-recovery-ui`, `security-field-actions`.
+- Optional section titles use an explicit bare `##` marker when unnamed, keeping legacy YAML
+  parsing strict. The first title occupies the card header; later named sections keep compact
+  headings. Tests: `security-model`, `security-block-ui`.
+- `save-boundary` centralizes focus-leave and annotated-action intent. Host managers own save
+  queues, immutable note targets, acknowledgement and retry; widgets never write storage.
+  Live widget sessions are distinct from CodeMirror descriptors, so viewport remounts remain
+  interactive and retired async callbacks/timers cannot mutate new notes. Tests: `save-boundary`,
+  `security-post-import`, `security-paste-feedback`, parent manager and mobile transport suites.
 
 - `core/security-import` and `security-import-extension` convert the recognized
   current Authenticator JSON array or selection into one security block per record. This is
   an explicit, all-or-nothing, undoable draft edit; no clipboard, note-type change or
   account scan. Standard Notes supplies its normal save manager: Convert and save commits
   immediately, confirms host acknowledgement, and exposes failed-save retry. Dirty drafts
-  also have a toolbar Save action after switching notes. Input/blur never save.
-  VS Code keeps its existing explicit Ctrl/Cmd+S save boundary. TOTP/password and extra string fields are hidden, original
+  also have a toolbar Save action after switching notes. Both hosts share Save, Ctrl/Cmd+S,
+  leaving the editing surface and security-action boundaries; ordinary input does not save.
+  TOTP/password and extra string fields are hidden, original
   values remain exact, and malformed/duplicate/oversized input is rejected without partial
   conversion or secret diagnostics. The shared contextual panel is used in both hosts.
   Tests: `security-import`, `security-import-extension`, `main`, browser security and
@@ -26,7 +42,8 @@ GitHub Pages deployment or hosted manifest has already been published.
   default24 with all enabled groups required. Only empty recognized hidden password labels
   can generate; existing values/TOTP/API keys are excluded. Tests: `security-password`.
 - Field label/value tap copies only its value with local feedback; Tab navigates normally.
-  Paste directly reads the latest value and is disabled on every populated field. There is
+  Paste directly reads the latest value and is absent on every populated field. Delete is
+  available only for genuinely empty fields; whitespace is a value. There is
   no Replace, history picker or visible panel during a successful read. Empty reads cannot
   erase; pending, stale or readonly operations cannot overwrite values or another note.
   Only denied/unavailable/timed-out access offers inline masked paste-only capture.
@@ -41,7 +58,7 @@ GitHub Pages deployment or hosted manifest has already been published.
   plain-text metadata; each save also clears stale `preview_html`. Copy
   block copies complete source, including secrets; safe HTTP(S) URLs can open.
   Edit opens raw Markdown, and Add section, quick field actions and New block
-  insert content without saving. `TOTP*: ...` derives the current code in memory
+  insert content and request a host-managed save. `TOTP*: ...` derives the current code in memory
   from Base32 or `otpauth://totp` without displaying its seed; unstarred TOTP
   remains an ordinary visible value. No QR import UI, generated QR, native Authenticator
   note-type migration or separate cryptographic storage is claimed. Standard Notes owns its
@@ -69,9 +86,8 @@ GitHub Pages deployment or hosted manifest has already been published.
   siblings, and table mutations retain extra authored cells beyond the visible header width.
 - Security TOTP refreshes permit one pending generation and retire with their widget;
   late results cannot update a replacement document.
-- `CORE_FILES.json` defines the shared distribution. The context-sphere model and styles
-  are bundled, but only the VS Code host mounts graph/region navigation because this
-  plugin has no workspace graph data.
+- `CORE_FILES.json` defines the shared distribution. The retired File Context sphere
+  and its graph/styles are no longer distributed in either product.
   The lifecycle browser test measures bounded synthetic creation/switch/disposal; it does not
   certify the authenticated Standard Notes host or every long-running scenario.
 
@@ -106,15 +122,16 @@ available. Entity-map links are ordinary Markdown references, not implemented dr
 
 - The Standard Notes working-note UUID is the draft identity. Title or stream
   order is never used to attach a dirty draft to another note.
-- Input, click-away, blur, note switch, and page unload never save. Only
-  `Ctrl/Cmd+S` commits the active draft.
+- Save, Ctrl/Cmd+S, leaving the editing surface and note switches request saving;
+  security preview mutations save immediately. Input never saves by itself. A hard
+  page/process termination cannot guarantee a save; success requires a matching host ACK.
 - Switching notes restores an unsaved draft only for the same UUID. A clean
   inactive draft can be discarded.
 - Only a title ending in `.note.md` receives managed `file`, `created`, and
   `updated` fields. Ordinary Markdown documents receive no generated fields or automatic
   cleanup; authored frontmatter, including the exact three-field triplet, is preserved.
-- The host write fails closed when the active UUID changed or the Standard
-  Notes item is locked.
+- Host writes use an identity-bound target captured while the note was writable;
+  queued saves cannot be redirected to the newly active note. Known locks fail closed.
 - Preview widgets mutate one exact Markdown source range. No widget maintains
   parallel note data and no tooltip editor duplicates the source.
 
@@ -145,31 +162,30 @@ navigation and lifecycle checks. They are separate from authenticated host verif
 
 ## Shared core modules
 
-| Module owner in `src/core`                                     | Contract                                                                                                                            | Test ownership / boundary                                                     |
-| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `draft-session`                                                | Explicit commit, pending-generation and remote-update protection                                                                    | draft-session, note-draft-registry, main                                      |
-| `file-properties`                                              | `.note.md` managed fields; preserve ordinary Markdown and all authored frontmatter without cleanup                                  | file-properties, main                                                         |
-| `structured-preview`                                           | Selection boundaries, disposable cell popovers, safe table/property mutations, sibling uniqueness and extra table-cell preservation | structured-preview, editor, shared-controls-regression, lifecycle-regression  |
-| `preview-ranges`                                               | Atomic navigation for replacement decorations and explicit source reveal                                                            | editor, code-fence-core, details                                              |
-| `code-fence-preview`, `code-fence-extension`                   | Text-safe cards, permanent Copy/Edit, discovery, read-only and source/copy routing; security fences have their own renderer         | code-fence-core, editor, security-block-ui                                    |
-| `code-languages`                                               | Shared aliases for bundled CodeMirror language support                                                                              | language, editor                                                              |
-| `slash-snippets`, `note-template`                              | Grouped shared catalog, contextual queries, thinking fields, sections and `/security`; no implicit save                             | slash-snippets, security-block-ui, editor                                     |
-| `formatting`, `indentation`                                    | Heading/list transactions and Enter/Tab behavior preserve protected source, selection, snippet navigation and Undo                  | formatting, indentation, commands                                             |
-| `task-marker`                                                  | Exact checkbox mutation, read-only checks, keyboard activation and ARIA; detached controls are inert                                | shared-controls-regression, editor                                            |
-| `details-model`                                                | One-pass non-nested details grammar, fence exclusion and immutable-document cache                                                   | details, shared-controls-regression                                           |
-| `diagram-model`, `diagram-builder`                             | Bounded flow/class/sequence parsing, semantic mutations, source preservation on unsupported grammar                                 | diagram-builder, diagram-builder-guidance, diagram-flow-links                 |
-| `diagram-palette`, `diagram-renderer`                          | Semantic palette actions and interaction over the actual Mermaid SVG                                                                | diagram-palette, diagram-native-renderer, diagram-canvas-interaction          |
-| `diagram-session`                                              | Inline draft Apply/Cancel, exact block replacement, conflict/read-only protection, explicit host save                               | diagram-session, diagram-source-actions, lifecycle-regression                 |
-| `mermaid-runtime`                                              | One strict bundled renderer and SVG sanitization; source cannot override protected security configuration                           | mermaid-runtime, mermaid-runtime-directives, mermaid                          |
-| `render-queue`                                                 | Bounded engine work; pending cancellation releases payload while active work retains its slot until completion                      | mermaid, lifecycle-regression                                                 |
-| `mermaid-viewport`                                             | Zoom/rotation, bidirectional overflow and disposable event ownership                                                                | mermaid-viewport, mermaid, lifecycle-regression                               |
-| `security-model`                                               | Bounded line/legacy-YAML parsing, explicit masking, independent sections, stable serialization, safe URLs and fence redaction       | security-model, preview                                                       |
-| `security-block`                                               | Masked preview; Copy values/current TOTP/whole block; source-only Edit and independent insertions; one pending refresh              | security-block-ui, lifecycle-regression                                       |
-| `security-otp`                                                 | In-memory Base32/otpauth parsing and WebCrypto TOTP; fixed non-secret diagnostics                                                   | security-otp: RFC 6238 SHA-1/SHA-256/SHA-512 vectors and rejected inputs      |
-| `security-qr`                                                  | Retained bounded local-image decoder with resource cleanup                                                                          | security-qr; no mounted QR import or generation UI                            |
-| `context-sphere`                                               | Shared graph/region model and styles are bundled                                                                                    | context-sphere; graph/region interface mounted only in VS Code, not this host |
-| `agentic-notes`                                                | Scope/section utilities only                                                                                                        | agentic-notes; no enabled universal agent adapter or standalone writer        |
-| `icons.css`, `preview-layout.css`, module CSS and declarations | Common action presentation, preview geometry and adapter API contracts                                                              | editor, publication, TypeScript checks and browser layout QA                  |
+| Module owner in `src/core`                                     | Contract                                                                                                                            | Test ownership / boundary                                                    |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| `draft-session`                                                | Explicit commit, pending-generation and remote-update protection                                                                    | draft-session, note-draft-registry, main                                     |
+| `file-properties`                                              | `.note.md` managed fields; preserve ordinary Markdown and all authored frontmatter without cleanup                                  | file-properties, main                                                        |
+| `structured-preview`                                           | Selection boundaries, disposable cell popovers, safe table/property mutations, sibling uniqueness and extra table-cell preservation | structured-preview, editor, shared-controls-regression, lifecycle-regression |
+| `preview-ranges`                                               | Atomic navigation for replacement decorations and explicit source reveal                                                            | editor, code-fence-core, details                                             |
+| `code-fence-preview`, `code-fence-extension`                   | Text-safe cards, permanent Copy/Edit, discovery, read-only and source/copy routing; security fences have their own renderer         | code-fence-core, editor, security-block-ui                                   |
+| `code-languages`                                               | Shared aliases for bundled CodeMirror language support                                                                              | language, editor                                                             |
+| `slash-snippets`, `note-template`                              | Grouped shared catalog, contextual queries, thinking fields, sections and `/security`; no implicit save                             | slash-snippets, security-block-ui, editor                                    |
+| `formatting`, `indentation`                                    | Heading/list transactions and Enter/Tab behavior preserve protected source, selection, snippet navigation and Undo                  | formatting, indentation, commands                                            |
+| `task-marker`                                                  | Exact checkbox mutation, read-only checks, keyboard activation and ARIA; detached controls are inert                                | shared-controls-regression, editor                                           |
+| `details-model`                                                | One-pass non-nested details grammar, fence exclusion and immutable-document cache                                                   | details, shared-controls-regression                                          |
+| `diagram-model`, `diagram-builder`                             | Bounded flow/class/sequence parsing, semantic mutations, source preservation on unsupported grammar                                 | diagram-builder, diagram-builder-guidance, diagram-flow-links                |
+| `diagram-palette`, `diagram-renderer`                          | Semantic palette actions and interaction over the actual Mermaid SVG                                                                | diagram-palette, diagram-native-renderer, diagram-canvas-interaction         |
+| `diagram-session`                                              | Inline draft Apply/Cancel, exact block replacement, conflict/read-only protection, explicit host save                               | diagram-session, diagram-source-actions, lifecycle-regression                |
+| `mermaid-runtime`                                              | One strict bundled renderer and SVG sanitization; source cannot override protected security configuration                           | mermaid-runtime, mermaid-runtime-directives, mermaid                         |
+| `render-queue`                                                 | Bounded engine work; pending cancellation releases payload while active work retains its slot until completion                      | mermaid, lifecycle-regression                                                |
+| `mermaid-viewport`                                             | Zoom/rotation, bidirectional overflow and disposable event ownership                                                                | mermaid-viewport, mermaid, lifecycle-regression                              |
+| `security-model`                                               | Bounded line/legacy-YAML parsing, explicit masking, independent sections, stable serialization, safe URLs and fence redaction       | security-model, preview                                                      |
+| `security-block`                                               | Masked preview; Copy values/current TOTP/whole block; source-only Edit and independent insertions; one pending refresh              | security-block-ui, lifecycle-regression                                      |
+| `security-otp`                                                 | In-memory Base32/otpauth parsing and WebCrypto TOTP; fixed non-secret diagnostics                                                   | security-otp: RFC 6238 SHA-1/SHA-256/SHA-512 vectors and rejected inputs     |
+| `security-qr`                                                  | Retained bounded local-image decoder with resource cleanup                                                                          | security-qr; no mounted QR import or generation UI                           |
+| `agentic-notes`                                                | Scope/section utilities only                                                                                                        | agentic-notes; no enabled universal agent adapter or standalone writer       |
+| `icons.css`, `preview-layout.css`, module CSS and declarations | Common action presentation, preview geometry and adapter API contracts                                                              | editor, publication, TypeScript checks and browser layout QA                 |
 
 Adapter ownership stays explicit: `src/editor.ts`, `toolbar.ts`, `commands.ts`,
 `language.ts`, `markdown-decorations.ts` and `styles.css` mount the editor surface;
@@ -214,9 +230,6 @@ explicit distribution manifest, not maintained independently in the extension.
   rendering use their bundled dependencies.
 - Shared-source distribution does not imply every host interface is mounted in both
   products. The test matrix identifies implemented routes and their owning suites.
-  The bundled context-sphere model/styles support VS Code graph/region navigation;
-  Standard Notes receives a working note rather than the workspace graph data needed
-  to populate that interface.
 - VS Code workspace navigation, sidecar/project notes, Explorer trees, local Trash, and source-file
   selection comments are host capabilities, not Markdown editor behavior. Standard Notes UUID,
   lock state, note switching, and component theming are likewise host-only. Neither product fakes

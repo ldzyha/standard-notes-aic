@@ -26,6 +26,7 @@ import {
 import { blockViewExtensions } from "./block-views";
 import { makeCodeFenceExtension } from "./core/code-fence-extension.js";
 import { makeSecurityBlockExtension } from "./core/security-block.js";
+import { isSaveAction, wireSaveBoundary } from "./core/save-boundary.js";
 import {
   makeSecurityImportExtension,
   securityImportSaved,
@@ -54,10 +55,11 @@ export type AicEditorOptions = {
   initialText?: string;
   readOnly?: boolean;
   onChange?: (text: string) => void;
-  onSave?: () => boolean | Promise<boolean>;
+  onSave?: (reason?: "action" | "boundary") => boolean | Promise<boolean>;
 };
 
 export type SaveState = "dirty" | "saved" | "placeholder" | "unavailable";
+export type SaveFeedback = "none" | "dirty" | "saving" | "saved" | "failed";
 
 function parseRgb(value: string): [number, number, number] | null {
   const normalized = value.trim();
@@ -90,6 +92,7 @@ export function detectTheme(
     document.documentElement,
   );
   const background =
+    style?.getPropertyValue("--sn-stylekit-editor-background-color") ||
     style?.getPropertyValue("--sn-stylekit-background-color") ||
     style?.getPropertyValue("--background") ||
     style?.backgroundColor ||
@@ -123,8 +126,11 @@ export class AicEditor {
   private readonly onChange: (text: string) => void;
   private readonly onSave: AicEditorOptions["onSave"];
   private readonly saveButton: HTMLButtonElement | null;
+  private readonly saveStatus: HTMLElement | null;
+  private readonly saveControls: HTMLElement | null;
   private savePending = false;
   private readonly unwirePreviewSelection: () => void;
+  private readonly unwireSaveBoundary: () => void;
   private suppressChange = false;
   private currentReadOnly: boolean;
   private documentId: string | null = null;
@@ -158,13 +164,23 @@ export class AicEditor {
               this.saveButton?.hidden
             )
               return;
-            void Promise.resolve(this.onSave?.()).catch(() => {});
+            void Promise.resolve(this.onSave?.("action")).catch(() => {});
           },
         })
       : null;
-    if (this.saveButton) {
+    this.saveStatus = this.onSave ? this.document.createElement("span") : null;
+    this.saveControls = this.onSave
+      ? this.document.createElement("span")
+      : null;
+    if (this.saveButton && this.saveStatus && this.saveControls) {
       this.saveButton.hidden = true;
-      this.toolbar.element.prepend(this.saveButton);
+      this.saveStatus.className = "aic-save-status";
+      this.saveStatus.setAttribute("role", "status");
+      this.saveStatus.setAttribute("aria-live", "polite");
+      this.saveControls.className = "aic-save-controls";
+      this.saveControls.hidden = true;
+      this.saveControls.append(this.saveButton, this.saveStatus);
+      this.toolbar.element.prepend(this.saveControls);
     }
     this.element.append(this.toolbar.element, this.editorHost);
     parent.append(this.element);
@@ -175,6 +191,11 @@ export class AicEditor {
       root: this.document,
     });
     this.view = view;
+    this.unwireSaveBoundary = this.onSave
+      ? wireSaveBoundary(this.element, () => {
+          void Promise.resolve(this.onSave?.("boundary")).catch(() => {});
+        })
+      : () => {};
     this.unwirePreviewSelection = wirePreviewSelection(
       this.view,
       this.document,
@@ -239,6 +260,21 @@ export class AicEditor {
       EditorView.updateListener.of((update) => {
         if (!update.docChanged || this.suppressChange) return;
         this.onChange(this.serialize(update.state));
+        if (isSaveAction(update)) {
+          const doc = update.state.doc;
+          const documentId = this.documentId;
+          // Host stamping may dispatch a second editor update. Defer it until
+          // CodeMirror completes this preview-action transaction.
+          queueMicrotask(() => {
+            if (
+              !this.element.isConnected ||
+              this.view.state.doc !== doc ||
+              this.documentId !== documentId
+            )
+              return;
+            void Promise.resolve(this.onSave?.("action")).catch(() => {});
+          });
+        }
       }),
     ];
   }
@@ -344,9 +380,25 @@ export class AicEditor {
     return true;
   }
 
-  setSaveState(state: SaveState, pending = false): void {
+  setSaveState(
+    state: SaveState,
+    pending = false,
+    feedback: SaveFeedback = "none",
+  ): void {
     this.element.dataset.saveState = state;
+    this.element.dataset.saveFeedback = feedback;
     this.savePending = pending;
+    if (this.saveStatus)
+      this.saveStatus.textContent =
+        feedback === "saving"
+          ? "Saving note…"
+          : feedback === "saved"
+            ? "Note saved"
+            : feedback === "failed"
+              ? "Note not saved. Retry save."
+              : state === "dirty"
+                ? "Unsaved changes"
+                : "";
     this.reflectSaveAction();
     if (state === "saved") {
       const doc = this.view.state.doc;
@@ -365,8 +417,17 @@ export class AicEditor {
 
   private reflectSaveAction(): void {
     if (!this.saveButton) return;
+    const label =
+      this.element.dataset.saveFeedback === "failed"
+        ? "Retry save"
+        : "Save note";
+    this.saveButton.setAttribute("aria-label", label);
+    this.saveButton.title = label;
     this.saveButton.hidden = this.element.dataset.saveState !== "dirty";
     this.saveButton.disabled = this.currentReadOnly || this.savePending;
+    if (this.saveControls)
+      this.saveControls.hidden =
+        this.saveButton.hidden && !this.saveStatus?.textContent;
   }
 
   refreshTheme(): MermaidTheme {
@@ -382,6 +443,7 @@ export class AicEditor {
   }
 
   destroy(): void {
+    this.unwireSaveBoundary();
     this.unwirePreviewSelection();
     this.view.destroy();
     this.element.remove();

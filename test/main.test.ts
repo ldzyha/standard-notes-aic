@@ -84,6 +84,72 @@ function save() {
 }
 
 describe("Standard Notes editor bridge", () => {
+  it("does not automatically retry a failed pending save after a note switch", async () => {
+    vi.resetModules();
+    bridge.saves.length = 0;
+    window.ReactNativeWebView = {};
+    const root = document.createElement("main");
+    root.id = "app";
+    document.body.append(root);
+    await import("../src/main");
+    const view = EditorView.findFromDOM(
+      root.querySelector<HTMLElement>(".cm-editor")!,
+    )!;
+    const editor = root.querySelector<HTMLElement>(".aic-editor")!;
+
+    bridge.stream("note-a", "A");
+    view.dispatch({ changes: { from: 1, insert: " draft" } });
+    save();
+    expect(bridge.saves).toHaveLength(1);
+    bridge.stream("note-b", "B");
+    expect(view.state.doc.toString()).toBe("B");
+
+    bridge.reply({ error: "save-error" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(bridge.saves).toHaveLength(1);
+    bridge.stream("note-a", "A");
+    expect(view.state.doc.toString()).toBe("A draft");
+    expect(editor.dataset.saveFeedback).toBe("failed");
+    const retry = root.querySelector<HTMLButtonElement>(".aic-save-button")!;
+    expect(retry.getAttribute("aria-label")).toBe("Retry save");
+    expect(retry.disabled).toBe(false);
+    expect(bridge.saves).toHaveLength(1);
+
+    retry.click();
+    expect(bridge.saves).toHaveLength(2);
+    expect(bridge.saves[1]).toMatchObject({ id: "note-a", text: "A draft" });
+    bridge.reply();
+    await vi.waitFor(() => expect(editor.dataset.saveState).toBe("saved"));
+  });
+
+  it("starts a dirty old-note save before a direct context switch", async () => {
+    vi.resetModules();
+    bridge.saves.length = 0;
+    window.ReactNativeWebView = {};
+    const root = document.createElement("main");
+    root.id = "app";
+    document.body.append(root);
+    await import("../src/main");
+    const view = EditorView.findFromDOM(
+      root.querySelector<HTMLElement>(".cm-editor")!,
+    )!;
+    bridge.stream("note-a", "A");
+    view.dispatch({ changes: { from: 1, insert: " draft" } });
+    expect(bridge.saves).toHaveLength(0);
+    bridge.stream("note-b", "B");
+    expect(bridge.saves).toHaveLength(1);
+    expect(bridge.saves[0]).toMatchObject({ id: "note-a", text: "A draft" });
+    expect(view.state.doc.toString()).toBe("B");
+    bridge.reply();
+    await Promise.resolve();
+    expect(view.state.doc.toString()).toBe("B");
+    bridge.stream("note-a", "A draft");
+    expect(view.state.doc.toString()).toBe("A draft");
+    expect(
+      root.querySelector<HTMLElement>(".aic-editor")?.dataset.saveState,
+    ).toBe("saved");
+  });
+
   it("explicitly converts and saves security blocks, retries a failed save and reopens the saved Markdown", async () => {
     vi.resetModules();
     bridge.saves.length = 0;
@@ -131,16 +197,18 @@ describe("Standard Notes editor bridge", () => {
     });
     expect(bridge.saves[0]!.preview).not.toContain(secret);
     expect(bridge.saves[0]!.preview).not.toContain(password);
-    expect(root.querySelector('[role="status"]')?.textContent).toContain(
-      "Saving note",
-    );
+    expect(
+      root.querySelector('.cm-aic-security-import-bar [role="status"]')
+        ?.textContent,
+    ).toContain("Saving note");
     bridge.stream("synthetic-authenticator", source);
     expect(view.state.doc.toString()).toBe(converted);
     bridge.reply({ error: "save-error" });
     await vi.waitFor(() =>
-      expect(root.querySelector('[role="status"]')?.textContent).toContain(
-        "Note not saved. Keep it open and retry.",
-      ),
+      expect(
+        root.querySelector('.cm-aic-security-import-bar [role="status"]')
+          ?.textContent,
+      ).toContain("Note not saved. Keep it open and retry."),
     );
     expect(editor.dataset.saveState).toBe("dirty");
     root.dispatchEvent(new FocusEvent("focusout", { relatedTarget: null }));
@@ -154,19 +222,19 @@ describe("Standard Notes editor bridge", () => {
     expect(root.querySelectorAll(".cm-aic-security")).toHaveLength(1);
     bridge.reply({ error: "save-error" });
     await vi.waitFor(() =>
-      expect(root.querySelector('[role="status"]')?.textContent).toContain(
-        "not saved",
-      ),
+      expect(
+        root.querySelector('.cm-aic-security-import-bar [role="status"]')
+          ?.textContent,
+      ).toContain("not saved"),
     );
 
     bridge.stream("other-synthetic-note", "Other note");
     bridge.stream("synthetic-authenticator", source);
     expect(view.state.doc.toString()).toBe(converted);
     expect(root.querySelectorAll(".cm-aic-security")).toHaveLength(1);
-    expect(root.querySelector('[aria-label="Retry save"]')).toBeNull();
-    const touchSave = root.querySelector<HTMLButtonElement>(
-      'button[aria-label="Save note"]',
-    )!;
+    const touchSave =
+      root.querySelector<HTMLButtonElement>(".aic-save-button")!;
+    expect(touchSave.getAttribute("aria-label")).toBe("Retry save");
     expect(touchSave.hidden).toBe(false);
     expect(touchSave.disabled).toBe(false);
     bridge.stream("synthetic-authenticator", source, {
@@ -189,8 +257,10 @@ describe("Standard Notes editor bridge", () => {
     touchSave.click();
     expect(bridge.saves).toHaveLength(4);
     expect(bridge.saves[3]!.text).toBe(converted);
+    const documentBeforeAck = view.state.doc;
     bridge.reply();
     await vi.waitFor(() => expect(editor.dataset.saveState).toBe("saved"));
+    expect(view.state.doc).toBe(documentBeforeAck);
     expect(touchSave.hidden).toBe(true);
 
     bridge.stream("other-synthetic-note", "Other note");
@@ -226,11 +296,12 @@ describe("Standard Notes editor bridge", () => {
       )!
       .click();
     bridge.reply({ error: "save-error" });
-    const status = () => root.querySelector('[role="status"]')?.textContent;
+    const status = () =>
+      root.querySelector('.cm-aic-security-import-bar [role="status"]')
+        ?.textContent;
     await vi.waitFor(() => expect(status()).toContain("not saved"));
-    const touchSave = root.querySelector<HTMLButtonElement>(
-      'button[aria-label="Save note"]',
-    )!;
+    const touchSave =
+      root.querySelector<HTMLButtonElement>(".aic-save-button")!;
     touchSave.click();
     expect(bridge.saves).toHaveLength(2);
     expect(touchSave.disabled).toBe(true);
@@ -256,7 +327,7 @@ describe("Standard Notes editor bridge", () => {
     expect(root.querySelector('[aria-label="Retry save"]')).toBeNull();
   });
 
-  it("saves explicitly, protects unacknowledged drafts, isolates UUIDs and applies metadata locks", async () => {
+  it("saves on editor exit, coalesces the latest old-note draft across a switch, and respects locks", async () => {
     vi.resetModules();
     bridge.saves.length = 0;
     window.ReactNativeWebView = {};
@@ -273,68 +344,72 @@ describe("Standard Notes editor bridge", () => {
     expect(editor.dataset.saveState).toBe("unavailable");
 
     bridge.stream("note-a", "First");
-    view.dispatch({ selection: { anchor: 3 } });
-    bridge.stream("note-a", "prefix First");
-    expect(view.state.selection.main.head).toBe(10);
-    bridge.stream("note-a", "First");
     view.dispatch({
       changes: { from: 5, insert: " local" },
       userEvent: "input",
     });
-    root.dispatchEvent(new FocusEvent("focusout", { relatedTarget: null }));
     expect(bridge.saves).toHaveLength(0);
     expect(editor.dataset.saveState).toBe("dirty");
-    bridge.clear();
-    expect(view.state.readOnly).toBe(true);
-    expect(view.state.doc.toString()).toBe("");
-    expect(editor.dataset.saveState).toBe("unavailable");
-    save();
-    expect(bridge.saves).toHaveLength(0);
-    bridge.stream("note-a", "First");
-    expect(view.state.doc.toString()).toBe("First local");
-    expect(view.state.readOnly).toBe(false);
-    bridge.stream("note-b", "Second");
-    bridge.stream("note-a", "First");
-    expect(view.state.doc.toString()).toBe("First local");
-    save();
+    expect(root.querySelector(".aic-save-status")?.textContent).toBe(
+      "Unsaved changes",
+    );
+    editor.dispatchEvent(new FocusEvent("focusout", { relatedTarget: null }));
     expect(bridge.saves).toHaveLength(1);
     expect(bridge.saves[0]).toMatchObject({
       id: "note-a",
       text: "First local",
-      preview: "First local",
     });
     expect(editor.dataset.saveState).toBe("dirty");
-    save();
+    expect(root.querySelector(".aic-save-status")?.textContent).toBe(
+      "Saving note…",
+    );
+    view.dispatch({ changes: { from: view.state.doc.length, insert: "!" } });
+    const latestA = view.state.doc.toString();
     expect(bridge.saves).toHaveLength(1);
-    bridge.stream("note-a", "First");
-    expect(view.state.doc.toString()).toBe("First local");
-    bridge.stream("note-a", "First local");
+    bridge.stream("note-b", "Second");
+    expect(view.state.doc.toString()).toBe("Second");
+    expect(editor.dataset.saveState).toBe("saved");
+    bridge.reply();
+    await vi.waitFor(() => expect(bridge.saves).toHaveLength(2));
+    expect(bridge.saves[1]).toMatchObject({ id: "note-a", text: latestA });
+    expect(view.state.doc.toString()).toBe("Second");
+    bridge.reply();
+    await Promise.resolve();
+    bridge.stream("note-a", latestA);
+    expect(view.state.doc.toString()).toBe(latestA);
+    expect(editor.dataset.saveState).toBe("saved");
+
+    view.dispatch({
+      changes: { from: view.state.doc.length, insert: " more" },
+    });
+    bridge.stream("note-a", latestA, { locked: true, metadata: true });
+    expect(view.state.readOnly).toBe(true);
+    expect(view.contentDOM.getAttribute("contenteditable")).toBe("false");
+    expect(view.state.doc.toString()).toBe(latestA + " more");
     expect(editor.dataset.saveState).toBe("dirty");
+    save();
+    expect(bridge.saves).toHaveLength(2);
+    bridge.stream("note-a", latestA, { metadata: true });
+    expect(view.state.readOnly).toBe(false);
+    save();
+    expect(bridge.saves).toHaveLength(3);
+    expect(bridge.saves[2]).toMatchObject({
+      id: "note-a",
+      text: latestA + " more",
+    });
+    bridge.reply({ error: "save-error" });
+    await vi.waitFor(() => expect(editor.dataset.saveFeedback).toBe("failed"));
+    expect(editor.dataset.saveState).toBe("dirty");
+    expect(
+      root.querySelector(".aic-save-button")?.getAttribute("aria-label"),
+    ).toBe("Retry save");
+    editor.dispatchEvent(new FocusEvent("focusout", { relatedTarget: null }));
+    expect(bridge.saves).toHaveLength(3);
+    root.querySelector<HTMLButtonElement>(".aic-save-button")!.click();
+    expect(bridge.saves).toHaveLength(4);
     bridge.reply();
     await vi.waitFor(() => expect(editor.dataset.saveState).toBe("saved"));
 
-    view.dispatch({ changes: { from: view.state.doc.length, insert: "!" } });
-    bridge.stream("note-a", "First local", { locked: true, metadata: true });
-    expect(view.state.readOnly).toBe(true);
-    expect(view.contentDOM.getAttribute("contenteditable")).toBe("false");
-    expect(view.state.doc.toString()).toBe("First local!");
-    expect(editor.dataset.saveState).toBe("dirty");
-    save();
-    expect(bridge.saves).toHaveLength(1);
-    bridge.stream("note-a", "First local", { metadata: true });
-    expect(view.state.readOnly).toBe(false);
-    save();
-    bridge.reply({ error: "save-error" });
-    await Promise.resolve();
-    expect(editor.dataset.saveState).toBe("dirty");
-    save();
-    bridge.stream("note-b", "Second");
-    bridge.reply();
-    await Promise.resolve();
-    expect(view.state.doc.toString()).toBe("Second");
-    expect(editor.dataset.saveState).toBe("saved");
-
-    view.dispatch({ changes: { from: 0, to: 6, insert: "Shared" } });
     bridge.stream("note-c", "Shared");
     expect(undo(view)).toBe(false);
     expect(view.state.doc.toString()).toBe("Shared");
@@ -350,6 +425,15 @@ describe("Standard Notes editor bridge", () => {
     save();
     expect(bridge.saves).toHaveLength(savesBeforeDocument);
     expect(view.state.doc.toString()).toBe(documentSource);
+    bridge.stream("locked-markdown-note", "# Locked", {
+      title: "documentation.note.md",
+      createdAt: "2026-08-20T10:00:00.000Z",
+      locked: true,
+    });
+    const savesBeforeLocked = bridge.saves.length;
+    save();
+    expect(bridge.saves).toHaveLength(savesBeforeLocked);
+    expect(view.state.doc.toString()).toBe("# Locked");
     bridge.stream("markdown-note", "# Note", {
       title: "documentation.note.md",
       createdAt: "2026-08-20T10:00:00.000Z",
