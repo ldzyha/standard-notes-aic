@@ -10,7 +10,8 @@ function standalone(state, block) {
   if (node?.parent?.name !== "Document") return false;
   const first = state.doc.lineAt(block.from);
   const last = state.doc.lineAt(block.to);
-  const opening = /^ {0,3}(`{3,}|~{3,})aic-security\s*$/u.exec(first.text);
+  const opening =
+    /^ {0,3}(`{3,}|~{3,})aic-security(?:[ \t]+v[23])?[ \t]*$/u.exec(first.text);
   return Boolean(
     opening &&
     last.from > first.from &&

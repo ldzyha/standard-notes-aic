@@ -1,4 +1,4 @@
-const MAX_LENGTH = 16 * 1024;
+export const FIELD_PARTS_MAX_LENGTH = 16 * 1024;
 const ERROR = "Invalid field parts";
 
 function fail() {
@@ -6,7 +6,7 @@ function fail() {
 }
 
 function bounded(value) {
-  return typeof value === "string" && value.length <= MAX_LENGTH;
+  return typeof value === "string" && value.length <= FIELD_PARTS_MAX_LENGTH;
 }
 
 /** Split encoded source before a host's own escape decoder runs. */

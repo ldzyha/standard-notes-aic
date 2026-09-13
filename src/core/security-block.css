@@ -24,6 +24,30 @@
   display: grid;
   min-width: 0;
 }
+.cm-aic-security-capacity {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.85rem;
+  padding: 0.35rem 0.65rem;
+  border-bottom: 1px solid var(--aic-border);
+  font-size: 0.75rem;
+  color: var(--aic-contrast-fg);
+}
+.cm-aic-security-field-count {
+  margin-left: auto;
+  flex: 0 0 auto;
+  font-size: 0.75rem;
+  color: var(--aic-contrast-fg);
+}
+.cm-aic-security-capacity-advice {
+  margin: 0;
+  padding: 0.4rem 0.65rem;
+  border-top: 1px solid var(--aic-border);
+  font-size: 0.75rem;
+  color: var(--aic-contrast-fg);
+  white-space: normal;
+  overflow-wrap: break-word;
+}
 .cm-aic-security-section {
   min-width: 0;
 }
@@ -483,6 +507,20 @@
 .cm-aic-security-error {
   margin: 0.5rem 0.65rem;
   color: var(--aic-danger);
+  min-width: 0;
+  grid-column: 1 / -1;
+  white-space: normal;
+  overflow-wrap: break-word;
+}
+.cm-aic-security-error-location {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.cm-aic-security-error p {
+  margin: 0.2rem 0 0;
+  color: var(--aic-surface-fg, var(--aic-contrast-fg));
 }
 .cm-aic-security-recovery {
   border-top: 1px solid var(--aic-border);

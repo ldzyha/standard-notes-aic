@@ -1,5 +1,9 @@
 export const PIPE_FIELD_OPTIONS = Object.freeze({ fieldSyntax: "pipes" });
-export const SECURITY_FENCE_INFO = "aic-security v2";
+export const SECURITY_FIELD_OPTIONS = Object.freeze({
+  fieldSyntax: "pipes",
+  sectionSyntax: "separators",
+});
+export const SECURITY_FENCE_INFO = "aic-security v3";
 export const PROPERTIES_SYNTAX_MARKER = "# aic-fields: v2";
 
 /** Only the first body line is a version directive, never a scalar's contents. */

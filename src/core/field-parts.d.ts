@@ -1,3 +1,4 @@
+export const FIELD_PARTS_MAX_LENGTH: 16384;
 export type FieldParts = Readonly<{
   value: string;
   description?: string;

@@ -1,9 +1,10 @@
 import { isAlias, isMap, isScalar, isSeq, parseDocument } from "yaml";
 import { parseFieldLabel, serializeFieldLabel } from "./field-label.js";
 import { parseFieldParts, serializeFieldParts } from "./field-parts.js";
-import { parseCardField } from "./security-card.js";
+import { normalizeCardPart, parseCardField } from "./security-card.js";
 import { propertiesSyntax } from "./field-syntax.js";
 import { isRecoveryField, parseRecoveryCodes } from "./security-recovery.js";
+import { blockDiagnostic } from "./block-diagnostic.js";
 
 const INVALID = Object.freeze({ ok: false, code: "invalid_properties_block" });
 const MANAGED = new Set(["file", "created", "updated"]);
@@ -61,8 +62,35 @@ function decimalIdentity(source) {
 // Never materialize authored YAML as a JavaScript object. Retain the AST and
 // token ranges, so scalar types, map/sequence boundaries and comments survive.
 function read(body, options = {}) {
-  if (typeof body !== "string" || body.length > MAX_BODY) fail();
-  options = fieldOptions(body, options);
+  const reject = (code, message, from = 0, to = from) => {
+    const error = new TypeError("Invalid properties block");
+    error.diagnostic = blockDiagnostic(body, code, message, from, to);
+    throw error;
+  };
+  const range = (node, fallback = 0) =>
+    Array.isArray(node?.range)
+      ? [node.range[0], node.range[1]]
+      : [fallback, fallback];
+  const rejectAt = (code, message, node, fallback = 0) =>
+    reject(code, message, ...range(node, fallback));
+  if (typeof body !== "string")
+    reject("invalid_input", "Properties source must be text.");
+  if (body.length > MAX_BODY)
+    reject(
+      "body_too_large",
+      "Properties block is too large; shorten it.",
+      MAX_BODY,
+      body.length,
+    );
+  const syntax = propertiesSyntax(body);
+  if (syntax.unsupportedSyntax)
+    reject(
+      "unsupported_version",
+      "Use the supported v2 fields marker.",
+      0,
+      body.indexOf("\n") < 0 ? body.length : body.indexOf("\n"),
+    );
+  options = { ...syntax, ...options };
   // yaml treats a CR-only directive body as one comment. Never offer an empty
   // editable model for source whose fields the YAML parser did not consume.
   if (
@@ -70,24 +98,60 @@ function read(body, options = {}) {
     body.includes("\r") &&
     !body.includes("\n")
   )
-    fail();
+    reject(
+      "cr_only_input",
+      "Use line breaks supported by YAML (LF or CRLF).",
+      body.indexOf("\r"),
+      body.indexOf("\r") + 1,
+    );
   if (options?.fieldSyntax !== undefined && options.fieldSyntax !== "pipes")
-    fail();
+    reject("unsupported_syntax", "Use the supported fields syntax.");
   const doc = parseDocument(body, {
     keepSourceTokens: true,
     intAsBigInt: true,
     strict: true,
     uniqueKeys: true,
   });
+  const yamlIssue = doc.errors[0] ?? doc.warnings[0];
+  if (yamlIssue) {
+    const [from, to] = Array.isArray(yamlIssue.pos) ? yamlIssue.pos : [0, 0];
+    if (yamlIssue.code === "DUPLICATE_KEY")
+      reject(
+        "duplicate_key",
+        "Remove or rename the duplicate YAML key.",
+        from,
+        to,
+      );
+    if (yamlIssue.code === "TAG_RESOLVE_FAILED")
+      reject(
+        "unsupported_tag",
+        "Remove the YAML tag and use a plain value.",
+        from,
+        to,
+      );
+    reject("yaml_syntax", "Fix the YAML syntax or indentation here.", from, to);
+  }
   if (
-    doc.errors.length ||
-    doc.warnings.length ||
     doc.directives?.docStart ||
     doc.directives?.docEnd ||
-    doc.directives?.yaml.explicit ||
-    (doc.contents !== null && !isMap(doc.contents))
+    doc.directives?.yaml.explicit
   )
-    fail();
+    reject(
+      "yaml_directive",
+      "Remove YAML document markers or directives from the properties body.",
+    );
+  if (isAlias(doc.contents))
+    rejectAt(
+      "unsupported_alias",
+      "Replace the YAML alias with a direct mapping.",
+      doc.contents,
+    );
+  if (doc.contents !== null && !isMap(doc.contents))
+    rejectAt(
+      "invalid_root",
+      "Use a YAML mapping of property names and values.",
+      doc.contents,
+    );
   const root = doc.contents;
   const dynamic = {
     label: "Properties",
@@ -98,38 +162,92 @@ function read(body, options = {}) {
   const custom = { label: "Fields", fields: [], allowAdd: true };
   const sections = [dynamic, custom];
   const groups = [
-    { section: dynamic, node: root, entries: [], managed: true },
-    { section: custom, node: root, entries: [], path: [], hidden: false },
+    { section: dynamic, node: root, entries: [], ranges: [], managed: true },
+    {
+      section: custom,
+      node: root,
+      entries: [],
+      ranges: [],
+      path: [],
+      hidden: false,
+    },
   ];
   let count = 0,
     fields = 0;
   const scalar = (node) => {
+    if (isAlias(node))
+      rejectAt(
+        "unsupported_alias",
+        "Replace the YAML alias with a direct value.",
+        node,
+      );
+    if (node?.anchor)
+      rejectAt(
+        "unsupported_anchor",
+        "Remove the YAML anchor and write the value directly.",
+        node,
+      );
+    if (node?.tag)
+      rejectAt(
+        "unsupported_tag",
+        "Remove the YAML tag and use a plain scalar.",
+        node,
+      );
     if (
       !isScalar(node) ||
-      node.tag ||
-      node.anchor ||
       !(
         node.value === null ||
         ["string", "number", "bigint", "boolean"].includes(typeof node.value)
-      ) ||
-      (typeof node.value === "number" &&
-        (!Number.isFinite(node.value) ||
-          decimalIdentity(node.source) !== decimalIdentity(String(node.value))))
+      )
     )
-      fail();
+      rejectAt(
+        "invalid_scalar",
+        "Use a text, number, boolean, or empty scalar value.",
+        node,
+      );
+    if (
+      typeof node.value === "number" &&
+      (!Number.isFinite(node.value) ||
+        decimalIdentity(node.source) !== decimalIdentity(String(node.value)))
+    )
+      rejectAt(
+        "imprecise_number",
+        "Write this number as quoted text to preserve its digits.",
+        node,
+      );
     const value = node.value === null ? "" : String(node.value);
-    if (value.length > MAX_VALUE) fail();
+    if (value.length > MAX_VALUE)
+      rejectAt("value_too_large", "Shorten this property value.", node);
     return value;
   };
   const add = (group, key, node, pair, index, readOnly) => {
-    const parsed = parseFieldLabel(key, options);
+    let parsed;
+    try {
+      parsed = parseFieldLabel(key, options);
+    } catch {
+      rejectAt(
+        "invalid_field_label",
+        "Fix this field name or its v2 type marker.",
+        pair?.key ?? node,
+      );
+    }
     const value = scalar(node);
-    const parts =
+    let parts = { value };
+    if (
       options.fieldSyntax === "pipes" &&
       !readOnly &&
       typeof node.value === "string"
-        ? parseFieldParts(value)
-        : { value };
+    ) {
+      try {
+        parts = parseFieldParts(value);
+      } catch {
+        rejectAt(
+          "invalid_field_parts",
+          "Use at most three pipe-separated parts and escape only backslash or pipe.",
+          node,
+        );
+      }
+    }
     const field = {
       label: parsed.label,
       ...parts,
@@ -137,29 +255,97 @@ function read(body, options = {}) {
       hide: Boolean(group.hidden || parsed.hide),
       ...(readOnly ? { readOnly: true } : {}),
     };
-    if (field.kind === "card" && !parseCardField(field).ok) fail();
+    if (field.kind === "card" && !parseCardField(field).ok) {
+      const components = [
+        [
+          "number",
+          field.value,
+          "invalid_card_number",
+          "Use 12–19 card digits, optionally separated by spaces or hyphens; remove extra spaces around the number.",
+        ],
+        [
+          "date",
+          field.description ?? "",
+          "invalid_card_date",
+          "Use an expiry date in MM/YY or MM/YYYY format; remove extra spaces around the date.",
+        ],
+        [
+          "cvv",
+          field.additionalSecret ?? "",
+          "invalid_card_cvv",
+          "Use a 3- or 4-digit CVV; remove extra spaces around it.",
+        ],
+      ];
+      for (const [part, component, code, message] of components) {
+        try {
+          if (normalizeCardPart(part, component) !== component)
+            throw new TypeError();
+        } catch {
+          rejectAt(code, message, node);
+        }
+      }
+      rejectAt("invalid_card_size", "Shorten the typed card value.", node);
+    }
+    if (++fields > 256)
+      rejectAt(
+        "too_many_fields",
+        "Reduce the properties block to at most 256 fields.",
+        pair?.key ?? node,
+      );
     if (
-      ++fields > 256 ||
       group.entries.some((entry) => identity(entry.field) === identity(field))
     )
-      fail();
+      rejectAt(
+        "duplicate_field",
+        "Rename or remove the repeated field.",
+        pair?.key ?? node,
+      );
     group.section.fields.push(field);
+    group.ranges.push(
+      Array.isArray(node?.range)
+        ? { from: node.range[0], to: node.range[1] }
+        : null,
+    );
     group.entries.push({ field, key, node, pair, index });
   };
   function walk(node, path, hidden, depth, existing) {
-    if (
-      ++count > 512 ||
-      depth > 16 ||
-      isAlias(node) ||
-      node?.tag ||
-      node?.anchor
-    )
-      fail();
-    if (!isMap(node) && !isSeq(node)) fail();
+    if (++count > 512)
+      rejectAt("too_many_nodes", "Reduce the number of YAML entries.", node);
+    if (depth > 16)
+      rejectAt(
+        "nesting_too_deep",
+        "Reduce YAML nesting to at most 16 levels.",
+        node,
+      );
+    if (isAlias(node))
+      rejectAt(
+        "unsupported_alias",
+        "Replace the YAML alias with a direct value.",
+        node,
+      );
+    if (node?.anchor)
+      rejectAt(
+        "unsupported_anchor",
+        "Remove the YAML anchor and write the value directly.",
+        node,
+      );
+    if (node?.tag)
+      rejectAt(
+        "unsupported_tag",
+        "Remove the YAML tag and use a plain mapping or list.",
+        node,
+      );
+    if (!isMap(node) && !isSeq(node))
+      rejectAt(
+        "invalid_nesting",
+        "Use a YAML mapping or list for nested properties.",
+        node,
+      );
     const group = existing ?? {
       section: { label: pointer(path), fields: [], allowAdd: isMap(node) },
       node,
       entries: [],
+      ranges: [],
       path,
       hidden,
     };
@@ -167,25 +353,78 @@ function read(body, options = {}) {
       sections.push(group.section);
       groups.push(group);
     }
-    if (sections.length > 64) fail();
+    if (sections.length > 64)
+      rejectAt(
+        "too_many_sections",
+        "Reduce the number of nested sections.",
+        node,
+      );
     const keys = new Set();
     node.items.forEach((item, index) => {
-      if (++count > 512) fail();
       const pair = isMap(node) ? item : null;
+      if (++count > 512)
+        rejectAt(
+          "too_many_nodes",
+          "Reduce the number of YAML entries.",
+          pair?.key ?? item,
+        );
       const key = pair ? pair.key?.value : `[${index + 1}]`;
-      if (
-        pair &&
-        (!isScalar(pair.key) ||
-          pair.key.tag ||
-          pair.key.anchor ||
+      if (pair) {
+        if (isAlias(pair.key))
+          rejectAt(
+            "unsupported_alias",
+            "Replace the YAML alias with a direct field name.",
+            pair.key,
+          );
+        if (pair.key?.tag)
+          rejectAt(
+            "unsupported_tag",
+            "Remove the YAML tag from this field name.",
+            pair.key,
+          );
+        if (pair.key?.anchor)
+          rejectAt(
+            "unsupported_anchor",
+            "Remove the YAML anchor from this field name.",
+            pair.key,
+          );
+        if (
+          !isScalar(pair.key) ||
           !validName(key) ||
-          pair.srcToken?.explicitKey ||
-          keys.has(key))
-      )
-        fail();
+          pair.srcToken?.explicitKey
+        )
+          rejectAt(
+            "invalid_name",
+            "Use a simple, nonempty YAML field name here.",
+            pair.key,
+          );
+        if (keys.has(key))
+          rejectAt(
+            "duplicate_key",
+            "Remove or rename the duplicate YAML key.",
+            pair.key,
+          );
+      }
       keys.add(key);
       const value = pair ? pair.value : item;
-      if (isAlias(value) || value?.tag || value?.anchor) fail();
+      if (isAlias(value))
+        rejectAt(
+          "unsupported_alias",
+          "Replace the YAML alias with a direct value.",
+          value,
+        );
+      if (value?.tag)
+        rejectAt(
+          "unsupported_tag",
+          "Remove the YAML tag from this value.",
+          value,
+        );
+      if (value?.anchor)
+        rejectAt(
+          "unsupported_anchor",
+          "Remove the YAML anchor and write the value directly.",
+          value,
+        );
       if (path.length === 0 && MANAGED.has(key)) {
         add(groups[0], key, value, pair, index, true);
       } else if (isMap(value) || isSeq(value)) {
@@ -203,14 +442,34 @@ function read(body, options = {}) {
     });
   }
   if (root) walk(root, [], false, 0, groups[1]);
-  return { doc, root, model: { sections }, groups };
+  return {
+    doc,
+    root,
+    model: { sections },
+    groups,
+    fieldRanges: groups.map((group) => group.ranges),
+  };
 }
 
 export function parsePropertiesBody(body, options = {}) {
   try {
-    return { ok: true, model: read(body, options).model };
-  } catch {
-    return INVALID;
+    const parsed = read(body, options);
+    return options?.diagnostics
+      ? { ok: true, model: parsed.model, fieldRanges: parsed.fieldRanges }
+      : { ok: true, model: parsed.model };
+  } catch (error) {
+    return options?.diagnostics
+      ? {
+          ...INVALID,
+          diagnostic:
+            error?.diagnostic ??
+            blockDiagnostic(
+              body,
+              "invalid_properties_block",
+              "Fix this properties block before previewing it.",
+            ),
+        }
+      : INVALID;
   }
 }
 

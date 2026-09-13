@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { convertAuthenticatorJson } from "../src/core/security-import.js";
 import { parseSecurityBlock } from "../src/core/security-model.js";
+import {
+  SECURITY_FIELD_OPTIONS,
+  SECURITY_FENCE_INFO,
+} from "../src/core/field-syntax.js";
 
 type Entry = Record<string, unknown>;
 
@@ -10,17 +14,17 @@ function convert(entries: Entry[]) {
 
 function models(markdown: string) {
   return markdown.split("\n\n").map((block) => {
-    expect(block.startsWith("```aic-security v2\n")).toBe(true);
+    expect(block.startsWith(`\`\`\`${SECURITY_FENCE_INFO}\n`)).toBe(true);
     expect(block.endsWith("\n```")).toBe(true);
-    const body = block.slice("```aic-security v2\n".length, -3);
-    const parsed = parseSecurityBlock(body, { fieldSyntax: "pipes" });
+    const body = block.slice(`\`\`\`${SECURITY_FENCE_INFO}\n`.length, -3);
+    const parsed = parseSecurityBlock(body, SECURITY_FIELD_OPTIONS);
     expect(parsed.ok).toBe(true);
     return parsed.ok ? parsed.model : null;
   });
 }
 
 describe("Authenticator JSON import", () => {
-  it("round-trips separate entries in order without combining duplicates", () => {
+  it("packs separate accounts as ordered, untitled v3 sections without combining duplicates", () => {
     const entries = [
       { service: "Example", account: "alice", secret: "JBSWY3DP" },
       { service: "Example", account: "alice", secret: "MZXW6YTB" },
@@ -28,21 +32,66 @@ describe("Authenticator JSON import", () => {
     const result = convert(entries);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.count).toBe(2);
-    expect(models(result.markdown)).toEqual(
-      entries.map((entry) => ({
-        sections: [
-          {
-            label: "Main",
-            fields: [
-              { label: "Service", value: entry.service, hide: false },
-              { label: "Account", value: entry.account, hide: false },
-              { label: "TOTP", value: entry.secret, hide: true, kind: "totp" },
-            ],
-          },
-        ],
-      })),
-    );
+    expect(result.count).toBe(1);
+    expect(result.blockCount).toBe(1);
+    expect(result.accountCount).toBe(2);
+    expect(result.markdown.match(/^---$/gmu)).toHaveLength(1);
+    expect(models(result.markdown)).toEqual([
+      {
+        sections: entries.map((entry) => ({
+          label: "",
+          fields: [
+            { label: "Service", value: entry.service, hide: false },
+            { label: "Account", value: entry.account, hide: false },
+            { label: "TOTP", value: entry.secret, hide: true, kind: "totp" },
+          ],
+        })),
+      },
+    ]);
+  });
+
+  it("starts a second block after sixteen account sections", () => {
+    const entries = Array.from({ length: 17 }, (_, index) => ({
+      service: `Service ${index}`,
+      account: `account-${index}`,
+      secret: `KEY${index}`,
+    }));
+    const result = convert(entries);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect([result.accountCount, result.blockCount, result.count]).toEqual([
+      17, 2, 2,
+    ]);
+    const parsed = models(result.markdown);
+    expect(parsed.map((model) => model!.sections.length)).toEqual([16, 1]);
+    expect(
+      parsed
+        .flatMap((model) => model!.sections)
+        .map((section) => section.fields[0]!.value),
+    ).toEqual(entries.map((entry) => entry.service));
+  });
+
+  it("splits by encoded body size and keeps every value losslessly", () => {
+    const secret = "\u0001".repeat(1500);
+    const entries = Array.from({ length: 8 }, (_, index) => ({
+      service: `S${index}`,
+      account: `A${index}`,
+      secret,
+    }));
+    const result = convert(entries);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.blockCount).toBeGreaterThan(1);
+    expect(
+      models(result.markdown)
+        .flatMap((model) => model!.sections)
+        .map((section) => section.fields[2]!.value),
+    ).toEqual(entries.map((entry) => entry.secret));
+    const failure = convert([
+      { service: "S", account: "A", secret: "PRIVATE".repeat(3000) },
+    ]);
+    expect(failure).toEqual({ ok: false, code: "too_large" });
+    expect(JSON.stringify(failure)).not.toContain("PRIVATE");
   });
 
   it("keeps Service intact and adds an Open-compatible URL for direct and Markdown links", () => {
@@ -59,7 +108,7 @@ describe("Authenticator JSON import", () => {
     if (!result.ok) return;
     const parsed = models(result.markdown);
     for (const [index, service] of services.entries()) {
-      const fields = parsed[index]!.sections[0]!.fields;
+      const fields = parsed[0]!.sections[index]!.fields;
       expect(fields[0]).toEqual({
         label: "Service",
         value: service,
@@ -117,7 +166,7 @@ describe("Authenticator JSON import", () => {
     expect(fields[2]!.kind).toBe("totp");
   });
 
-  it("sanitizes terminal v2 marker suffixes without changing field kinds", () => {
+  it("sanitizes typed marker suffixes without changing field kinds", () => {
     const result = convert([
       {
         service: "S",
@@ -214,18 +263,30 @@ describe("Authenticator JSON import", () => {
         },
       ]),
     ).toEqual({ ok: false, code: "too_large" });
-    expect(
-      convert([
-        {
-          service: "S",
-          account: "A",
-          secret: "K",
-          ...Object.fromEntries(
-            Array.from({ length: 62 }, (_, i) => [`key${i}`, "v"]),
-          ),
-        },
-      ]),
-    ).toEqual({ ok: false, code: "too_large" });
+    const manyFields = convert([
+      {
+        service: "S",
+        account: "A",
+        secret: "K",
+        ...Object.fromEntries(
+          Array.from({ length: 62 }, (_, i) => [`key${i}`, "v"]),
+        ),
+      },
+    ]);
+    expect(manyFields.ok).toBe(true);
+    if (manyFields.ok) {
+      const packed = models(manyFields.markdown);
+      expect(
+        packed
+          .flatMap((model) => model!.sections)
+          .map((section) => section.fields.length),
+      ).toEqual([64, 1]);
+      expect(
+        packed
+          .flatMap((model) => model!.sections)
+          .flatMap((section) => section.fields),
+      ).toHaveLength(65);
+    }
     expect(
       convert([
         { service: "S", account: "A", secret: "K", x: "\u0001".repeat(11000) },

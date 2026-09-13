@@ -3,7 +3,7 @@
   "name": "AIC (Local)",
   "content_type": "SN|Component",
   "area": "editor-editor",
-  "version": "29.4.3",
+  "version": "30.3.3",
   "description": "Local development build of the AIC Markdown editor.",
   "url": "http://localhost:5178/",
   "note_type": "code",

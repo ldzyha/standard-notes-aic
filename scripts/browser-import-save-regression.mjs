@@ -21,6 +21,11 @@ const source = JSON.stringify([
     secret: "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
     password: "DUMMY-IMPORT-SECRET",
   },
+  {
+    service: "Second synthetic import",
+    account: "second@example.invalid",
+    secret: "SECOND-DUMMY-TOTP-SECRET",
+  },
 ]);
 const emptySecurityBlock = [
   "```aic-security",
@@ -103,6 +108,7 @@ try {
     const status = importBar.getByRole("status");
     await load(source);
     assert.equal((await saves()).length, 0);
+    assert.match(await importBar.textContent(), /2 accounts · 1 block/u);
     await page
       .getByRole("button", {
         name: "Convert and save security blocks",
@@ -119,17 +125,18 @@ try {
     );
     let posted = (await saves()).at(-1);
     const converted = posted.data.items[0].content.text;
-    assert.match(converted, /^```aic-security v2\n/u);
+    assert.match(converted, /^```aic-security v3\n/u);
+    assert.equal((converted.match(/^---$/gmu) || []).length, 1);
     assert.notEqual(converted, source);
     assert.doesNotMatch(
       posted.data.items[0].content.preview_plain,
-      /DUMMY-IMPORT-SECRET|GEZDGNBV/u,
+      /DUMMY-IMPORT-SECRET|GEZDGNBV|SECOND-DUMMY-TOTP-SECRET/u,
     );
     assert.equal(posted.data.items[0].content.preview_html, "");
     assert.equal(await page.locator(".cm-aic-security").count(), 1);
     assert.doesNotMatch(
       await page.locator("#app").innerHTML(),
-      /DUMMY-IMPORT-SECRET|GEZDGNBV/u,
+      /DUMMY-IMPORT-SECRET|GEZDGNBV|SECOND-DUMMY-TOTP-SECRET/u,
     );
     await send({
       action: "reply",
@@ -172,7 +179,7 @@ try {
     );
     assert.doesNotMatch(
       await page.locator("#app").innerHTML(),
-      /DUMMY-IMPORT-SECRET|GEZDGNBV/u,
+      /DUMMY-IMPORT-SECRET|GEZDGNBV|SECOND-DUMMY-TOTP-SECRET/u,
     );
 
     // An explicit security-preview Paste must save its new draft. The host

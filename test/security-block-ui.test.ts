@@ -131,6 +131,7 @@ describe("shared security block", () => {
     const second = fixture();
     control(second.host, "New security block").click();
     expect(securityBlocks(second.view.state)).toHaveLength(2);
+    expect(second.host.querySelector(".cm-aic-security-error")).toBeNull();
   });
 
   it("adds an explicitly hidden field while retaining masked preview", () => {
@@ -166,7 +167,8 @@ describe("shared security block", () => {
     const invalid = "```aic-security\nprivate: never-render-this\n```";
     const { host, view } = fixture(invalid);
     expect(host.textContent).not.toContain("never-render-this");
-    expect(host.textContent).toContain("format needs repair");
+    expect(host.textContent).toContain("Line 2, column 1");
+    expect(host.textContent).toContain("Add a ## section heading");
     control(host, "Edit security block").click();
     expect(view.state.doc.toString()).toBe(invalid);
     expect(host.querySelector(".cm-aic-security")).toBeNull();

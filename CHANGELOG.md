@@ -2,6 +2,25 @@
 
 ## Unreleased
 
+## 30.3.3 — 2026-09-13
+
+Release sequence 30 · 3 feature outcomes · 3 fixed-bug outcomes. Release source target;
+publication and hosted-manifest deployment require separate verification.
+
+### Features
+
+1. `aic-security v3` adds standalone `---` section boundaries and optional `##` section headings. New templates use v3; existing unversioned/v2 blocks retain their grammar and are not migrated.
+2. Authenticator JSON conversion preserves ordered records and exact string values in grouped v3 blocks, spilling at canonical capacity and splitting oversized accounts only at field boundaries. Invalid input still rejects atomically without partial conversion.
+3. Security previews show section, field and text capacity. Add controls that would exceed a limit are disabled, while New block remains available; conversion guidance suggests separate blocks by purpose, such as services, banks, web and social networks.
+
+### Fixes
+
+1. Security and Properties errors provide safe, precise source line/column diagnostics and Edit navigation without exposing credentials or raw parser messages.
+2. New block closes an EOF-terminated previous fence before inserting an independent Security block.
+3. Whole-card reordering preserves exact authored source and supports versioned v2/v3 fences without rewriting fields or unrelated Markdown.
+
+Compatibility: AIC Notes 39.3.3 mirrors AIC Editor Core 4.3.0. No authentication or note-synchronization change. Masking is visual, not Markdown encryption; raw source, exports and copied values can contain plaintext.
+
 ## 29.4.3 — 2026-09-13
 
 Release sequence 29 · 4 feature outcomes · 3 fixed-bug outcomes. Release source target;

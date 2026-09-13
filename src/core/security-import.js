@@ -2,14 +2,13 @@ import { parseDocument } from "yaml";
 import {
   parseSecurityBlock,
   safeSecurityUrl,
+  SECURITY_LIMITS,
   serializeSecurityBlock,
 } from "./security-model.js";
-import { PIPE_FIELD_OPTIONS, SECURITY_FENCE_INFO } from "./field-syntax.js";
+import { SECURITY_FIELD_OPTIONS, SECURITY_FENCE_INFO } from "./field-syntax.js";
 
 const MAX_SOURCE_LENGTH = 1024 * 1024;
 const MAX_ENTRIES = 256;
-const MAX_FIELDS = 64;
-const MAX_VALUE_LENGTH = 16 * 1024;
 const STANDARD_KEYS = new Set([
   "service",
   "account",
@@ -42,7 +41,7 @@ function securityLabel(value) {
   );
 }
 
-// v2 reserves terminal suffixes as field types/visibility. Keep imported keys
+// Typed Security syntax reserves terminal suffixes as field types/visibility. Keep imported keys
 // recognizable without silently turning an authored name into another type.
 function importedLabel(value) {
   return /[#_]$/u.test(value) ? `${value} (imported)` : value;
@@ -98,36 +97,77 @@ function convertEntry(entry) {
       fields.push({ label: importedLabel(key), value, hide: true });
     }
   }
-  if (fields.length > MAX_FIELDS) return TOO_LARGE;
   for (const field of fields) {
     if (typeof field.value !== "string") return UNSUPPORTED;
-    if (field.value.length > MAX_VALUE_LENGTH) return TOO_LARGE;
+    if (field.value.length > SECURITY_LIMITS.maxValueLength) return TOO_LARGE;
   }
+  return { ok: true, section: { label: "", fields } };
+}
+
+function checkedBody(sections) {
+  let body;
   try {
-    const model = { sections: [{ label: "Main", fields }] };
-    const body = serializeSecurityBlock(model, PIPE_FIELD_OPTIONS);
-    const parsed = parseSecurityBlock(body, PIPE_FIELD_OPTIONS);
-    if (
-      !parsed.ok ||
-      parsed.model.sections.length !== 1 ||
-      parsed.model.sections[0].label !== "Main" ||
-      parsed.model.sections[0].fields.length !== fields.length ||
-      parsed.model.sections[0].fields.some(
-        (field, index) =>
-          field.label !== fields[index].label ||
-          field.value !== fields[index].value ||
-          field.hide !== fields[index].hide ||
-          field.kind !== fields[index].kind,
-      )
-    )
-      return UNSUPPORTED;
-    return {
-      ok: true,
-      block: `\`\`\`${SECURITY_FENCE_INFO}\n${body}\`\`\``,
-    };
+    body = serializeSecurityBlock({ sections }, SECURITY_FIELD_OPTIONS);
   } catch {
     return TOO_LARGE;
   }
+  const parsed = parseSecurityBlock(body, SECURITY_FIELD_OPTIONS);
+  if (
+    !parsed.ok ||
+    parsed.model.sections.length !== sections.length ||
+    parsed.model.sections.some(
+      (section, sectionIndex) =>
+        section.label !== sections[sectionIndex].label ||
+        section.fields.length !== sections[sectionIndex].fields.length ||
+        section.fields.some((field, fieldIndex) => {
+          const original = sections[sectionIndex].fields[fieldIndex];
+          return (
+            field.label !== original.label ||
+            field.value !== original.value ||
+            field.hide !== original.hide ||
+            field.kind !== original.kind ||
+            field.description !== original.description ||
+            field.additionalSecret !== original.additionalSecret
+          );
+        }),
+    )
+  )
+    return UNSUPPORTED;
+  return { ok: true, body };
+}
+
+// A record normally stays one section. Only a section that cannot fit the
+// canonical limits is divided, at field boundaries, without dropping values.
+function splitEntry(section) {
+  const sections = [];
+  for (let offset = 0; offset < section.fields.length;) {
+    let low = 1;
+    let high = Math.min(
+      SECURITY_LIMITS.maxFields,
+      section.fields.length - offset,
+    );
+    let best = 0;
+    while (low <= high) {
+      const middle = (low + high) >> 1;
+      const part = {
+        label: section.label,
+        fields: section.fields.slice(offset, offset + middle),
+      };
+      const checked = checkedBody([part]);
+      if (!checked.ok && checked.code === UNSUPPORTED.code) return UNSUPPORTED;
+      if (checked.ok) {
+        best = middle;
+        low = middle + 1;
+      } else high = middle - 1;
+    }
+    if (!best) return TOO_LARGE;
+    sections.push({
+      label: section.label,
+      fields: section.fields.slice(offset, offset + best),
+    });
+    offset += best;
+  }
+  return { ok: true, sections };
 }
 
 /** Convert only a bounded, strict Authenticator JSON array; never echo failures. */
@@ -156,11 +196,42 @@ export function convertAuthenticatorJson(source) {
   if (!Array.isArray(entries) || entries.length === 0) return UNSUPPORTED;
   if (entries.length > MAX_ENTRIES) return TOO_LARGE;
 
-  const blocks = [];
+  const sections = [];
   for (const entry of entries) {
     const converted = convertEntry(entry);
     if (!converted.ok) return converted;
-    blocks.push(converted.block);
+    const split = splitEntry(converted.section);
+    if (!split.ok) return split;
+    sections.push(...split.sections);
   }
-  return { ok: true, markdown: blocks.join("\n\n"), count: blocks.length };
+  const bodies = [];
+  let pending = [];
+  let pendingBody = "";
+  for (const section of sections) {
+    const candidate =
+      pending.length < SECURITY_LIMITS.maxSections
+        ? checkedBody([...pending, section])
+        : TOO_LARGE;
+    if (candidate.ok) {
+      pending.push(section);
+      pendingBody = candidate.body;
+      continue;
+    }
+    if (candidate.code === UNSUPPORTED.code) return UNSUPPORTED;
+    if (pending.length) bodies.push(pendingBody);
+    const next = checkedBody([section]);
+    if (!next.ok) return next;
+    pending = [section];
+    pendingBody = next.body;
+  }
+  if (pending.length) bodies.push(pendingBody);
+  return {
+    ok: true,
+    markdown: bodies
+      .map((body) => `\`\`\`${SECURITY_FENCE_INFO}\n${body}\`\`\``)
+      .join("\n\n"),
+    count: bodies.length,
+    accountCount: entries.length,
+    blockCount: bodies.length,
+  };
 }

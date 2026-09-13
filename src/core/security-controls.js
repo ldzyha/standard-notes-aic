@@ -29,6 +29,7 @@ export function createSecurityAddMenu(document, label, entries) {
   const trigger = createIconButton(document, {
     label,
     icon: "add",
+    disabled: entries.every((entry) => entry.disabled),
     className: "cm-aic-security-action cm-aic-security-add-trigger",
     onActivate() {
       if (disposed || !element.isConnected) return;

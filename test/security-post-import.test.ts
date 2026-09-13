@@ -48,6 +48,46 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 describe("security preview after import", () => {
+  it("shows two imported accounts in one Security block with separate sections", () => {
+    const { host, view, onCopy } = fixture(
+      JSON.stringify([
+        { service: "First", account: "first-account", secret: "" },
+        { service: "Second", account: "second-account", secret: "" },
+      ]),
+    );
+    expect(
+      host.querySelector(".cm-aic-security-import-count")?.textContent,
+    ).toBe("2 accounts · 1 block");
+    button(host, "Convert to security blocks").click();
+    expect(securityBlocks(view.state)).toHaveLength(1);
+    expect(view.state.doc.toString().match(/^---$/gmu)).toHaveLength(1);
+    const accounts = host.querySelectorAll<HTMLButtonElement>(
+      'button[aria-label="Copy Account"]',
+    );
+    expect(accounts).toHaveLength(2);
+    accounts[1]!.click();
+    expect(onCopy).toHaveBeenCalledWith("second-account", "Account");
+  });
+
+  it("explains capacity splitting without classifying or exposing accounts", () => {
+    const entries = Array.from({ length: 17 }, (_, index) => ({
+      service: `fixture-service-${index}`,
+      account: `fixture-account-${index}`,
+      secret: `fixture-secret-${index}`,
+    }));
+    const { host, view } = fixture(JSON.stringify(entries));
+    const bar = host.querySelector(".cm-aic-security-import-bar")!;
+    expect(bar.textContent).toContain("17 accounts · 2 blocks");
+    expect(bar.textContent).toContain("Split into multiple blocks");
+    expect(bar.textContent).toContain(
+      "services, banks, web, or social networks",
+    );
+    expect(bar.outerHTML).not.toContain("fixture-secret");
+    expect(bar.outerHTML).not.toContain("fixture-account");
+    button(host, "Convert to security blocks").click();
+    expect(securityBlocks(view.state)).toHaveLength(2);
+  });
+
   it("copies after conversion, metadata insertion and save acknowledgement", async () => {
     const { host, view, onCopy } = fixture(
       JSON.stringify([

@@ -154,7 +154,8 @@ function inspect(state) {
     selectionTo: target.selectionTo,
     selected: !state.selection.main.empty,
     kind: result.ok ? "ready" : "invalid",
-    count: result.ok ? result.count : 0,
+    accountCount: result.ok ? result.accountCount : 0,
+    blockCount: result.ok ? result.blockCount : 0,
   };
 }
 
@@ -274,7 +275,7 @@ function makePanel(view, description, field, saveEffect, onSave) {
             before + insert + after,
             target.from,
             target.from + insert.length,
-            result.count,
+            result.blockCount,
           )
         )
           return;
@@ -297,9 +298,16 @@ function makePanel(view, description, field, saveEffect, onSave) {
     label.textContent = actionLabel;
     const count = document.createElement("span");
     count.className = "cm-aic-security-import-count";
-    count.textContent = `${description.count} ${description.count === 1 ? "block" : "blocks"}`;
+    count.textContent = `${description.accountCount} ${description.accountCount === 1 ? "account" : "accounts"} · ${description.blockCount} ${description.blockCount === 1 ? "block" : "blocks"}`;
     button.append(label, count);
     dom.append(button);
+    if (description.blockCount > 1) {
+      const guidance = document.createElement("span");
+      guidance.className = "cm-aic-security-import-guidance";
+      guidance.textContent =
+        "Split into multiple blocks to stay within Security limits. You can later organize them by purpose, such as services, banks, web, or social networks.";
+      dom.append(guidance);
+    }
   }
   return { dom, top: true };
 }

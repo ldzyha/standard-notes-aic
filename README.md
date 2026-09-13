@@ -18,14 +18,17 @@ The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_I
 Open the original Authenticator JSON array in AIC, or select the complete array inside
 a Markdown document. A contextual **Convert and save security blocks** action appears for
 recognized `service`, `account`, `secret` records. One click converts every record in
-that array into its own `aic-security` block and explicitly saves the changed note.
+that array into sections of one `aic-security v3` block and explicitly saves the changed note.
+Sections are separated by standalone `---`; titles are optional. Overflow continues in
+additional blocks without dropping records or fields. The preview states account/block counts
+before conversion. Consider grouping separate blocks by purpose: services, banks, web or social networks.
 Wait for **Note saved** before leaving. A failed save keeps the draft and offers
 **Retry save**. The toolbar's Save note icon also saves dirty drafts after switching
 back to a note, including on mobile. Nothing is converted on opening or on each
 keystroke. Ctrl/Cmd+S, Save note and leaving the editing surface save a draft;
 security preview actions save immediately. Undo is a new draft until a save boundary.
 
-`service` and `account` stay visible; `secret` becomes hidden `TOTP*`, `password` becomes
+`service` and `account` stay visible; `secret` becomes hidden `TOTP#`, `password` becomes
 hidden `Password*`, and `notes` becomes Notes. Safe HTTP(S) service URLs, including simple
 Markdown links, also get an Open-capable URL field without changing the original service.
 Extra string fields are retained and hidden. Invalid records, duplicate keys and unsupported
@@ -79,8 +82,9 @@ Copying does not claim that a service accepted a code. Whole-block Copy preserve
 and their used flags when moving the block to another document. No code is deleted by marking it.
 
 Without an independent `#` card title, the first section title replaces the card name in
-its header. Use `## Account name` to name it or a bare `##` for the default Security
-header; no duplicate title row is added. Later named sections retain their own compact heading.
+its header. In v3 use an optional `## Account name` at a section's start; omit the heading
+for the default Security header. Later named sections retain their own compact heading.
+Legacy unversioned/v2 blocks still require `##` boundaries and retain their original interpretation.
 
 ## Compact groups, reordering and Markdown source
 
@@ -89,7 +93,7 @@ after each group's fields. The filter matches names and visible values only; hid
 recovery codes and generated one-time codes are never indexed. Filtering is local UI state,
 does not edit or save the note, and leaves managed Properties and related-note navigation visible.
 
-In `aic-security`, an optional `# Group title` names the card independently of its `##` sections.
+In `aic-security v3`, an optional `# Group title` names the card independently of its `---` sections.
 Existing untitled blocks remain readable. Drag handles reorder fields within their section,
 sections within their card, and standalone Security cards within the same document.
 Alt+Up/Down on a handle provides keyboard reordering. Filtered lists cannot reorder.
@@ -103,8 +107,9 @@ without opening another editor, changing source, resetting Undo or saving. The m
 for the current note and resets on a different note. It also exposes starred values in their raw
 Markdown form; this is explicit source access, not an additional secret-reveal control.
 
-Versioned security blocks use an `aic-security v2` fence. New Security templates and newly
-converted Authenticator records use v2; existing unversioned blocks are not rewritten.
+New Security templates and converted Authenticator records use an `aic-security v3` fence;
+existing unversioned/v2 blocks are not rewritten. v3 adds explicit `---` section separators
+and keeps v2's pipe field syntax.
 `Name*: value | description | additional secret` is a masked value, `Name#: seed | description`
 is a TOTP seed, and `Name_: number | MM/YY | CVV` is a card. The marker defines the kind,
 not the label. TOTP codes derive only from `#` fields. Card number (PAN), date and CVV copy
@@ -114,6 +119,30 @@ as `\\`. Typed cards accept 12–19 number digits, a month/year and a 3–4 digi
 parts may be empty. Invalid cards show a repair message without exposing raw contents.
 Unversioned blocks keep legacy parsing: literal pipes and labels containing `#` or `_` do
 not silently become v2 fields.
+
+### Capacity and repair locations
+
+Each Security block shows its capacity: 16 sections, 64 fields per section,
+65,536 UTF-16 text units per block and 16,384 per field's encoded text (all pipe parts
+and escape characters combined in v2/v3). Add actions that would
+exceed a limit are disabled; **New block** remains available. The converter automatically
+packs overflow into more blocks, splitting oversized accounts only at field boundaries.
+It never truncates values. Existing notes are not automatically repartitioned.
+
+Invalid Security/Properties previews identify the source line and column and provide
+an Edit action to that location. Advice never echoes a password, TOTP seed or raw parser
+exception. If an exact field position is unavailable, the block start is identified honestly.
+
+```aic-security v3
+# Services
+Service: Example
+Account: example@example.invalid
+Password*:
+---
+## Optional account title
+Service: Another example
+Password*:
+```
 
 ## Properties in Markdown
 
@@ -154,23 +183,23 @@ comments, nested structure and unrelated Markdown are preserved. Related notes, 
 available from the host, appear after metadata as read-only navigation and are never
 written into frontmatter. Ordinary Markdown notes do not acquire generated metadata.
 
-## Release 29.4.3
+## Release 30.3.3
 
-This release pairs with AIC Notes 38.4.3 and AIC Editor Core 4.2.0. This document
+This release pairs with AIC Notes 39.3.3 and AIC Editor Core 4.3.0. This document
 describes the release source and its contracts; deployment and the hosted manifest
 are verified separately by the release workflow.
 
-The four feature outcomes are compact searchable Security/Properties groups with menus and
-independent `#` card titles; safe field/group/whole-card pointer and keyboard reordering;
-a temporary whole-editor Markdown source toggle; and opt-in v2 pipe fields for Security
-and Properties, including separately copyable card parts and newly generated v2 content.
-Three fixes retire stale code-preview callbacks on source/note changes, preserve Mermaid
-visual drafts and focus through source mode while rejecting stale Apply, and keep coarse
-mobile controls readable without menu or part-layout overflow. Earlier Properties,
-recovery-code and save-boundary work remains available but is not recounted here.
+The three feature outcomes are v3 `---` sections with optional headings; lossless grouped
+Authenticator conversion with capacity-based spill into additional blocks; and visible
+Security capacity with over-limit Add controls disabled and purpose-based grouping advice.
+Three fixes provide precise, safe Security/Properties diagnostics with source navigation;
+close an EOF-terminated prior fence before New block; and preserve exact source during
+whole-card reordering for versioned v2/v3 fences. Existing v1/v2 grammar, authentication
+and note synchronization do not change.
 
-`/security` inserts a shared `aic-security v2` Markdown block in the Standard Notes
-editor and AIC Notes. `## Main` starts a section; `Password*: value` masks a
+`/security` inserts a shared `aic-security v3` Markdown block in the Standard Notes
+editor and AIC Notes. A standalone `---` starts another section; `## Main` optionally
+titles one. `Password*: value` masks a
 field in preview, while `Password: value` is visible. **Edit** opens Markdown
 source; there is no inline manual value editor. Preview can copy individual values, a current
 one-time code from a Base32/`otpauth://totp` key, or the **entire fenced block**.
@@ -447,6 +476,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `29.4.3` is sequence 29 with
-four feature outcomes and three fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `30.3.3` is sequence 30 with
+three feature outcomes and three fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

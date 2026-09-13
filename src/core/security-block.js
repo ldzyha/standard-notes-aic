@@ -8,7 +8,9 @@ import { saveAction } from "./save-boundary.js";
 import { wirePreviewReorder } from "./preview-reorder.js";
 import { securityCardOrdering } from "./security-card-order.js";
 import { parseFieldLabel } from "./field-label.js";
-import { propertiesSyntax } from "./field-syntax.js";
+import { propertiesSyntax, SECURITY_FIELD_OPTIONS } from "./field-syntax.js";
+import { blockDiagnostic } from "./block-diagnostic.js";
+import { FIELD_PARTS_MAX_LENGTH } from "./field-parts.js";
 import {
   isCardField,
   parseCardField,
@@ -33,6 +35,7 @@ import {
   safeSecurityUrl,
   securityTemplate,
   serializeSecurityBlock,
+  SECURITY_LIMITS,
 } from "./security-model.js";
 import { parseTotpInput, totpAt } from "./security-otp.js";
 import {
@@ -53,11 +56,18 @@ import {
   writeTextToClipboard,
 } from "./structured-preview.js";
 
-export const SECURITY_BLOCK_CORE_VERSION = "1.4.0";
+export const SECURITY_BLOCK_CORE_VERSION = "1.5.0";
 const CLIPBOARD_READ_TIMEOUT_MS = 3000;
 const EMPTY_RELATIONSHIPS = Object.freeze([]);
 const fieldEmpty = (field) =>
   !field.value && !field.description && !field.additionalSecret;
+const nextSecuritySection = (model, block) => ({
+  label:
+    block.sectionSyntax === "separators"
+      ? ""
+      : "Section " + (model.sections.length + 1),
+  fields: [],
+});
 let descriptionId = 0;
 const setSecurityFilter = StateEffect.define();
 // Search is local UI state, never Markdown or host-persisted note metadata.
@@ -100,8 +110,9 @@ export function securityBlocks(state) {
       const marks = node.node.getChildren("CodeMark");
       const finalMark = marks.at(-1);
       const finalLine = finalMark && state.doc.lineAt(finalMark.from);
-      const bodyTo =
-        finalLine && finalLine.from > firstLine.from ? finalLine.from : node.to;
+      const closed = Boolean(finalLine && finalLine.from > firstLine.from);
+      const openingMark = marks[0];
+      const bodyTo = closed ? finalLine.from : node.to;
       blocks.push(
         Object.freeze({
           from: node.from,
@@ -109,8 +120,17 @@ export function securityBlocks(state) {
           bodyFrom,
           bodyTo,
           body: state.sliceDoc(bodyFrom, bodyTo),
-          ...(info[1] === "v2" ? { fieldSyntax: "pipes" } : {}),
-          ...(/^v\d+$/u.test(info[1] ?? "") && info[1] !== "v2"
+          openingLine: firstLine.number,
+          closed,
+          fence: openingMark
+            ? state.sliceDoc(openingMark.from, openingMark.to)
+            : "",
+          ...(info[1] === "v3"
+            ? SECURITY_FIELD_OPTIONS
+            : info[1] === "v2"
+              ? { fieldSyntax: "pipes" }
+              : {}),
+          ...(/^v\d+$/u.test(info[1] ?? "") && !["v2", "v3"].includes(info[1])
             ? { unsupportedSyntax: true }
             : {}),
         }),
@@ -136,6 +156,7 @@ export function propertiesBlocks(state) {
         bodyFrom: first.to + 1,
         bodyTo: line.from,
         body,
+        openingLine: first.number,
         ...propertiesSyntax(body),
       }),
     ]);
@@ -146,16 +167,29 @@ export function propertiesBlocks(state) {
 const securityFormat = Object.freeze({
   kind: "security",
   blocks: securityBlocks,
-  parse: (body, block) =>
+  parse: (body, block, diagnostics = false) =>
     block?.unsupportedSyntax
-      ? { ok: false, code: "invalid_security_block" }
-      : parseSecurityBlock(body, block),
+      ? {
+          ok: false,
+          code: "invalid_security_block",
+          ...(diagnostics
+            ? {
+                diagnostic: blockDiagnostic(
+                  body,
+                  "unsupported_version",
+                  "Use a supported opening fence: aic-security, aic-security v2 or aic-security v3.",
+                ),
+              }
+            : {}),
+        }
+      : parseSecurityBlock(body, { ...block, diagnostics }),
   serialize: (model, _body, block) => serializeSecurityBlock(model, block),
 });
 const propertiesFormat = Object.freeze({
   kind: "properties",
   blocks: propertiesBlocks,
-  parse: (body, block) => parsePropertiesBody(body, block),
+  parse: (body, block, diagnostics = false) =>
+    parsePropertiesBody(body, { ...block, diagnostics }),
   serialize: (model, body, block) =>
     serializePropertiesBody(model, body, block),
 });
@@ -357,12 +391,14 @@ class SecurityBlockWidget extends WidgetType {
     this.closePanel = null;
     this.mounts = new Map();
     this.cleanups = [];
+    this.diagnosticLocations = [];
   }
 
   eq(other) {
     const same =
       this.block.body === other.block.body &&
       this.block.fieldSyntax === other.block.fieldSyntax &&
+      this.block.sectionSyntax === other.block.sectionSyntax &&
       this.block.unsupportedSyntax === other.block.unsupportedSyntax &&
       this.readOnly === other.readOnly &&
       this.onCopy === other.onCopy &&
@@ -377,7 +413,11 @@ class SecurityBlockWidget extends WidgetType {
       // CodeMirror retains the old DOM but adopts the new descriptor. Keep
       // its live renderers attached to that descriptor and current positions.
       other.mounts = this.mounts;
-      for (const mount of this.mounts.values()) mount.block = other.block;
+      for (const mount of this.mounts.values()) {
+        mount.block = other.block;
+        for (const updateLocation of mount.diagnosticLocations)
+          updateLocation();
+      }
     }
     return same;
   }
@@ -399,6 +439,7 @@ class SecurityBlockWidget extends WidgetType {
     for (const cleanup of this.cleanups.splice(0)) cleanup();
     if (this.timer !== null) clearInterval(this.timer);
     this.timer = null;
+    this.diagnosticLocations.length = 0;
   }
 
   currentBlock(view) {
@@ -408,6 +449,7 @@ class SecurityBlockWidget extends WidgetType {
         (candidate) =>
           candidate.body === this.block.body &&
           candidate.fieldSyntax === this.block.fieldSyntax &&
+          candidate.sectionSyntax === this.block.sectionSyntax &&
           candidate.unsupportedSyntax === this.block.unsupportedSyntax,
       );
     return (
@@ -416,16 +458,62 @@ class SecurityBlockWidget extends WidgetType {
     );
   }
 
-  editSource(view) {
+  editSource(view, diagnostic = null, openingFence = false) {
     if (this.destroyed || view.state.readOnly) return;
     const block = this.currentBlock(view);
     if (!block) return;
     view.dispatch({
-      selection: { anchor: Math.min(block.bodyFrom, view.state.doc.length) },
+      selection: {
+        anchor: openingFence
+          ? block.from
+          : Math.min(block.bodyFrom + (diagnostic?.from ?? 0), block.bodyTo),
+      },
       effects: editSecuritySource.of(block.from),
       scrollIntoView: true,
     });
     view.focus();
+  }
+
+  showDiagnostic(
+    view,
+    parent,
+    diagnostic,
+    openingFence = false,
+    blockStart = false,
+  ) {
+    const error = this.document.createElement("div");
+    error.className = "cm-aic-security-error";
+    const header = this.document.createElement("div");
+    header.className = "cm-aic-security-error-location";
+    const location = this.document.createElement("strong");
+    const message = this.document.createElement("p");
+    message.textContent = diagnostic.message;
+    header.append(location);
+    let edit;
+    if (!this.readOnly) {
+      edit = button(this.document, "Edit error location", "edit", () => {
+        if (error.isConnected) this.editSource(view, diagnostic, openingFence);
+      });
+      header.append(edit);
+    }
+    const updateLocation = () => {
+      const line =
+        this.block.openingLine + (openingFence ? 0 : diagnostic.line);
+      const column = openingFence ? 1 : diagnostic.column;
+      location.textContent = blockStart
+        ? `Block starts at line ${this.block.openingLine}`
+        : `Line ${line}, column ${column}`;
+      edit?.setAttribute(
+        "aria-label",
+        blockStart
+          ? `Edit block at line ${this.block.openingLine}`
+          : `Edit error at line ${line}, column ${column}`,
+      );
+    };
+    updateLocation();
+    this.diagnosticLocations.push(updateLocation);
+    error.append(header, message);
+    parent.append(error);
   }
 
   fieldSnapshot(view, sectionIndex, fieldIndex) {
@@ -617,10 +705,7 @@ class SecurityBlockWidget extends WidgetType {
   addSection(view) {
     if (this.format !== securityFormat) return;
     this.replaceModel(view, (model) => {
-      model.sections.push({
-        label: "Section " + (model.sections.length + 1),
-        fields: [],
-      });
+      model.sections.push(nextSecuritySection(model, this.block));
     });
   }
 
@@ -666,14 +751,20 @@ class SecurityBlockWidget extends WidgetType {
     if (!block) return;
     const before = view.state.sliceDoc(0, block.to);
     const after = view.state.sliceDoc(block.to);
-    const trailing = /\n*$/u.exec(before)?.[0].length ?? 0;
+    if (!block.closed && !/^(?:`{3,}|~{3,})$/u.test(block.fence)) return;
+    // CommonMark allows EOF-terminated fences. A new independent card needs
+    // the previous fence closed first; otherwise its opening is parsed as data.
+    const closing = block.closed
+      ? ""
+      : (before.endsWith("\n") ? "" : "\n") + block.fence;
+    const trailing = /\n*$/u.exec(before + closing)?.[0].length ?? 0;
     const leading = /^\n*/u.exec(after)?.[0].length ?? 0;
     const prefix = "\n".repeat(Math.max(0, 2 - trailing));
     const suffix = "\n".repeat(Math.max(0, (after ? 2 : 1) - leading));
     const template = securityTemplate();
-    const from = block.to + prefix.length;
+    const from = block.to + closing.length + prefix.length;
     view.dispatch({
-      changes: { from: block.to, insert: prefix + template + suffix },
+      changes: { from: block.to, insert: closing + prefix + template + suffix },
       selection: { anchor: from },
       annotations: [saveAction.of(true), isolateHistory.of("full")],
       userEvent: "input",
@@ -1043,7 +1134,7 @@ class SecurityBlockWidget extends WidgetType {
     const header = document.createElement("div");
     header.className = "cm-md-preview-header";
     const title = document.createElement("strong");
-    const parsed = this.format.parse(this.block.body, this.block);
+    const parsed = this.format.parse(this.block.body, this.block, true);
     title.textContent = isProperties
       ? "Properties"
       : parsed.ok
@@ -1053,6 +1144,24 @@ class SecurityBlockWidget extends WidgetType {
     actions.className = "cm-md-preview-actions";
     header.append(title, actions);
     wrapper.append(header);
+    if (!isProperties) {
+      const capacity = document.createElement("div");
+      capacity.className = "cm-aic-security-capacity";
+      capacity.setAttribute("aria-label", "Security block limits");
+      const number = (value) => value.toLocaleString("en-US");
+      for (const text of [
+        `Sections ${parsed.ok ? parsed.model.sections.length + "/" : "≤ "}${SECURITY_LIMITS.maxSections}`,
+        `Text ${number(this.block.body.length)}/${number(SECURITY_LIMITS.maxBodyLength)}`,
+        this.block.fieldSyntax === "pipes"
+          ? `Field text ≤ ${number(FIELD_PARTS_MAX_LENGTH)} (all pipe parts + escapes)`
+          : `Each value ≤ ${number(SECURITY_LIMITS.maxValueLength)} characters`,
+      ]) {
+        const item = document.createElement("span");
+        item.textContent = text;
+        capacity.append(item);
+      }
+      wrapper.append(capacity);
+    }
     if (
       !isProperties &&
       !this.readOnly &&
@@ -1110,17 +1219,27 @@ class SecurityBlockWidget extends WidgetType {
           document,
           isProperties ? "Edit properties" : "Edit security block",
           "edit",
-          () => this.editSource(view),
+          () =>
+            this.editSource(
+              view,
+              parsed.ok ? null : parsed.diagnostic,
+              !isProperties && this.block.unsupportedSyntax,
+            ),
         ),
       );
     }
     if (!parsed.ok) {
-      const error = document.createElement("p");
-      error.className = "cm-aic-security-error";
-      error.textContent = isProperties
-        ? "Properties format needs repair in Markdown source."
-        : "Security block format needs repair in Markdown source.";
-      wrapper.append(error);
+      this.showDiagnostic(
+        view,
+        wrapper,
+        parsed.diagnostic ??
+          blockDiagnostic(
+            this.block.body,
+            "invalid_block",
+            "Check this block's headings, field names and separators in Markdown source.",
+          ),
+        !isProperties && this.block.unsupportedSyntax,
+      );
       return wrapper;
     }
 
@@ -1137,8 +1256,27 @@ class SecurityBlockWidget extends WidgetType {
     // New preview actions must not implicitly migrate legacy YAML and discard
     // its authored comments. Whole-card moves remain exact-source operations.
     const lineSecurity =
-      /^\s*#/u.test(this.block.body) &&
-      /^##(?:[ \r\n]|$)/mu.test(this.block.body);
+      this.block.sectionSyntax === "separators" ||
+      (/^\s*#/u.test(this.block.body) &&
+        /^##(?:[ \r\n]|$)/mu.test(this.block.body));
+    // Use the serializer as the capacity gate, including encoded text size.
+    // No source is changed while calculating whether an addition will fit.
+    const canAdd = (sectionIndex, field) => {
+      if (isProperties) return true;
+      const sections = parsed.model.sections.map((section) => ({
+        ...section,
+        fields: [...section.fields],
+      }));
+      if (sectionIndex == null)
+        sections.push(nextSecuritySection(parsed.model, this.block));
+      else sections[sectionIndex].fields.push(field);
+      try {
+        serializeSecurityBlock({ ...parsed.model, sections }, this.block);
+        return true;
+      } catch {
+        return false;
+      }
+    };
     const canMoveSection = (from, to) =>
       !this.readOnly &&
       from !== to &&
@@ -1167,6 +1305,7 @@ class SecurityBlockWidget extends WidgetType {
         canMoveSection(sectionIndex, index),
       );
       if (
+        !isProperties ||
         movableSection ||
         ((sectionIndex > 0 || parsed.model.title !== undefined) &&
           section.label)
@@ -1181,10 +1320,19 @@ class SecurityBlockWidget extends WidgetType {
         }
         const sectionHeading = document.createElement("strong");
         sectionHeading.className = "cm-aic-security-section-title";
-        sectionHeading.textContent =
-          section.label || "Group " + (sectionIndex + 1);
-        sectionHeader.append(sectionHeading);
+        sectionHeading.textContent = isProperties
+          ? section.label || "Group " + (sectionIndex + 1)
+          : sectionIndex > 0 || parsed.model.title !== undefined
+            ? section.label
+            : "";
+        if (sectionHeading.textContent) sectionHeader.append(sectionHeading);
         group.append(sectionHeader);
+        if (!isProperties) {
+          const count = document.createElement("span");
+          count.className = "cm-aic-security-field-count";
+          count.textContent = `Fields ${section.fields.length}/${SECURITY_LIMITS.maxFields}`;
+          sectionHeader.append(count);
+        }
       }
       const fieldItems = [];
       const canMoveField = (from, to) =>
@@ -1222,6 +1370,35 @@ class SecurityBlockWidget extends WidgetType {
           (this.block.fieldSyntax !== "pipes" &&
             field.hide &&
             isOneTimeCode(label));
+        const fieldRange = parsed.fieldRanges?.[sectionIndex]?.[fieldIndex];
+        const fieldDiagnostic = (parent, code, message) => {
+          // Legacy input without a precise AST mapping gets an honest block
+          // location and ordinal, never an invented field offset or raw key.
+          const advice = fieldRange
+            ? message
+            : `Group ${sectionIndex + 1}, field ${fieldIndex + 1}: ${message}`;
+          this.showDiagnostic(
+            view,
+            parent,
+            blockDiagnostic(
+              this.block.body,
+              code,
+              advice,
+              fieldRange?.from ?? 0,
+              fieldRange?.to,
+            ),
+            false,
+            !fieldRange,
+          );
+        };
+        let invalidTotp = false;
+        if (oneTimeCode && value) {
+          try {
+            parseTotpInput(value);
+          } catch {
+            invalidTotp = true;
+          }
+        }
         // Every composite part has its own copy target. Values are captured in
         // closures only, never DOM attributes, drag payloads or search metadata.
         const partRow = (slot, partLabel, masked, code = false) => {
@@ -1303,7 +1480,15 @@ class SecurityBlockWidget extends WidgetType {
             );
           if (code) {
             output.content.classList.add("cm-aic-security-code");
-            if (stored) codes.push({ value: stored, output: output.content });
+            if (invalidTotp) {
+              output.content.textContent = "Invalid key";
+              fieldDiagnostic(
+                output.element,
+                "invalid_totp",
+                "Use a valid Base32 TOTP secret or an otpauth://totp URI for this field.",
+              );
+            } else if (stored)
+              codes.push({ value: stored, output: output.content });
           }
           return output.element;
         };
@@ -1323,11 +1508,11 @@ class SecurityBlockWidget extends WidgetType {
           composite.append(partHeader);
           const valid = !cardField || parseCardField(field).ok;
           if (!valid) {
-            const error = document.createElement("p");
-            error.className = "cm-aic-security-error";
-            error.textContent =
-              "Card needs repair in Markdown source. Use number | MM/YY | CVV.";
-            composite.append(error);
+            fieldDiagnostic(
+              composite,
+              "invalid_card",
+              "Use number | MM/YY | CVV for this card field.",
+            );
           } else {
             const parts = document.createElement("div");
             parts.className = "cm-aic-security-card-parts";
@@ -1388,11 +1573,11 @@ class SecurityBlockWidget extends WidgetType {
           heading.textContent = label;
           list.append(heading);
           if (!recovery.ok) {
-            const error = document.createElement("p");
-            error.className = "cm-aic-security-error";
-            error.textContent =
-              "Recovery codes need repair in Markdown source. Use one code per line.";
-            list.append(error);
+            fieldDiagnostic(
+              list,
+              "invalid_recovery_codes",
+              "Use one recovery code per line; check this field in Markdown source.",
+            );
           } else {
             recovery.codes.forEach((entry, codeIndex) => {
               const number = codeIndex + 1;
@@ -1520,7 +1705,14 @@ class SecurityBlockWidget extends WidgetType {
         );
         if (code) {
           output.content.classList.add("cm-aic-security-code");
-          if (value) codes.push({ value, output: output.content });
+          if (invalidTotp) {
+            output.content.textContent = "Invalid key";
+            fieldDiagnostic(
+              output.element,
+              "invalid_totp",
+              "Use a valid Base32 TOTP secret or an otpauth://totp URI for this field.",
+            );
+          } else if (value) codes.push({ value, output: output.content });
         }
         registerField(output.element, field, fieldIndex);
         group.append(output.element);
@@ -1546,7 +1738,14 @@ class SecurityBlockWidget extends WidgetType {
             label: "Add " + label,
             text: label,
             run: () => this.addField(view, sectionIndex, label, hide, kind),
-            disabled: section.fields.length >= 64,
+            disabled: isProperties
+              ? section.fields.length >= 64
+              : !canAdd(sectionIndex, {
+                  label,
+                  hide,
+                  value: "",
+                  ...(kind ? { kind } : {}),
+                }),
           })),
         );
         this.cleanups.push(menu.dispose);
@@ -1591,7 +1790,7 @@ class SecurityBlockWidget extends WidgetType {
           label: "Add security section",
           text: "Group",
           run: () => this.addSection(view),
-          disabled: parsed.model.sections.length >= 16,
+          disabled: !canAdd(null),
         },
         {
           label: "New security block",
@@ -1602,6 +1801,13 @@ class SecurityBlockWidget extends WidgetType {
       ]);
       this.cleanups.push(menu.dispose);
       body.append(menu.element);
+    }
+    if (!isProperties) {
+      const advice = document.createElement("p");
+      advice.className = "cm-aic-security-capacity-advice";
+      advice.textContent =
+        "Use separate blocks by purpose: services, banks, web, social networks. When a limit is reached, continue in a new block.";
+      body.append(advice);
     }
     const initialQuery =
       view.state.field(securityFilters).get(this.block.from) || "";

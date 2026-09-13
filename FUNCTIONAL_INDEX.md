@@ -4,19 +4,42 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 managed file properties, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 29.4.3 pairs with AIC Notes 38.4.3 and AIC Editor Core 4.2.0.
+storage format. Release 30.3.3 pairs with AIC Notes 39.3.3 and AIC Editor Core 4.3.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
+## Shared-core changes in release 30.3.3
+
+- New `/security` templates and Authenticator conversions use `aic-security v3`:
+  an implicit first section, standalone `---` boundaries and optional `##` section titles.
+  v1/v2 retain their existing grammar; opening a note never migrates it.
+- Conversion packs accounts into one block until a canonical limit requires another,
+  retaining exact ordered values. Oversized accounts split at field boundaries, never
+  by truncating values. The conversion panel reports accounts/blocks and recommends
+  purpose-specific grouping for overflow (services, banks, web, social networks).
+- The shared preview shows section/field/text/value limits and preflights encoded size
+  before enabling Add actions. New block remains available at capacity; an EOF-terminated
+  prior fence is closed before inserting the independent block. Existing notes are not auto-split.
+- Security/Properties diagnostics use one safe source-range helper and parser-owned
+  fixed advice, with one-based line/column and Edit navigation. Diagnostics never retain
+  or render credential values or raw YAML errors. Location labels track document offsets
+  without remounting widgets; stale/read-only actions cannot edit. Invalid TOTP seeds
+  are diagnosed once rather than repeatedly scheduled for generation.
+- Exact-source whole-card reordering supports versioned v2/v3 fences without rewriting
+  their authored field syntax or unrelated text. Existing v1/v2 grammar is unchanged.
+- Tests: `security-separators`, `security-diagnostics`, `properties-diagnostics`,
+  `block-diagnostic-ui`, import and shared-preview suites. These are release-source
+  contracts; archive and hosted deployment are verified separately.
+
 ## Current editor and lifecycle contracts
 
-- The four 29.4.3 feature outcomes are compact searchable Security/Properties groups and
-  independent `#` card titles; safe field/group/whole-card DnD and keyboard reordering;
-  temporary whole-editor Markdown source mode; and opt-in v2 pipe fields for Security and
-  Properties, including newly generated v2 templates/conversions. Three fixes retire stale
-  code-preview callbacks, preserve Mermaid visual drafts/focus through source mode with
-  stale Apply blocked, and improve coarse mobile contrast/menu/part layout without overflow.
-  Earlier Properties, recovery-code and save-boundary work is not counted again.
+- The three 30.3.3 feature outcomes are v3 `---` sections with optional headings;
+  lossless grouped Authenticator import with capacity spill; and visible limits with
+  disabled over-limit Add controls plus purpose-based grouping guidance. Three fixes
+  provide safe Security/Properties source-position diagnostics, close an EOF-terminated
+  previous fence before New block, and preserve exact source in whole-card moves for
+  versioned v2/v3 fences. Earlier group controls, source mode and pipe fields remain
+  available but are not counted again.
 - `aic-security v2` opts into `*` masked values, `#` TOTP seeds and `_` card parts;
   PAN/date/CVV copy independently, the third slot stays masked, and Paste fills only empty
   parts. `# aic-fields: v2` must be the first body line of YAML frontmatter to activate
@@ -36,7 +59,7 @@ GitHub Pages deployment or hosted manifest has already been published.
   value. Marking never deletes a code, and copying alone never marks a code accepted by a service.
   Empty fields offer Paste/Delete; filled fields cannot be replaced. Tests: `security-recovery`,
   `security-recovery-ui`, `security-field-actions`.
-- Optional section titles use an explicit bare `##` marker when unnamed, keeping legacy YAML
+- Legacy optional section titles use an explicit bare `##` marker when unnamed, keeping legacy YAML
   parsing strict. Without a `#` card title, the first section title occupies the card header;
   later named sections keep compact headings. Tests: `security-model`, `security-block-ui`.
 - `save-boundary` centralizes focus-leave and annotated-action intent. Host managers own save
@@ -46,7 +69,7 @@ GitHub Pages deployment or hosted manifest has already been published.
   `security-post-import`, `security-paste-feedback`, parent manager and mobile transport suites.
 
 - `core/security-import` and `security-import-extension` convert the recognized
-  current Authenticator JSON array or selection into one security block per record. This is
+  current Authenticator JSON array or selection into grouped v3 security blocks. This is
   an explicit, all-or-nothing, undoable draft edit; no clipboard, note-type change or
   account scan. Standard Notes supplies its normal save manager: Convert and save commits
   immediately, confirms host acknowledgement, and exposes failed-save retry. Dirty drafts
@@ -71,8 +94,8 @@ GitHub Pages deployment or hosted manifest has already been published.
   Tests: `security-field-actions`, `security-block-ui`.
 
 - `core/security-model`, `security-block` and `security-otp` own one fenced
-  `aic-security` Markdown family in both hosts. `/security` inserts a parseable v2
-  example. `##` headings define independent sections; `Label*: value` masks a
+  `aic-security` Markdown family in both hosts. `/security` inserts a parseable v3
+  example. Standalone `---` lines define v3 sections; `Label*: value` masks a
   field and `Label: value` leaves it visible, independent of the label text.
   Preview excludes the block, including quoted/list-contained fences, from Standard Notes
   plain-text metadata; each save also clears stale `preview_html`. Copy

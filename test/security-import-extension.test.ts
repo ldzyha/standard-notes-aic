@@ -17,7 +17,7 @@ const json = JSON.stringify([
   { service: "Example", account: "fixture-account", secret: fakeSecret },
 ]);
 const tick = String.fromCharCode(96);
-const securityFence = tick.repeat(3) + "aic-security v2";
+const securityFence = tick.repeat(3) + "aic-security v3";
 const views: EditorView[] = [];
 
 function fixture(
@@ -191,12 +191,13 @@ describe("contextual authenticator import", () => {
     ]);
     const { host, view } = fixture(source);
     const bar = host.querySelector(".cm-aic-security-import-bar")!;
-    expect(bar.textContent).toContain("2 blocks");
+    expect(bar.textContent).toContain("2 accounts · 1 block");
     expect(bar.outerHTML).not.toContain("first-fixture");
     expect(bar.outerHTML).not.toContain("second-fake");
     action(host)!.click();
-    expect(view.state.doc.toString().split(securityFence)).toHaveLength(3);
-    expect(host.querySelectorAll(".cm-aic-security")).toHaveLength(2);
+    expect(view.state.doc.toString().split(securityFence)).toHaveLength(2);
+    expect(view.state.doc.toString()).toContain("\n---\n");
+    expect(host.querySelectorAll(".cm-aic-security")).toHaveLength(1);
   });
 
   it("replaces only the selected array amid Markdown with one undo step", () => {

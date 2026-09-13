@@ -261,7 +261,8 @@ describe("shared Properties renderer", () => {
     const malformed = "---\npassword: [SYNTHETIC-ONLY-SECRET\n---\n# Body";
     const { host, onCopy } = fixture(malformed);
     const card = host.querySelector<HTMLElement>(".cm-aic-properties")!;
-    expect(card.textContent).toContain("Properties format needs repair");
+    expect(card.textContent).toContain("Line 3, column 1");
+    expect(card.textContent).toContain("YAML syntax or indentation");
     expect(card.outerHTML).not.toContain("SYNTHETIC-ONLY-SECRET");
     control(card, "Copy properties").click();
     expect(onCopy).toHaveBeenCalledWith(

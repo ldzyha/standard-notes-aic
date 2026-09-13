@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { SECURITY_FIELD_OPTIONS } from "../src/core/field-syntax.js";
 import {
   isSecretField,
   parseSecurityBlock,
@@ -330,8 +331,7 @@ describe("security block model", () => {
     const template = securityTemplate();
     expect(template).toBe(
       [
-        "```aic-security v2",
-        "##",
+        "```aic-security v3",
         "Service:",
         "Account:",
         "Email:",
@@ -342,9 +342,10 @@ describe("security block model", () => {
       ].join("\n"),
     );
     expect(
-      parseSecurityBlock(template.slice("```aic-security v2\n".length, -3), {
-        fieldSyntax: "pipes",
-      }),
+      parseSecurityBlock(
+        template.slice("```aic-security v3\n".length, -3),
+        SECURITY_FIELD_OPTIONS,
+      ),
     ).toEqual({
       ok: true,
       model: {
@@ -363,12 +364,10 @@ describe("security block model", () => {
         ],
       },
     });
-    const legacy = parseSecurityBlock(
-      template.slice("```aic-security v2\n".length, -3),
-    );
+    const legacy = parseSecurityBlock("##\nTOTP#:\n");
     expect(legacy.ok).toBe(true);
     if (legacy.ok)
-      expect(legacy.model.sections[0]?.fields[4]).toEqual({
+      expect(legacy.model.sections[0]?.fields[0]).toEqual({
         label: "TOTP#",
         value: "",
         hide: false,
