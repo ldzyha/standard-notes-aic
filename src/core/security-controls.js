@@ -1,7 +1,8 @@
 import { createIconButton } from "./structured-preview.js";
+let addReasonId = 0;
 
 /** A small disclosure, not a second editor. Global listeners live only while open. */
-export function createSecurityAddMenu(document, label, entries) {
+export function createSecurityAddMenu(document, label, entries, text = "") {
   const element = document.createElement("div");
   element.className = "cm-aic-security-add";
   const menu = document.createElement("div");
@@ -41,7 +42,23 @@ export function createSecurityAddMenu(document, label, entries) {
       menu.querySelector("button:not(:disabled)")?.focus();
     },
   });
+  if (text) trigger.append(document.createTextNode(text));
   trigger.setAttribute("aria-expanded", "false");
+  const reasons = [
+    ...new Set(
+      entries
+        .filter((entry) => entry.disabled && entry.disabledReason)
+        .map((entry) => entry.disabledReason),
+    ),
+  ];
+  const reason = document.createElement("span");
+  if (reasons.length) {
+    reason.className = "cm-aic-security-add-reason";
+    reason.id = `aic-add-reason-${++addReasonId}`;
+    reason.textContent = reasons.join(" ");
+    trigger.setAttribute("aria-describedby", reason.id);
+    if (trigger.disabled) trigger.title = reason.textContent;
+  }
   for (const entry of entries) {
     const control = createIconButton(document, {
       label: entry.label,
@@ -54,10 +71,15 @@ export function createSecurityAddMenu(document, label, entries) {
         entry.run();
       },
     });
+    if (entry.disabled && entry.disabledReason) {
+      control.title = entry.disabledReason;
+      control.setAttribute("aria-describedby", reason.id);
+    }
     control.append(document.createTextNode(entry.text || entry.label));
     menu.append(control);
   }
   element.append(trigger, menu);
+  if (reasons.length) element.append(reason);
   return {
     element,
     dispose() {
@@ -97,19 +119,31 @@ export function createSecurityFilter(
       if (group.pinned) continue;
       const all =
         !query || titleMatches || normalize(group.label).includes(query);
-      let visible = false;
-      for (const { element: row, field } of group.fields) {
-        const matches =
-          all ||
-          normalize(field.label).includes(query) ||
-          normalize(field.description).includes(query) ||
-          (!field.hide &&
-            !field.recovery &&
-            normalize(field.value).includes(query));
-        row.hidden = !matches;
-        visible ||= matches;
+      const matches = all
+        ? null
+        : group.fields.map(
+            ({ field }) =>
+              all ||
+              normalize(field.label).includes(query) ||
+              normalize(field.description).includes(query) ||
+              (!field.hide &&
+                !field.recovery &&
+                normalize(
+                  field.kind === "card"
+                    ? field.value.replace(/[ -]/gu, "").slice(-4)
+                    : field.value,
+                ).includes(query)),
+          );
+      const visible = all || matches.some(Boolean);
+      // A fully hidden group needs no per-field writes. In particular, clearing
+      // a no-match filter restores the group, not hundreds of hidden rows.
+      if (visible) {
+        for (const [index, { element: row }] of group.fields.entries()) {
+          const hidden = !all && !matches[index];
+          if (row.hidden !== hidden) row.hidden = hidden;
+        }
       }
-      group.element.hidden = !all && !visible;
+      if (group.element.hidden === visible) group.element.hidden = !visible;
       found ||= !group.element.hidden;
     }
     empty.hidden = found || !query;

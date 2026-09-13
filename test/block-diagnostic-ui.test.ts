@@ -19,7 +19,7 @@ import {
 
 const views: EditorView[] = [];
 const merged =
-  "# Document\n\n```aic-security v2\n# First card\n## Main\nPassword*: PRIVATE_SENTINEL\n# Second card\n## Other\nEmail: synthetic@example.invalid\n```\n\nEnd";
+  "# Document\n\n```aic\n# First card\n## Main\nPassword*: PRIVATE_SENTINEL\n# Second card\n## Other\nEmail: synthetic@example.invalid\n```\n\nEnd";
 function fixture(doc: string, readOnly = false) {
   const host = document.body.appendChild(document.createElement("div"));
   const access = new Compartment();
@@ -61,9 +61,7 @@ describe("safe block source locations", () => {
       { length: SECURITY_LIMITS.maxSections },
       () => "Email: account@example.invalid",
     ).join("\n---\n");
-    const { host, view } = fixture(
-      "```aic-security v3\n" + body + "\n```\nEnd",
-    );
+    const { host, view } = fixture("```aic\n" + body + "\n```\nEnd");
     expect(host.querySelector(".cm-aic-security-error")).toBeNull();
     expect(
       host.querySelector(".cm-aic-security-capacity")?.textContent,
@@ -103,9 +101,7 @@ describe("safe block source locations", () => {
       { length: 64 },
       (_, index) => `Field ${index}: value`,
     ).join("\n");
-    const { host, view } = fixture(
-      "```aic-security v3\n" + body + "\n```\nEnd",
-    );
+    const { host, view } = fixture("```aic\n" + body + "\n```\nEnd");
     expect(
       host.querySelector<HTMLButtonElement>(
         '[aria-label="Add field to group"]',
@@ -144,7 +140,7 @@ describe("safe block source locations", () => {
     }
     const body = serializeSecurityBlock(model, SECURITY_FIELD_OPTIONS);
     expect(body.length).toBe(SECURITY_LIMITS.maxBodyLength);
-    const { host } = fixture("```aic-security v3\n" + body + "```\nEnd");
+    const { host } = fixture("```aic\n" + body + "```\nEnd");
     expect(host.querySelector(".cm-aic-security-error")).toBeNull();
     expect(
       host.querySelector<HTMLButtonElement>(
@@ -163,11 +159,10 @@ describe("safe block source locations", () => {
     ).toBe(false);
   });
 
-  it("keeps v3 headless sections reorderable and moves whole versioned blocks exactly", () => {
+  it("keeps untitled sections reorderable and moves whole canonical blocks exactly", () => {
     const first =
-      "```aic-security v3\nEmail: first@example.invalid\n---\nEmail: second@example.invalid\n```";
-    const second =
-      "```aic-security v2\n## Legacy\nPassword*: SYNTHETIC_VALUE\n```";
+      "```aic\nEmail: first@example.invalid\n---\nEmail: second@example.invalid\n```";
+    const second = "```aic\n## Named\nPassword*: SYNTHETIC_VALUE\n```";
     const { host, view } = fixture(first + "\n\n" + second + "\nEnd");
     expect(host.querySelector('[aria-label="Reorder group 1"]')).not.toBeNull();
     const blocks = securityBlocks(view.state);
@@ -181,9 +176,9 @@ describe("safe block source locations", () => {
   });
 
   it("moves one valid field between separate blocks without breaking either preview", () => {
-    const first = "```aic-security\n## First\nEmail: example@invalid.test\n```";
+    const first = "```aic\n## First\nEmail: example@invalid.test\n```";
     const moved = "Password*: SYNTHETIC_MOVED_VALUE\n";
-    const doc = first + "\n\n```aic-security\n## Second\n" + moved + "```\nEnd";
+    const doc = first + "\n\n```aic\n## Second\n" + moved + "```\nEnd";
     const { host, view } = fixture(doc);
     const firstBlock = securityBlocks(view.state)[0]!;
     const from = doc.indexOf(moved);
@@ -210,11 +205,7 @@ describe("safe block source locations", () => {
       );
     const moved = "Password*: SYNTHETIC_MOVED_VALUE\n";
     const doc =
-      "```aic-security\n" +
-      body +
-      "```\n\n```aic-security\n## Second\n" +
-      moved +
-      "```\nEnd";
+      "```aic\n" + body + "```\n\n```aic\n## Second\n" + moved + "```\nEnd";
     const { host, view } = fixture(doc);
     expect(host.querySelector(".cm-aic-security-error")).toBeNull();
     const firstBlock = securityBlocks(view.state)[0]!;
@@ -241,15 +232,16 @@ describe("safe block source locations", () => {
   it("explains the section limit when otherwise valid blocks are merged", () => {
     const body = Array.from(
       { length: 17 },
-      (_, index) => `## Section ${index}\nField: value\n`,
+      (_, index) =>
+        `${index ? "---\n" : ""}## Section ${index}\nField: value\n`,
     ).join("");
-    const { host, view } = fixture("```aic-security\n" + body + "```\nEnd");
+    const { host, view } = fixture("```aic\n" + body + "```\nEnd");
     expect(host.querySelector(".cm-aic-security-error")!.textContent).toContain(
       "16 sections",
     );
     errorButton(host).click();
     expect(view.state.selection.main.head).toBe(
-      view.state.doc.toString().indexOf("## Section 16"),
+      view.state.doc.toString().lastIndexOf("---"),
     );
   });
   it("renders a fresh generated template without a repair error", () => {
@@ -262,7 +254,7 @@ describe("safe block source locations", () => {
   it.each(["```", "````", "~~~"])(
     "adds an independent new block after an unclosed %s fence",
     (fence) => {
-      const source = `${fence}aic-security v2\n##\nPassword*: PRIVATE_SENTINEL`;
+      const source = `${fence}aic\n##\nPassword*: PRIVATE_SENTINEL`;
       const { host, view } = fixture(source);
       expect(host.querySelector(".cm-aic-security-error")).toBeNull();
       host
@@ -311,7 +303,7 @@ describe("safe block source locations", () => {
     const { host, view, onChange, onCopy } = fixture(merged);
     const error = host.querySelector(".cm-aic-security-error")!;
     expect(error.textContent).toContain("Line 7, column 1");
-    expect(error.textContent).toContain("##");
+    expect(error.textContent).toContain("---");
     expect(host.querySelector(".cm-aic-security")!.innerHTML).not.toContain(
       "PRIVATE_SENTINEL",
     );
@@ -351,7 +343,13 @@ describe("safe block source locations", () => {
     const { host, view } = fixture(merged);
     const old = errorButton(host);
     const from = merged.indexOf("# Second card");
-    view.dispatch({ changes: { from, to: from + 1, insert: "##" } });
+    view.dispatch({
+      changes: {
+        from,
+        to: from + "# Second card\n## Other".length,
+        insert: "---\n## Other",
+      },
+    });
     expect(host.querySelector(".cm-aic-security-error")).toBeNull();
     const before = view.state.selection.main.head;
     old.click();
@@ -368,8 +366,7 @@ describe("safe block source locations", () => {
   });
 
   it("points unsupported fence versions at the opening line", () => {
-    const doc =
-      "Title\n\n```aic-security v9\n##\nPassword*: PRIVATE_SENTINEL\n```\nEnd";
+    const doc = "Title\n\n```aic v9\n##\nPassword*: PRIVATE_SENTINEL\n```\nEnd";
     const { host, view } = fixture(doc);
     expect(host.querySelector(".cm-aic-security-error")!.textContent).toContain(
       "Line 3, column 1",
@@ -399,7 +396,7 @@ describe("safe block source locations", () => {
 
   it("identifies an invalid card component and jumps to its authored range", () => {
     const doc =
-      "Text\n\n```aic-security v2\n##\nCard_: 4242 4242 4242 4242 | 99/28 | 999\n```\nEnd";
+      "Text\n\n```aic\n##\nCard_: 4242 4242 4242 4242 | 99/28 | 999\n```\nEnd";
     const { host, view } = fixture(doc);
     const error = host.querySelector(".cm-aic-security-error")!;
     expect(error.textContent).toContain("Line 5");
@@ -411,7 +408,7 @@ describe("safe block source locations", () => {
 
   it("gives an invalid TOTP field an exact source action while keeping the seed out of preview", () => {
     const doc =
-      "Text\n\n```aic-security v2\n##\nAccount: example\nTOTP#: PRIVATE_INVALID_TOTP\n```\nEnd";
+      "Text\n\n```aic\n##\nAccount: example\nTOTP#: PRIVATE_INVALID_TOTP\n```\nEnd";
     const { host, view } = fixture(doc);
     expect(host.querySelector(".cm-aic-security-error")!.textContent).toContain(
       "Line 6",

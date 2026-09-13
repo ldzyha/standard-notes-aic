@@ -16,7 +16,7 @@ import { markdownPlainPreview } from "../src/preview";
 
 const secret = "private-password-should-not-appear";
 const source = [
-  "```aic-security",
+  "```aic",
   "## Main",
   "Service: Example",
   "Email: user@example.com",
@@ -104,6 +104,8 @@ describe("shared security block", () => {
     control(host, "Copy security block").click();
     expect(onCopy).toHaveBeenCalledWith(source, "security block");
     control(host, "Copy Password").click();
+    expect(onCopy).toHaveBeenCalledWith("Password", "Password label");
+    control(host, "Copy Password value").click();
     expect(onCopy).toHaveBeenCalledWith(secret, "Password");
     control(host, "Open URL").click();
     expect(onOpen).toHaveBeenCalledWith("https://example.com/login");
@@ -122,7 +124,7 @@ describe("shared security block", () => {
   it("adds a section and a new independent block without implicit saving", () => {
     const first = fixture();
     control(first.host, "Add security section").click();
-    expect(first.view.state.doc.toString()).toContain("## Section 2");
+    expect(first.view.state.doc.toString()).toContain("\n---\n");
     const parsed = parseSecurityBlock(
       securityBlocks(first.view.state)[0]!.body,
     );
@@ -145,9 +147,10 @@ describe("shared security block", () => {
   it("adds only to the requested section when labels repeat and retains preview", () => {
     const { host, view } = fixture(
       [
-        "```aic-security",
+        "```aic",
         "## Main",
         "Password*: first",
+        "---",
         "## Second",
         "Password*: second",
         "```",
@@ -164,11 +167,11 @@ describe("shared security block", () => {
   });
 
   it("repairs malformed blocks through Edit without exposing their contents", () => {
-    const invalid = "```aic-security\nprivate: never-render-this\n```";
+    const invalid = "```aic\nprivate never-render-this\n```";
     const { host, view } = fixture(invalid);
     expect(host.textContent).not.toContain("never-render-this");
     expect(host.textContent).toContain("Line 2, column 1");
-    expect(host.textContent).toContain("Add a ## section heading");
+    expect(host.textContent).toContain("Write each field as Label: value.");
     control(host, "Edit security block").click();
     expect(view.state.doc.toString()).toBe(invalid);
     expect(host.querySelector(".cm-aic-security")).toBeNull();
@@ -186,7 +189,7 @@ describe("shared security block", () => {
   it("keeps an unstarred TOTP field visible like every other unstarred field", () => {
     const value = "VISIBLE-KEY";
     const { host } = fixture(
-      ["```aic-security", "## Main", "TOTP: " + value, "```"].join("\n"),
+      ["```aic", "## Main", "TOTP: " + value, "```"].join("\n"),
     );
     expect(host.textContent).toContain(value);
     expect(host.querySelector(".cm-aic-security-code")).toBeNull();
@@ -195,9 +198,7 @@ describe("shared security block", () => {
   it("retires the one-time-code refresh timer when the block is replaced", () => {
     const clear = vi.spyOn(globalThis, "clearInterval");
     const { view } = fixture(
-      ["```aic-security", "## Main", "TOTP*: JBSWY3DPEHPK3PXP", "```"].join(
-        "\n",
-      ),
+      ["```aic", "## Main", "TOTP#: JBSWY3DPEHPK3PXP", "```"].join("\n"),
     );
     const before = clear.mock.calls.length;
     view.dispatch({
@@ -215,9 +216,9 @@ describe("shared security block", () => {
     });
     const seed = "JBSWY3DPEHPK3PXP";
     const configured = [
-      "```aic-security",
+      "```aic",
       "## Main",
-      "Two-factor*: " + seed,
+      "Two-factor#: " + seed,
       "```",
     ].join("\n");
     const { host, onCopy } = fixture(configured);
@@ -227,7 +228,7 @@ describe("shared security block", () => {
       ),
     );
     expect(host.textContent).not.toContain(seed);
-    control(host, "Copy Two-factor code").click();
+    control(host, "Copy Two-factor code value").click();
     await vi.waitFor(() =>
       expect(onCopy).toHaveBeenCalledWith(
         expect.stringMatching(/^\d{6}$/u),
@@ -249,7 +250,7 @@ describe("shared security block", () => {
       subtle: { importKey: vi.fn(async () => ({})), sign },
     });
     const { host, view } = fixture(
-      "```aic-security\n## Main\nTOTP*: JBSWY3DPEHPK3PXP\n```\n\nAfter",
+      "```aic\n## Main\nTOTP#: JBSWY3DPEHPK3PXP\n```\n\nAfter",
     );
     const output = host.querySelector(".cm-aic-security-code")!;
     await vi.advanceTimersByTimeAsync(3100);

@@ -19,6 +19,10 @@ import {
   selectionStaysInSource,
 } from "./core/structured-preview.js";
 import { providePreviewRanges } from "./core/preview-ranges.js";
+import {
+  sourcePreviewExit,
+  sourcePreviewExitHandlers,
+} from "./core/source-mode.js";
 
 const toggleVisual = StateEffect.define<number>();
 const editSource = StateEffect.define<number>({
@@ -55,6 +59,8 @@ const sourceOverrides = StateField.define<ReadonlySet<number>>({
       copy.add(effect.value);
       next = copy;
     }
+    if (transaction.effects.some((effect) => effect.is(sourcePreviewExit)))
+      next = new Set();
     if (transaction.selection && next.size) {
       const blocks = detailsForDocument(transaction.state.doc);
       next = new Set(
@@ -276,7 +282,10 @@ function previewStateChanged(transaction: Transaction): boolean {
     Boolean(transaction.selection) ||
     transaction.startState.readOnly !== transaction.state.readOnly ||
     transaction.effects.some(
-      (effect) => effect.is(toggleVisual) || effect.is(editSource),
+      (effect) =>
+        effect.is(toggleVisual) ||
+        effect.is(editSource) ||
+        effect.is(sourcePreviewExit),
     )
   );
 }
@@ -336,5 +345,18 @@ const detailsBodyField = StateField.define({
 });
 
 export function detailsExtensions(): Extension {
-  return [visualOverrides, sourceOverrides, detailsBodyField, detailsField];
+  return [
+    visualOverrides,
+    sourceOverrides,
+    sourcePreviewExitHandlers.of((state) => {
+      const active = state.field(sourceOverrides);
+      return (
+        detailsForDocument(state.doc).find((block) =>
+          active.has(block.headerFrom),
+        ) ?? null
+      );
+    }),
+    detailsBodyField,
+    detailsField,
+  ];
 }

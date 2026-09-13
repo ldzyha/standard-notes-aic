@@ -8,6 +8,7 @@ import {
   selectionStaysInSource,
   writeTextToClipboard,
 } from "./structured-preview.js";
+import { sourcePreviewExit, sourcePreviewExitHandlers } from "./source-mode.js";
 
 export const CODE_FENCE_EXTENSION_CORE_VERSION = "1.1.0";
 
@@ -28,7 +29,7 @@ export function codeFences(state) {
     enter(node) {
       if (node.name !== "FencedCode") return;
       const language = fenceInfo(state, node).split(/\s+/u)[0] ?? "";
-      if (language === "mermaid" || language === "aic-security") return;
+      if (["mermaid", "aic", "aic-security"].includes(language)) return;
       const text = node.node.getChild("CodeText");
       const afterOpen = Math.min(state.doc.lineAt(node.from).to + 1, node.to);
       blocks.push(
@@ -62,6 +63,7 @@ const codeFenceSource = StateField.define({
     let next = value == null ? null : transaction.changes.mapPos(value, -1);
     for (const effect of transaction.effects) {
       if (effect.is(editCodeFenceSource)) next = effect.value;
+      if (effect.is(sourcePreviewExit)) next = null;
     }
     if (next == null) return null;
     const block = codeFences(transaction.state).find(
@@ -185,7 +187,10 @@ export function makeCodeFenceExtension({
         !transaction.docChanged &&
         !transaction.selection &&
         transaction.startState.readOnly === transaction.state.readOnly &&
-        !transaction.effects.some((effect) => effect.is(refreshCodeFences))
+        !transaction.effects.some(
+          (effect) =>
+            effect.is(refreshCodeFences) || effect.is(sourcePreviewExit),
+        )
       )
         return value;
       return codeFenceDecorations(transaction.state, document, onCopy);
@@ -223,5 +228,15 @@ export function makeCodeFenceExtension({
     },
   );
 
-  return [codeFenceSource, field, viewportRefresh];
+  return [
+    codeFenceSource,
+    sourcePreviewExitHandlers.of((state) => {
+      const from = state.field(codeFenceSource);
+      return from == null
+        ? null
+        : (codeFences(state).find((block) => block.from === from) ?? null);
+    }),
+    field,
+    viewportRefresh,
+  ];
 }

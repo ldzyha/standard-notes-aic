@@ -14,7 +14,7 @@ import { isSaveAction } from "../src/core/save-boundary.js";
 import { securityCardMove } from "../src/core/security-card-order.js";
 
 const note =
-  "```aic-security\n# Accounts\n## Work\nEmail: work@example.test\nPassword*: synthetic-hidden-work\n## Personal\nEmail: personal@example.test\nURL: https://example.test\n```\n\nEnd";
+  "```aic\n# Accounts\n## Work\nEmail: work@example.test\nPassword*: synthetic-hidden-work\n---\n## Personal\nEmail: personal@example.test\nURL: https://example.test\n```\n\nEnd";
 const views: EditorView[] = [];
 function fixture(doc = note, readOnly = false) {
   const host = document.body.appendChild(document.createElement("div"));
@@ -197,7 +197,8 @@ describe("shared compact Security and Properties groups", () => {
       ]),
     });
     const card = host.querySelector<HTMLElement>(".cm-aic-properties")!;
-    expect(control(card, "Copy file")).toBeTruthy();
+    expect(card.querySelector('[aria-label="Copy file"]')).toBeNull();
+    expect(control(card, "Copy created")).toBeTruthy();
     expect(card.querySelector('[aria-label="Reorder file"]')).toBeNull();
     expect(
       card.querySelector('[aria-label="Reorder group Fields"]'),
@@ -214,7 +215,7 @@ describe("shared compact Security and Properties groups", () => {
     const current = host.querySelector<HTMLElement>(".cm-aic-properties")!;
     expect(
       current.querySelectorAll(".cm-aic-security-section:not([hidden])"),
-    ).toHaveLength(1);
+    ).toHaveLength(0);
     expect(
       current.querySelector(".cm-aic-note-relations")?.textContent,
     ).toContain("Project");
@@ -232,26 +233,26 @@ describe("shared compact Security and Properties groups", () => {
     expect(host.querySelector('[aria-label="Edit security block"]')).toBeNull();
     search(host, "Password");
     control(host, "Copy Password").click();
+    expect(onCopy).toHaveBeenCalledWith("Password", "Password label");
+    control(host, "Copy Password value").click();
     expect(onCopy).toHaveBeenCalledWith("synthetic-hidden-work", "Password");
     expect(view.state.doc.toString()).toBe(note);
   });
 
-  it("does not offer field reorder that would silently migrate commented legacy YAML", () => {
+  it("does not offer field reorder for a quarantined historical YAML fence", () => {
     const doc =
       '```aic-security\n# authored comment\nservice: Sample\nlogin: User\nannotation: ""\nfields: []\n```';
     const { host, view } = fixture(doc);
-    expect(host.querySelector(".cm-aic-security-error")).toBeNull();
+    expect(host.querySelector(".cm-aic-security-error")).not.toBeNull();
     expect(host.querySelector(".cm-aic-security-drag")).toBeNull();
     expect(view.state.doc.toString()).toBe(doc);
   });
 
   it("shows and filters a description but copies only the exact escaped value", () => {
-    const text = note
-      .replace("```aic-security", "```aic-security v2")
-      .replace(
-        "Password*: synthetic-hidden-work",
-        "Password*: synthetic\\|secret | WebDAV",
-      );
+    const text = note.replace(
+      "Password*: synthetic-hidden-work",
+      "Password*: synthetic\\|secret | WebDAV",
+    );
     const { host, view, onCopy } = fixture(text);
     expect(
       host.querySelector('[aria-label="Copy Password description value"]')
@@ -302,8 +303,7 @@ describe("shared compact Security and Properties groups", () => {
   });
 
   it("moves whole standalone cards and preserves non-card text; rejects nested/unclosed fences", () => {
-    const second =
-      "```aic-security\n# Second\n##\nPassword*: other-synthetic\n```";
+    const second = "```aic\n# Second\nPassword*: other-synthetic\n```";
     const doc = note + "\n\nParagraph between\n\n" + second + "\n\nTail";
     const { host, view, saves } = fixture(doc);
     const handles = host.querySelectorAll<HTMLButtonElement>(
@@ -319,13 +319,12 @@ describe("shared compact Security and Properties groups", () => {
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(doc);
     const unclosed = fixture(
-      second + "\n\n```aic-security\n## Open\nPassword*: partial",
+      second + "\n\n```aic\n## Open\nPassword*: partial",
     ).view;
     const blocks = securityBlocks(unclosed.state);
     expect(securityCardMove(unclosed.state, blocks[0]!, blocks[1]!)).toBeNull();
     const nested = fixture(
-      second +
-        "\n\n> ```aic-security\n> ## Nested\n> Password*: partial\n> ```",
+      second + "\n\n> ```aic\n> ## Nested\n> Password*: partial\n> ```",
     ).view;
     const nestedBlocks = securityBlocks(nested.state);
     expect(

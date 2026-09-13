@@ -31,7 +31,7 @@ const source = [
   "",
   "# Plain Markdown remains",
   "",
-  "```aic-security",
+  "```aic",
   "## Main",
   "Password*: synthetic-security-only",
   "```",
@@ -109,6 +109,29 @@ try {
           .getAttribute("data-theme"),
         theme === "dark" ? "dark" : "default",
       );
+      const composition = await properties.evaluate((card) => {
+        const metadata = card.querySelector(".cm-aic-properties-metadata");
+        const custom = card.querySelector(".cm-aic-security-body");
+        return {
+          metadata: Boolean(metadata),
+          custom: Boolean(custom),
+          metadataBeforeCustom: Boolean(
+            metadata &&
+            custom &&
+            metadata.compareDocumentPosition(custom) &
+              Node.DOCUMENT_POSITION_FOLLOWING,
+          ),
+          hasContextHeading: Boolean(
+            card.querySelector(".cm-aic-note-relations-heading"),
+          ),
+        };
+      });
+      assert.deepEqual(composition, {
+        metadata: true,
+        custom: true,
+        metadataBeforeCustom: true,
+        hasContextHeading: false,
+      });
       assert.equal(
         (await properties.textContent()).includes("synthetic-only-secret"),
         false,
@@ -116,6 +139,14 @@ try {
       assert.equal(
         await properties.getByRole("button", { name: "Paste file" }).count(),
         0,
+      );
+      assert.equal(
+        await properties.getByRole("button", { name: "Copy file" }).count(),
+        0,
+      );
+      assert.equal(
+        (await properties.textContent()).includes("example.note.md"),
+        false,
       );
       assert.equal(
         await properties
@@ -147,7 +178,7 @@ try {
         const background = luminance(getComputedStyle(card).backgroundColor);
         return [
           ...card.querySelectorAll(
-            ".cm-aic-security-label, .cm-aic-security-value, .cm-aic-security-action",
+            ".cm-aic-security-label, .cm-aic-security-value, .cm-aic-security-action, .cm-aic-properties-date, .cm-aic-properties-date-label, .cm-aic-properties-date-value, .cm-aic-note-relation-label",
           ),
         ].map((element) => {
           const foreground = luminance(getComputedStyle(element).color);
@@ -162,9 +193,7 @@ try {
         `${theme}/${width}: readable field and action contrast`,
       );
 
-      await properties
-        .getByRole("button", { name: "Copy created value" })
-        .click();
+      await properties.getByRole("button", { name: "Copy created" }).click();
       assert.equal(
         await page.evaluate(() => window.__aicClipboard.writes.at(-1)),
         "2026-09-12T10:00:00Z",
@@ -187,7 +216,7 @@ try {
       assert.ok(changed.includes("# Keep authored comment"));
       assert.ok(
         changed.endsWith(
-          "# Plain Markdown remains\n\n```aic-security\n## Main\nPassword*: synthetic-security-only\n```\n\nEnd",
+          "# Plain Markdown remains\n\n```aic\n## Main\nPassword*: synthetic-security-only\n```\n\nEnd",
         ),
       );
       assert.equal(
@@ -200,6 +229,42 @@ try {
       );
       passed.push(
         `${theme}/${width}: mask, copy, paste, metadata, layout, Markdown and security coexistence`,
+      );
+
+      const managedOnly = [
+        "---",
+        "file: example.note.md",
+        "created: 2026-09-12T10:00:00Z",
+        "updated: 2026-09-12T11:00:00Z",
+        "---",
+        "",
+        "Body",
+      ].join("\n");
+      await page.evaluate(
+        ({ text, id }) => {
+          regressionEditor.switchDocument(id, text);
+          regressionEditor.view.dispatch({
+            selection: { anchor: regressionEditor.view.state.doc.length },
+          });
+        },
+        { text: managedOnly, id: `managed-only-${theme}-${width}` },
+      );
+      const compact = page.locator("#regression .cm-aic-properties");
+      assert.equal(await compact.locator(".cm-aic-properties-date").count(), 2);
+      assert.equal(await compact.locator(".cm-aic-security-row").count(), 0);
+      assert.equal(await compact.locator(".cm-aic-security-filter").count(), 0);
+      assert.equal(
+        await compact
+          .getByRole("button", { name: "Add field to Fields" })
+          .count(),
+        1,
+      );
+      assert.equal(
+        await page.evaluate(() => regressionEditor.value),
+        managedOnly,
+      );
+      passed.push(
+        `${theme}/${width}: managed-only metadata has no empty custom grid`,
       );
     }
   }

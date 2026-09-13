@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+## 31.5.6 — 2026-09-13
+
+Release sequence 31 · 5 feature outcomes · 6 fixed-bug outcomes. Release source target;
+publication and hosted-manifest deployment require separate verification. The shared
+editor core moves to 5.0.0 because the Security fence grammar changes to one format.
+
+### Features
+
+1. One unversioned `aic` fence replaces the versioned Security fence variants for new content. Security sections use the single grammar with optional labels; authored legacy blocks require review when moving to the new format rather than an assumed automatic migration.
+2. Compact payment-card rows show only the last four number digits, expiry and masked CVV while preserving independent copying and source Edit.
+3. Security fields can be dragged across sections as well as reordered within a section; moves retain exact authored source outside the changed fields.
+4. Properties presents managed metadata, the related-note tree and custom fields in the compact shared Security surface, while managed values and navigation stay read-only.
+5. Labelled Add controls expose capacity and explain why an action is disabled at a limit instead of leaving an unexplained inactive control.
+
+### Fixes
+
+1. Escape handling is consistent across source, preview and Mermaid fence boundaries.
+2. Target feedback is transient and guarded against stale document or widget state.
+3. Field labels and values copy independently, without substituting one for the other.
+4. Filtering does not expose a masked card number (PAN).
+5. Label and drag controls remain legible and usable across narrow layouts and dark/light themes.
+6. Preview filtering and rendering avoid repeated work for unchanged content.
+
+Compatibility: AIC Notes 40.6.6 mirrors AIC Editor Core 5.0.0. This release changes the Security fence grammar; it does not add Standard Notes authentication or note synchronization. Masking is visual, not Markdown encryption; raw source, exports and copied values can contain plaintext.
+
 ## 30.3.3 — 2026-09-13
 
 Release sequence 30 · 3 feature outcomes · 3 fixed-bug outcomes. Release source target;

@@ -21,7 +21,7 @@ const second = "fixture-recovery-code-two";
 const views: EditorView[] = [];
 function source(value: string, label = "Recovery codes", hide = true) {
   return (
-    "```aic-security\n" +
+    "```aic\n" +
     serializeSecurityBlock({
       sections: [{ label: "Main", fields: [{ label, value, hide }] }],
     }) +

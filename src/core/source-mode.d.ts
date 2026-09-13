@@ -1,7 +1,13 @@
 import type { EditorView } from "@codemirror/view";
-import type { Extension } from "@codemirror/state";
+import type { EditorState, Extension } from "@codemirror/state";
+import type { StateEffectType, Facet } from "@codemirror/state";
 
-export const SOURCE_MODE_CORE_VERSION: "1.0.0";
+export const SOURCE_MODE_CORE_VERSION: "1.1.0";
+export const sourcePreviewExit: StateEffectType<void>;
+export const sourcePreviewExitHandlers: Facet<
+  (state: EditorState) => { from: number; to: number } | null,
+  readonly ((state: EditorState) => { from: number; to: number } | null)[]
+>;
 export type SourceMode = "preview" | "source";
 export type SourceModeController = Readonly<{
   mode: SourceMode;

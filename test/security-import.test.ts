@@ -24,7 +24,7 @@ function models(markdown: string) {
 }
 
 describe("Authenticator JSON import", () => {
-  it("packs separate accounts as ordered, untitled v3 sections without combining duplicates", () => {
+  it("packs separate accounts as ordered, untitled sections without combining duplicates", () => {
     const entries = [
       { service: "Example", account: "alice", secret: "JBSWY3DP" },
       { service: "Example", account: "alice", secret: "MZXW6YTB" },

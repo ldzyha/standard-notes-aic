@@ -82,7 +82,7 @@ afterEach(() => {
 
 describe("shared Properties renderer", () => {
   it("detects only closed offset-zero frontmatter and coexists with security fences", () => {
-    const text = `${frontmatter}\n\n\`\`\`aic-security\n## Main\nPassword*: secret\n\`\`\`\n\nTail`;
+    const text = `${frontmatter}\n\n\`\`\`aic\n## Main\nPassword*: secret\n\`\`\`\n\nTail`;
     const { host, view } = fixture(text);
     expect(propertiesBlocks(view.state)).toHaveLength(1);
     expect(securityBlocks(view.state)).toHaveLength(1);
@@ -114,7 +114,7 @@ describe("shared Properties renderer", () => {
     ).toHaveLength(1);
   });
 
-  it("renders managed metadata copy-only and keeps hidden values out of DOM metadata", () => {
+  it("shows compact copy-only dates, omits the duplicate filename, and keeps secrets out of metadata", () => {
     const { host, onCopy, onOpen } = fixture(
       frontmatter.replace(
         'Password*: ""',
@@ -126,6 +126,8 @@ describe("shared Properties renderer", () => {
       card.querySelector(".cm-md-preview-header strong")?.textContent,
     ).toBe("Properties");
     expect(card.outerHTML).not.toContain("SYNTHETIC-ONLY-SECRET");
+    expect(card.querySelector('[aria-label="Copy file"]')).toBeNull();
+    expect(card.textContent).not.toContain("vault.note.md");
     expect(card.querySelector('[aria-label="Paste file"]')).toBeNull();
     expect(
       card.querySelector('[aria-label="Delete empty file field"]'),
@@ -134,13 +136,14 @@ describe("shared Properties renderer", () => {
       card.querySelector('[aria-label="Add security section"]'),
     ).toBeNull();
     expect(card.querySelector('[aria-label="New security block"]')).toBeNull();
-    control(card, "Copy file").click();
-    expect(onCopy).toHaveBeenCalledWith("vault.note.md", "file");
+    expect(card.querySelector(".cm-aic-properties-metadata")).not.toBeNull();
     expect(
-      card.querySelector('[aria-label="Copy created value"]')?.textContent,
-    ).not.toBe("2026-08-20T10:00:00.000Z");
+      card.querySelector('[aria-label="Copy created"]')?.textContent,
+    ).not.toContain("2026-08-20T10:00:00.000Z");
     control(card, "Copy created").click();
     expect(onCopy).toHaveBeenCalledWith("2026-08-20T10:00:00.000Z", "created");
+    control(card, "Copy updated").click();
+    expect(onCopy).toHaveBeenCalledWith("2026-08-21T10:00:00.000Z", "updated");
     control(card, "Copy properties").click();
     expect(onCopy).toHaveBeenCalledWith(
       frontmatter
@@ -150,6 +153,26 @@ describe("shared Properties renderer", () => {
     );
     control(card, "Open URL").click();
     expect(onOpen).toHaveBeenCalledWith("https://example.com/login");
+  });
+
+  it("shows managed-only frontmatter without an empty custom grid or filter", () => {
+    const source = [
+      "---",
+      "file: vault.note.md",
+      "created: 2026-08-20T10:00:00.000Z",
+      "updated: 2026-08-21T10:00:00.000Z",
+      "---",
+      "# Body",
+    ].join("\n");
+    const { host, view } = fixture(source);
+    const card = host.querySelector<HTMLElement>(".cm-aic-properties")!;
+    expect(card.querySelectorAll(".cm-aic-properties-date")).toHaveLength(2);
+    expect(card.querySelector(".cm-aic-security-row")).toBeNull();
+    expect(card.querySelector(".cm-aic-security-filter")).toBeNull();
+    expect(card.querySelector(".cm-aic-security-section-title")).toBeNull();
+    expect(card.querySelector('[aria-label="Add Field"]')).not.toBeNull();
+    expect(card.textContent).not.toContain("vault.note.md");
+    expect(view.state.doc.toString()).toBe(source);
   });
 
   it("uses the shared empty-field Paste and quick-add actions with save annotation", async () => {
@@ -172,7 +195,7 @@ describe("shared Properties renderer", () => {
     expect(actions.at(-1)).toBe(true);
   });
 
-  it("updates a readonly relationship tree between managed and custom sections", () => {
+  it("places the heading-free relation tree before the shared custom-field panel and updates it", () => {
     const { host, view, onRelationshipOpen } = fixture();
     view.dispatch({
       effects: setPropertyRelationships.of([
@@ -188,13 +211,14 @@ describe("shared Properties renderer", () => {
     const card = host.querySelector<HTMLElement>(".cm-aic-properties")!;
     const groups = card.querySelectorAll(".cm-aic-security-section");
     const tree = card.querySelector(".cm-aic-note-relations")!;
-    expect(groups).toHaveLength(3);
+    expect(groups).toHaveLength(2);
+    expect(tree.textContent).not.toContain("Context");
+    const metadata = card.querySelector(".cm-aic-properties-metadata")!;
     expect(
-      groups[0]!.compareDocumentPosition(tree) &
-        Node.DOCUMENT_POSITION_FOLLOWING,
+      metadata.compareDocumentPosition(tree) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     expect(
-      tree.compareDocumentPosition(groups[1]!) &
+      tree.compareDocumentPosition(groups[0]!) &
         Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
     control(card, "Open parent note Synthetic parent").click();
@@ -251,10 +275,14 @@ describe("shared Properties renderer", () => {
     expect(
       readOnly.host.querySelector('[aria-label="Paste Email"]'),
     ).toBeNull();
-    control(readOnly.host, "Copy Email").click();
     expect(readOnly.onCopy).not.toHaveBeenCalled();
-    control(readOnly.host, "Copy file").click();
-    expect(readOnly.onCopy).toHaveBeenCalledWith("vault.note.md", "file");
+    control(readOnly.host, "Copy Email").click();
+    expect(readOnly.onCopy).toHaveBeenCalledWith("Email", "Email label");
+    control(readOnly.host, "Copy created").click();
+    expect(readOnly.onCopy).toHaveBeenCalledWith(
+      "2026-08-20T10:00:00.000Z",
+      "created",
+    );
   });
 
   it("masks invalid YAML until explicit source editing", () => {

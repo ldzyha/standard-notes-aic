@@ -56,15 +56,16 @@ describe("Security parser diagnostics", () => {
       line: 4,
       column: 1,
     });
-    expect(diagnostic.message).toMatch(/## section|fence/u);
+    expect(diagnostic.message).toMatch(/---|fence/u);
     expect(JSON.stringify(diagnostic)).not.toContain("synthetic-private");
-    const fence =
-      "## Main\nPassword*: synthetic-private\n```aic-security v2\n## More\n";
+    const fence = "## Main\nPassword*: synthetic-private\n```aic\n## More\n";
     expect(failure(fence).code).toBe("nested_fence");
   });
 
-  it("locates missing headings, labels, colon, space, escapes and pipe bounds", () => {
-    expect(failure("Token: synthetic-private").code).toBe("missing_section");
+  it("locates labels, colon, space, escapes and pipe bounds", () => {
+    expect(parseSecurityBlock("Token: synthetic-private")).toMatchObject({
+      ok: true,
+    });
     expect(failure("## \nToken: synthetic-private").code).toBe(
       "invalid_section_label",
     );
@@ -107,10 +108,10 @@ describe("Security parser diagnostics", () => {
   });
 
   it("locates section, field, title and body limits", () => {
-    const sections = `${"## A\n".repeat(16)}## Over`;
+    const sections = `${"---\n".repeat(16)}## Over`;
     expect(failure(sections)).toMatchObject({
       code: "too_many_sections",
-      from: sections.indexOf("## Over"),
+      from: sections.lastIndexOf("---"),
     });
     const fields = `## Main\n${"A: x\n".repeat(64)}Over: x`;
     expect(failure(fields)).toMatchObject({
@@ -127,8 +128,8 @@ describe("Security parser diagnostics", () => {
       `## Main\n${secret}:bad`,
       `## Main\nBad**: ${secret}`,
       `## Main\nToken: bad\\@${secret}`,
-      `service: ${secret}\nservice: duplicate\nlogin: x\nannotation: x\nfields: []`,
-      `service: &shared ${secret}\nlogin: *shared\nannotation: x\nfields: []`,
+      `## Main\nBad**: ${secret}`,
+      `## Main\nCard_: 123 | 09/28 | ${secret}`,
     ];
     for (const body of inputs) {
       const diagnostic = failure(body, pipes);
@@ -137,19 +138,37 @@ describe("Security parser diagnostics", () => {
     }
   });
 
-  it("positions legacy YAML errors and maps exact scalar fields where possible", () => {
-    const bad =
-      "service: one\nservice: two\nlogin: x\nannotation: x\nfields: []";
-    expect(failure(bad).code).toBe("invalid_yaml");
-    const good =
-      "service: Example\nlogin: alice\nannotation: ''\nfields:\n  - label: Password\n    type: secret\n    value: hidden\n";
+  it("rejects YAML collections with fixed diagnostics and maps optional labels", () => {
+    const bad = "sections:\n  - label: Main\n    fields: []";
+    expect(failure(bad).code).toBe("invalid_field_label");
+    const good = ": visible\n*: hidden\n";
     const parsed = parseSecurityBlock(good, { diagnostics: true });
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
-    expect(parsed.fieldRanges?.[0]).toEqual([
-      { from: good.indexOf("Example"), to: good.indexOf("Example") + 7 },
-      { from: good.indexOf("alice"), to: good.indexOf("alice") + 5 },
-      { from: good.indexOf("hidden"), to: good.indexOf("hidden") + 6 },
+    expect(parsed.fieldRanges[0]).toEqual([
+      { from: 0, to: good.indexOf("\n") },
+      { from: good.indexOf("*"), to: good.lastIndexOf("\n") },
     ]);
+  });
+
+  it("rejects explicit unsupported syntax options without echoing values", () => {
+    const body = "Password*: synthetic-private";
+    const oldFields = parseSecurityBlock(body, {
+      fieldSyntax: "legacy" as never,
+      diagnostics: true,
+    });
+    const oldSections = parseSecurityBlock(body, {
+      sectionSyntax: "headings" as never,
+      diagnostics: true,
+    });
+    expect(oldFields.ok || oldFields.diagnostic.code).toBe(
+      "unsupported_field_syntax",
+    );
+    expect(oldSections.ok || oldSections.diagnostic.code).toBe(
+      "unsupported_section_syntax",
+    );
+    expect(JSON.stringify([oldFields, oldSections])).not.toContain(
+      "synthetic-private",
+    );
   });
 });

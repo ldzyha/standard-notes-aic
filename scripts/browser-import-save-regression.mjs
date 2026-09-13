@@ -27,12 +27,9 @@ const source = JSON.stringify([
     secret: "SECOND-DUMMY-TOTP-SECRET",
   },
 ]);
-const emptySecurityBlock = [
-  "```aic-security",
-  "## Main",
-  "Password*:",
-  "```",
-].join("\n");
+const emptySecurityBlock = ["```aic", "## Main", "Password*:", "```"].join(
+  "\n",
+);
 const pastedValue = "DUMMY-PASTED-NOT-A-CREDENTIAL";
 try {
   for (const theme of ["light", "dark"]) {
@@ -125,7 +122,7 @@ try {
     );
     let posted = (await saves()).at(-1);
     const converted = posted.data.items[0].content.text;
-    assert.match(converted, /^```aic-security v3\n/u);
+    assert.match(converted, /^```aic\n/u);
     assert.equal((converted.match(/^---$/gmu) || []).length, 1);
     assert.notEqual(converted, source);
     assert.doesNotMatch(

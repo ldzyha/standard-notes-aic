@@ -3,8 +3,12 @@ export type ParsedFieldLabel = Readonly<{
   hide: boolean;
   kind?: "totp" | "card";
 }>;
-export type FieldSyntaxOptions = Readonly<{ fieldSyntax?: "pipes" }>;
-/** Legacy trailing star by default; v2 `*`, `#`, `_` markers only when opted in. */
+export type FieldSyntaxOptions = Readonly<{
+  fieldSyntax?: "pipes";
+  /** Security-only opt-in; ordinary Properties labels remain required. */
+  allowEmptyLabel?: true;
+}>;
+/** Interpret terminal field markers; optional empty labels require explicit opt-in. */
 export function parseFieldLabel(
   rawKey: string,
   options?: FieldSyntaxOptions,

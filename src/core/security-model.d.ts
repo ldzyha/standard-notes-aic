@@ -15,7 +15,7 @@ export type SecuritySection = Readonly<{
 }>;
 
 export type SecurityModel = Readonly<{
-  /** Independent card title. Omitted preserves legacy behavior; empty emits bare #. */
+  /** Independent card title; empty emits bare #. */
   title?: string;
   sections: readonly SecuritySection[];
 }>;
@@ -28,8 +28,8 @@ export type SecurityDiagnosticParseResult =
   | Readonly<{
       ok: true;
       model: SecurityModel;
-      /** Parallel to sections and fields; null only when a YAML source node is ambiguous. */
-      fieldRanges: readonly (readonly (BlockSourceRange | null)[])[];
+      /** Parallel body-relative ranges for sections and fields. */
+      fieldRanges: readonly (readonly BlockSourceRange[])[];
     }>
   | Readonly<{
       ok: false;
@@ -45,13 +45,12 @@ export const SECURITY_LIMITS: Readonly<{
   maxValueLength: 16384;
 }>;
 
-/** Full v3 fenced Markdown block with one implicit base section and blank fields. */
+/** Full fenced Markdown block with one implicit base section and blank fields. */
 export function securityTemplate(): string;
 /**
- * v1/v2 retain explicit ## sections. v3 uses an implicit first section and
- * standalone --- boundaries, with optional ## titles at section starts.
- * Optional leading # card titles decode to trimmed printable text of at most
- * 256 UTF-16 units. Legacy YAML remains readable without sectionSyntax.
+ * One Security grammar: optional leading # card title, implicit first section,
+ * standalone --- section boundaries, optional ## titles, and pipe field parts.
+ * Labels may be empty. Unsupported syntax options fail with a fixed diagnostic.
  */
 export function parseSecurityBlock(
   body: string,
@@ -82,9 +81,9 @@ export function serializeSecurityBlock(
   model: SecurityModel,
   options?: { fieldSyntax?: "pipes"; sectionSyntax?: "separators" },
 ): string;
-/** Explicit hide property; legacy inference occurs only when old YAML is parsed. */
+/** Explicit hide property from the field marker. */
 export function isSecretField(field: Pick<SecurityField, "hide">): boolean;
 /** An absolute HTTP(S) URL safe to hand to the host; empty otherwise. */
 export function safeSecurityUrl(value: unknown): string;
-/** Removes complete and unclosed aic-security fences from preview input. */
+/** Removes complete and unclosed aic fences from preview input. */
 export function redactSecurityBlocks(markdown: string): string;

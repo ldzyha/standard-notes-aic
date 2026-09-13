@@ -6,8 +6,10 @@ export function createSecurityAddMenu(
     text?: string;
     icon?: string;
     disabled?: boolean;
+    disabledReason?: string;
     run: () => void;
   }[],
+  text?: string,
 ): { element: HTMLDivElement; dispose: () => void };
 export function createSecurityFilter(
   document: Document,
@@ -24,6 +26,7 @@ export function createSecurityFilter(
           value: string;
           hide: boolean;
           recovery?: boolean;
+          kind?: string;
           description?: string;
         };
       }[];

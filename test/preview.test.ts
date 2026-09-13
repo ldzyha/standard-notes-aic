@@ -37,6 +37,8 @@ describe("Markdown note preview", () => {
   });
   it("never publishes security values from quoted or listed fences", () => {
     for (const [open, prefix] of [
+      ["> ```aic", "> "],
+      ["- ```aic", "  "],
       ["> ```aic-security", "> "],
       ["- ```aic-security", "  "],
     ]) {

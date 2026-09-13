@@ -15,7 +15,7 @@ function printable(value) {
   );
 }
 
-/** Legacy has only a terminal star; pipe syntax is explicitly opt-in. */
+/** Marker interpretation is selected by callers; Security alone allows empty labels. */
 export function parseFieldLabel(rawKey, options = {}) {
   if (typeof rawKey !== "string") fail();
   let source = rawKey;
@@ -28,7 +28,10 @@ export function parseFieldLabel(rawKey, options = {}) {
     source = source.slice(0, -1);
   }
   if (
-    !printable(source) ||
+    !(
+      printable(source) ||
+      (options?.allowEmptyLabel === true && source === "")
+    ) ||
     (pipes && RESERVED.has(source)) ||
     (pipes && /[*#_]$/u.test(source))
   )
@@ -49,7 +52,10 @@ export function serializeFieldLabel(field, options = {}) {
     !field ||
     typeof field !== "object" ||
     Array.isArray(field) ||
-    !printable(field.label) ||
+    !(
+      printable(field.label) ||
+      (options?.allowEmptyLabel === true && field.label === "")
+    ) ||
     (pipes && RESERVED.has(field.label)) ||
     typeof field.hide !== "boolean" ||
     (!pipes && field.kind !== undefined) ||

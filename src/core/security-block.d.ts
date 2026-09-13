@@ -4,7 +4,7 @@ import type {
   StateEffectType,
 } from "@codemirror/state";
 
-export const SECURITY_BLOCK_CORE_VERSION: "1.5.0";
+export const SECURITY_BLOCK_CORE_VERSION: "2.0.0";
 export type SecurityBlock = Readonly<{
   from: number;
   to: number;

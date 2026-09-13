@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  PIPE_FIELD_OPTIONS,
   SECURITY_FENCE_INFO,
   SECURITY_FIELD_OPTIONS,
 } from "../src/core/field-syntax.js";
@@ -12,14 +11,14 @@ import {
   type SecurityModel,
 } from "../src/core/security-model.js";
 
-describe("v3 Security separators", () => {
-  it("publishes the canonical v3 contract and limits", () => {
-    expect(SECURITY_FENCE_INFO).toBe("aic-security v3");
+describe("Security separators", () => {
+  it("publishes the canonical contract and limits", () => {
+    expect(SECURITY_FENCE_INFO).toBe("aic");
     expect(SECURITY_FIELD_OPTIONS).toEqual({
       fieldSyntax: "pipes",
       sectionSyntax: "separators",
+      allowEmptyLabel: true,
     });
-    expect(PIPE_FIELD_OPTIONS).toEqual({ fieldSyntax: "pipes" });
     expect(Object.isFrozen(SECURITY_LIMITS)).toBe(true);
     expect(SECURITY_LIMITS).toEqual({
       maxSections: 16,
@@ -27,7 +26,7 @@ describe("v3 Security separators", () => {
       maxBodyLength: 65536,
       maxValueLength: 16384,
     });
-    expect(securityTemplate()).toMatch(/^```aic-security v3\nService:/u);
+    expect(securityTemplate()).toMatch(/^```aic\nService:/u);
     expect(securityTemplate()).not.toMatch(/^##/mu);
   });
 
@@ -126,12 +125,10 @@ describe("v3 Security separators", () => {
     });
   });
 
-  it("keeps v1/v2 section grammar unchanged", () => {
-    const v2 = "## First\nField: one\n## Second\nField: two\n";
-    expect(parseSecurityBlock(v2, PIPE_FIELD_OPTIONS)).toMatchObject({
-      ok: true,
-    });
-    expect(parseSecurityBlock(v2, SECURITY_FIELD_OPTIONS)).toMatchObject({
+  it("rejects heading-only section boundaries without ---, regardless of options", () => {
+    const old = "## First\nField: one\n## Second\nField: two\n";
+    expect(parseSecurityBlock(old)).toMatchObject({ ok: false });
+    expect(parseSecurityBlock(old, SECURITY_FIELD_OPTIONS)).toMatchObject({
       ok: false,
     });
     const model: SecurityModel = {
@@ -140,14 +137,11 @@ describe("v3 Security separators", () => {
         { label: "", fields: [] },
       ],
     };
-    expect(serializeSecurityBlock(model, PIPE_FIELD_OPTIONS)).toBe("##\n##\n");
-    expect(serializeSecurityBlock(model)).toBe("##\n##\n");
-    expect(
-      parseSecurityBlock("Field: value", PIPE_FIELD_OPTIONS),
-    ).toMatchObject({ ok: false });
+    expect(serializeSecurityBlock(model)).toBe("---\n");
     expect(
       parseSecurityBlock("Field: value", SECURITY_FIELD_OPTIONS),
     ).toMatchObject({ ok: true });
+    expect(parseSecurityBlock("Field: value")).toMatchObject({ ok: true });
   });
 
   it("rejects misplaced/duplicate titles and overflows without leaking source", () => {

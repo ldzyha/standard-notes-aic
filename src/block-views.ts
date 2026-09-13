@@ -29,6 +29,10 @@ import {
   type TableModel,
 } from "./core/structured-preview.js";
 import { providePreviewRanges } from "./core/preview-ranges.js";
+import {
+  sourcePreviewExit,
+  sourcePreviewExitHandlers,
+} from "./core/source-mode.js";
 import { makePropertiesBlockExtension } from "./core/security-block.js";
 
 export type FrontmatterRow = Readonly<PropertyRow>;
@@ -440,6 +444,7 @@ const sourceOverrideField = StateField.define<SourceOverride | null>({
       : null;
     for (const effect of transaction.effects) {
       if (effect.is(editBlockSource)) next = effect.value;
+      if (effect.is(sourcePreviewExit)) next = null;
     }
     if (!next) return null;
     const range = sourceRange(transaction.state, next);
@@ -477,7 +482,10 @@ const tableField = StateField.define({
       !transaction.docChanged &&
       !transaction.selection &&
       transaction.startState.readOnly === transaction.state.readOnly &&
-      !transaction.effects.some((effect) => effect.is(refreshBlockViews))
+      !transaction.effects.some(
+        (effect) =>
+          effect.is(refreshBlockViews) || effect.is(sourcePreviewExit),
+      )
     )
       return value;
     return tableDecorations(transaction.state);
@@ -519,6 +527,10 @@ export function blockViewExtensions(
 ): Extension {
   return [
     sourceOverrideField,
+    sourcePreviewExitHandlers.of((state) => {
+      const source = state.field(sourceOverrideField);
+      return source ? sourceRange(state, source) : null;
+    }),
     tableField,
     makePropertiesBlockExtension({ document }),
     viewportRefresh,

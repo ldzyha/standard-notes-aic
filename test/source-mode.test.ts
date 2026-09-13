@@ -1,4 +1,5 @@
 import { history, undo, undoDepth } from "@codemirror/commands";
+import { completionStatus } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -25,9 +26,13 @@ const source = [
   "| --- | --- |",
   "| x | y |",
   "",
-  "```aic-security",
-  "## Main",
-  "Password*: secret-for-test",
+  "```aic",
+  "# Synthetic card",
+  "## Accounts",
+  "Password*: secret-for-test | note",
+  "---",
+  "## Other",
+  "Account: visible-account",
   "```",
   "",
   "```mermaid",
@@ -56,7 +61,121 @@ function button(editor: AicEditor) {
   )!;
 }
 
+function escape(view: EditorView, target: HTMLElement = view.contentDOM) {
+  target.focus();
+  const event = new KeyboardEvent("keydown", {
+    key: "Escape",
+    bubbles: true,
+    cancelable: true,
+  });
+  target.dispatchEvent(event);
+  return event;
+}
+
 describe("whole-note source mode", () => {
+  it("restores preview from inside a source fence without edits or a jump to file start", () => {
+    const onChange = vi.fn();
+    const onSave = vi.fn();
+    const editor = fixture({ onChange, onSave });
+    const toggle = button(editor);
+    toggle.click();
+    const inside = source.indexOf("secret-for-test") + 4;
+    editor.view.dispatch({ selection: { anchor: inside } });
+    expect(escape(editor.view).defaultPrevented).toBe(true);
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+    expect(editor.value).toBe(source);
+    expect(editor.view.state.selection.main.head).toBeGreaterThan(inside);
+    expect(editor.element.querySelector(".cm-aic-security")).not.toBeNull();
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onSave).not.toHaveBeenCalled();
+    editor.destroy();
+  });
+
+  it("collapses Ctrl+A on Escape and restores all previews", () => {
+    const onChange = vi.fn();
+    const onSave = vi.fn();
+    const editor = fixture({ onChange, onSave });
+    button(editor).click();
+    editor.view.dispatch({ selection: { anchor: 0, head: source.length } });
+    expect(escape(editor.view).defaultPrevented).toBe(true);
+    expect(editor.view.state.selection.main.empty).toBe(true);
+    expect(editor.view.state.selection.main.head).toBe(source.length);
+    const ranges: Array<[number, number]> = [];
+    for (const provider of editor.view.state.facet(EditorView.atomicRanges))
+      provider(editor.view).between(0, source.length, (from, to) => {
+        ranges.push([from, to]);
+      });
+    expect(ranges.some(([from]) => from === source.indexOf("| A | B |"))).toBe(
+      true,
+    );
+    expect(ranges.some(([from]) => from === source.indexOf("```aic"))).toBe(
+      true,
+    );
+    expect(editor.value).toBe(source);
+    expect(onChange).not.toHaveBeenCalled();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(undoDepth(editor.view.state)).toBe(0);
+    editor.destroy();
+  });
+
+  it("restores a fenced preview when a partial selection ends inside its source", () => {
+    const text = "Before\n\n```ts\nconst answer = 42;\n```\n\nAfter";
+    const editor = fixture({ initialText: text });
+    button(editor).click();
+    const inside = text.indexOf("answer");
+    editor.view.dispatch({ selection: { anchor: 0, head: inside } });
+    expect(escape(editor.view).defaultPrevented).toBe(true);
+    expect(editor.view.state.selection.main.empty).toBe(true);
+    expect(editor.view.state.selection.main.head).toBeGreaterThan(inside);
+    expect(editor.element.querySelector(".cm-md-code-preview")).not.toBeNull();
+    editor.destroy();
+  });
+
+  it("restores previews after a reversed whole-note selection", () => {
+    const editor = fixture();
+    button(editor).click();
+    editor.view.dispatch({ selection: { anchor: source.length, head: 0 } });
+    expect(escape(editor.view).defaultPrevented).toBe(true);
+    expect(editor.view.state.selection.main.empty).toBe(true);
+    expect(editor.view.state.selection.main.head).toBeGreaterThan(0);
+    expect(editor.element.querySelector(".cm-aic-properties")).not.toBeNull();
+    expect(editor.element.querySelector(".cm-aic-security")).not.toBeNull();
+    editor.destroy();
+  });
+
+  it("restores a GFM table without outer pipes from whole-note source", () => {
+    const text = "Before\n\nA | B\n--- | ---\nx | y\n\nAfter";
+    const editor = fixture({ initialText: text });
+    button(editor).click();
+    const inside = text.indexOf("x | y");
+    editor.view.dispatch({ selection: { anchor: inside } });
+    expect(escape(editor.view).defaultPrevented).toBe(true);
+    expect(editor.view.state.selection.main.head).toBeGreaterThan(inside);
+    expect(editor.element.querySelector(".cm-md-table")).not.toBeNull();
+    editor.destroy();
+  });
+
+  it("lets completion consume its first Escape before leaving whole-note source", async () => {
+    const editor = fixture({ initialText: "" });
+    const toggle = button(editor);
+    toggle.click();
+    editor.view.dispatch({
+      changes: { from: 0, insert: "/" },
+      selection: { anchor: 1 },
+      userEvent: "input.type",
+    });
+    await vi.waitFor(() =>
+      expect(completionStatus(editor.view.state)).toBe("active"),
+    );
+    expect(escape(editor.view).defaultPrevented).toBe(true);
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    expect(completionStatus(editor.view.state)).toBeNull();
+    expect(escape(editor.view).defaultPrevented).toBe(true);
+    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+    expect(editor.value).toBe("/");
+    editor.destroy();
+  });
+
   it("removes previews and atomic ranges without changing text, selection, history, or save", () => {
     const onChange = vi.fn();
     const onSave = vi.fn();
@@ -142,6 +261,83 @@ describe("whole-note source mode", () => {
   });
 });
 
+describe("per-block source Escape", () => {
+  const cases = [
+    {
+      name: "code",
+      text: "Before\n\n```ts\nconst answer = 42;\n```\n\nAfter",
+      edit: '[aria-label="Edit code source"]',
+      preview: ".cm-md-code-preview",
+    },
+    {
+      name: "table",
+      text: "Before\n\n| A | B |\n| --- | --- |\n| x | y |\n\nAfter",
+      edit: '[aria-label="Edit table source"]',
+      preview: ".cm-md-table",
+    },
+    {
+      name: "details",
+      text: "Before\n\n>>> Detail\nbody\n<<<\n\nAfter",
+      edit: '[aria-label="Edit details source"]',
+      preview: ".cm-aic-details-summary",
+    },
+    {
+      name: "Mermaid",
+      text: "Before\n\n```mermaid\nflowchart LR\n  A --> B\n```\n\nAfter",
+      edit: '[aria-label="Edit Mermaid source"]',
+      preview: ".cm-mermaid-inline",
+    },
+    {
+      name: "security",
+      text: "Before\n\n```aic\n# Synthetic card\n## Accounts\nPassword*: synthetic-hidden-secret | note\n---\n## Other\nAccount: visible-account\n```\n\nAfter",
+      edit: '[aria-label="Edit security block"]',
+      preview: ".cm-aic-security",
+    },
+    {
+      name: "properties",
+      text: "---\nfile: example.note.md\nstatus: idea\n---\n\nAfter",
+      edit: '[aria-label="Edit properties"]',
+      preview: ".cm-aic-properties",
+    },
+  ];
+
+  for (const { name, text, edit, preview } of cases) {
+    it(`restores ${name} preview with an unchanged document`, () => {
+      const onChange = vi.fn();
+      const onSave = vi.fn();
+      const editor = fixture({ initialText: text, onChange, onSave });
+      editor.view.dispatch({ selection: { anchor: text.length } });
+      const editButton = editor.element.querySelector<HTMLButtonElement>(edit);
+      expect(editButton).not.toBeNull();
+      editButton!.click();
+      expect(editor.element.querySelector(preview)).toBeNull();
+      expect(escape(editor.view).defaultPrevented).toBe(true);
+      expect(editor.element.querySelector(preview)).not.toBeNull();
+      expect(editor.view.state.selection.main.head).toBeGreaterThan(0);
+      expect(editor.value).toBe(text);
+      expect(onChange).not.toHaveBeenCalled();
+      expect(onSave).not.toHaveBeenCalled();
+      expect(undoDepth(editor.view.state)).toBe(0);
+      editor.destroy();
+    });
+  }
+
+  it("leaves Escape to an active child control", () => {
+    const text = "Before\n\n```ts\nconst answer = 42;\n```\n\nAfter";
+    const editor = fixture({ initialText: text });
+    editor.view.dispatch({ selection: { anchor: text.length } });
+    editor.element
+      .querySelector<HTMLButtonElement>('[aria-label="Edit code source"]')!
+      .click();
+    const input = document.createElement("input");
+    editor.view.dom.append(input);
+    expect(escape(editor.view, input).defaultPrevented).toBe(false);
+    expect(editor.element.querySelector(".cm-md-code-preview")).toBeNull();
+    expect(editor.value).toBe(text);
+    editor.destroy();
+  });
+});
+
 function securityFixture() {
   let resolveRead: (value: string) => void = () => {};
   const read = vi.fn(
@@ -169,7 +365,7 @@ function securityFixture() {
       },
     ],
   });
-  const text = `\`\`\`aic-security\n${body}\n\`\`\`\n\n${"prose\n"}`;
+  const text = `\`\`\`aic\n${body}\n\`\`\`\n\n${"prose\n"}`;
   const view = new EditorView({
     parent: host,
     state: EditorState.create({

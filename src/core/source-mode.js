@@ -1,8 +1,74 @@
-import { Compartment } from "@codemirror/state";
+import { Compartment, Facet, Prec, StateEffect } from "@codemirror/state";
+import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
+import { keymap } from "@codemirror/view";
 import { createIconButton } from "./structured-preview.js";
 import { suspendDiagramEditor } from "./diagram-session.js";
+import { detailsForDocument } from "./details-model.js";
 
-export const SOURCE_MODE_CORE_VERSION = "1.0.0";
+export const SOURCE_MODE_CORE_VERSION = "1.1.0";
+
+/** Preview extensions use this effect to release an explicit source edit. */
+export const sourcePreviewExit = StateEffect.define();
+
+/** Each preview extension may report its current source-edit range. */
+export const sourcePreviewExitHandlers = Facet.define({
+  combine: (handlers) => handlers,
+});
+
+function activeSourceRange(state) {
+  const head = state.selection.main.head;
+  for (const handler of state.facet(sourcePreviewExitHandlers)) {
+    const range = handler(state);
+    if (
+      range &&
+      Number.isSafeInteger(range.from) &&
+      Number.isSafeInteger(range.to) &&
+      range.from <= head &&
+      head <= range.to
+    )
+      return range;
+  }
+  return null;
+}
+
+// Whole-note source mode has no preview fields installed. Locate only the
+// block containing the caret, so Escape can restore its preview without
+// sending a reader back to the beginning of a long note.
+function nearbyPreviewAnchor(state) {
+  const head = state.selection.main.head;
+  const doc = state.doc;
+  const tree = ensureSyntaxTree(state, doc.length, 100) ?? syntaxTree(state);
+  let structuralEnd = null;
+  tree.iterate({
+    enter(node) {
+      if (
+        (node.name === "FencedCode" || node.name === "Table") &&
+        node.from <= head &&
+        head < node.to
+      )
+        structuralEnd = Math.max(structuralEnd ?? 0, node.to);
+    },
+  });
+  if (structuralEnd !== null) return structuralEnd;
+
+  const details = detailsForDocument(doc).find(
+    (block) => block.from <= head && head < block.end,
+  );
+  if (details) return details.end;
+
+  // Frontmatter is not a Lezer node; its document-leading delimiter is
+  // sufficient to select a safe position immediately after that block.
+  if (doc.line(1).text.trim() === "---") {
+    for (let number = 2; number <= doc.lines; number++) {
+      const current = doc.line(number);
+      if (current.text.trim() === "---") {
+        if (head < current.to) return current.to;
+        break;
+      }
+    }
+  }
+  return head;
+}
 
 /** Reconfigure preview-only extensions without replacing Markdown or history. */
 export function createSourceModeController() {
@@ -24,8 +90,10 @@ export function createSourceModeController() {
     }
   };
 
-  const toggle = (view) => {
+  const toggle = (view, escape = false) => {
     if (!view || compartment.get(view.state) === undefined) return mode;
+    if (escape && mode === "source")
+      view.dispatch({ selection: { anchor: nearbyPreviewAnchor(view.state) } });
     const scroll = view.scrollDOM;
     const top = scroll.scrollTop;
     const left = scroll.scrollLeft;
@@ -71,7 +139,37 @@ export function createSourceModeController() {
     },
     extension(previewExtensions) {
       previews = previewExtensions;
-      return compartment.of(mode === "preview" ? previews : []);
+      return [
+        // Completion and snippet keys are Prec.highest; ordinary selection
+        // Escape must not run before this preview-exit command.
+        Prec.high(
+          keymap.of([
+            {
+              key: "Escape",
+              run(view) {
+                // Nested editors and native form controls keep their own keys.
+                if (view.dom.ownerDocument.activeElement !== view.contentDOM)
+                  return false;
+                if (mode === "source") {
+                  toggle(view, true);
+                  return true;
+                }
+                const range = activeSourceRange(view.state);
+                if (!range) return false;
+                view.dispatch({
+                  selection: {
+                    anchor: Math.min(range.to, view.state.doc.length),
+                  },
+                  effects: sourcePreviewExit.of(),
+                  scrollIntoView: true,
+                });
+                return true;
+              },
+            },
+          ]),
+        ),
+        compartment.of(mode === "preview" ? previews : []),
+      ];
     },
     toggle,
     reset() {

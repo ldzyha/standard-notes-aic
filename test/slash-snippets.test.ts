@@ -56,8 +56,7 @@ describe("shared documentation slash snippets", () => {
         ({ command, question, template }) =>
           question.endsWith("?") &&
           (template.includes("${") ||
-            (command === "security" &&
-              template.startsWith("```aic-security v3\n"))),
+            (command === "security" && template.startsWith("```aic\n"))),
       ),
     ).toBe(true);
     expect(DOCUMENTATION_SNIPPETS.map(({ command }) => command)).toEqual(

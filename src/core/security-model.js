@@ -1,4 +1,3 @@
-import { isAlias, isMap, isScalar, isSeq, parseDocument, visit } from "yaml";
 import { blockDiagnostic } from "./block-diagnostic.js";
 import { parseFieldLabel, serializeFieldLabel } from "./field-label.js";
 import { joinFieldParts, splitFieldParts } from "./field-parts.js";
@@ -16,9 +15,6 @@ const MAX_SECTIONS = SECURITY_LIMITS.maxSections;
 const MAX_FIELDS = SECURITY_LIMITS.maxFields;
 const MAX_VALUE_LENGTH = SECURITY_LIMITS.maxValueLength;
 const INVALID = Object.freeze({ ok: false, code: "invalid_security_block" });
-const LEGACY_SECRET_LABEL =
-  /(?:^|[^\p{L}\p{N}])(?:pass(?:word|phrase|code)?|pwd|security[\s_-]*key|api[\s_-]*key|client[\s_-]*secret|secret|token|credential|private[\s_-]*key|recovery[\s_-]*(?:code|key)|(?:2fa|mfa|totp|otp)(?:[\s_-]*code)?)(?=$|[^\p{L}\p{N}])/iu;
-const LEGACY_TYPES = new Set(["text", "url", "password", "secret", "totp"]);
 
 function exactly(value, names) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -48,6 +44,10 @@ function name(value) {
   );
 }
 
+function fieldName(value) {
+  return value === "" || name(value);
+}
+
 function titleText(value) {
   return (
     string(value, 256) &&
@@ -60,12 +60,7 @@ function has(value, key) {
   return value instanceof Map ? value.has(key) : Object.hasOwn(value, key);
 }
 
-function normalize(model, options) {
-  const pipes = options?.fieldSyntax === "pipes";
-  const separators = options?.sectionSyntax === "separators";
-  if (options?.fieldSyntax !== undefined && !pipes) return null;
-  if (options?.sectionSyntax !== undefined && (!separators || !pipes))
-    return null;
+function normalize(model) {
   if (!exactly(model, ["sections"]) && !exactly(model, ["title", "sections"]))
     return null;
   const titled = has(model, "title");
@@ -88,25 +83,21 @@ function normalize(model, options) {
     if (!Array.isArray(fields) || fields.length > MAX_FIELDS) return null;
     const normalizedFields = [];
     for (const field of fields) {
-      const allowed = new Set(
-        pipes
-          ? [
-              "label",
-              "value",
-              "hide",
-              "kind",
-              "description",
-              "additionalSecret",
-            ]
-          : ["label", "value", "hide"],
-      );
+      const allowed = new Set([
+        "label",
+        "value",
+        "hide",
+        "kind",
+        "description",
+        "additionalSecret",
+      ]);
       if (
         !field ||
         typeof field !== "object" ||
         Array.isArray(field) ||
         Object.keys(field).some((key) => !allowed.has(key)) ||
         !["label", "value", "hide"].every((key) => has(field, key)) ||
-        !name(get(field, "label")) ||
+        !fieldName(get(field, "label")) ||
         !string(get(field, "value"), MAX_VALUE_LENGTH) ||
         typeof get(field, "hide") !== "boolean"
       )
@@ -130,7 +121,7 @@ function normalize(model, options) {
             hide: get(field, "hide"),
             ...(kind === undefined ? {} : { kind }),
           },
-          options,
+          SECURITY_FIELD_OPTIONS,
         );
       } catch {
         return null;
@@ -152,7 +143,7 @@ function normalize(model, options) {
   };
 }
 
-function decode(encoded, pipes = false, onError = () => {}) {
+function decode(encoded, onError = () => {}) {
   let value = "";
   for (let index = 0; index < encoded.length; index += 1) {
     const character = encoded[index];
@@ -173,7 +164,7 @@ function decode(encoded, pipes = false, onError = () => {}) {
     }
     const escape = encoded[++index];
     if (escape === "\\") value += "\\";
-    else if (pipes && escape === "|") value += "|";
+    else if (escape === "|") value += "|";
     else if (escape === "n") value += "\n";
     else if (escape === "r") value += "\r";
     else if (escape === "t") value += "\t";
@@ -249,9 +240,7 @@ function pipeFailureOffset(raw) {
   return { code: "value_too_long", index: raw.length };
 }
 
-function parseLines(body, options, report) {
-  const pipes = options?.fieldSyntax === "pipes";
-  const separators = options?.sectionSyntax === "separators";
+function parseLines(body, report) {
   const lines = lineEntries(body);
   const sections = [];
   const fieldRanges = [];
@@ -272,9 +261,7 @@ function parseLines(body, options, report) {
       if (title !== undefined) {
         report(
           "duplicate_title",
-          separators
-            ? "Keep one # card title at the start; use --- for another section or a separate fenced block."
-            : "Keep one # card title before the first ## section; use another ## section or a separate fenced block.",
+          "Keep one # card title at the start; use --- for another section or a separate fenced block.",
           from,
           end,
         );
@@ -292,7 +279,7 @@ function parseLines(body, options, report) {
       title =
         line === "#"
           ? ""
-          : decode(line.slice(2), false, (index, code) => {
+          : decode(line.slice(2), (index, code) => {
               report(
                 code,
                 code === "invalid_escape"
@@ -313,7 +300,7 @@ function parseLines(body, options, report) {
       }
       continue;
     }
-    if (separators && line === "---") {
+    if (line === "---") {
       if (!current) openSection();
       if (sections.length >= MAX_SECTIONS) {
         report(
@@ -332,50 +319,33 @@ function parseLines(body, options, report) {
       if (line !== "##" && !name(label)) {
         report(
           "invalid_section_label",
-          separators
-            ? "Use a trimmed ## section title, or omit the title for an untitled section."
-            : "Use ## for an empty section, or ## followed by a trimmed section name.",
+          "Use a trimmed ## section title, or omit the title for an untitled section.",
           from,
           end,
         );
         return null;
       }
-      if (separators) {
-        if (!current) openSection();
-        if (sectionHeadingSeen || current.fields.length) {
-          report(
-            "misplaced_section_title",
-            "Use a standalone --- line before another section title.",
-            from,
-            end,
-          );
-          return null;
-        }
-        current.label = label;
-        sectionHeadingSeen = true;
-        continue;
-      }
-      if (sections.length >= MAX_SECTIONS) {
+      if (!current) openSection();
+      if (sectionHeadingSeen || current.fields.length) {
         report(
-          "too_many_sections",
-          "This block exceeds 16 sections. Move some ## sections into a separate Security block.",
+          "misplaced_section_title",
+          "Use a standalone --- line before another section title.",
           from,
           end,
         );
         return null;
       }
-      openSection(label);
+      current.label = label;
+      sectionHeadingSeen = true;
       continue;
     }
     if (
       !line.includes(":") &&
-      /^[ \t]*(?:`{3,}|~{3,})(?:aic-security(?:[ \t].*)?)?$/u.test(line)
+      /^[ \t]*(?:`{3,}|~{3,})(?:aic(?:[ \t].*)?)?$/u.test(line)
     ) {
       report(
         "nested_fence",
-        separators
-          ? "Remove pasted fence lines and use standalone --- separators, or keep separate fenced blocks."
-          : "Remove pasted fence lines and use ## sections, or keep the cards in separate fenced blocks.",
+        "Remove pasted fence lines and use standalone --- separators, or keep separate fenced blocks.",
         from,
         end,
       );
@@ -384,39 +354,24 @@ function parseLines(body, options, report) {
     if ((line === "#" || line.startsWith("# ")) && !line.includes(":")) {
       report(
         "misplaced_title",
-        separators
-          ? "Move the # card title to the start, use --- for another section, or keep separate fenced blocks."
-          : "Move the # title above every ## section, use another ## section, or keep separate fenced blocks.",
+        "Move the # card title to the start, use --- for another section, or keep separate fenced blocks.",
         from,
         end,
       );
       return null;
     }
-    if (!current) {
-      if (separators) openSection();
-    }
-    if (!current) {
-      report(
-        "missing_section",
-        "Add a ## section heading before fields.",
-        from,
-        end,
-      );
-      return null;
-    }
+    if (!current) openSection();
     if (current.fields.length >= MAX_FIELDS) {
       report(
         "too_many_fields",
-        separators
-          ? "This section exceeds 64 fields. Add a standalone --- separator or move fields into another block."
-          : "This section exceeds 64 fields. Add a ## section or move some fields into another block.",
+        "This section exceeds 64 fields. Add a standalone --- separator or move fields into another block.",
         from,
         end,
       );
       return null;
     }
     const colon = line.indexOf(":");
-    if (colon < 1) {
+    if (colon < 0) {
       report(
         "missing_field_colon",
         "Write each field as Label: value.",
@@ -428,7 +383,7 @@ function parseLines(body, options, report) {
     const marked = line.slice(0, colon);
     let field;
     try {
-      field = parseFieldLabel(marked, options);
+      field = parseFieldLabel(marked, SECURITY_FIELD_OPTIONS);
     } catch {
       report(
         "invalid_field_label",
@@ -439,7 +394,7 @@ function parseLines(body, options, report) {
       return null;
     }
     const source = line.slice(colon + 1);
-    if (!name(field.label)) {
+    if (!fieldName(field.label)) {
       report(
         "invalid_field_label",
         "Use a trimmed printable field label before the colon.",
@@ -461,7 +416,7 @@ function parseLines(body, options, report) {
     const valueFrom = from + colon + 1 + Number(Boolean(source));
     let slots;
     try {
-      slots = pipes ? splitFieldParts(raw) : [raw];
+      slots = splitFieldParts(raw);
     } catch {
       const failure = pipeFailureOffset(raw);
       report(
@@ -476,9 +431,9 @@ function parseLines(body, options, report) {
       );
       return null;
     }
-    const ranges = pipes ? partRanges(raw) : [{ from: 0, to: raw.length }];
+    const ranges = partRanges(raw);
     const values = slots.map((slot, index) =>
-      decode(slot, pipes, (offset, code) => {
+      decode(slot, (offset, code) => {
         report(
           code,
           code === "invalid_escape"
@@ -538,7 +493,7 @@ function parseLines(body, options, report) {
     current.fields.push(parsed);
     fieldRanges.at(-1).push({ from, to: end });
   }
-  if (separators && !sections.length) openSection();
+  if (!sections.length) openSection();
   if (!sections.length) {
     report("missing_section", "Add a ## section heading before fields.", 0, 0);
     return null;
@@ -547,225 +502,6 @@ function parseLines(body, options, report) {
     model: { ...(title !== undefined ? { title } : {}), sections },
     fieldRanges,
   };
-}
-
-function oldField(field) {
-  if (!exactly(field, ["label", "type", "value"])) return null;
-  const label = get(field, "label");
-  const type = get(field, "type");
-  const value = get(field, "value");
-  if (
-    !string(label, 256) ||
-    !LEGACY_TYPES.has(type) ||
-    !string(value, MAX_VALUE_LENGTH)
-  )
-    return null;
-  const readable = name(label);
-  return {
-    label: readable ? label : "Field",
-    value,
-    hide:
-      type === "password" ||
-      type === "secret" ||
-      type === "totp" ||
-      LEGACY_SECRET_LABEL.test(label),
-  };
-}
-
-function oldSection(section) {
-  if (
-    !exactly(section, [
-      "label",
-      "service",
-      "account",
-      "email",
-      "url",
-      "annotation",
-      "fields",
-    ])
-  )
-    return null;
-  const label = get(section, "label");
-  const oldFields = get(section, "fields");
-  if (
-    !string(label, 256) ||
-    !Array.isArray(oldFields) ||
-    oldFields.length > MAX_FIELDS
-  )
-    return null;
-  const result = { label: name(label) ? label : "Main", fields: [] };
-  for (const key of ["service", "account", "email", "url", "annotation"]) {
-    const value = get(section, key);
-    const limit = key === "annotation" ? 4096 : key === "url" ? 2048 : 512;
-    if (!string(value, limit)) return null;
-    if (value)
-      result.fields.push({
-        label: key === "url" ? "URL" : key[0].toUpperCase() + key.slice(1),
-        value,
-        hide: false,
-      });
-  }
-  for (const field of oldFields) {
-    const converted = oldField(field);
-    if (!converted) return null;
-    result.fields.push(converted);
-  }
-  return result.fields.length <= MAX_FIELDS ? result : null;
-}
-
-function migrateYaml(value) {
-  const titled = has(value, "title");
-  const title = titled ? get(value, "title") : undefined;
-  if (titled && !titleText(title)) return null;
-  if (titled) {
-    value = new Map(value instanceof Map ? value : Object.entries(value));
-    value.delete("title");
-  }
-  const complete = (sections) => ({ ...(titled ? { title } : {}), sections });
-  if (exactly(value, ["sections"])) {
-    const sections = get(value, "sections");
-    if (
-      !Array.isArray(sections) ||
-      sections.length < 1 ||
-      sections.length > MAX_SECTIONS
-    )
-      return null;
-    const migrated = sections.map(oldSection);
-    return migrated.every(Boolean) ? complete(migrated) : null;
-  }
-  const oldest = exactly(value, ["service", "login", "annotation", "fields"]);
-  if (
-    !oldest &&
-    !exactly(value, [
-      "service",
-      "account",
-      "email",
-      "url",
-      "annotation",
-      "fields",
-    ])
-  )
-    return null;
-  const section = oldSection({
-    label: "Main",
-    service: get(value, "service"),
-    account: get(value, oldest ? "login" : "account"),
-    email: oldest ? "" : get(value, "email"),
-    url: oldest ? "" : get(value, "url"),
-    annotation: get(value, "annotation"),
-    fields: get(value, "fields"),
-  });
-  return section ? complete([section]) : null;
-}
-
-function nodeRange(node) {
-  return isScalar(node) && Array.isArray(node.range)
-    ? { from: node.range[0], to: node.range[1] }
-    : null;
-}
-
-function mapValueNode(map, key) {
-  return isMap(map)
-    ? map.items.find((pair) => pair.key?.value === key)?.value
-    : undefined;
-}
-
-function legacyFieldRanges(document, model) {
-  const root = document.contents;
-  const sectionNodes = mapValueNode(root, "sections");
-  const sections = isSeq(sectionNodes) ? sectionNodes.items : [root];
-  return model.sections.map((section, sectionIndex) => {
-    const source = sections[sectionIndex];
-    if (!isMap(source)) return section.fields.map(() => null);
-    const ranges = [];
-    const keys = isSeq(sectionNodes)
-      ? ["service", "account", "email", "url", "annotation"]
-      : [
-          "service",
-          mapValueNode(source, "login") ? "login" : "account",
-          "email",
-          "url",
-          "annotation",
-        ];
-    for (const key of keys) {
-      const node = mapValueNode(source, key);
-      if (isScalar(node) && node.value) ranges.push(nodeRange(node));
-    }
-    const fieldNodes = mapValueNode(source, "fields");
-    if (isSeq(fieldNodes))
-      for (const fieldNode of fieldNodes.items)
-        ranges.push(nodeRange(mapValueNode(fieldNode, "value")));
-    return ranges.length === section.fields.length
-      ? ranges
-      : section.fields.map(() => null);
-  });
-}
-
-function parseLegacy(body, report) {
-  const document = parseDocument(body, {
-    strict: true,
-    uniqueKeys: true,
-    merge: false,
-    prettyErrors: false,
-  });
-  if (document.errors.length || document.warnings.length) {
-    const issue = document.errors[0] ?? document.warnings[0];
-    report(
-      "invalid_yaml",
-      "Fix the legacy Security YAML syntax, or add a ## section heading for line-format fields.",
-      issue?.pos?.[0] ?? 0,
-      issue?.pos?.[1] ?? issue?.pos?.[0] ?? 0,
-    );
-    return null;
-  }
-  if (!isMap(document.contents)) {
-    report(
-      "invalid_legacy_security",
-      "Use a ## section heading before line-format fields, or a supported legacy YAML map.",
-      0,
-      0,
-    );
-    return null;
-  }
-  let unsupported = false;
-  let count = 0;
-  visit(document, (_key, node) => {
-    count += 1;
-    if (count > 2048 || isAlias(node) || node?.anchor || node?.tag) {
-      unsupported = true;
-      report(
-        "unsupported_yaml",
-        "Remove YAML aliases, anchors, tags, or excessive nesting.",
-        node?.range?.[0] ?? 0,
-        node?.range?.[1] ?? node?.range?.[0] ?? 0,
-      );
-    }
-  });
-  if (unsupported) return null;
-  const model = migrateYaml(
-    document.toJS({ mapAsMap: true, maxAliasCount: 0 }),
-  );
-  if (!model) {
-    const first = lineEntries(body).find(
-      ({ text }) => text.trim() && !text.trimStart().startsWith("#"),
-    );
-    const missingSection =
-      first &&
-      /:\s*/u.test(first.text) &&
-      !/^(?:title|sections|service|login|account|email|url|annotation|fields):/u.test(
-        first.text,
-      );
-    report(
-      missingSection ? "missing_section" : "invalid_legacy_security",
-      missingSection
-        ? "Add a ## section heading before line-format fields."
-        : "Use a supported legacy Security YAML shape or the ## section format.",
-      first?.from ?? 0,
-      first ? first.from + first.text.length : 0,
-    );
-    return null;
-  }
-  return { model, fieldRanges: legacyFieldRanges(document, model) };
 }
 
 /** Failure codes are fixed strings so validation never echoes secret values. */
@@ -811,7 +547,7 @@ export function parseSecurityBlock(body, options = {}) {
   }
   if (
     options?.sectionSyntax !== undefined &&
-    (options.sectionSyntax !== "separators" || options.fieldSyntax !== "pipes")
+    options.sectionSyntax !== "separators"
   ) {
     report(
       "unsupported_section_syntax",
@@ -820,22 +556,8 @@ export function parseSecurityBlock(body, options = {}) {
     return invalid();
   }
   try {
-    const separators = options?.sectionSyntax === "separators";
-    const first = body.trimStart().split(/\r\n|\n|\r/u, 1)[0];
-    const heading = first === "##" || first.startsWith("## ");
-    // YAML comments historically accepted before legacy keys must not become
-    // titles. A title belongs to line syntax only when followed by ## sections.
-    // A malformed heading never falls back to YAML when a section is present.
-    const lines = body.split(/\r\n|\n|\r/u);
-    const legacyComment =
-      first.startsWith("#") &&
-      !lines.some((line) => line === "##" || line.startsWith("## "));
-    const lineFormat =
-      separators || heading || (first.startsWith("#") && !legacyComment);
-    const parsed = lineFormat
-      ? parseLines(body, options, report)
-      : parseLegacy(body, report);
-    return parsed && normalize(parsed.model, lineFormat ? options : {})
+    const parsed = parseLines(body, report);
+    return parsed && normalize(parsed.model)
       ? diagnostics
         ? { ok: true, model: parsed.model, fieldRanges: parsed.fieldRanges }
         : { ok: true, model: parsed.model }
@@ -847,16 +569,20 @@ export function parseSecurityBlock(body, options = {}) {
 
 /** Stable line body. The caller owns the surrounding Markdown fence. */
 export function serializeSecurityBlock(model, options = {}) {
-  const normalized = normalize(model, options);
+  if (
+    (options?.fieldSyntax !== undefined && options.fieldSyntax !== "pipes") ||
+    (options?.sectionSyntax !== undefined &&
+      options.sectionSyntax !== "separators")
+  )
+    throw new TypeError("invalid security block");
+  const normalized = normalize(model);
   if (!normalized) throw new TypeError("invalid security block");
-  const separators = options?.sectionSyntax === "separators";
   const lines = [];
   if (has(normalized, "title"))
     lines.push(normalized.title ? `# ${encode(normalized.title)}` : "#");
   for (const [index, section] of normalized.sections.entries()) {
-    if (separators && index) lines.push("---");
-    if (!separators || section.label)
-      lines.push(section.label ? `## ${section.label}` : "##");
+    if (index) lines.push("---");
+    if (section.label) lines.push(`## ${section.label}`);
     for (const field of section.fields) {
       const slots = [field.value];
       if (
@@ -868,17 +594,14 @@ export function serializeSecurityBlock(model, options = {}) {
         slots.push(field.additionalSecret);
       let value;
       try {
-        value =
-          options.fieldSyntax === "pipes"
-            ? joinFieldParts(
-                slots.map((slot) => encode(slot).replaceAll("|", "\\|")),
-              )
-            : encode(field.value);
+        value = joinFieldParts(
+          slots.map((slot) => encode(slot).replaceAll("|", "\\|")),
+        );
       } catch {
         throw new TypeError("invalid security block");
       }
       lines.push(
-        `${serializeFieldLabel(field, options)}:${value ? ` ${value}` : ""}`,
+        `${serializeFieldLabel(field, SECURITY_FIELD_OPTIONS)}:${value ? ` ${value}` : ""}`,
       );
     }
   }
@@ -910,7 +633,7 @@ export function securityTemplate() {
   return "```" + SECURITY_FENCE_INFO + "\n" + body + "```";
 }
 
-/** New-format masking is explicit; legacy inference happens during YAML migration. */
+/** Masking is explicit in the field marker. */
 export function isSecretField(field) {
   return field?.hide === true;
 }
@@ -1005,8 +728,11 @@ export function redactSecurityBlocks(markdown) {
       if (!securityFence) result += rawLine;
       continue;
     }
+    // Quarantine historical fences in summaries even though they are no longer parsed.
     const security =
-      /^[ \t]*(`{3,}|~{3,})[ \t]*aic-security(?:[ \t].*)?$/iu.exec(line);
+      /^[ \t]*(`{3,}|~{3,})[ \t]*(?:aic(?:[ \t].*)?|aic-security(?:[ \t].*)?)$/u.exec(
+        line,
+      );
     if (security) {
       activeFence = security[1];
       securityFence = true;

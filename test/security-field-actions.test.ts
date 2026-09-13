@@ -6,7 +6,7 @@ import { aicMarkdownLanguage } from "../src/language";
 import { makeSecurityBlockExtension } from "../src/core/security-block.js";
 
 const source = [
-  "```aic-security",
+  "```aic",
   "## Main",
   "Password*:",
   "Email: alice@example.com",
@@ -75,11 +75,11 @@ afterEach(() => {
 });
 
 describe("security field actions", () => {
-  it("copies only the value from either focusable target and confirms locally", async () => {
+  it("copies the label and value independently and confirms locally", async () => {
     const { host, onCopy, control } = fixture();
     control("Copy Email").click();
     await vi.waitFor(() =>
-      expect(onCopy).toHaveBeenCalledWith("alice@example.com", "Email"),
+      expect(onCopy).toHaveBeenCalledWith("Email", "Email label"),
     );
     expect(
       host.querySelector(".cm-aic-security-field-status")?.textContent,
@@ -91,6 +91,7 @@ describe("security field actions", () => {
     expect(row.textContent).not.toContain("Password*:");
     control("Copy Email value").click();
     await vi.waitFor(() => expect(onCopy).toHaveBeenCalledTimes(2));
+    expect(onCopy).toHaveBeenLastCalledWith("alice@example.com", "Email");
     expect(control("Copy Email").tabIndex).toBe(0);
     expect(control("Copy Email value").tabIndex).toBe(0);
     expect(
@@ -205,10 +206,10 @@ describe("security field actions", () => {
     ).toBeNull();
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(mixed);
-    const single = fixture("```aic-security\n## Keep section\nEmail:\n```\n");
+    const single = fixture("```aic\n## Keep section\nEmail:\n```\n");
     single.control("Delete empty Email field").click();
     expect(single.view.state.doc.toString()).toBe(
-      "```aic-security\n## Keep section\n```\n",
+      "```aic\n## Keep section\n```\n",
     );
     expect(single.host.querySelector(".cm-aic-security-error")).toBeNull();
     expect(single.control("Add Email")).not.toBeNull();

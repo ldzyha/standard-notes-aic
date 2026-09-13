@@ -1,4 +1,4 @@
-// Real shared editor, opt-in v2 pipes, and synthetic-only clipboard values.
+// Real shared editor, canonical aic fields, and synthetic-only clipboard values.
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import path from "node:path";
@@ -14,7 +14,7 @@ const browser = await chromium.launch({
     ? { executablePath: process.env.AIC_REVIEW_BROWSER }
     : {}),
 });
-const number = "4242 4242 4242 4242";
+const number = "4242 4242 4242 1234";
 const cvv = "019";
 const password = "SYNTHETIC-ONLY-PASSWORD";
 const extra = "SYNTHETIC-ONLY-EXTRA";
@@ -22,8 +22,7 @@ const totp = "JBSWY3DPEHPK3PXP";
 const source = [
   "# Synthetic security parts",
   "",
-  "```aic-security v2",
-  "##",
+  "```aic",
   `Business_: ${number} | 09/28 | ${cvv}`,
   `Corporate#: ${totp} | Work`,
   `Pass*: ${password} | WebDAV`,
@@ -125,7 +124,7 @@ try {
             qa.editor.switchDocument(id, text);
             qa.editor.view.dispatch({ selection: { anchor: text.length } });
           };
-          qa.open(source, "synthetic-v2-0");
+          qa.open(source, "synthetic-aic-0");
         },
         { theme, source },
       );
@@ -136,7 +135,20 @@ try {
       let html = await root.innerHTML();
       for (const hidden of [cvv, password, extra, totp])
         assert.ok(!html.includes(hidden), "secret stays out of preview DOM");
-      assert.ok(html.includes(number), "public PAN is displayed in preview");
+      assert.ok(!html.includes(number), "full PAN stays out of preview DOM");
+      assert.ok(
+        !html.includes("4242"),
+        "only the final PAN digits are visible",
+      );
+      assert.ok(html.includes("•••• 1234"), "last four PAN digits are shown");
+      assert.deepEqual(
+        await root
+          .locator('.cm-aic-security-card[data-aic-card-kind="card"]')
+          .first()
+          .locator(".cm-aic-security-value")
+          .evaluateAll((buttons) => buttons.map((button) => button.title)),
+        ["Number", "Expiry", "CVV"],
+      );
 
       const measured = await page.evaluate(() => {
         const card = document.querySelector(".cm-aic-security-card");
@@ -148,6 +160,8 @@ try {
         };
         return {
           card: size(card),
+          partTops: rows.map((row) => row.getBoundingClientRect().top),
+          rowHeights: rows.map((row) => row.getBoundingClientRect().height),
           cardOverflow: card.scrollWidth - card.clientWidth,
           partsOverflow: parts.scrollWidth - parts.clientWidth,
           rowOverflow: rows.map((row) => row.scrollWidth - row.clientWidth),
@@ -162,6 +176,10 @@ try {
       assert.ok(measured.cardOverflow <= 1);
       assert.ok(measured.partsOverflow <= 1);
       assert.ok(measured.rowOverflow.every((overflow) => overflow <= 1));
+      assert.ok(
+        Math.max(...measured.partTops) - Math.min(...measured.partTops) <= 1,
+        "number, expiry, and CVV stay in one row",
+      );
       assert.ok(measured.viewportOverflow <= 1);
       if (coarse)
         assert.ok(
@@ -188,6 +206,35 @@ try {
       }
 
       await button("Copy Business number value").click();
+      await page.waitForFunction(() =>
+        [
+          ...document.querySelectorAll(
+            "#parts-qa .cm-aic-security-card-parts .cm-aic-security-field-status",
+          ),
+        ].some((status) => status.textContent === "Copied"),
+      );
+      const feedback = await page.evaluate(() => {
+        const value = document.querySelector(
+          '#parts-qa [aria-label="Copy Business number value"]',
+        );
+        const row = value.closest(".cm-aic-security-row");
+        const status = [
+          ...row.querySelectorAll(".cm-aic-security-field-status"),
+        ].find((item) => item.textContent === "Copied");
+        const target = value.getBoundingClientRect();
+        const overlay = status.getBoundingClientRect();
+        return {
+          sameTop: Math.abs(target.top - overlay.top) <= 1,
+          sameLeft: Math.abs(target.left - overlay.left) <= 1,
+          sameWidth: Math.abs(target.width - overlay.width) <= 1,
+          rowHeight: row.getBoundingClientRect().height,
+        };
+      });
+      assert.ok(feedback.sameTop && feedback.sameLeft && feedback.sameWidth);
+      assert.ok(
+        Math.abs(feedback.rowHeight - measured.rowHeights[0]) <= 1,
+        "copy feedback overlays rather than expands the part row",
+      );
       await button("Copy Business expiry value").click();
       await button("Copy Business cvv value").click();
       assert.deepEqual(await page.evaluate(() => window.partsQa.writes), [
@@ -256,10 +303,11 @@ try {
       await page.evaluate((id) => {
         const qa = window.partsQa;
         qa.open(qa.persisted, id);
-      }, `synthetic-v2-${++serial}`);
+      }, `synthetic-aic-${++serial}`);
       await button("Copy Empty cvv value").waitFor();
       html = await root.innerHTML();
       assert.ok(!html.includes(cvv), "reopened CVV stays masked");
+      assert.ok(!html.includes(number), "reopened PAN stays redacted");
       await button("Copy Empty number value").click();
       await button("Copy Empty expiry value").click();
       await button("Copy Empty cvv value").click();
@@ -277,6 +325,59 @@ try {
       assert.ok((await root.locator(".cm-aic-security-card").count()) > 0);
       assert.ok(!(await root.innerHTML()).includes(extra));
       passed.push(`${theme}/${width}: read-only source toggle`);
+
+      const reorderSource = [
+        "```aic",
+        "## Work",
+        "Password*: SYNTHETIC-PRIVATE-REORDER",
+        "---",
+        "## Empty",
+        "```",
+        "",
+        "After",
+      ].join("\n");
+      await page.evaluate(({ source, id }) => window.partsQa.open(source, id), {
+        source: reorderSource,
+        id: `synthetic-reorder-${++serial}`,
+      });
+      await button("Reorder Password").waitFor();
+      const dragFrom = await button("Reorder Password").boundingBox();
+      const dropAt = await root
+        .locator(".cm-aic-security-section")
+        .nth(1)
+        .locator(".cm-aic-security-section-header")
+        .boundingBox();
+      const priorActions = await page.evaluate(
+        () =>
+          window.partsQa.saves.filter((reason) => reason === "action").length,
+      );
+      await page.mouse.move(
+        dragFrom.x + dragFrom.width / 2,
+        dragFrom.y + dragFrom.height / 2,
+      );
+      await page.mouse.down();
+      await page.mouse.move(
+        dropAt.x + dropAt.width / 2,
+        dropAt.y + dropAt.height * 0.8,
+        { steps: 8 },
+      );
+      await page.mouse.up();
+      await page.waitForFunction(() =>
+        window.partsQa.draft.includes("## Work\n---\n## Empty\nPassword*:"),
+      );
+      assert.equal(
+        await page.evaluate(
+          () =>
+            window.partsQa.saves.filter((reason) => reason === "action").length,
+        ),
+        priorActions + 1,
+      );
+      assert.ok(
+        !(await root.innerHTML()).includes("SYNTHETIC-PRIVATE-REORDER"),
+      );
+      passed.push(
+        `${theme}/${width}: pointer drop into empty Security section`,
+      );
       await context.close();
     }
   }

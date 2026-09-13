@@ -4,11 +4,27 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 managed file properties, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 30.3.3 pairs with AIC Notes 39.3.3 and AIC Editor Core 4.3.0.
+storage format. Release 31.5.6 pairs with AIC Notes 40.6.6 and AIC Editor Core 5.0.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
-## Shared-core changes in release 30.3.3
+## Shared-core changes in release 31.5.6
+
+- New Security content uses one unversioned `aic` fence grammar with optional section
+  labels. The grammar change is a breaking core change; existing authored versioned
+  Security fences are not silently rewritten.
+- Compact Security cards show the last four fields and compact multi-part card fields.
+  Field moves now cross section boundaries while retaining unrelated authored source.
+- Properties brings managed metadata, related-note navigation and custom fields into
+  the compact shared Security surface without making managed fields editable.
+- Add controls have explicit labels, show capacity and explain disabled-limit reasons.
+  Target feedback retires with its widget/document; label and value Copy remain distinct.
+- Escape handling includes Mermaid fence boundaries. PAN stays masked from filtering,
+  responsive label/drag styling spans light and dark themes, and unchanged filter/render
+  results avoid repeated work. Tests and browser checks must verify these contracts;
+  publication is a separate gate.
+
+## Prior shared-core changes in release 30.3.3
 
 - New `/security` templates and Authenticator conversions use `aic-security v3`:
   an implicit first section, standalone `---` boundaries and optional `##` section titles.
@@ -33,20 +49,20 @@ GitHub Pages deployment or hosted manifest has already been published.
 
 ## Current editor and lifecycle contracts
 
-- The three 30.3.3 feature outcomes are v3 `---` sections with optional headings;
-  lossless grouped Authenticator import with capacity spill; and visible limits with
-  disabled over-limit Add controls plus purpose-based grouping guidance. Three fixes
-  provide safe Security/Properties source-position diagnostics, close an EOF-terminated
-  previous fence before New block, and preserve exact source in whole-card moves for
-  versioned v2/v3 fences. Earlier group controls, source mode and pipe fields remain
-  available but are not counted again.
-- `aic-security v2` opts into `*` masked values, `#` TOTP seeds and `_` card parts;
+- The five 31.5.6 feature outcomes are one unversioned `aic` grammar with optional labels;
+  compact last-four/card-part display; cross-section field dragging; compact Properties
+  metadata/tree/custom fields; and labelled Add controls with limit reasons. Six fixes
+  cover escape/Mermaid boundaries, stale-safe transient target feedback, independent
+  label/value Copy, PAN-safe filtering, responsive theme-aware label/drag styling and
+  reduced repeated render/filter work. Prior v3/import/capacity work is not counted again.
+- The current unversioned `aic` grammar uses `*` masked values, `#` TOTP seeds and `_` card parts;
   PAN/date/CVV copy independently, the third slot stays masked, and Paste fills only empty
   parts. `# aic-fields: v2` must be the first body line of YAML frontmatter to activate
   the equivalent custom Properties syntax; the comment is hidden in preview. Managed
-  `file`/`created`/`updated` remain read-only. Unversioned content keeps literal pipes and
-  legacy marker-like names. Existing headers require explicit marker insertion and review
-  of literal pipes/labels, never blanket migration. Filled values change only in source.
+  `file`/`created`/`updated` remain read-only. Previously authored Security fences and
+  unmarked Properties headers are not silently migrated. Existing Properties headers
+  require explicit marker insertion and review of literal pipes/labels. Filled values
+  change only in source.
 - Security/Properties filtering searches names and visible values only; hidden values,
   recovery codes and generated codes are excluded. It is local UI state and disables
   reordering. Supported Security field/section/card and sibling Properties field/group
@@ -69,7 +85,7 @@ GitHub Pages deployment or hosted manifest has already been published.
   `security-post-import`, `security-paste-feedback`, parent manager and mobile transport suites.
 
 - `core/security-import` and `security-import-extension` convert the recognized
-  current Authenticator JSON array or selection into grouped v3 security blocks. This is
+  current Authenticator JSON array or selection into grouped `aic` security blocks. This is
   an explicit, all-or-nothing, undoable draft edit; no clipboard, note-type change or
   account scan. Standard Notes supplies its normal save manager: Convert and save commits
   immediately, confirms host acknowledgement, and exposes failed-save retry. Dirty drafts
@@ -84,7 +100,7 @@ GitHub Pages deployment or hosted manifest has already been published.
 - `security-password` owns WebCrypto-only bounded unbiased generation, length8–128,
   default24 with all enabled groups required. Only empty recognized hidden password labels
   can generate; existing values/TOTP/API keys are excluded. Tests: `security-password`.
-- Field label/value tap copies only its value with local feedback; Tab navigates normally.
+- Field label and value Copy are independent, with local feedback; Tab navigates normally.
   Paste directly reads the latest value and is absent on every populated field. Delete is
   available only for genuinely empty fields; whitespace is a value. There is
   no Replace, history picker or visible panel during a successful read. Empty reads cannot
@@ -93,21 +109,20 @@ GitHub Pages deployment or hosted manifest has already been published.
   Source Edit is the only manual value editor. Whole-block Copy stays; AIC stores no history.
   Tests: `security-field-actions`, `security-block-ui`.
 
-- `core/security-model`, `security-block` and `security-otp` own one fenced
-  `aic-security` Markdown family in both hosts. `/security` inserts a parseable v3
-  example. Standalone `---` lines define v3 sections; `Label*: value` masks a
-  field and `Label: value` leaves it visible, independent of the label text.
+- `core/security-model`, `security-block` and `security-otp` own the single fenced
+  `aic` Markdown grammar in both hosts. `/security` inserts a parseable example;
+  section labels are optional. `Label*: value` masks a field and `Label: value`
+  leaves it visible, independent of the label text.
   Preview excludes the block, including quoted/list-contained fences, from Standard Notes
   plain-text metadata; each save also clears stale `preview_html`. Copy
   block copies complete source, including secrets; safe HTTP(S) URLs can open.
   Edit opens raw Markdown, and Add section, quick field actions and New block
-  insert content and request a host-managed save. In v2, `Label#: ...` derives the current
-  code in memory from Base32 or `otpauth://totp` without displaying its seed; legacy
-  unversioned `TOTP*: ...` remains supported. An unmarked TOTP label in v2 is ordinary.
+  insert content and request a host-managed save. `Label#: ...` derives the current
+  code in memory from Base32 or `otpauth://totp` without displaying its seed.
   No QR import UI, generated QR, native Authenticator
   note-type migration or separate cryptographic storage is claimed. Standard Notes owns its
-  account authentication, encryption and synchronization. The paired VS Code
-  authentication integration does not synchronize notes.
+  account authentication, encryption and synchronization. The paired VS Code editor
+  is local-only and has no Standard Notes account connection.
 - Security preview masking does not hide the raw Markdown from a different
   editor, export, clipboard history or a local file. The standalone demo's
   `localStorage` is plaintext and is unsuitable for real credentials.

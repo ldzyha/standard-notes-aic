@@ -184,7 +184,7 @@ describe("Standard Notes editor bridge", () => {
       )!
       .click();
     const converted = view.state.doc.toString();
-    expect(converted).toContain("```aic-security");
+    expect(converted).toContain("```aic\n");
     expect(converted).not.toBe(source);
     expect(root.querySelectorAll(".cm-aic-security")).toHaveLength(1);
     expect(root.innerHTML).not.toContain(secret);

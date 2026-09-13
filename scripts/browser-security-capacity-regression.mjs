@@ -20,8 +20,8 @@ const cases = [
 ];
 const secret = "JBSWY3DPEHPK3PXP";
 const password = "SYNTHETIC-PRIVATE-PASSWORD";
-const v3 = [
-  "```aic-security v3",
+const canonical = [
+  "```aic",
   "Service: public-one.example.invalid",
   `TOTP#: ${secret}`,
   "---",
@@ -31,7 +31,7 @@ const v3 = [
   "After",
 ].join("\n");
 const fullSections = [
-  "```aic-security v3",
+  "```aic",
   Array.from(
     { length: 16 },
     (_, index) => `Email: public-${index}@example.invalid`,
@@ -39,7 +39,7 @@ const fullSections = [
   "```",
 ].join("\n");
 const fullFields = [
-  "```aic-security v3",
+  "```aic",
   Array.from({ length: 64 }, (_, index) => `Field ${index}: public-value`).join(
     "\n",
   ),
@@ -48,7 +48,7 @@ const fullFields = [
 const malformed = [
   "Intro",
   "",
-  "```aic-security v3",
+  "```aic",
   "Service: public.example.invalid",
   `Password*: ${password}`,
   "Card_: 4242 4242 4242 4242 | 99/28 | 999",
@@ -62,7 +62,7 @@ const duplicateProperties = [
   "Body",
 ].join("\n");
 const unclosed = [
-  "```aic-security v3",
+  "```aic",
   "Service: public.example.invalid",
   `Password*: ${password}`,
 ].join("\n");
@@ -85,7 +85,7 @@ try {
       );
       await page.goto(url);
       await page.evaluate(
-        async ({ theme, v3 }) => {
+        async ({ theme, canonical }) => {
           const { AicEditor } = await import("/src/editor.ts");
           document.documentElement.style.colorScheme = theme;
           const parent = document.createElement("div");
@@ -93,7 +93,7 @@ try {
           parent.style =
             "position:fixed;inset:0;z-index:100;overflow:auto;background:var(--aic-bg)";
           document.body.append(parent);
-          const qa = (window.capacityQa = { draft: v3, changes: 0 });
+          const qa = (window.capacityQa = { draft: canonical, changes: 0 });
           qa.open = (source) => {
             qa.editor?.destroy();
             qa.draft = source;
@@ -108,9 +108,9 @@ try {
             qa.editor.switchDocument("synthetic-capacity", source);
             qa.editor.view.dispatch({ selection: { anchor: source.length } });
           };
-          qa.open(v3);
+          qa.open(canonical);
         },
-        { theme, v3 },
+        { theme, canonical },
       );
       const root = page.locator("#capacity-qa");
       const open = (source) =>
@@ -232,7 +232,7 @@ try {
         /SYNTHETIC-PRIVATE-PASSWORD/u,
       );
       passed.push(
-        `${theme}/${width}: v3 sections, capacity gates, Security/Properties diagnostics, EOF New`,
+        `${theme}/${width}: canonical sections, capacity gates, Security/Properties diagnostics, EOF New`,
       );
       await context.close();
     }

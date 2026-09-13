@@ -4,6 +4,7 @@ import { StateEffect, StateField } from "@codemirror/state";
 import { Decoration, WidgetType } from "@codemirror/view";
 import { fenceInfo } from "./code-fence-extension.js";
 import { providePreviewRanges } from "./preview-ranges.js";
+import { sourcePreviewExit, sourcePreviewExitHandlers } from "./source-mode.js";
 import { saveAction } from "./save-boundary.js";
 import { wirePreviewReorder } from "./preview-reorder.js";
 import { securityCardOrdering } from "./security-card-order.js";
@@ -56,16 +57,13 @@ import {
   writeTextToClipboard,
 } from "./structured-preview.js";
 
-export const SECURITY_BLOCK_CORE_VERSION = "1.5.0";
+export const SECURITY_BLOCK_CORE_VERSION = "2.0.0";
 const CLIPBOARD_READ_TIMEOUT_MS = 3000;
 const EMPTY_RELATIONSHIPS = Object.freeze([]);
 const fieldEmpty = (field) =>
   !field.value && !field.description && !field.additionalSecret;
-const nextSecuritySection = (model, block) => ({
-  label:
-    block.sectionSyntax === "separators"
-      ? ""
-      : "Section " + (model.sections.length + 1),
+const nextSecuritySection = () => ({
+  label: "",
   fields: [],
 });
 let descriptionId = 0;
@@ -95,7 +93,7 @@ const securityFilters = StateField.define({
   },
 });
 
-/** Only the explicit aic-security fence belongs to this renderer. */
+/** Historical names are quarantined as diagnostics, never rendered as code. */
 export function securityBlocks(state) {
   const blocks = [];
   const tree =
@@ -104,7 +102,7 @@ export function securityBlocks(state) {
     enter(node) {
       if (node.name !== "FencedCode") return;
       const info = fenceInfo(state, node).split(/\s+/u);
-      if (info[0] !== "aic-security") return;
+      if (info[0] !== "aic" && info[0] !== "aic-security") return;
       const firstLine = state.doc.lineAt(node.from);
       const bodyFrom = Math.min(firstLine.to + 1, node.to);
       const marks = node.node.getChildren("CodeMark");
@@ -125,12 +123,8 @@ export function securityBlocks(state) {
           fence: openingMark
             ? state.sliceDoc(openingMark.from, openingMark.to)
             : "",
-          ...(info[1] === "v3"
-            ? SECURITY_FIELD_OPTIONS
-            : info[1] === "v2"
-              ? { fieldSyntax: "pipes" }
-              : {}),
-          ...(/^v\d+$/u.test(info[1] ?? "") && !["v2", "v3"].includes(info[1])
+          ...SECURITY_FIELD_OPTIONS,
+          ...(info[0] !== "aic" || info.length !== 1
             ? { unsupportedSyntax: true }
             : {}),
         }),
@@ -177,7 +171,7 @@ const securityFormat = Object.freeze({
                 diagnostic: blockDiagnostic(
                   body,
                   "unsupported_version",
-                  "Use a supported opening fence: aic-security, aic-security v2 or aic-security v3.",
+                  "Use the opening fence aic without a version suffix; separate sections with ---.",
                 ),
               }
             : {}),
@@ -201,6 +195,8 @@ const editSecuritySource = StateEffect.define({
 const securitySource = StateField.define({
   create: () => null,
   update(value, transaction) {
+    if (transaction.effects.some((effect) => effect.is(sourcePreviewExit)))
+      return null;
     let next = value == null ? null : transaction.changes.mapPos(value, -1);
     for (const effect of transaction.effects) {
       if (effect.is(editSecuritySource)) next = effect.value;
@@ -229,6 +225,7 @@ function row(
   onCopy,
   copyDescription = label,
   description = "",
+  onCopyLabel = onCopy,
 ) {
   const element = document.createElement("div");
   element.className = "cm-aic-security-row";
@@ -246,7 +243,10 @@ function row(
     name.setAttribute("aria-describedby", detail.id);
     name.append(detail);
   }
-  name.setAttribute("aria-label", "Copy " + copyDescription);
+  name.setAttribute(
+    "aria-label",
+    "Copy " + (onCopyLabel === onCopy ? copyDescription : label),
+  );
   const content = document.createElement("button");
   content.type = "button";
   content.className = "cm-aic-security-value";
@@ -257,20 +257,40 @@ function row(
   const status = document.createElement("span");
   status.className = "cm-aic-security-field-status";
   status.setAttribute("role", "status");
-  const activate = (event) => {
+  const labelStatus = status.cloneNode();
+  const activate = (event, copy, feedback) => {
     event.preventDefault();
     event.stopPropagation();
-    void onCopy(status);
+    const target = event.currentTarget.getBoundingClientRect();
+    const bounds = element.getBoundingClientRect();
+    feedback.style.left = `${target.left - bounds.left}px`;
+    feedback.style.top = `${target.top - bounds.top}px`;
+    feedback.style.width = `${target.width}px`;
+    feedback.style.minHeight = `${target.height}px`;
+    void copy(feedback);
   };
   for (const control of [name, content]) {
     control.addEventListener("pointerdown", (event) => event.preventDefault());
-    control.addEventListener("click", activate);
+    control.addEventListener("click", (event) =>
+      activate(
+        event,
+        control === name ? onCopyLabel : onCopy,
+        control === name ? labelStatus : status,
+      ),
+    );
   }
   const trailing = document.createElement("span");
   trailing.className = "cm-aic-security-row-trailing";
   if (actions) trailing.append(actions);
-  trailing.append(status);
-  element.append(name, content, trailing);
+  if (label) element.append(name);
+  else element.classList.add("is-unlabelled");
+  element.append(content, trailing);
+  // Feedback overlays its actual copy target, never changes the row height.
+  element.append(labelStatus, status);
+  if (!label && description) {
+    const detail = name.querySelector(".cm-aic-security-field-description");
+    if (detail) element.append(detail);
+  }
   return { element, content, status };
 }
 
@@ -315,9 +335,6 @@ function relationshipTree(document, items, onOpen) {
   const region = document.createElement("section");
   region.className = "cm-aic-note-relations";
   region.setAttribute("aria-label", "Related notes");
-  const heading = document.createElement("div");
-  heading.className = "cm-aic-note-relations-heading";
-  heading.textContent = "Context";
   const tree = document.createElement("ul");
   tree.setAttribute("role", "tree");
   for (const item of items) {
@@ -354,7 +371,7 @@ function relationshipTree(document, items, onOpen) {
     node.append(open);
     tree.append(node);
   }
-  region.append(heading, tree);
+  region.append(tree);
   return region;
 }
 
@@ -657,6 +674,34 @@ class SecurityBlockWidget extends WidgetType {
             : model.sections[sectionIndex]?.fields;
         if (!items || from === to || !items[from] || !items[to]) return false;
         items.splice(to, 0, items.splice(from, 1)[0]);
+      },
+      snapshot,
+    );
+  }
+
+  reorderSecurityField(view, source, destination, snapshot) {
+    if (
+      !snapshot ||
+      view.state.doc !== snapshot.doc ||
+      this.destroyed ||
+      this.format !== securityFormat
+    )
+      return;
+    this.replaceModel(
+      view,
+      (model) => {
+        const origin = model.sections[source.sectionIndex];
+        const target = model.sections[destination.sectionIndex];
+        if (
+          !origin?.fields[source.fieldIndex] ||
+          !target ||
+          (origin === target && source.fieldIndex === destination.fieldIndex) ||
+          (origin !== target &&
+            target.fields.length >= SECURITY_LIMITS.maxFields)
+        )
+          return false;
+        const [field] = origin.fields.splice(source.fieldIndex, 1);
+        target.fields.splice(destination.fieldIndex, 0, field);
       },
       snapshot,
     );
@@ -1180,8 +1225,17 @@ class SecurityBlockWidget extends WidgetType {
       );
     }
 
+    const copyFeedback = new Map();
+    this.cleanups.push(() => {
+      for (const entry of copyFeedback.values()) clearTimeout(entry.timer);
+      copyFeedback.clear();
+    });
     const copyValue = async (value, label, status) => {
       if (!value || this.destroyed || !wrapper.isConnected) return;
+      clearTimeout(copyFeedback.get(status)?.timer);
+      const entry = { timer: null };
+      copyFeedback.set(status, entry);
+      if (status) status.textContent = "";
       let copied;
       try {
         copied = this.onCopy
@@ -1190,8 +1244,22 @@ class SecurityBlockWidget extends WidgetType {
       } catch {
         copied = false;
       }
-      if (!this.destroyed && wrapper.isConnected && status?.isConnected)
+      if (
+        !this.destroyed &&
+        wrapper.isConnected &&
+        status?.isConnected &&
+        copyFeedback.get(status) === entry
+      ) {
         status.textContent = copied ? "Copied" : "Copy failed";
+        entry.timer = setTimeout(
+          () => {
+            if (copyFeedback.get(status) !== entry) return;
+            status.textContent = "";
+            copyFeedback.delete(status);
+          },
+          copied ? 1600 : 2500,
+        );
+      }
     };
     const headerStatus = document.createElement("span");
     headerStatus.className = "cm-aic-security-field-status";
@@ -1246,23 +1314,88 @@ class SecurityBlockWidget extends WidgetType {
     const codes = [];
     const body = document.createElement("div");
     body.className = "cm-aic-security-body";
+    const hasCustomFields =
+      isProperties &&
+      parsed.model.sections.some(
+        (section, index) => index > 0 && section.fields.length,
+      );
+    if (isProperties && !hasCustomFields)
+      body.classList.add("cm-aic-properties-no-custom");
+    if (isProperties) {
+      const managed = parsed.model.sections[0]?.fields ?? [];
+      const dates = managed.filter((field) =>
+        ["created", "updated"].includes(field.label),
+      );
+      if (dates.length) {
+        const metadata = document.createElement("section");
+        metadata.className = "cm-aic-properties-metadata";
+        metadata.setAttribute("aria-label", "Note dates");
+        for (const field of dates) {
+          const control = document.createElement("button");
+          control.type = "button";
+          control.className = "cm-aic-properties-date";
+          control.setAttribute("aria-label", "Copy " + field.label);
+          const name = document.createElement("span");
+          name.className = "cm-aic-properties-date-label";
+          name.textContent = field.label;
+          const value = document.createElement("span");
+          value.className = "cm-aic-properties-date-value";
+          value.textContent = displayedValue(field) || "—";
+          const status = document.createElement("span");
+          status.className = "cm-aic-security-field-status";
+          status.setAttribute("role", "status");
+          control.addEventListener("pointerdown", (event) =>
+            event.preventDefault(),
+          );
+          control.addEventListener("click", (event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            void copyValue(field.value, field.label, status);
+          });
+          control.append(name, value, status);
+          metadata.append(control);
+        }
+        wrapper.append(metadata);
+      }
+      const relationships = relationshipTree(
+        document,
+        this.relationships,
+        (path) => {
+          if (
+            this.destroyed ||
+            !wrapper.isConnected ||
+            !this.currentBlock(view)
+          )
+            return;
+          return this.onRelationshipOpen?.(path);
+        },
+      );
+      if (relationships) wrapper.append(relationships);
+    }
     wrapper.append(body);
     const filterGroups = [];
     const sectionItems = [];
+    const securityFieldItems = [];
     const handles = [];
     const propertiesReorder = isProperties
       ? createPropertiesReorderCapabilities(this.block.body)
       : null;
-    // New preview actions must not implicitly migrate legacy YAML and discard
-    // its authored comments. Whole-card moves remain exact-source operations.
-    const lineSecurity =
-      this.block.sectionSyntax === "separators" ||
-      (/^\s*#/u.test(this.block.body) &&
-        /^##(?:[ \r\n]|$)/mu.test(this.block.body));
+    const addCapacity = new Map();
     // Use the serializer as the capacity gate, including encoded text size.
     // No source is changed while calculating whether an addition will fit.
     const canAdd = (sectionIndex, field) => {
       if (isProperties) return true;
+      if (
+        sectionIndex != null &&
+        parsed.model.sections[sectionIndex].fields.length >=
+          SECURITY_LIMITS.maxFields
+      )
+        return false;
+      // Serialization adds the same field line regardless of its destination
+      // section. Reuse the expensive whole-block capacity result across menus;
+      // the destination's own field-count limit is still checked above.
+      const key = sectionIndex == null ? "section" : JSON.stringify(field);
+      if (addCapacity.has(key)) return addCapacity.get(key);
       const sections = parsed.model.sections.map((section) => ({
         ...section,
         fields: [...section.fields],
@@ -1272,15 +1405,17 @@ class SecurityBlockWidget extends WidgetType {
       else sections[sectionIndex].fields.push(field);
       try {
         serializeSecurityBlock({ ...parsed.model, sections }, this.block);
+        addCapacity.set(key, true);
         return true;
       } catch {
+        addCapacity.set(key, false);
         return false;
       }
     };
     const canMoveSection = (from, to) =>
       !this.readOnly &&
       from !== to &&
-      (isProperties ? propertiesReorder.section(from, to) : lineSecurity);
+      (isProperties ? propertiesReorder.section(from, to) : true);
     const dragHandle = (label) => {
       const control = document.createElement("button");
       control.type = "button";
@@ -1290,6 +1425,7 @@ class SecurityBlockWidget extends WidgetType {
       return control;
     };
     parsed.model.sections.forEach((section, sectionIndex) => {
+      if (isProperties && sectionIndex === 0) return;
       const group = document.createElement("section");
       group.className = "cm-aic-security-section";
       const groupFilter = {
@@ -1299,7 +1435,7 @@ class SecurityBlockWidget extends WidgetType {
         pinned: isProperties && sectionIndex === 0,
       };
       filterGroups.push(groupFilter);
-      const sectionItem = { element: group, handle: null };
+      const sectionItem = { element: group, handle: null, sectionIndex };
       sectionItems.push(sectionItem);
       const movableSection = parsed.model.sections.some((_, index) =>
         canMoveSection(sectionIndex, index),
@@ -1308,6 +1444,7 @@ class SecurityBlockWidget extends WidgetType {
         !isProperties ||
         movableSection ||
         ((sectionIndex > 0 || parsed.model.title !== undefined) &&
+          (!isProperties || section.fields.length > 0) &&
           section.label)
       ) {
         const sectionHeader = document.createElement("div");
@@ -1332,31 +1469,60 @@ class SecurityBlockWidget extends WidgetType {
           count.className = "cm-aic-security-field-count";
           count.textContent = `Fields ${section.fields.length}/${SECURITY_LIMITS.maxFields}`;
           sectionHeader.append(count);
+          if (!section.fields.length) {
+            const placeholder = document.createElement("span");
+            placeholder.className = "cm-aic-security-empty-drop";
+            placeholder.textContent = "Drop fields here";
+            sectionHeader.append(placeholder);
+          }
+          securityFieldItems.push({
+            element: sectionHeader,
+            handle: null,
+            sectionIndex,
+            kind: "section",
+          });
         }
       }
       const fieldItems = [];
+      const securityFieldCanMove =
+        !this.readOnly &&
+        !section.readOnly &&
+        (section.fields.length > 1 ||
+          parsed.model.sections.some(
+            (target, index) =>
+              index !== sectionIndex &&
+              !target.readOnly &&
+              target.fields.length < SECURITY_LIMITS.maxFields,
+          ));
       const canMoveField = (from, to) =>
         !this.readOnly &&
         !section.readOnly &&
         from !== to &&
-        (isProperties
-          ? propertiesReorder.field(sectionIndex, from, to)
-          : lineSecurity);
+        (isProperties ? propertiesReorder.field(sectionIndex, from, to) : true);
       const registerField = (element, field, index, searchField = field) => {
         groupFilter.fields.push({
           element,
           field: { ...searchField, recovery: isRecoveryField(field) },
         });
-        const item = { element, handle: null };
+        const item = {
+          element,
+          handle: null,
+          sectionIndex,
+          fieldIndex: index,
+          kind: "field",
+        };
         if (
           !field.readOnly &&
-          section.fields.some((_, target) => canMoveField(index, target))
+          (isProperties
+            ? section.fields.some((_, target) => canMoveField(index, target))
+            : securityFieldCanMove)
         ) {
           item.handle = dragHandle("Reorder " + (field.label || "Field"));
           element.dataset.aicReorderable = "true";
           element.prepend(item.handle);
         }
         fieldItems.push(item);
+        if (!isProperties) securityFieldItems.push(item);
       };
       section.fields.forEach((field, fieldIndex) => {
         const label = field.label || "Field";
@@ -1405,10 +1571,26 @@ class SecurityBlockWidget extends WidgetType {
           const stored = field[slot] ?? "";
           const actions = document.createElement("span");
           actions.className = "cm-aic-security-row-actions";
+          const cardDisplay =
+            cardField && stored
+              ? slot === "value"
+                ? "•••• " + stored.replace(/[ -]/gu, "").slice(-4)
+                : slot === "additionalSecret"
+                  ? "•••"
+                  : stored
+              : "";
           const output = row(
             document,
             partLabel,
-            stored ? (code ? "••••••" : masked ? "••••••••" : stored) : "",
+            cardField
+              ? cardDisplay
+              : stored
+                ? code
+                  ? "••••••"
+                  : masked
+                    ? "••••••••"
+                    : stored
+                : "",
             actions,
             async (status) => {
               if (!stored || !wrapper.isConnected) return;
@@ -1490,6 +1672,17 @@ class SecurityBlockWidget extends WidgetType {
             } else if (stored)
               codes.push({ value: stored, output: output.content });
           }
+          if (cardField) {
+            // The value itself is the sole visible copy target in a compact
+            // card part; its aria-label still names the independently copied part.
+            output.element.querySelector(".cm-aic-security-label")?.remove();
+            output.content.title = partLabel;
+            if (!stored && !fieldReadOnly) {
+              output.content.remove();
+              output.element.dataset.aicCardEmpty = "true";
+              actions.querySelector("button")?.setAttribute("title", partLabel);
+            }
+          }
           return output.element;
         };
         const hasParts =
@@ -1501,11 +1694,31 @@ class SecurityBlockWidget extends WidgetType {
           composite.dataset.aicCardKind = cardField ? "card" : "fields";
           const partHeader = document.createElement("div");
           partHeader.className = "cm-aic-security-section-header";
-          const partTitle = document.createElement("strong");
-          partTitle.className = "cm-aic-security-section-title";
-          partTitle.textContent = label;
-          partHeader.append(partTitle);
-          composite.append(partHeader);
+          if (field.label) {
+            const partTitle = document.createElement("button");
+            partTitle.className = "cm-aic-security-section-title";
+            partTitle.textContent = label;
+            {
+              const titleCopy = document.createElement("span");
+              titleCopy.className = "cm-aic-security-card-title-copy";
+              partTitle.type = "button";
+              partTitle.setAttribute("aria-label", "Copy " + label + " label");
+              const titleStatus = document.createElement("span");
+              titleStatus.className = "cm-aic-security-field-status";
+              titleStatus.setAttribute("role", "status");
+              partTitle.addEventListener("pointerdown", (event) =>
+                event.preventDefault(),
+              );
+              partTitle.addEventListener("click", (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                void copyValue(field.label, label + " label", titleStatus);
+              });
+              titleCopy.append(partTitle, titleStatus);
+              partHeader.append(titleCopy);
+            }
+          }
+          if (partHeader.childNodes.length) composite.append(partHeader);
           const valid = !cardField || parseCardField(field).ok;
           if (!valid) {
             fieldDiagnostic(
@@ -1542,15 +1755,17 @@ class SecurityBlockWidget extends WidgetType {
                 ),
               );
             composite.append(parts);
-            if (!fieldReadOnly && fieldEmpty(field))
-              partHeader.append(
-                button(
-                  document,
-                  "Delete empty " + label + " field",
-                  "trash",
-                  () => this.removeEmptyField(view, sectionIndex, fieldIndex),
-                ),
+            if (!fieldReadOnly && fieldEmpty(field)) {
+              const remove = button(
+                document,
+                "Delete empty " + label + " field",
+                "trash",
+                () => this.removeEmptyField(view, sectionIndex, fieldIndex),
               );
+              if (partHeader.parentNode === composite)
+                partHeader.append(remove);
+              else composite.append(remove);
+            }
           }
           registerField(
             composite,
@@ -1679,7 +1894,7 @@ class SecurityBlockWidget extends WidgetType {
         }
         const output = row(
           document,
-          label,
+          isProperties ? label : field.label,
           value
             ? code
               ? "••••••"
@@ -1702,6 +1917,7 @@ class SecurityBlockWidget extends WidgetType {
           },
           code ? label + " code" : label,
           field.description,
+          (status) => copyValue(field.label, label + " label", status),
         );
         if (code) {
           output.content.classList.add("cm-aic-security-code");
@@ -1738,6 +1954,10 @@ class SecurityBlockWidget extends WidgetType {
             label: "Add " + label,
             text: label,
             run: () => this.addField(view, sectionIndex, label, hide, kind),
+            disabledReason:
+              section.fields.length >= SECURITY_LIMITS.maxFields
+                ? `This section has ${SECURITY_LIMITS.maxFields} fields. Create a new block to add more.`
+                : "This block has reached its text limit. Create a new block to add more.",
             disabled: isProperties
               ? section.fields.length >= 64
               : !canAdd(sectionIndex, {
@@ -1747,58 +1967,110 @@ class SecurityBlockWidget extends WidgetType {
                   ...(kind ? { kind } : {}),
                 }),
           })),
+          "Field",
         );
         this.cleanups.push(menu.dispose);
         group.append(menu.element);
       }
+      if (isProperties)
+        this.wireReorder(
+          view,
+          group,
+          fieldItems,
+          canMoveField,
+          (from, to, snapshot) =>
+            this.reorder(view, sectionIndex, from, to, snapshot),
+        );
+      body.append(group);
+    });
+    if (!isProperties) {
+      const destination = (from, to) => {
+        const source = securityFieldItems[from];
+        if (source?.kind !== "field") return null;
+        const remaining = securityFieldItems.filter(
+          (_, index) => index !== from,
+        );
+        if (to < 0 || to > remaining.length) return null;
+        let sectionIndex = -1;
+        let fieldIndex = 0;
+        for (const item of remaining.slice(0, to)) {
+          if (item.kind === "section") {
+            sectionIndex = item.sectionIndex;
+            fieldIndex = 0;
+          } else fieldIndex += 1;
+        }
+        if (sectionIndex < 0) return null;
+        const target = parsed.model.sections[sectionIndex];
+        if (
+          !target ||
+          target.readOnly ||
+          (source.sectionIndex !== sectionIndex &&
+            target.fields.length >= SECURITY_LIMITS.maxFields) ||
+          (source.sectionIndex === sectionIndex &&
+            source.fieldIndex === fieldIndex)
+        )
+          return null;
+        return { sectionIndex, fieldIndex };
+      };
       this.wireReorder(
         view,
-        group,
-        fieldItems,
-        canMoveField,
-        (from, to, snapshot) =>
-          this.reorder(view, sectionIndex, from, to, snapshot),
+        body,
+        securityFieldItems,
+        (from, to) => destination(from, to) !== null,
+        (from, to, snapshot) => {
+          const target = destination(from, to);
+          if (target)
+            this.reorderSecurityField(
+              view,
+              securityFieldItems[from],
+              target,
+              snapshot,
+            );
+        },
       );
-      body.append(group);
-      if (isProperties && sectionIndex === 0) {
-        const relationships = relationshipTree(
-          document,
-          this.relationships,
-          (path) => {
-            if (
-              this.destroyed ||
-              !wrapper.isConnected ||
-              !this.currentBlock(view)
-            )
-              return;
-            return this.onRelationshipOpen?.(path);
-          },
-        );
-        if (relationships) body.append(relationships);
-      }
-    });
+    }
     this.wireReorder(
       view,
       body,
       sectionItems,
-      canMoveSection,
-      (from, to, snapshot) => this.reorder(view, null, from, to, snapshot),
+      (from, to) =>
+        canMoveSection(
+          sectionItems[from]?.sectionIndex,
+          sectionItems[to]?.sectionIndex,
+        ),
+      (from, to, snapshot) =>
+        this.reorder(
+          view,
+          null,
+          sectionItems[from].sectionIndex,
+          sectionItems[to].sectionIndex,
+          snapshot,
+        ),
     );
     if (!isProperties && !this.readOnly) {
-      const menu = createSecurityAddMenu(document, "Add group or block", [
-        {
-          label: "Add security section",
-          text: "Group",
-          run: () => this.addSection(view),
-          disabled: !canAdd(null),
-        },
-        {
-          label: "New security block",
-          text: "Security block",
-          icon: "add-row",
-          run: () => this.insertNewBlock(view),
-        },
-      ]);
+      const menu = createSecurityAddMenu(
+        document,
+        "Add group or block",
+        [
+          {
+            label: "Add security section",
+            text: "Section",
+            run: () => this.addSection(view),
+            disabled: !canAdd(null),
+            disabledReason:
+              parsed.model.sections.length >= SECURITY_LIMITS.maxSections
+                ? `This block has ${SECURITY_LIMITS.maxSections} sections. Create a new block to add more.`
+                : "This block has reached its text limit. Create a new block to add more.",
+          },
+          {
+            label: "New security block",
+            text: "Security block",
+            icon: "add-row",
+            run: () => this.insertNewBlock(view),
+          },
+        ],
+        "Section",
+      );
       this.cleanups.push(menu.dispose);
       body.append(menu.element);
     }
@@ -1806,7 +2078,7 @@ class SecurityBlockWidget extends WidgetType {
       const advice = document.createElement("p");
       advice.className = "cm-aic-security-capacity-advice";
       advice.textContent =
-        "Use separate blocks by purpose: services, banks, web, social networks. When a limit is reached, continue in a new block.";
+        "Use separate blocks by purpose: services, banks, web, social networks. When you reach a limit, continue in a new block.";
       body.append(advice);
     }
     const initialQuery =
@@ -1816,24 +2088,27 @@ class SecurityBlockWidget extends WidgetType {
         control.disabled = Boolean(query);
       }
     };
-    const filter = createSecurityFilter(document, {
-      title: title.textContent,
-      groups: filterGroups,
-      initialQuery,
-      onChange: (query) => {
-        if (this.destroyed || !wrapper.isConnected) return;
-        const block = this.currentBlock(view);
-        if (!block) return;
-        updateHandles(query);
-        view.dispatch({
-          effects: setSecurityFilter.of({ from: block.from, query }),
-        });
-        view.requestMeasure();
-      },
-    });
-    updateHandles(initialQuery);
-    header.after(filter.element);
-    body.append(filter.empty);
+    if (!isProperties || hasCustomFields) {
+      const filter = createSecurityFilter(document, {
+        title: title.textContent,
+        groups: filterGroups,
+        initialQuery,
+        onChange: (query) => {
+          if (this.destroyed || !wrapper.isConnected) return;
+          const block = this.currentBlock(view);
+          if (!block) return;
+          updateHandles(query);
+          view.dispatch({
+            effects: setSecurityFilter.of({ from: block.from, query }),
+          });
+          view.requestMeasure();
+        },
+      });
+      updateHandles(initialQuery);
+      if (isProperties) body.before(filter.element);
+      else header.after(filter.element);
+      body.append(filter.empty);
+    }
 
     let refreshingCodes = false;
     const canRefresh = () =>
@@ -1853,10 +2128,8 @@ class SecurityBlockWidget extends WidgetType {
               if (canRefresh()) {
                 output.textContent = result.code;
                 output.setAttribute(
-                  "aria-label",
-                  "One-time code, " +
-                    result.secondsRemaining +
-                    " seconds remaining",
+                  "aria-description",
+                  result.secondsRemaining + " seconds remaining",
                 );
               }
             } catch {
@@ -1915,6 +2188,7 @@ function makeBlockExtension(
         !transaction.docChanged &&
         !transaction.selection &&
         !transaction.effects.some((effect) => effect.is(editSecuritySource)) &&
+        !transaction.effects.some((effect) => effect.is(sourcePreviewExit)) &&
         !transaction.effects.some((effect) =>
           effect.is(setPropertyRelationships),
         ) &&
@@ -1952,9 +2226,19 @@ function makeBlockExtension(
         ),
       true,
     );
+  const exitHandler = sourcePreviewExitHandlers.of((state) => {
+    const from = state.field(securitySource);
+    return format.blocks(state).find((block) => block.from === from) ?? null;
+  });
   return relationshipState
-    ? [securitySource, securityFilters, relationshipState, field]
-    : [securitySource, securityFilters, field, cardOrdering.extension];
+    ? [securitySource, securityFilters, relationshipState, field, exitHandler]
+    : [
+        securitySource,
+        securityFilters,
+        field,
+        cardOrdering.extension,
+        exitHandler,
+      ];
 }
 
 export function makeSecurityBlockExtension(options = {}) {

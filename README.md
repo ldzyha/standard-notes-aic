@@ -18,7 +18,7 @@ The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_I
 Open the original Authenticator JSON array in AIC, or select the complete array inside
 a Markdown document. A contextual **Convert and save security blocks** action appears for
 recognized `service`, `account`, `secret` records. One click converts every record in
-that array into sections of one `aic-security v3` block and explicitly saves the changed note.
+that array into sections of one `aic` block and explicitly saves the changed note.
 Sections are separated by standalone `---`; titles are optional. Overflow continues in
 additional blocks without dropping records or fields. The preview states account/block counts
 before conversion. Consider grouping separate blocks by purpose: services, banks, web or social networks.
@@ -42,8 +42,8 @@ remain plaintext; use your normal protected account, not the standalone demo, fo
 
 ### Copy, Paste and generation
 
-Tap/click a field label or value to copy **only its value**; “Copied” appears beside
-the field after success. Tab moves focus; Enter/Space activates a focused field.
+Tap/click a field label to copy its label, or a value to copy its value; “Copied” appears
+briefly over the pressed target after success. Tab moves focus; Enter/Space activates a focused field.
 The field icon is **Paste**, present only while the field is empty. Empty fields also offer
 Delete; filled fields have neither button. There is no Replace action. Copy remains available; manual editing
 or clearing uses **Edit** for the complete Markdown block. Whole-block Copy stays in the header.
@@ -82,9 +82,9 @@ Copying does not claim that a service accepted a code. Whole-block Copy preserve
 and their used flags when moving the block to another document. No code is deleted by marking it.
 
 Without an independent `#` card title, the first section title replaces the card name in
-its header. In v3 use an optional `## Account name` at a section's start; omit the heading
+its header. Use an optional `## Account name` at a section's start; omit the heading
 for the default Security header. Later named sections retain their own compact heading.
-Legacy unversioned/v2 blocks still require `##` boundaries and retain their original interpretation.
+Standalone `---` lines separate sections; earlier Security formats are not parsed.
 
 ## Compact groups, reordering and Markdown source
 
@@ -93,12 +93,12 @@ after each group's fields. The filter matches names and visible values only; hid
 recovery codes and generated one-time codes are never indexed. Filtering is local UI state,
 does not edit or save the note, and leaves managed Properties and related-note navigation visible.
 
-In `aic-security v3`, an optional `# Group title` names the card independently of its `---` sections.
-Existing untitled blocks remain readable. Drag handles reorder fields within their section,
+In `aic`, an optional `# Group title` names the card independently of its `---` sections.
+Untitled blocks remain readable. Drag handles move fields within or between sections (including empty sections),
 sections within their card, and standalone Security cards within the same document.
 Alt+Up/Down on a handle provides keyboard reordering. Filtered lists cannot reorder.
 Properties only move custom scalar fields or sibling YAML groups; managed metadata, sequence
-items and unrelated nesting stay fixed. Unsupported layouts and commented legacy Security YAML
+items and unrelated nesting stay fixed. Unsupported layouts and old Security YAML
 remain editable through source, without an implicit reorder/migration. Moves request one save
 through the host and remain undoable.
 
@@ -107,24 +107,25 @@ without opening another editor, changing source, resetting Undo or saving. The m
 for the current note and resets on a different note. It also exposes starred values in their raw
 Markdown form; this is explicit source access, not an additional secret-reveal control.
 
-New Security templates and converted Authenticator records use an `aic-security v3` fence;
-existing unversioned/v2 blocks are not rewritten. v3 adds explicit `---` section separators
-and keeps v2's pipe field syntax.
+New Security templates and converted Authenticator records use an `aic` fence.
+Existing blocks are not rewritten automatically. Security has one grammar with
+standalone `---` section separators and pipe-separated field parts.
 `Name*: value | description | additional secret` is a masked value, `Name#: seed | description`
 is a TOTP seed, and `Name_: number | MM/YY | CVV` is a card. The marker defines the kind,
-not the label. TOTP codes derive only from `#` fields. Card number (PAN), date and CVV copy
+not the label. A field label may be empty (`*: secret`), or any valid authored label
+such as `alice@example.test`. TOTP codes derive only from `#` fields. Card number (PAN), date and CVV copy
 independently; the third slot is masked. Paste fills only an empty component, and changing a
 filled component requires source Edit. Escape a literal pipe as `\|` and a literal backslash
 as `\\`. Typed cards accept 12–19 number digits, a month/year and a 3–4 digit CVV; incomplete
 parts may be empty. Invalid cards show a repair message without exposing raw contents.
-Unversioned blocks keep legacy parsing: literal pipes and labels containing `#` or `_` do
-not silently become v2 fields.
+Earlier `aic-security` fences are quarantined from text summaries but are not parsed
+as Security blocks; edit their Markdown manually to the current format.
 
 ### Capacity and repair locations
 
 Each Security block shows its capacity: 16 sections, 64 fields per section,
 65,536 UTF-16 text units per block and 16,384 per field's encoded text (all pipe parts
-and escape characters combined in v2/v3). Add actions that would
+and escape characters combined). Add actions that would
 exceed a limit are disabled; **New block** remains available. The converter automatically
 packs overflow into more blocks, splitting oversized accounts only at field boundaries.
 It never truncates values. Existing notes are not automatically repartitioned.
@@ -133,7 +134,7 @@ Invalid Security/Properties previews identify the source line and column and pro
 an Edit action to that location. Advice never echoes a password, TOTP seed or raw parser
 exception. If an exact field position is unavailable, the block start is identified honestly.
 
-```aic-security v3
+```aic
 # Services
 Service: Example
 Account: example@example.invalid
@@ -164,9 +165,9 @@ credentials:
 
 The preview uses the same row actions as security blocks. In a v2 header, custom scalar
 keys ending in `*`, `#` or `_` use the same pipe-field kinds and empty-part Paste rules
-as v2 Security. A property whose key ends in `*` is visually masked, including inside
-nested YAML maps or lists. Copy on its label
-or value copies the original value without displaying it; an empty property can be
+as Security. A property whose key ends in `*` is visually masked, including inside
+nested YAML maps or lists. Copy on its label copies the label; copying the value returns
+the original value without displaying it. An empty property can be
 filled with Paste or deleted. Change a filled value or key through **Edit properties**,
 which reveals the original YAML for direct editing. The star controls visual
 masking only: Markdown source, exports, other editors and copied values remain plaintext.
@@ -176,28 +177,28 @@ its previous meaning. To activate v2 in an existing header, add the first-body-l
 explicitly after reviewing and escaping any literal pipes or marker-like keys. There is no
 blanket automatic migration.
 
-For contextual `*.note.md` files, `file`, `created` and `updated` appear as read-only
-metadata in the preview. Dates are formatted for reading, while Copy returns their
-original source values. Other properties appear in separate sections and remain authored YAML;
+For contextual `*.note.md` files, `created` and `updated` appear as compact read-only
+metadata before the relationship tree, without repeating the filename or a Context heading.
+Dates are formatted for reading, while Copy returns their original source values.
+Other properties follow in the shared Security-style card and remain authored YAML;
 comments, nested structure and unrelated Markdown are preserved. Related notes, when
 available from the host, appear after metadata as read-only navigation and are never
 written into frontmatter. Ordinary Markdown notes do not acquire generated metadata.
 
-## Release 30.3.3
+## Release 31.5.6
 
-This release pairs with AIC Notes 39.3.3 and AIC Editor Core 4.3.0. This document
+This release pairs with AIC Notes 40.6.6 and AIC Editor Core 5.0.0. This document
 describes the release source and its contracts; deployment and the hosted manifest
 are verified separately by the release workflow.
 
-The three feature outcomes are v3 `---` sections with optional headings; lossless grouped
-Authenticator conversion with capacity-based spill into additional blocks; and visible
-Security capacity with over-limit Add controls disabled and purpose-based grouping advice.
-Three fixes provide precise, safe Security/Properties diagnostics with source navigation;
-close an EOF-terminated prior fence before New block; and preserve exact source during
-whole-card reordering for versioned v2/v3 fences. Existing v1/v2 grammar, authentication
-and note synchronization do not change.
+Five feature outcomes are the single `aic` grammar with optional labels, compact masked
+cards, cross-section field moves, Properties metadata/tree separation, and labelled Add
+controls with limit explanations. Six fixes cover Escape exits, transient ordered copy
+feedback, independent label/value copying, safe card filtering, responsive theme styling,
+and redundant rendering/filter work. Historical Security formats require manual source
+repair; no notes are automatically rewritten. The separate VS Code extension is now fully local.
 
-`/security` inserts a shared `aic-security v3` Markdown block in the Standard Notes
+`/security` inserts a shared `aic` Markdown block in the Standard Notes
 editor and AIC Notes. A standalone `---` starts another section; `## Main` optionally
 titles one. `Password*: value` masks a
 field in preview, while `Password: value` is visible. **Edit** opens Markdown
@@ -209,9 +210,9 @@ The ordinary code-fence preview and Standard Notes plain-text note preview
 exclude security contents.
 
 Masking follows the marker, not the field's name: `Label*: value` is hidden and
-`Label: value` is visible. In v2, `Label#: seed` identifies a TOTP field and displays
+`Label: value` is visible. `Label#: seed` identifies a TOTP field and displays
 the current code without displaying its seed; an unstarred/unmarked TOTP label is an
-ordinary visible value. Legacy unversioned `TOTP*: ...` remains supported.
+ordinary visible value. Labels may be empty; older Security fence formats are not parsed.
 Sections and fields can be repeated independently.
 
 This is **visual masking, not encryption of the Markdown itself**: raw source,
@@ -476,6 +477,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `30.3.3` is sequence 30 with
-three feature outcomes and three fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `31.5.6` is sequence 31 with
+five feature outcomes and six fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

@@ -15,8 +15,7 @@ import { createSourceModeController } from "../src/core/source-mode.js";
 import { isSaveAction } from "../src/core/save-boundary.js";
 
 const views: EditorView[] = [];
-const v2 = (lines: string) =>
-  "```aic-security v2\n##\n" + lines + "\n```\n\nEnd";
+const security = (lines: string) => "```aic\n" + lines + "\n```\n\nEnd";
 function fixture(doc: string) {
   const host = document.body.appendChild(document.createElement("div"));
   const onCopy = vi.fn(() => true);
@@ -100,6 +99,8 @@ describe("explicit pipe-format preview", () => {
     const { host, view, onCopy } = fixture(doc);
     expect(host.textContent).not.toContain("middle");
     button(host, "Copy Password").click();
+    expect(onCopy).toHaveBeenLastCalledWith("Password", "Password label");
+    button(host, "Copy Password value").click();
     expect(onCopy).toHaveBeenLastCalledWith(
       "left | middle | right",
       "Password",
@@ -143,22 +144,25 @@ describe("explicit pipe-format preview", () => {
     );
     expect(propertiesBlocks(inside.view.state)[0]!.fieldSyntax).toBeUndefined();
     button(inside.host, "Copy Password").click();
+    expect(inside.onCopy).toHaveBeenLastCalledWith(
+      "Password",
+      "Password label",
+    );
+    button(inside.host, "Copy Password value").click();
     expect(inside.onCopy).toHaveBeenLastCalledWith("left | right", "Password");
   });
 
-  it("keeps legacy pipe passwords and #/_ names unchanged", () => {
-    const { host, onCopy } = fixture(
+  it("quarantines historical Security fences without exposing their values", () => {
+    const { host } = fixture(
       "```aic-security\n##\nPassword*: left | middle | right\nLegacy_: ordinary\n```\n\nEnd",
     );
-    expect(host.querySelector(".cm-aic-security-card")).toBeNull();
+    expect(host.querySelector(".cm-aic-security-error")).not.toBeNull();
     expect(host.textContent).not.toContain("middle");
-    button(host, "Copy Password").click();
-    expect(onCopy).toHaveBeenCalledWith("left | middle | right", "Password");
-    expect(button(host, "Copy Legacy_")).toBeTruthy();
+    expect(host.querySelector('[aria-label="Copy Password"]')).toBeNull();
   });
 
   it("uses the card marker, masks CVV and copies all three parts independently", () => {
-    const doc = v2("Business_: 4242 4242 4242 4242 | 09/28 | 019");
+    const doc = security("Business_: 4242 4242 4242 4242 | 09/28 | 019");
     const { host, view, onCopy, saves } = fixture(doc);
     expect(host.innerHTML).not.toContain("019");
     expect(host.textContent).toContain("09/28");
@@ -176,7 +180,9 @@ describe("explicit pipe-format preview", () => {
     input.value = "019";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     expect(
-      host.querySelector<HTMLElement>(".cm-aic-security-card")?.hidden,
+      host
+        .querySelector<HTMLElement>(".cm-aic-security-card")
+        ?.closest<HTMLElement>(".cm-aic-security-section")?.hidden,
     ).toBe(true);
     expect(view.state.doc.toString()).toBe(doc);
     expect(saves).toEqual([]);
@@ -187,16 +193,19 @@ describe("explicit pipe-format preview", () => {
       "4242 4242 4242 4242 | 09/28 | invalid-private",
       "4242 4242 4242 4242 | 09/28 | 019 | invalid-private",
     ]) {
-      const { host } = fixture(v2("Business_: " + value));
+      const { host } = fixture(security("Business_: " + value));
       expect(host.querySelector(".cm-aic-security-error")).not.toBeNull();
       expect(host.innerHTML).not.toContain("invalid-private");
       expect(host.querySelector('[aria-label^="Copy Business"]')).toBeNull();
     }
   });
 
-  it("does not expose an unknown-version field through the legacy renderer", () => {
+  it("does not expose an unsupported fence suffix", () => {
     const { host } = fixture(
-      v2("Business_: future-private-value").replace("v2", "v9"),
+      security("Business_: future-private-value").replace(
+        "```aic",
+        "```aic v9",
+      ),
     );
     expect(host.querySelector(".cm-aic-security-error")).not.toBeNull();
     expect(host.innerHTML).not.toContain("future-private-value");
@@ -204,7 +213,7 @@ describe("explicit pipe-format preview", () => {
 
   it("pastes each empty card component once, with one save intent and undo", async () => {
     const { host, view, onReadClipboard, saves } = fixture(
-      v2("Business_: 4242 4242 4242 4242 | 09/28 |"),
+      security("Business_: 4242 4242 4242 4242 | 09/28 |"),
     );
     expect(
       host.querySelector('[aria-label="Paste Business number"]'),
@@ -222,7 +231,7 @@ describe("explicit pipe-format preview", () => {
   });
 
   it("discards pending card clipboard data after switching to source", async () => {
-    const doc = v2("Business_:");
+    const doc = security("Business_:");
     const { host, view, mode, onReadClipboard } = fixture(doc);
     let resolve!: (value: string) => void;
     onReadClipboard.mockImplementation(
@@ -242,7 +251,7 @@ describe("explicit pipe-format preview", () => {
 
   it("copies public descriptions separately while never showing the additional secret", () => {
     const { host, onCopy } = fixture(
-      v2(
+      security(
         "Account: person@example.test | Work | synthetic-private\nPass*: hidden\\|pipe | WebDAV",
       ),
     );
@@ -263,16 +272,18 @@ describe("explicit pipe-format preview", () => {
   });
 
   it("identifies TOTP by # even when the label is not TOTP", () => {
-    const { host } = fixture(v2("Corporate#: JBSWY3DPEHPK3PXP | Work"));
+    const { host } = fixture(security("Corporate#: JBSWY3DPEHPK3PXP | Work"));
     expect(host.innerHTML).not.toContain("JBSWY3DPEHPK3PXP");
     expect(host.querySelector(".cm-aic-security-code")).not.toBeNull();
     expect(button(host, "Copy Corporate code")).toBeTruthy();
   });
 
-  it("does not infer a TOTP type from a v2 label marked as a plain secret", () => {
-    const { host, onCopy } = fixture(v2("TOTP*: synthetic-secret"));
+  it("does not infer a TOTP type from a plain hidden field", () => {
+    const { host, onCopy } = fixture(security("TOTP*: synthetic-secret"));
     expect(host.querySelector(".cm-aic-security-code")).toBeNull();
     button(host, "Copy TOTP").click();
+    expect(onCopy).toHaveBeenCalledWith("TOTP", "TOTP label");
+    button(host, "Copy TOTP value").click();
     expect(onCopy).toHaveBeenCalledWith("synthetic-secret", "TOTP");
   });
 });

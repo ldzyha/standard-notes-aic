@@ -19,7 +19,7 @@ const measurements = [];
 const source = [
   "# Synthetic security",
   "",
-  "```aic-security",
+  "```aic",
   "## Main",
   "Service: Example",
   "Email: dummy@example.invalid",
@@ -434,7 +434,7 @@ try {
         securityQa.securityBlocks(securityQa.editor.view.state).length === 2,
     );
     const imported = await value();
-    assert.equal((imported.match(/```aic-security/gu) || []).length, 2);
+    assert.equal((imported.match(/```aic/gu) || []).length, 2);
     assert.match(imported, /TOTP\*: GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ/u);
     assert.match(imported, /URL: https:\/\/example\.invalid\/login/u);
     assert.doesNotMatch(
@@ -480,7 +480,7 @@ try {
       theme +
         ": Authenticator array converts atomically to masked blocks with Undo/Redo and no clipboard access",
     );
-    await load("```aic-security\n## Synthetic recovery\nRecovery codes*:\n```");
+    await load("```aic\n## Synthetic recovery\nRecovery codes*:\n```");
     await page.evaluate(() => {
       securityQa.text = "SYNTHETIC-ONE\nSYNTHETIC-TWO";
     });

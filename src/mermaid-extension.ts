@@ -7,6 +7,7 @@ import {
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
 import { selectionRevealsPreview } from "./core/structured-preview.js";
 import { providePreviewRanges } from "./core/preview-ranges.js";
+import { sourcePreviewExitHandlers } from "./core/source-mode.js";
 import {
   createDiagramEditButton,
   registerDiagramEditorHost,
@@ -164,7 +165,7 @@ export function makeMermaidExtension({
     return Decoration.set(replacements, true);
   };
 
-  return StateField.define({
+  const field = StateField.define({
     create: decorations,
     update(value, transaction) {
       if (
@@ -179,4 +180,18 @@ export function makeMermaidExtension({
     },
     provide: providePreviewRanges,
   });
+  return [
+    sourcePreviewExitHandlers.of(
+      (state) =>
+        scan(state).candidates.find((candidate) =>
+          state.selection.ranges.some(
+            (range) =>
+              range.empty &&
+              range.head >= candidate.from &&
+              range.head < candidate.decorationTo,
+          ),
+        ) ?? null,
+    ),
+    field,
+  ];
 }

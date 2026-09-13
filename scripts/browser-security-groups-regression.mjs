@@ -16,7 +16,7 @@ const output =
 const run = new Date().toISOString().replace(/[:.]/gu, "-");
 await mkdir(output, { recursive: true });
 const source = [
-  "```aic-security",
+  "```aic",
   "# Synthetic vault",
   "## Identity",
   "Service: Meadow public",
@@ -512,9 +512,9 @@ try {
       const properties =
         "---\nfile: fixture.note.md\ncreated: 2026-09-13\nupdated: 2026-09-13\n---";
       const alpha =
-        "```aic-security\n# Card Alpha\n## Main\nField: alpha\nPassword*: private-alpha\n```";
+        "```aic\n# Card Alpha\n## Main\nField: alpha\nPassword*: private-alpha\n```";
       const beta =
-        "```aic-security\n# Card Beta\n## Main\nField: beta\nPassword*: private-beta\n```";
+        "```aic\n# Card Beta\n## Main\nField: beta\nPassword*: private-beta\n```";
       const cardsSource =
         properties +
         "\n\n# Other preview\n\n" +

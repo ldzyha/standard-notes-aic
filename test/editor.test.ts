@@ -70,7 +70,7 @@ describe("AIC editor integration", () => {
       properties.querySelector('[aria-label="Delete empty file field"]'),
     ).toBeNull();
     properties
-      .querySelector<HTMLButtonElement>('[aria-label="Copy created value"]')!
+      .querySelector<HTMLButtonElement>('[aria-label="Copy created"]')!
       .click();
     await vi.waitFor(() => expect(writes).toContain("2026-09-12T10:00:00Z"));
     expect(editor.value).toBe(source);

@@ -34,30 +34,18 @@ const model: SecurityModel = {
 const invalid = { ok: false, code: "invalid_security_block" };
 
 describe("security block model", () => {
-  it("keeps legacy labels and literal pipes untouched unless v2 is explicit", () => {
-    const body =
-      "## Main\nPassword*: synthetic | literal\nTOTP#: old-seed\nCard_: old-value\n";
+  it("uses one pipe grammar with or without canonical options", () => {
+    const body = "## Main\nPassword*: syn\\|thetic | note\nTOTP#: KEY123\n";
     const parsed = parseSecurityBlock(body);
-    expect(parsed).toEqual({
-      ok: true,
-      model: {
-        sections: [
-          {
-            label: "Main",
-            fields: [
-              { label: "Password", value: "synthetic | literal", hide: true },
-              { label: "TOTP#", value: "old-seed", hide: false },
-              { label: "Card_", value: "old-value", hide: false },
-            ],
-          },
-        ],
-      },
-    });
+    expect(parsed).toEqual(parseSecurityBlock(body, SECURITY_FIELD_OPTIONS));
     if (!parsed.ok) return;
     expect(serializeSecurityBlock(parsed.model)).toBe(body);
+    expect(serializeSecurityBlock(parsed.model, SECURITY_FIELD_OPTIONS)).toBe(
+      body,
+    );
   });
 
-  it("round-trips v2 markers, escaped pipes, and independent value parts", () => {
+  it("round-trips markers, escaped pipes, and independent value parts", () => {
     const options = { fieldSyntax: "pipes" } as const;
     const body =
       "## Main\nPassword*: syn\\|thetic | WebDAV\nTOTP#: KEY123 | phone\nCard_: 4111111111111111 | 09/28 | 123\nNote: left\\|right |  | extra\\|part\n";
@@ -104,10 +92,10 @@ describe("security block model", () => {
     });
     if (!parsed.ok) return;
     expect(serializeSecurityBlock(parsed.model, options)).toBe(body);
-    expect(parseSecurityBlock(body)).not.toEqual(parsed);
+    expect(parseSecurityBlock(body)).toEqual(parsed);
   });
 
-  it("rejects malformed v2 markers and parts without returning secret values", () => {
+  it("rejects malformed markers and parts without returning secret values", () => {
     const options = { fieldSyntax: "pipes" } as const;
     for (const body of [
       "## Main\n__proto__: synthetic-secret",
@@ -155,9 +143,9 @@ describe("security block model", () => {
 
   it("distinguishes an explicit blank title from an omitted title", () => {
     const untitled: SecurityModel = { sections: [{ label: "", fields: [] }] };
-    expect(serializeSecurityBlock(untitled)).toBe("##\n");
+    expect(serializeSecurityBlock(untitled)).toBe("\n");
     expect(parseSecurityBlock("##\n")).toEqual({ ok: true, model: untitled });
-    expect(serializeSecurityBlock({ ...untitled, title: "" })).toBe("#\n##\n");
+    expect(serializeSecurityBlock({ ...untitled, title: "" })).toBe("#\n");
     expect(parseSecurityBlock("\n#\r\n\r\n##\r\n")).toEqual({
       ok: true,
       model: { title: "", ...untitled },
@@ -192,9 +180,6 @@ describe("security block model", () => {
 
   it("rejects invalid, repeated, misplaced or sectionless title headings with fixed errors", () => {
     for (const body of [
-      "#",
-      "# Title",
-      "# Title\nPassword*: synthetic",
       "# \n## Main",
       "#  Title\n## Main",
       "# Title \n## Main",
@@ -227,61 +212,26 @@ describe("security block model", () => {
     }
   });
 
-  it("preserves old hash-prefixed field labels and YAML leading comments", () => {
-    const old: SecurityModel = {
-      sections: [
-        {
-          label: "Main",
-          fields: [{ label: "# Label", value: "synthetic", hide: true }],
-        },
-      ],
-    };
-    expect(parseSecurityBlock(serializeSecurityBlock(old))).toEqual({
-      ok: true,
-      model: old,
-    });
-    const legacy =
-      'service: Synthetic\nlogin: account\nannotation: ""\nfields: []';
-    expect(parseSecurityBlock("# Authored comment\n" + legacy)).toEqual(
-      parseSecurityBlock(legacy),
-    );
-    expect(
-      parseSecurityBlock("# First comment\n# Second comment\n" + legacy),
-    ).toEqual(parseSecurityBlock(legacy));
-    const flow =
-      '{service: Synthetic, login: account, annotation: "", fields: []}';
-    expect(parseSecurityBlock("# Legacy flow comment\n" + flow)).toEqual(
-      parseSecurityBlock(flow),
-    );
+  it("does not migrate legacy YAML and keeps label text explicit", () => {
+    const yaml =
+      'service: Synthetic\nlogin: account\nannotation: ""\nfields:\n  - label: Password\n    type: secret\n    value: synthetic';
+    expect(parseSecurityBlock(yaml)).toEqual(invalid);
+    const plain = "Password: synthetic\n# account: visible\n";
+    expect(parseSecurityBlock(plain)).toMatchObject({ ok: true });
+    const parsed = parseSecurityBlock("Password: synthetic\n");
+    expect(parsed.ok && parsed.model.sections[0]?.fields[0]?.hide).toBe(false);
   });
 
-  it("preserves optional explicit titles while migrating old YAML shapes", () => {
-    const oldest =
-      'service: Synthetic\nlogin: account\nannotation: ""\nfields: []';
-    const interim =
-      'sections:\n- label: Section\n  service: Synthetic\n  account: account\n  email: ""\n  url: ""\n  annotation: ""\n  fields: []';
-    for (const source of [oldest, interim]) {
-      const original = parseSecurityBlock(source);
-      expect(original.ok).toBe(true);
-      if (!original.ok) throw new Error("Synthetic YAML invalid");
-      for (const title of ["Card title", ""]) {
-        const parsed = parseSecurityBlock(
-          `title: ${JSON.stringify(title)}\n${source}`,
-        );
-        expect(parsed).toEqual({
-          ok: true,
-          model: { title, ...original.model },
-        });
-        if (parsed.ok)
-          expect(
-            parseSecurityBlock(serializeSecurityBlock(parsed.model)),
-          ).toEqual(parsed);
-      }
-      for (const title of ["null", "42", "{}", '"bad\\nline"'])
-        expect(parseSecurityBlock(`title: ${title}\n${source}`)).toEqual(
-          invalid,
-        );
-    }
+  it("round-trips optional and arbitrary labels without serializing display fallbacks", () => {
+    const body =
+      ": visible-value\n*: hidden-value\n#: JBSWY3DPEHPK3PXP\n_: 4111111111111111 | 09/28 | 123\nalice@example.test: username\n";
+    const parsed = parseSecurityBlock(body);
+    expect(parsed).toMatchObject({ ok: true });
+    if (!parsed.ok) return;
+    expect(
+      parsed.model.sections[0]?.fields.map((field) => field.label),
+    ).toEqual(["", "", "", "", "alice@example.test"]);
+    expect(serializeSecurityBlock(parsed.model)).toBe(body);
   });
 
   it("enforces title, section and total encoded-body limits", () => {
@@ -321,9 +271,9 @@ describe("security block model", () => {
         },
       ],
     };
-    expect(serializeSecurityBlock(nearLimit).length).toBe(65535);
+    expect(serializeSecurityBlock(nearLimit).length).toBe(65532);
     expect(() =>
-      serializeSecurityBlock({ title: "", ...nearLimit }),
+      serializeSecurityBlock({ title: "XX", ...nearLimit }),
     ).toThrowError(new TypeError("invalid security block"));
   });
 
@@ -331,7 +281,7 @@ describe("security block model", () => {
     const template = securityTemplate();
     expect(template).toBe(
       [
-        "```aic-security v3",
+        "```aic",
         "Service:",
         "Account:",
         "Email:",
@@ -343,7 +293,7 @@ describe("security block model", () => {
     );
     expect(
       parseSecurityBlock(
-        template.slice("```aic-security v3\n".length, -3),
+        template.slice("```aic\n".length, -3),
         SECURITY_FIELD_OPTIONS,
       ),
     ).toEqual({
@@ -364,17 +314,10 @@ describe("security block model", () => {
         ],
       },
     });
-    const legacy = parseSecurityBlock("##\nTOTP#:\n");
-    expect(legacy.ok).toBe(true);
-    if (legacy.ok)
-      expect(legacy.model.sections[0]?.fields[0]).toEqual({
-        label: "TOTP#",
-        value: "",
-        hide: false,
-      });
+    expect(parseSecurityBlock("TOTP#:\n")).toMatchObject({ ok: true });
   });
 
-  it("round-trips an unnamed section without permissive fallback to legacy YAML", () => {
+  it("round-trips an unnamed section with an implicit first section", () => {
     const unnamed: SecurityModel = {
       sections: [
         {
@@ -383,12 +326,14 @@ describe("security block model", () => {
         },
       ],
     };
-    expect(serializeSecurityBlock(unnamed)).toBe("##\nPassword*: synthetic\n");
+    expect(serializeSecurityBlock(unnamed)).toBe("Password*: synthetic\n");
     expect(parseSecurityBlock(serializeSecurityBlock(unnamed))).toEqual({
       ok: true,
       model: unnamed,
     });
-    expect(parseSecurityBlock("Password*: synthetic")).toEqual(invalid);
+    expect(parseSecurityBlock("Password*: synthetic")).toMatchObject({
+      ok: true,
+    });
     expect(parseSecurityBlock("## \nPassword*: synthetic")).toEqual(invalid);
   });
 
@@ -416,7 +361,7 @@ describe("security block model", () => {
     });
   });
 
-  it("escapes backslash, multiline legacy values, controls, and fences while preserving spaces", () => {
+  it("escapes backslash, multiline values, controls, and fences while preserving spaces", () => {
     const value = "  a:b \\folder\n```\r\t😀\u2028end  ";
     const special: SecurityModel = {
       sections: [
@@ -442,10 +387,8 @@ describe("security block model", () => {
 
   it("rejects malformed, ambiguous, unsupported, and oversized input without leaking it", () => {
     const bad = [
-      "",
       "## Main\nPassword:value",
       "## Main\nPassword**: value",
-      "## Main\n: value",
       "## Main\nField: bad\\escape",
       "## Main\nField: bad\\u00xx",
       "## Main\nField: literal\tcontrol",
@@ -453,9 +396,6 @@ describe("security block model", () => {
       "## Main\n## ",
       "## Main\nA: one\n```",
       "x".repeat(64 * 1024 + 1),
-      "service: secret\nservice: duplicate\nlogin: x\nannotation: x\nfields: []",
-      "service: &shared secret\nlogin: *shared\nannotation: x\nfields: []",
-      "service: !custom secret\nlogin: x\nannotation: x\nfields: []",
     ];
     for (const source of bad) {
       const result = parseSecurityBlock(source);
@@ -489,75 +429,29 @@ describe("security block model", () => {
     ).toThrow("invalid security block");
   });
 
-  it("migrates oldest and interim YAML, inferring hiding only there", () => {
-    const oldest = [
-      "service: Example",
-      "login: alice",
-      "annotation: two lines",
-      "fields:",
-      "  - label: Password",
-      "    type: text",
-      "    value: visible-in-yaml",
-      "  - label: Custom",
-      "    type: secret",
-      "    value: hidden-in-yaml",
-      "  - label: Recovery hint",
-      "    type: text",
-      "    value: hint",
-    ].join("\n");
-    const parsed = parseSecurityBlock(oldest);
-    expect(parsed).toEqual({
-      ok: true,
-      model: {
-        sections: [
-          {
-            label: "Main",
-            fields: [
-              { label: "Service", value: "Example", hide: false },
-              { label: "Account", value: "alice", hide: false },
-              { label: "Annotation", value: "two lines", hide: false },
-              { label: "Password", value: "visible-in-yaml", hide: true },
-              { label: "Custom", value: "hidden-in-yaml", hide: true },
-              { label: "Recovery hint", value: "hint", hide: false },
-            ],
-          },
-        ],
-      },
-    });
-    const interim = [
+  it("rejects YAML-only Security structures without inferring secret fields", () => {
+    const yaml = [
       "sections:",
-      "  - label: PSP",
-      "    service: Example",
-      "    account: alice",
-      "    email: alice@example.test",
-      "    url: https://example.test",
-      "    annotation: ''",
+      "  - label: Main",
       "    fields:",
-      "      - label: TOTP",
-      "        type: totp",
-      "        value: TESTKEY",
+      "      - label: Password",
+      "        type: secret",
+      "        value: synthetic-secret",
     ].join("\n");
-    expect(parseSecurityBlock(interim)).toEqual({
+    expect(parseSecurityBlock(yaml)).toEqual(invalid);
+    expect(parseSecurityBlock("Password: synthetic-secret\n")).toEqual({
       ok: true,
       model: {
         sections: [
           {
-            label: "PSP",
+            label: "",
             fields: [
-              { label: "Service", value: "Example", hide: false },
-              { label: "Account", value: "alice", hide: false },
-              { label: "Email", value: "alice@example.test", hide: false },
-              { label: "URL", value: "https://example.test", hide: false },
-              { label: "TOTP", value: "TESTKEY", hide: true },
+              { label: "Password", value: "synthetic-secret", hide: false },
             ],
           },
         ],
       },
     });
-    if (parsed.ok)
-      expect(parseSecurityBlock(serializeSecurityBlock(parsed.model))).toEqual(
-        parsed,
-      );
   });
 
   it("accepts only HTTP(S) URLs without embedded credentials or controls", () => {
@@ -578,6 +472,9 @@ describe("security block model", () => {
   it("redacts closed, malformed, and unclosed security fences", () => {
     const source = [
       "Before",
+      "```aic",
+      "current-secret",
+      "```",
       "```aic-security",
       "not valid yaml: test-secret-one",
       "```",
@@ -605,6 +502,9 @@ describe("security block model", () => {
         "Visible\n```aic-security\nnever-closed-test-secret\nnext",
       ),
     ).toBe("Visible\n");
+    expect(
+      redactSecurityBlocks("```aic v3\nunsupported-secret\n```\nEnd"),
+    ).toBe("End");
     expect(
       redactSecurityBlocks("```markdown\n```aic-security\nexample only\n```\n"),
     ).toBe("```markdown\n```aic-security\nexample only\n```\n");
