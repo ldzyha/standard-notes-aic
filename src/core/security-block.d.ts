@@ -4,13 +4,15 @@ import type {
   StateEffectType,
 } from "@codemirror/state";
 
-export const SECURITY_BLOCK_CORE_VERSION: "1.3.0";
+export const SECURITY_BLOCK_CORE_VERSION: "1.4.0";
 export type SecurityBlock = Readonly<{
   from: number;
   to: number;
   bodyFrom: number;
   bodyTo: number;
   body: string;
+  fieldSyntax?: "pipes";
+  unsupportedSyntax?: true;
 }>;
 export function securityBlocks(state: EditorState): readonly SecurityBlock[];
 export function propertiesBlocks(state: EditorState): readonly SecurityBlock[];

@@ -17,7 +17,7 @@ const json = JSON.stringify([
   { service: "Example", account: "fixture-account", secret: fakeSecret },
 ]);
 const tick = String.fromCharCode(96);
-const securityFence = tick.repeat(3) + "aic-security";
+const securityFence = tick.repeat(3) + "aic-security v2";
 const views: EditorView[] = [];
 
 function fixture(

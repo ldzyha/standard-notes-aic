@@ -144,12 +144,41 @@ describe("shared file properties core", () => {
       }),
     ).toBe(
       "---\n" +
+        "# aic-fields: v2\n" +
         "file: 00-documentation-map.note.md\n" +
         "created: 2026-08-20T10:00:00.000Z\n" +
         "updated: 2026-09-01T18:00:00.000Z\n" +
         "---\n\n" +
         "# Map\n",
     );
+  });
+
+  it("opts in only a newly generated note header, retaining legacy pipes", () => {
+    const old = "---\nPassword*: left | right\ncreated: old\n---\nBody";
+    const stamped = stampFileProperties(old, {
+      fileName: "x.note.md",
+      updatedAt: "now",
+    });
+    expect(stamped).not.toContain("# aic-fields: v2");
+    expect(stamped).toContain("Password*: left | right\n");
+    expect(parse(stamped.split("---\n")[1]!)["Password*"]).toBe("left | right");
+    const fresh = stampFileProperties("Body", {
+      fileName: "x.note.md",
+      updatedAt: "now",
+    });
+    expect(fresh.startsWith("---\n# aic-fields: v2\nfile:")).toBe(true);
+  });
+
+  it("preserves an existing v2 first-line directive while stamping metadata", () => {
+    const source =
+      "---\n# aic-fields: v2\nPassword*: left \\| right\n---\nBody";
+    const stamped = stampFileProperties(source, {
+      fileName: "x.note.md",
+      updatedAt: "now",
+    });
+    expect(stamped.startsWith("---\n# aic-fields: v2\n")).toBe(true);
+    expect(stamped).toContain("Password*: left \\| right\n");
+    expect(stamped.match(/# aic-fields: v2/gu)).toHaveLength(1);
   });
 
   it("preserves authored note properties, creation, and body", () => {

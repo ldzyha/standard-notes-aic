@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## 29.4.3 — 2026-09-13
+
+Release sequence 29 · 4 feature outcomes · 3 fixed-bug outcomes. Release source target;
+publication and hosted-manifest deployment require separate verification.
+
+### Features
+
+1. Compact, searchable Security and Properties groups provide group menus, one **+** disclosure and independent `#` Security card titles. Search matches names and visible values, never hidden values, recovery codes or generated one-time codes.
+2. Safe drag/drop and Alt+Up/Down handles reorder Security fields, sections and standalone cards, and supported sibling Properties fields/groups. Filtered lists, managed metadata, sequence items and unsupported layouts cannot be reordered; host-managed saves remain undoable.
+3. A temporary whole-editor **Show Markdown source / Show preview** toggle exposes the current note's raw Markdown in place without entering a native editor, persisting mode, changing source, saving or resetting Undo.
+4. Opt-in versioned pipe fields use `aic-security v2` and the first-body-line Properties YAML comment `# aic-fields: v2`. `*` masks a value, `#` identifies a TOTP seed, and `_` identifies a card with separately copyable PAN/date/CVV. The third slot is hidden; Paste targets only empty parts and populated parts require source Edit. New Security templates and newly converted Authenticator records use v2. Existing unversioned blocks/headers retain literal pipes and legacy `#`/`_` labels; activating an existing header requires an explicit marker and review/escaping, not automatic migration. Managed `file`/`created`/`updated` stay read-only.
+
+### Fixes
+
+1. Retire stale code-preview callbacks after source or note changes so detached controls cannot mutate a replacement document.
+2. Preserve Mermaid visual drafts and focus across the temporary source toggle; reject Apply when the underlying source has changed.
+3. Improve coarse mobile contrast, menu placement and multi-part field layout so controls remain readable without overflow.
+
+Compatibility: AIC Notes 38.4.3 mirrors AIC Editor Core 4.2.0. No authentication or note-synchronization change. Masking is visual, not Markdown encryption; raw source, exports and copied values can contain plaintext.
+
 ## 28.1.4 — 2026-09-13
 
 Release sequence 28 · 1 feature outcome · 4 fixed-bug outcomes.

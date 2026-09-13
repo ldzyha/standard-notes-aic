@@ -9,6 +9,7 @@ import {
 } from "./structured-preview.js";
 
 const sessions = new WeakMap();
+const suspendedViews = new WeakSet();
 
 // Mapping keeps an inline draft stable when prose outside its block changes.
 // A document identity boundary still retires the old session permanently.
@@ -22,6 +23,7 @@ const lifecycle = ViewPlugin.fromClass(
     }
     destroy() {
       sessions.get(this.view)?.retire();
+      suspendedViews.delete(this.view);
     }
   },
 );
@@ -40,6 +42,17 @@ export function releaseDiagramEditorHost(view) {
   scheduleReattach(view);
 }
 
+// Retain at most the current note's one draft, but no preview DOM in raw mode.
+// The lifecycle also clears suspension at a document-identity boundary.
+export function suspendDiagramEditor(view, suspended) {
+  if (suspended) {
+    if (!view.plugin(lifecycle))
+      view.dispatch({ effects: StateEffect.appendConfig.of(lifecycle) });
+    suspendedViews.add(view);
+  } else suspendedViews.delete(view);
+  sessions.get(view)?.suspend(suspended);
+}
+
 export function closeDiagramEditor(view, container) {
   const session = sessions.get(view);
   if (session && (!container || session.container === container))
@@ -52,6 +65,7 @@ export function openDiagramEditor(
   { container, theme = "default", hideElements = [], onCopy } = {},
 ) {
   if (
+    suspendedViews.has(view) ||
     view.state.readOnly ||
     !container?.isConnected ||
     !view.dom.contains(container) ||
@@ -94,11 +108,12 @@ export function openDiagramEditor(
       label: "Copy retained diagram draft",
       icon: "copy",
       onActivate: async (button) => {
+        if (closed || suspendedViews.has(view)) return;
         try {
           const copied = onCopy
             ? (await onCopy(getSource())) !== false
             : await writeTextToClipboard(getSource(), document);
-          if (copied)
+          if (copied && !closed && !suspendedViews.has(view))
             showIconFeedback(button, {
               restoreLabel: "Copy retained diagram draft",
             });
@@ -117,6 +132,7 @@ export function openDiagramEditor(
     hiddenPreviews = [];
   };
   const attach = (nextContainer) => {
+    if (closed || suspendedViews.has(view)) return;
     const focused = element.contains(document.activeElement)
       ? document.activeElement
       : pendingFocus;
@@ -149,7 +165,7 @@ export function openDiagramEditor(
     controller?.setApplyBlocked?.(message);
   };
   const reattach = () => {
-    if (closed) return;
+    if (closed || suspendedViews.has(view)) return;
     const replacement = [
       ...view.dom.querySelectorAll("[data-aic-diagram-from]"),
     ].find(
@@ -157,7 +173,8 @@ export function openDiagramEditor(
         host.dataset.aicDiagramFrom === String(from) &&
         host.dataset.aicDiagramTo === String(to),
     );
-    if (replacement && replacement !== container) attach(replacement);
+    if (replacement && (replacement !== container || !element.isConnected))
+      attach(replacement);
     else if (!container.isConnected && stale && view.dom.isConnected) {
       recoveryHost ??= document.createElement("div");
       recoveryHost.className = "cm-aic-diagram-recovery";
@@ -187,6 +204,7 @@ export function openDiagramEditor(
   const commit = (next) => {
     if (
       closed ||
+      suspendedViews.has(view) ||
       stale ||
       view.state.readOnly ||
       !container.isConnected ||
@@ -212,6 +230,7 @@ export function openDiagramEditor(
     theme,
     onCopy: onCopy
       ? async (text) => {
+          if (closed || suspendedViews.has(view)) return false;
           try {
             return (await onCopy(text)) !== false;
           } catch {
@@ -220,10 +239,12 @@ export function openDiagramEditor(
         }
       : undefined,
     onRender: () => {
-      if (!closed) view.requestMeasure();
+      if (!closed && !suspendedViews.has(view)) view.requestMeasure();
     },
     onApply: commit,
-    onClose: () => close(),
+    onClose: () => {
+      if (!suspendedViews.has(view)) close();
+    },
   });
   element.append(notice, controller.element);
   registerDiagramEditorHost(view, container, { from, to });
@@ -232,16 +253,18 @@ export function openDiagramEditor(
     element,
     close,
     getSource,
-    apply: () => !closed && !stale && controller.apply(),
+    apply: () =>
+      !closed && !suspendedViews.has(view) && !stale && controller.apply(),
   };
   sessions.set(view, {
     close,
     controller: sessionController,
     focus: () => {
+      if (closed || suspendedViews.has(view)) return;
       if (!element.isConnected && !stale)
         view.dispatch({ selection: { anchor: from }, scrollIntoView: true });
       Promise.resolve().then(() => {
-        if (!closed) {
+        if (!closed && !suspendedViews.has(view)) {
           reattach();
           controller.element.focus();
         }
@@ -251,11 +274,21 @@ export function openDiagramEditor(
       return container;
     },
     reattach,
+    suspend(suspended) {
+      pendingFocus = null;
+      element.inert = suspended;
+      if (suspended) {
+        restorePreviews();
+        element.remove();
+        recoveryHost?.remove();
+      } else reattach();
+    },
     retire: () => close(false),
     update(update) {
-      pendingFocus = element.contains(document.activeElement)
-        ? document.activeElement
-        : null;
+      pendingFocus =
+        !suspendedViews.has(view) && element.contains(document.activeElement)
+          ? document.activeElement
+          : null;
       if (update.docChanged) {
         let overlaps = false;
         update.changes.iterChangedRanges((changedFrom, changedTo) => {
@@ -282,6 +315,19 @@ export function openDiagramEditor(
       scheduleReattach(view);
     },
   });
+  // Retained DOM references must not mutate, copy, close, or commit a suspended
+  // draft. `inert` protects native interactions; capture also guards synthetic
+  // events and platforms without inert support.
+  for (const type of ["click", "input", "change", "pointerdown", "keydown"])
+    element.addEventListener(
+      type,
+      (event) => {
+        if (!closed && !suspendedViews.has(view)) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+      },
+      true,
+    );
   element.addEventListener(
     "keydown",
     (event) => {
@@ -289,7 +335,8 @@ export function openDiagramEditor(
         return;
       event.preventDefault();
       event.stopPropagation();
-      if (stale || !controller.apply()) return;
+      if (closed || suspendedViews.has(view) || stale || !controller.apply())
+        return;
       // Apply to the local draft first, then preserve the host's existing
       // explicit-save shortcut. No persistence path is duplicated here.
       view.contentDOM.dispatchEvent(

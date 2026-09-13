@@ -1,4 +1,5 @@
 import { Document, isAlias, isMap, isScalar, parseDocument, visit } from "yaml";
+import { PROPERTIES_SYNTAX_MARKER } from "./field-syntax.js";
 
 const FRONTMATTER =
   /^---[ \t]*(?:\r\n|\n|\r)([\s\S]*?)(?:\r\n|\n|\r)(?:---|\.\.\.)[ \t]*(?:(?:\r\n|\n|\r)|$)/u;
@@ -277,7 +278,11 @@ export function stampFileProperties(
     // parser diagnostics containing secret values into a host notification.
     return source;
   }
-  const header = ["---", yaml, "---"].join(eol);
+  const header = [
+    "---",
+    match ? yaml : `${PROPERTIES_SYNTAX_MARKER}${eol}${yaml}`,
+    "---",
+  ].join(eol);
 
   if (!match)
     return source ? `${header}${eol}${eol}${source}` : `${header}${eol}`;

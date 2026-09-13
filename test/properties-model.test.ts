@@ -5,8 +5,8 @@ import {
   serializePropertiesBody,
 } from "../src/core/properties-model.js";
 
-function model(body: string) {
-  const result = parsePropertiesBody(body);
+function model(body: string, options: { fieldSyntax?: "pipes" } = {}) {
+  const result = parsePropertiesBody(body, options);
   expect(result.ok).toBe(true);
   if (!result.ok) throw new Error("Synthetic properties did not parse");
   return structuredClone(result.model) as {
@@ -14,6 +14,9 @@ function model(body: string) {
       label: string;
       fields: {
         label: string;
+        description?: string;
+        additionalSecret?: string;
+        kind?: "totp" | "card";
         value: string;
         hide: boolean;
         readOnly?: true;
@@ -27,6 +30,94 @@ const invalid = { ok: false, code: "invalid_properties_block" };
 const data = (body: string) => parseDocument(body).toJS();
 
 describe("Properties YAML adapter", () => {
+  it("fails closed instead of dropping fields behind a CR-only version comment", () => {
+    expect(
+      parsePropertiesBody("# aic-fields: v2\rToken#: KEY\rCard_: value\r"),
+    ).toEqual(invalid);
+  });
+  it("keeps legacy YAML scalar pipes and terminal-star masking unchanged", () => {
+    const body =
+      'Password*: "synthetic | literal"\nTOTP#: old-seed\nCard_: old-value\n';
+    const value = model(body);
+    expect(value.sections[1]!.fields).toEqual([
+      { label: "Password", value: "synthetic | literal", hide: true },
+      { label: "TOTP#", value: "old-seed", hide: false },
+      { label: "Card_", value: "old-value", hide: false },
+    ]);
+    expect(serializePropertiesBody(value, body)).toBe(body);
+  });
+
+  it("round-trips opt-in v2 parts and fills only empty parts in targeted YAML", () => {
+    const options = { fieldSyntax: "pipes" } as const;
+    const body =
+      'Password*: "synthetic\\\\|secret | WebDAV" # kept\nTOTP#: "KEY123 | phone"\nCard_: "4111111111111111 | 09/28 | "\ncredentials*:\n  Card_: " | | "\n';
+    const value = model(body, options);
+    expect(value.sections[1]!.fields[0]).toMatchObject({
+      label: "Password",
+      value: "synthetic|secret",
+      description: "WebDAV",
+      hide: true,
+    });
+    expect(value.sections[1]!.fields[1]).toMatchObject({
+      label: "TOTP",
+      value: "KEY123",
+      description: "phone",
+      hide: true,
+      kind: "totp",
+    });
+    expect(value.sections[1]!.fields[2]).toMatchObject({
+      label: "Card",
+      value: "4111111111111111",
+      description: "09/28",
+      additionalSecret: "",
+      hide: false,
+      kind: "card",
+    });
+    expect(value.sections[2]!.fields[0]).toMatchObject({
+      label: "Card",
+      value: "",
+      description: "",
+      additionalSecret: "",
+      hide: true,
+      kind: "card",
+    });
+    expect(serializePropertiesBody(value, body, options)).toBe(body);
+    value.sections[1]!.fields[2]!.additionalSecret = "123";
+    value.sections[2]!.fields[0]!.value = "4111111111111111";
+    const filled = serializePropertiesBody(value, body, options);
+    expect(filled).toContain(
+      'Password*: "synthetic\\\\|secret | WebDAV" # kept',
+    );
+    expect(filled).toContain('Card_: "4111111111111111 | 09/28 | 123"');
+    expect(parsePropertiesBody(filled, options).ok).toBe(true);
+  });
+
+  it("rejects invalid v2 marker and card data without secret-bearing errors", () => {
+    const options = { fieldSyntax: "pipes" } as const;
+    for (const body of [
+      'Password*#: "synthetic-secret"',
+      'Card_: "synthetic-secret | 09/28 | 123"',
+      'Token: "one | two | three | four"',
+      '__proto__: "synthetic-secret"',
+    ])
+      expect(parsePropertiesBody(body, options)).toEqual(invalid);
+  });
+
+  it("cannot delete a v2 row when its primary part is empty but another part is filled", () => {
+    const options = { fieldSyntax: "pipes" } as const;
+    for (const body of [
+      'Token*: " | hint"',
+      'Token*: " | | synthetic-secret"',
+      'Card_: " | 09/28 | 123"',
+    ]) {
+      const value = model(body, options);
+      value.sections[1]!.fields = [];
+      expect(() => serializePropertiesBody(value, body, options)).toThrowError(
+        new TypeError("Invalid properties block"),
+      );
+    }
+  });
+
   it("copies unsafe-size integers exactly and rejects decimal values that would round", () => {
     const body =
       "big: 9007199254740993\nnegative: -9007199254740993\nprecise: 2.50\nexponent: 1e16\nempty:\n";

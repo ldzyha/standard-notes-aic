@@ -119,7 +119,7 @@ try {
     );
     let posted = (await saves()).at(-1);
     const converted = posted.data.items[0].content.text;
-    assert.match(converted, /^```aic-security\n/u);
+    assert.match(converted, /^```aic-security v2\n/u);
     assert.notEqual(converted, source);
     assert.doesNotMatch(
       posted.data.items[0].content.preview_plain,
@@ -217,7 +217,7 @@ try {
     const pastedMarkdown = pastedPost.data.items[0].content.text;
     assert.match(
       pastedMarkdown,
-      /^---\nfile: secrets\.note\.md\ncreated: 2026-08-20T10:00:00\.000Z\nupdated: .+Z\n---\n/u,
+      /^---\n# aic-fields: v2\nfile: secrets\.note\.md\ncreated: 2026-08-20T10:00:00\.000Z\nupdated: .+Z\n---\n/u,
     );
     assert.match(pastedMarkdown, /Password\*: DUMMY-PASTED-NOT-A-CREDENTIAL/u);
     assert.doesNotMatch(
@@ -280,7 +280,11 @@ try {
       /Note saved/u,
     );
     await load(pastedPost.data.items[0].content.text, "secrets.note.md");
-    assert.equal(await page.locator(".cm-aic-security").count(), 1);
+    assert.equal(
+      await page.locator(".cm-aic-security:not(.cm-aic-properties)").count(),
+      1,
+    );
+    assert.equal(await page.locator(".cm-aic-properties").count(), 1);
     assert.equal(
       await page
         .getByRole("button", { name: "Paste Password", exact: true })

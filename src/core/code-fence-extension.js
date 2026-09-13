@@ -78,6 +78,10 @@ const codeFenceSource = StateField.define({
   },
 });
 
+// Decoration descriptors may be reused, but a removed DOM's callbacks must
+// never become live again after a mode or document-identity change.
+const liveCodePreviews = new WeakSet();
+
 class CodeFenceWidget extends WidgetType {
   constructor(block, document, readOnly, onCopy) {
     super();
@@ -99,14 +103,33 @@ class CodeFenceWidget extends WidgetType {
   }
 
   toDOM(view) {
-    return createCodeFencePreview(this.document, {
+    const current = () =>
+      liveCodePreviews.has(wrapper) &&
+      wrapper.isConnected &&
+      view.dom.contains(wrapper) &&
+      codeFences(view.state).some(
+        (block) =>
+          block.from === this.block.from &&
+          block.to === this.block.to &&
+          block.source === this.block.source &&
+          block.language === this.block.language,
+      );
+    const wrapper = createCodeFencePreview(this.document, {
       ...this.block,
       readOnly: this.readOnly,
-      onCopy: (source) =>
-        this.onCopy
-          ? this.onCopy(source, this.block.language)
-          : writeTextToClipboard(source, this.document),
+      onCopy: async (source) => {
+        if (!current()) return false;
+        try {
+          const copied = this.onCopy
+            ? await this.onCopy(source, this.block.language)
+            : await writeTextToClipboard(source, this.document);
+          return current() ? copied : false;
+        } catch {
+          return false;
+        }
+      },
       onEdit: () => {
+        if (!current()) return;
         const anchor = Math.max(
           0,
           Math.min(view.state.doc.length, this.block.textFrom),
@@ -119,6 +142,12 @@ class CodeFenceWidget extends WidgetType {
         view.focus();
       },
     });
+    liveCodePreviews.add(wrapper);
+    return wrapper;
+  }
+
+  destroy(element) {
+    liveCodePreviews.delete(element);
   }
 
   ignoreEvent() {

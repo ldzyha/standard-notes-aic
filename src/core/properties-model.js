@@ -1,4 +1,8 @@
 import { isAlias, isMap, isScalar, isSeq, parseDocument } from "yaml";
+import { parseFieldLabel, serializeFieldLabel } from "./field-label.js";
+import { parseFieldParts, serializeFieldParts } from "./field-parts.js";
+import { parseCardField } from "./security-card.js";
+import { propertiesSyntax } from "./field-syntax.js";
 import { isRecoveryField, parseRecoveryCodes } from "./security-recovery.js";
 
 const INVALID = Object.freeze({ ok: false, code: "invalid_properties_block" });
@@ -10,12 +14,20 @@ const fail = () => {
   throw new TypeError("Invalid properties block");
 };
 const labelFor = (key) => (key.endsWith("*") ? key.slice(0, -1) : key);
+const hiddenKey = (key) => key.endsWith("*");
 const pointer = (path) =>
   "/" +
   path
     .map((key) => String(key).replaceAll("~", "~0").replaceAll("/", "~1"))
     .join("/");
-const identity = (field) => JSON.stringify([field.label, field.hide]);
+const identity = (field) =>
+  JSON.stringify([field.label, field.hide, field.kind ?? null]);
+
+function fieldOptions(body, options) {
+  const syntax = propertiesSyntax(body);
+  if (syntax.unsupportedSyntax) fail();
+  return { ...syntax, ...options };
+}
 
 function validName(name) {
   return (
@@ -48,8 +60,19 @@ function decimalIdentity(source) {
 
 // Never materialize authored YAML as a JavaScript object. Retain the AST and
 // token ranges, so scalar types, map/sequence boundaries and comments survive.
-function read(body) {
+function read(body, options = {}) {
   if (typeof body !== "string" || body.length > MAX_BODY) fail();
+  options = fieldOptions(body, options);
+  // yaml treats a CR-only directive body as one comment. Never offer an empty
+  // editable model for source whose fields the YAML parser did not consume.
+  if (
+    options.fieldSyntax === "pipes" &&
+    body.includes("\r") &&
+    !body.includes("\n")
+  )
+    fail();
+  if (options?.fieldSyntax !== undefined && options.fieldSyntax !== "pipes")
+    fail();
   const doc = parseDocument(body, {
     keepSourceTokens: true,
     intAsBigInt: true,
@@ -99,12 +122,22 @@ function read(body) {
     return value;
   };
   const add = (group, key, node, pair, index, readOnly) => {
+    const parsed = parseFieldLabel(key, options);
+    const value = scalar(node);
+    const parts =
+      options.fieldSyntax === "pipes" &&
+      !readOnly &&
+      typeof node.value === "string"
+        ? parseFieldParts(value)
+        : { value };
     const field = {
-      label: labelFor(key),
-      value: scalar(node),
-      hide: Boolean(group.hidden || key.endsWith("*")),
+      label: parsed.label,
+      ...parts,
+      ...(parsed.kind === undefined ? {} : { kind: parsed.kind }),
+      hide: Boolean(group.hidden || parsed.hide),
       ...(readOnly ? { readOnly: true } : {}),
     };
+    if (field.kind === "card" && !parseCardField(field).ok) fail();
     if (
       ++fields > 256 ||
       group.entries.some((entry) => identity(entry.field) === identity(field))
@@ -159,7 +192,7 @@ function read(body) {
         walk(
           value,
           [...path, pair ? key : index],
-          hidden || key.endsWith("*"),
+          hidden || hiddenKey(key),
           depth + 1,
         );
       } else {
@@ -173,9 +206,9 @@ function read(body) {
   return { doc, root, model: { sections }, groups };
 }
 
-export function parsePropertiesBody(body) {
+export function parsePropertiesBody(body, options = {}) {
   try {
-    return { ok: true, model: read(body).model };
+    return { ok: true, model: read(body, options).model };
   } catch {
     return INVALID;
   }
@@ -208,8 +241,9 @@ function tree(node) {
   ];
 }
 
-function serialize(model, body) {
-  const parsed = read(body);
+function serialize(model, body, options = {}) {
+  options = fieldOptions(body, options);
+  const parsed = read(body, options);
   if (
     !model ||
     !Array.isArray(model.sections) ||
@@ -272,20 +306,56 @@ function serialize(model, body) {
           next.readOnly !== entry.field.readOnly ||
           typeof next.value !== "string" ||
           next.value.length > MAX_VALUE ||
-          typeof next.hide !== "boolean"
+          typeof next.hide !== "boolean" ||
+          (next.description !== undefined &&
+            (typeof next.description !== "string" ||
+              next.description.length > MAX_VALUE)) ||
+          (next.additionalSecret !== undefined &&
+            (typeof next.additionalSecret !== "string" ||
+              next.additionalSecret.length > MAX_VALUE))
         )
           fail();
-        if (next.value !== entry.field.value) {
+        const componentChanged =
+          next.value !== entry.field.value ||
+          next.description !== entry.field.description ||
+          next.additionalSecret !== entry.field.additionalSecret;
+        if (componentChanged) {
           if (
             entry.field.readOnly ||
-            (entry.field.value !== "" && !sameRecoveryValues(entry.field, next))
+            (entry.field.value !== next.value &&
+              entry.field.value !== "" &&
+              !sameRecoveryValues(entry.field, next)) ||
+            (entry.field.description !== undefined &&
+              (next.description === undefined ||
+                (entry.field.description !== "" &&
+                  entry.field.description !== next.description))) ||
+            (entry.field.additionalSecret !== undefined &&
+              (next.additionalSecret === undefined ||
+                (entry.field.additionalSecret !== "" &&
+                  entry.field.additionalSecret !== next.additionalSecret))) ||
+            (options.fieldSyntax !== "pipes" &&
+              (next.description !== undefined ||
+                next.additionalSecret !== undefined))
           )
             fail();
-          replacement(entry.node, next.value);
+          if (next.kind === "card" && !parseCardField(next).ok) fail();
+          const replacementValue =
+            options.fieldSyntax === "pipes"
+              ? serializeFieldParts(next)
+              : next.value;
+          replacement(entry.node, replacementValue);
         }
         cursor++;
       } else {
-        if (entry.field.readOnly || entry.field.value !== "" || !entry.pair)
+        if (
+          entry.field.readOnly ||
+          entry.field.value !== "" ||
+          (entry.field.description !== undefined &&
+            entry.field.description !== "") ||
+          (entry.field.additionalSecret !== undefined &&
+            entry.field.additionalSecret !== "") ||
+          !entry.pair
+        )
           fail();
         if (!removed.has(group.node)) removed.set(group.node, new Set());
         removed.get(group.node).add(entry.pair);
@@ -303,11 +373,36 @@ function serialize(model, body) {
           typeof field.hide !== "boolean" ||
           field.readOnly !== undefined ||
           field.value !== "" ||
+          (field.description !== undefined && field.description !== "") ||
+          (field.additionalSecret !== undefined &&
+            field.additionalSecret !== "") ||
+          (options.fieldSyntax !== "pipes" &&
+            (field.description !== undefined ||
+              field.additionalSecret !== undefined ||
+              field.kind !== undefined)) ||
+          (field.kind === "card" && field.hide !== Boolean(group.hidden)) ||
+          (field.kind === "totp" && !field.hide) ||
           (group.hidden && !field.hide)
         )
           fail();
-        const key = field.label + (field.hide && !group.hidden ? "*" : "");
-        if ((group.path.length === 0 && MANAGED.has(key)) || keys.has(key))
+        const key = serializeFieldLabel(
+          {
+            label: field.label,
+            ...(field.kind === undefined ? {} : { kind: field.kind }),
+            hide:
+              field.kind === "totp"
+                ? true
+                : field.kind === "card"
+                  ? false
+                  : field.hide && !group.hidden,
+          },
+          options,
+        );
+        if (
+          !validName(key) ||
+          (group.path.length === 0 && MANAGED.has(key)) ||
+          keys.has(key)
+        )
           fail();
         keys.add(key);
         additions.push(key);
@@ -408,7 +503,7 @@ function serialize(model, body) {
     offset = entry.to;
   }
   result += body.slice(offset);
-  const verified = read(result);
+  const verified = read(result, options);
   const expected = parsed.doc.contents;
   // Root empty YAML and {} are both the same empty properties mapping.
   if (
@@ -419,9 +514,9 @@ function serialize(model, body) {
   return result;
 }
 
-export function serializePropertiesBody(model, originalBody) {
+export function serializePropertiesBody(model, originalBody, options = {}) {
   try {
-    return serialize(model, originalBody);
+    return serialize(model, originalBody, options);
   } catch {
     return fail();
   }

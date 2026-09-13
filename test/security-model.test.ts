@@ -33,23 +33,318 @@ const model: SecurityModel = {
 const invalid = { ok: false, code: "invalid_security_block" };
 
 describe("security block model", () => {
+  it("keeps legacy labels and literal pipes untouched unless v2 is explicit", () => {
+    const body =
+      "## Main\nPassword*: synthetic | literal\nTOTP#: old-seed\nCard_: old-value\n";
+    const parsed = parseSecurityBlock(body);
+    expect(parsed).toEqual({
+      ok: true,
+      model: {
+        sections: [
+          {
+            label: "Main",
+            fields: [
+              { label: "Password", value: "synthetic | literal", hide: true },
+              { label: "TOTP#", value: "old-seed", hide: false },
+              { label: "Card_", value: "old-value", hide: false },
+            ],
+          },
+        ],
+      },
+    });
+    if (!parsed.ok) return;
+    expect(serializeSecurityBlock(parsed.model)).toBe(body);
+  });
+
+  it("round-trips v2 markers, escaped pipes, and independent value parts", () => {
+    const options = { fieldSyntax: "pipes" } as const;
+    const body =
+      "## Main\nPassword*: syn\\|thetic | WebDAV\nTOTP#: KEY123 | phone\nCard_: 4111111111111111 | 09/28 | 123\nNote: left\\|right |  | extra\\|part\n";
+    const parsed = parseSecurityBlock(body, options);
+    expect(parsed).toEqual({
+      ok: true,
+      model: {
+        sections: [
+          {
+            label: "Main",
+            fields: [
+              {
+                label: "Password",
+                value: "syn|thetic",
+                description: "WebDAV",
+                hide: true,
+              },
+              {
+                label: "TOTP",
+                value: "KEY123",
+                description: "phone",
+                hide: true,
+                kind: "totp",
+              },
+              {
+                label: "Card",
+                value: "4111111111111111",
+                description: "09/28",
+                additionalSecret: "123",
+                hide: false,
+                kind: "card",
+              },
+              {
+                label: "Note",
+                value: "left|right",
+                description: "",
+                additionalSecret: "extra|part",
+                hide: false,
+              },
+            ],
+          },
+        ],
+      },
+    });
+    if (!parsed.ok) return;
+    expect(serializeSecurityBlock(parsed.model, options)).toBe(body);
+    expect(parseSecurityBlock(body)).not.toEqual(parsed);
+  });
+
+  it("rejects malformed v2 markers and parts without returning secret values", () => {
+    const options = { fieldSyntax: "pipes" } as const;
+    for (const body of [
+      "## Main\n__proto__: synthetic-secret",
+      "## Main\nPassword*#: synthetic-secret",
+      "## Main\nCard_: synthetic-secret | 09/28 | 123",
+      "## Main\nToken: one | two | three | four",
+      "## Main\nToken: bad\\@escape",
+    ])
+      expect(parseSecurityBlock(body, options)).toEqual(invalid);
+    expect(() =>
+      serializeSecurityBlock(
+        {
+          sections: [
+            {
+              label: "Main",
+              fields: [
+                {
+                  label: "Password",
+                  description: "synthetic-secret",
+                  value: "synthetic-secret",
+                  hide: false,
+                },
+              ],
+            },
+          ],
+        },
+        options,
+      ),
+    ).not.toThrow();
+  });
+
+  it("round-trips a card title independent of every section label", () => {
+    const titled: SecurityModel = { title: "Accounts", ...model };
+    const serialized = serializeSecurityBlock(titled);
+    expect(serialized).toBe("# Accounts\n" + serializeSecurityBlock(model));
+    expect(parseSecurityBlock(serialized)).toEqual({ ok: true, model: titled });
+    const reordered = { ...titled, sections: [...titled.sections].reverse() };
+    expect(parseSecurityBlock(serializeSecurityBlock(reordered))).toEqual({
+      ok: true,
+      model: reordered,
+    });
+    expect(serializeSecurityBlock(reordered)).toMatch(/^# Accounts\n## PSP/u);
+    expect(titled.sections).toBe(model.sections);
+  });
+
+  it("distinguishes an explicit blank title from an omitted title", () => {
+    const untitled: SecurityModel = { sections: [{ label: "", fields: [] }] };
+    expect(serializeSecurityBlock(untitled)).toBe("##\n");
+    expect(parseSecurityBlock("##\n")).toEqual({ ok: true, model: untitled });
+    expect(serializeSecurityBlock({ ...untitled, title: "" })).toBe("#\n##\n");
+    expect(parseSecurityBlock("\n#\r\n\r\n##\r\n")).toEqual({
+      ok: true,
+      model: { title: "", ...untitled },
+    });
+  });
+
+  it("escapes title backslashes while preserving printable punctuation and field secrets", () => {
+    const title = "Synthetic: C:\\folder\\next * #tag <b>😀</b>";
+    const titled = { title, ...model };
+    const serialized = serializeSecurityBlock(titled);
+    expect(serialized).toContain(
+      "# Synthetic: C:\\\\folder\\\\next * #tag <b>😀</b>\n",
+    );
+    expect(parseSecurityBlock(serialized)).toEqual({ ok: true, model: titled });
+    expect(
+      parseSecurityBlock(
+        "# Synthetic\\u003a title\n## Main\nPassword*: same\\nsecret",
+      ),
+    ).toEqual({
+      ok: true,
+      model: {
+        title: "Synthetic: title",
+        sections: [
+          {
+            label: "Main",
+            fields: [{ label: "Password", value: "same\nsecret", hide: true }],
+          },
+        ],
+      },
+    });
+  });
+
+  it("rejects invalid, repeated, misplaced or sectionless title headings with fixed errors", () => {
+    for (const body of [
+      "#",
+      "# Title",
+      "# Title\nPassword*: synthetic",
+      "# \n## Main",
+      "#  Title\n## Main",
+      "# Title \n## Main",
+      "# First\n# Second\n## Main",
+      "#\n#\n## Main",
+      "## Main\n# Misplaced",
+      "# First\n## Main\n# Misplaced",
+      "#Title\n## Main",
+      " # Title\n## Main",
+      "### Title\n## Main",
+      "# Bad\\escape\n## Main",
+      "# Bad\\nline\n## Main",
+      "# Bad\\u0000title\n## Main",
+      "# Bad\\uD800title\n## Main",
+      "# literal\tcontrol\n## Main",
+      "# Bad\u2028title\n## Main",
+    ]) {
+      expect(parseSecurityBlock(body)).toEqual(invalid);
+    }
+    for (const title of [
+      " padded",
+      "padded ",
+      "line\nbreak",
+      "\u0000",
+      "\uD800",
+    ]) {
+      expect(() => serializeSecurityBlock({ title, ...model })).toThrowError(
+        new TypeError("invalid security block"),
+      );
+    }
+  });
+
+  it("preserves old hash-prefixed field labels and YAML leading comments", () => {
+    const old: SecurityModel = {
+      sections: [
+        {
+          label: "Main",
+          fields: [{ label: "# Label", value: "synthetic", hide: true }],
+        },
+      ],
+    };
+    expect(parseSecurityBlock(serializeSecurityBlock(old))).toEqual({
+      ok: true,
+      model: old,
+    });
+    const legacy =
+      'service: Synthetic\nlogin: account\nannotation: ""\nfields: []';
+    expect(parseSecurityBlock("# Authored comment\n" + legacy)).toEqual(
+      parseSecurityBlock(legacy),
+    );
+    expect(
+      parseSecurityBlock("# First comment\n# Second comment\n" + legacy),
+    ).toEqual(parseSecurityBlock(legacy));
+    const flow =
+      '{service: Synthetic, login: account, annotation: "", fields: []}';
+    expect(parseSecurityBlock("# Legacy flow comment\n" + flow)).toEqual(
+      parseSecurityBlock(flow),
+    );
+  });
+
+  it("preserves optional explicit titles while migrating old YAML shapes", () => {
+    const oldest =
+      'service: Synthetic\nlogin: account\nannotation: ""\nfields: []';
+    const interim =
+      'sections:\n- label: Section\n  service: Synthetic\n  account: account\n  email: ""\n  url: ""\n  annotation: ""\n  fields: []';
+    for (const source of [oldest, interim]) {
+      const original = parseSecurityBlock(source);
+      expect(original.ok).toBe(true);
+      if (!original.ok) throw new Error("Synthetic YAML invalid");
+      for (const title of ["Card title", ""]) {
+        const parsed = parseSecurityBlock(
+          `title: ${JSON.stringify(title)}\n${source}`,
+        );
+        expect(parsed).toEqual({
+          ok: true,
+          model: { title, ...original.model },
+        });
+        if (parsed.ok)
+          expect(
+            parseSecurityBlock(serializeSecurityBlock(parsed.model)),
+          ).toEqual(parsed);
+      }
+      for (const title of ["null", "42", "{}", '"bad\\nline"'])
+        expect(parseSecurityBlock(`title: ${title}\n${source}`)).toEqual(
+          invalid,
+        );
+    }
+  });
+
+  it("enforces title, section and total encoded-body limits", () => {
+    const title = "😀".repeat(128);
+    const titled = { title, ...model };
+    expect(parseSecurityBlock(serializeSecurityBlock(titled))).toEqual({
+      ok: true,
+      model: titled,
+    });
+    expect(parseSecurityBlock("# " + title + "x\n## Main")).toEqual(invalid);
+    expect(() =>
+      serializeSecurityBlock({ title: title + "x", ...model }),
+    ).toThrowError(new TypeError("invalid security block"));
+    const sections = Array.from({ length: 16 }, () => ({
+      label: "",
+      fields: [],
+    }));
+    expect(
+      parseSecurityBlock(serializeSecurityBlock({ title: "Card", sections }))
+        .ok,
+    ).toBe(true);
+    expect(() =>
+      serializeSecurityBlock({
+        title: "Card",
+        sections: [...sections, sections[0]!],
+      }),
+    ).toThrowError(new TypeError("invalid security block"));
+    const nearLimit: SecurityModel = {
+      sections: [
+        {
+          label: "",
+          fields: Array.from({ length: 4 }, () => ({
+            label: "F",
+            value: "s".repeat(16379),
+            hide: false,
+          })),
+        },
+      ],
+    };
+    expect(serializeSecurityBlock(nearLimit).length).toBe(65535);
+    expect(() =>
+      serializeSecurityBlock({ title: "", ...nearLimit }),
+    ).toThrowError(new TypeError("invalid security block"));
+  });
+
   it("creates a fenced base template with explicit visibility", () => {
     const template = securityTemplate();
     expect(template).toBe(
       [
-        "```aic-security",
+        "```aic-security v2",
         "##",
         "Service:",
         "Account:",
         "Email:",
         "URL:",
-        "TOTP*:",
+        "TOTP#:",
         "Password*:",
         "```",
       ].join("\n"),
     );
     expect(
-      parseSecurityBlock(template.slice("```aic-security\n".length, -3)),
+      parseSecurityBlock(template.slice("```aic-security v2\n".length, -3), {
+        fieldSyntax: "pipes",
+      }),
     ).toEqual({
       ok: true,
       model: {
@@ -61,16 +356,26 @@ describe("security block model", () => {
               { label: "Account", value: "", hide: false },
               { label: "Email", value: "", hide: false },
               { label: "URL", value: "", hide: false },
-              { label: "TOTP", value: "", hide: true },
+              { label: "TOTP", value: "", hide: true, kind: "totp" },
               { label: "Password", value: "", hide: true },
             ],
           },
         ],
       },
     });
+    const legacy = parseSecurityBlock(
+      template.slice("```aic-security v2\n".length, -3),
+    );
+    expect(legacy.ok).toBe(true);
+    if (legacy.ok)
+      expect(legacy.model.sections[0]?.fields[4]).toEqual({
+        label: "TOTP#",
+        value: "",
+        hide: false,
+      });
   });
 
-  it("round-trips an optional title without permissive fallback to legacy YAML", () => {
+  it("round-trips an unnamed section without permissive fallback to legacy YAML", () => {
     const unnamed: SecurityModel = {
       sections: [
         {

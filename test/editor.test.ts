@@ -338,7 +338,10 @@ describe("AIC editor integration", () => {
     );
     expect(status).not.toBeNull();
     expect(status!.tagName).toBe("BUTTON");
-    expect(properties!.querySelector("input, textarea")).toBeNull();
+    expect(
+      properties!.querySelector('input:not([type="search"]), textarea'),
+    ).toBeNull();
+    expect(properties!.querySelector('input[type="search"]')).not.toBeNull();
     status!.click();
     await vi.waitFor(() => expect(writes).toContain("idea"));
     expect(editor.value).toBe(source);
@@ -654,7 +657,13 @@ describe("AIC editor integration", () => {
     const controls = editor.toolbar.element.querySelectorAll<
       HTMLButtonElement | HTMLSelectElement
     >("button,select");
-    expect([...controls].every((control) => control.disabled)).toBe(true);
+    expect(
+      [...controls].every(
+        (control) =>
+          control.classList.contains("aic-source-mode-toggle") ||
+          control.disabled,
+      ),
+    ).toBe(true);
     editor.toolbar.element.querySelector<HTMLButtonElement>("button")!.click();
     expect(editor.value).toBe("word");
     expect(editor.setReadOnly(false)).toBe(true);

@@ -440,7 +440,7 @@ describe("Standard Notes editor bridge", () => {
     });
     save();
     expect(bridge.saves.at(-1)?.text).toMatch(
-      /^---\nfile: documentation\.note\.md\ncreated: 2026-08-20T10:00:00\.000Z\nupdated: .+Z\n---\n\n# Note$/u,
+      /^---\n# aic-fields: v2\nfile: documentation\.note\.md\ncreated: 2026-08-20T10:00:00\.000Z\nupdated: .+Z\n---\n\n# Note$/u,
     );
     bridge.reply();
     await vi.waitFor(() => expect(editor.dataset.saveState).toBe("saved"));

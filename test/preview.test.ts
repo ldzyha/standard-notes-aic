@@ -12,6 +12,22 @@ describe("Markdown note preview", () => {
       markdownPlainPreview("---\ncredentials*:\n  password: private-value"),
     ).toBe("");
     expect(
+      markdownPlainPreview('---\n"Password* [WebDAV]": private-value'),
+    ).toBe("");
+    expect(
+      markdownPlainPreview('---\n"Password | Legacy*": private-value'),
+    ).toBe("");
+    expect(
+      markdownPlainPreview('---\n"Pass:word* [WebDAV]": private-value'),
+    ).toBe("");
+    expect(
+      markdownPlainPreview("---\nCard: number | *synthetic-cvv* | [09/28]"),
+    ).toBe("");
+    expect(markdownPlainPreview("---\nTOTP#: synthetic-seed | phone")).toBe("");
+    expect(
+      markdownPlainPreview("---\nCard_: 4111111111111111 | 09/28 | 123"),
+    ).toBe("");
+    expect(
       markdownPlainPreview(
         "---\nPassword*: private-value\nnotes: " +
           "x".repeat(50_000) +

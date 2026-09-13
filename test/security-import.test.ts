@@ -10,10 +10,10 @@ function convert(entries: Entry[]) {
 
 function models(markdown: string) {
   return markdown.split("\n\n").map((block) => {
-    expect(block.startsWith("```aic-security\n")).toBe(true);
+    expect(block.startsWith("```aic-security v2\n")).toBe(true);
     expect(block.endsWith("\n```")).toBe(true);
-    const body = block.slice("```aic-security\n".length, -3);
-    const parsed = parseSecurityBlock(body);
+    const body = block.slice("```aic-security v2\n".length, -3);
+    const parsed = parseSecurityBlock(body, { fieldSyntax: "pipes" });
     expect(parsed.ok).toBe(true);
     return parsed.ok ? parsed.model : null;
   });
@@ -37,7 +37,7 @@ describe("Authenticator JSON import", () => {
             fields: [
               { label: "Service", value: entry.service, hide: false },
               { label: "Account", value: entry.account, hide: false },
-              { label: "TOTP", value: entry.secret, hide: true },
+              { label: "TOTP", value: entry.secret, hide: true, kind: "totp" },
             ],
           },
         ],
@@ -89,11 +89,49 @@ describe("Authenticator JSON import", () => {
     expect(models(result.markdown)[0]!.sections[0]!.fields).toEqual([
       { label: "Service", value: "S", hide: false },
       { label: "Account", value: "", hide: false },
-      { label: "TOTP", value: entry.secret, hide: true },
+      { label: "TOTP", value: entry.secret, hide: true, kind: "totp" },
       { label: "Password", value: "", hide: true },
       { label: "Notes", value: "user note", hide: false },
       { label: "issuer", value: "original issuer", hide: true },
       { label: "API Token", value: " private ", hide: true },
+    ]);
+  });
+
+  it("round-trips user pipes and backslashes without creating value parts", () => {
+    const entry = {
+      service: "Sample | C:\\apps",
+      account: "name\\part|other",
+      secret: "SYN|TH\\ETIC",
+      password: "word | C:\\vault",
+      notes: "left\\|right",
+      custom: "one | two\\three",
+    };
+    const result = convert([entry]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    const fields = models(result.markdown)[0]!.sections[0]!.fields;
+    expect(fields.map((field) => field.value)).toEqual(Object.values(entry));
+    expect(fields.every((field) => !Object.hasOwn(field, "description"))).toBe(
+      true,
+    );
+    expect(fields[2]!.kind).toBe("totp");
+  });
+
+  it("sanitizes terminal v2 marker suffixes without changing field kinds", () => {
+    const result = convert([
+      {
+        service: "S",
+        account: "A",
+        secret: "K",
+        "backup#": "first",
+        ending_: "second",
+      },
+    ]);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(models(result.markdown)[0]!.sections[0]!.fields.slice(3)).toEqual([
+      { label: "backup# (imported)", value: "first", hide: true },
+      { label: "ending_ (imported)", value: "second", hide: true },
     ]);
   });
 

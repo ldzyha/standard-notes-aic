@@ -1,4 +1,8 @@
 import { isAlias, isMap, parseDocument, visit } from "yaml";
+import { parseFieldLabel, serializeFieldLabel } from "./field-label.js";
+import { joinFieldParts, splitFieldParts } from "./field-parts.js";
+import { PIPE_FIELD_OPTIONS, SECURITY_FENCE_INFO } from "./field-syntax.js";
+import { parseCardField } from "./security-card.js";
 
 const MAX_BODY_LENGTH = 64 * 1024;
 const MAX_SECTIONS = 16;
@@ -37,8 +41,25 @@ function name(value) {
   );
 }
 
-function normalize(model) {
-  if (!exactly(model, ["sections"])) return null;
+function titleText(value) {
+  return (
+    string(value, 256) &&
+    value.trim() === value &&
+    !/[\p{C}\u2028\u2029]/u.test(value)
+  );
+}
+
+function has(value, key) {
+  return value instanceof Map ? value.has(key) : Object.hasOwn(value, key);
+}
+
+function normalize(model, options) {
+  const pipes = options?.fieldSyntax === "pipes";
+  if (options?.fieldSyntax !== undefined && !pipes) return null;
+  if (!exactly(model, ["sections"]) && !exactly(model, ["title", "sections"]))
+    return null;
+  const titled = has(model, "title");
+  if (titled && !titleText(get(model, "title"))) return null;
   const sections = get(model, "sections");
   if (
     !Array.isArray(sections) ||
@@ -57,25 +78,71 @@ function normalize(model) {
     if (!Array.isArray(fields) || fields.length > MAX_FIELDS) return null;
     const normalizedFields = [];
     for (const field of fields) {
+      const allowed = new Set(
+        pipes
+          ? [
+              "label",
+              "value",
+              "hide",
+              "kind",
+              "description",
+              "additionalSecret",
+            ]
+          : ["label", "value", "hide"],
+      );
       if (
-        !exactly(field, ["label", "value", "hide"]) ||
+        !field ||
+        typeof field !== "object" ||
+        Array.isArray(field) ||
+        Object.keys(field).some((key) => !allowed.has(key)) ||
+        !["label", "value", "hide"].every((key) => has(field, key)) ||
         !name(get(field, "label")) ||
         !string(get(field, "value"), MAX_VALUE_LENGTH) ||
         typeof get(field, "hide") !== "boolean"
       )
         return null;
+      const description = get(field, "description");
+      const additionalSecret = get(field, "additionalSecret");
+      const kind = get(field, "kind");
+      if (
+        (has(field, "description") && !string(description, MAX_VALUE_LENGTH)) ||
+        (has(field, "additionalSecret") &&
+          !string(additionalSecret, MAX_VALUE_LENGTH)) ||
+        (has(field, "kind") && !["totp", "card"].includes(kind)) ||
+        (kind === "card" && get(field, "hide"))
+      )
+        return null;
+      if (kind === "card" && !parseCardField(field).ok) return null;
+      try {
+        serializeFieldLabel(
+          {
+            label: get(field, "label"),
+            hide: get(field, "hide"),
+            ...(kind === undefined ? {} : { kind }),
+          },
+          options,
+        );
+      } catch {
+        return null;
+      }
       normalizedFields.push({
         label: get(field, "label"),
         value: get(field, "value"),
         hide: get(field, "hide"),
+        ...(has(field, "kind") ? { kind } : {}),
+        ...(has(field, "description") ? { description } : {}),
+        ...(has(field, "additionalSecret") ? { additionalSecret } : {}),
       });
     }
     result.push({ label: get(section, "label"), fields: normalizedFields });
   }
-  return { sections: result };
+  return {
+    ...(titled ? { title: get(model, "title") } : {}),
+    sections: result,
+  };
 }
 
-function decode(encoded) {
+function decode(encoded, pipes = false) {
   let value = "";
   for (let index = 0; index < encoded.length; index += 1) {
     const character = encoded[index];
@@ -90,6 +157,7 @@ function decode(encoded) {
     }
     const escape = encoded[++index];
     if (escape === "\\") value += "\\";
+    else if (pipes && escape === "|") value += "|";
     else if (escape === "n") value += "\n";
     else if (escape === "r") value += "\r";
     else if (escape === "t") value += "\t";
@@ -114,13 +182,24 @@ function encode(value) {
   });
 }
 
-function parseLines(body) {
+function parseLines(body, options) {
+  const pipes = options?.fieldSyntax === "pipes";
   const lines = body.split(/\r\n|\n|\r/u);
   if (lines.at(-1) === "") lines.pop();
   const sections = [];
+  let title;
   let current = null;
   for (const line of lines) {
     if (line.trim() === "") continue;
+    if (!current && (line === "#" || line.startsWith("# "))) {
+      // A title is a separate, optional leading heading. It cannot create an
+      // implicit section: every field still belongs to an explicit ## heading.
+      if (title !== undefined || (line !== "#" && line.length === 2))
+        return null;
+      title = line === "#" ? "" : decode(line.slice(2));
+      if (!titleText(title)) return null;
+      continue;
+    }
     if (line === "##" || line.startsWith("## ")) {
       const label = line === "##" ? "" : line.slice(3);
       if ((line !== "##" && !name(label)) || sections.length >= MAX_SECTIONS)
@@ -133,15 +212,23 @@ function parseLines(body) {
     const colon = line.indexOf(":");
     if (colon < 1) return null;
     const marked = line.slice(0, colon);
-    const hide = marked.endsWith("*");
-    const label = hide ? marked.slice(0, -1) : marked;
+    const field = parseFieldLabel(marked, options);
     const source = line.slice(colon + 1);
-    if (!name(label) || (source && !source.startsWith(" "))) return null;
-    const value = decode(source ? source.slice(1) : "");
-    if (value === null) return null;
-    current.fields.push({ label, value, hide });
+    if (!name(field.label) || (source && !source.startsWith(" "))) return null;
+    const raw = source ? source.slice(1) : "";
+    const slots = pipes ? splitFieldParts(raw) : [raw];
+    const values = slots.map((slot) => decode(slot, pipes));
+    if (values.some((value) => value === null)) return null;
+    current.fields.push({
+      ...field,
+      value: values[0],
+      ...(values.length > 1 ? { description: values[1] } : {}),
+      ...(values.length > 2 ? { additionalSecret: values[2] } : {}),
+    });
   }
-  return sections.length ? { sections } : null;
+  return sections.length
+    ? { ...(title !== undefined ? { title } : {}), sections }
+    : null;
 }
 
 function oldField(field) {
@@ -155,8 +242,9 @@ function oldField(field) {
     !string(value, MAX_VALUE_LENGTH)
   )
     return null;
+  const readable = name(label);
   return {
-    label: name(label) ? label : "Field",
+    label: readable ? label : "Field",
     value,
     hide:
       type === "password" ||
@@ -208,6 +296,14 @@ function oldSection(section) {
 }
 
 function migrateYaml(value) {
+  const titled = has(value, "title");
+  const title = titled ? get(value, "title") : undefined;
+  if (titled && !titleText(title)) return null;
+  if (titled) {
+    value = new Map(value instanceof Map ? value : Object.entries(value));
+    value.delete("title");
+  }
+  const complete = (sections) => ({ ...(titled ? { title } : {}), sections });
   if (exactly(value, ["sections"])) {
     const sections = get(value, "sections");
     if (
@@ -217,7 +313,7 @@ function migrateYaml(value) {
     )
       return null;
     const migrated = sections.map(oldSection);
-    return migrated.every(Boolean) ? { sections: migrated } : null;
+    return migrated.every(Boolean) ? complete(migrated) : null;
   }
   const oldest = exactly(value, ["service", "login", "annotation", "fields"]);
   if (
@@ -241,7 +337,7 @@ function migrateYaml(value) {
     annotation: get(value, "annotation"),
     fields: get(value, "fields"),
   });
-  return section ? { sections: [section] } : null;
+  return section ? complete([section]) : null;
 }
 
 function parseLegacy(body) {
@@ -270,31 +366,67 @@ function parseLegacy(body) {
 }
 
 /** Failure codes are fixed strings so validation never echoes secret values. */
-export function parseSecurityBlock(body) {
+export function parseSecurityBlock(body, options = {}) {
   if (typeof body !== "string" || body.length > MAX_BODY_LENGTH) return INVALID;
+  if (options?.fieldSyntax !== undefined && options.fieldSyntax !== "pipes")
+    return INVALID;
   try {
     const first = body.trimStart().split(/\r\n|\n|\r/u, 1)[0];
+    const heading = first === "##" || first.startsWith("## ");
+    // YAML comments historically accepted before legacy keys must not become
+    // titles. A title belongs to line syntax only when followed by ## sections.
+    // A malformed heading never falls back to YAML when a section is present.
+    const lines = body.split(/\r\n|\n|\r/u);
+    const legacyComment =
+      first.startsWith("#") &&
+      !lines.some((line) => line === "##" || line.startsWith("## "));
     const model =
-      first === "##" || first.startsWith("## ")
-        ? parseLines(body)
+      heading || (first.startsWith("#") && !legacyComment)
+        ? parseLines(body, options)
         : parseLegacy(body);
-    return model ? { ok: true, model } : INVALID;
+    return model &&
+      normalize(
+        model,
+        heading || (first.startsWith("#") && !legacyComment) ? options : {},
+      )
+      ? { ok: true, model }
+      : INVALID;
   } catch {
     return INVALID;
   }
 }
 
 /** Stable line body. The caller owns the surrounding Markdown fence. */
-export function serializeSecurityBlock(model) {
-  const normalized = normalize(model);
+export function serializeSecurityBlock(model, options = {}) {
+  const normalized = normalize(model, options);
   if (!normalized) throw new TypeError("invalid security block");
   const lines = [];
+  if (has(normalized, "title"))
+    lines.push(normalized.title ? `# ${encode(normalized.title)}` : "#");
   for (const section of normalized.sections) {
     lines.push(section.label ? `## ${section.label}` : "##");
     for (const field of section.fields) {
-      const value = encode(field.value);
+      const slots = [field.value];
+      if (
+        Object.hasOwn(field, "description") ||
+        Object.hasOwn(field, "additionalSecret")
+      )
+        slots.push(field.description ?? "");
+      if (Object.hasOwn(field, "additionalSecret"))
+        slots.push(field.additionalSecret);
+      let value;
+      try {
+        value =
+          options.fieldSyntax === "pipes"
+            ? joinFieldParts(
+                slots.map((slot) => encode(slot).replaceAll("|", "\\|")),
+              )
+            : encode(field.value);
+      } catch {
+        throw new TypeError("invalid security block");
+      }
       lines.push(
-        `${field.label}${field.hide ? "*" : ""}:${value ? ` ${value}` : ""}`,
+        `${serializeFieldLabel(field, options)}:${value ? ` ${value}` : ""}`,
       );
     }
   }
@@ -305,22 +437,25 @@ export function serializeSecurityBlock(model) {
 }
 
 export function securityTemplate() {
-  const body = serializeSecurityBlock({
-    sections: [
-      {
-        label: "",
-        fields: [
-          { label: "Service", value: "", hide: false },
-          { label: "Account", value: "", hide: false },
-          { label: "Email", value: "", hide: false },
-          { label: "URL", value: "", hide: false },
-          { label: "TOTP", value: "", hide: true },
-          { label: "Password", value: "", hide: true },
-        ],
-      },
-    ],
-  });
-  return "```aic-security\n" + body + "```";
+  const body = serializeSecurityBlock(
+    {
+      sections: [
+        {
+          label: "",
+          fields: [
+            { label: "Service", value: "", hide: false },
+            { label: "Account", value: "", hide: false },
+            { label: "Email", value: "", hide: false },
+            { label: "URL", value: "", hide: false },
+            { label: "TOTP", value: "", hide: true, kind: "totp" },
+            { label: "Password", value: "", hide: true },
+          ],
+        },
+      ],
+    },
+    PIPE_FIELD_OPTIONS,
+  );
+  return "```" + SECURITY_FENCE_INFO + "\n" + body + "```";
 }
 
 /** New-format masking is explicit; legacy inference happens during YAML migration. */

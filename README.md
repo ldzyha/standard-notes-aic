@@ -78,32 +78,74 @@ Each code stays masked, copies independently and has a reversible **Used** check
 Copying does not claim that a service accepted a code. Whole-block Copy preserves the codes
 and their used flags when moving the block to another document. No code is deleted by marking it.
 
-The first section title replaces the card name in its header. Use `## Account name`
-to name it or a bare `##` for the default Security header; no duplicate title row is added.
-Later named sections retain their own compact heading.
+Without an independent `#` card title, the first section title replaces the card name in
+its header. Use `## Account name` to name it or a bare `##` for the default Security
+header; no duplicate title row is added. Later named sections retain their own compact heading.
+
+## Compact groups, reordering and Markdown source
+
+Security and Properties share a filter, visible group separators and one **+** disclosure
+after each group's fields. The filter matches names and visible values only; hidden values,
+recovery codes and generated one-time codes are never indexed. Filtering is local UI state,
+does not edit or save the note, and leaves managed Properties and related-note navigation visible.
+
+In `aic-security`, an optional `# Group title` names the card independently of its `##` sections.
+Existing untitled blocks remain readable. Drag handles reorder fields within their section,
+sections within their card, and standalone Security cards within the same document.
+Alt+Up/Down on a handle provides keyboard reordering. Filtered lists cannot reorder.
+Properties only move custom scalar fields or sibling YAML groups; managed metadata, sequence
+items and unrelated nesting stay fixed. Unsupported layouts and commented legacy Security YAML
+remain editable through source, without an implicit reorder/migration. Moves request one save
+through the host and remain undoable.
+
+The editor-level **Show Markdown source / Show preview** icon toggles all previews together,
+without opening another editor, changing source, resetting Undo or saving. The mode lasts only
+for the current note and resets on a different note. It also exposes starred values in their raw
+Markdown form; this is explicit source access, not an additional secret-reveal control.
+
+Versioned security blocks use an `aic-security v2` fence. New Security templates and newly
+converted Authenticator records use v2; existing unversioned blocks are not rewritten.
+`Name*: value | description | additional secret` is a masked value, `Name#: seed | description`
+is a TOTP seed, and `Name_: number | MM/YY | CVV` is a card. The marker defines the kind,
+not the label. TOTP codes derive only from `#` fields. Card number (PAN), date and CVV copy
+independently; the third slot is masked. Paste fills only an empty component, and changing a
+filled component requires source Edit. Escape a literal pipe as `\|` and a literal backslash
+as `\\`. Typed cards accept 12–19 number digits, a month/year and a 3–4 digit CVV; incomplete
+parts may be empty. Invalid cards show a repair message without exposing raw contents.
+Unversioned blocks keep legacy parsing: literal pipes and labels containing `#` or `_` do
+not silently become v2 fields.
 
 ## Properties in Markdown
 
-Properties are the existing YAML frontmatter at the start of a note, not a new note
-type or a second stored format:
+Properties are YAML frontmatter at the start of a note, not a new note type or a second
+stored format. New v2 Properties headers put `# aic-fields: v2` on the first body line
+after the opening `---`; the marker is a YAML comment and is hidden from preview:
 
 ```yaml
 ---
+# aic-fields: v2
 file: example.note.md
 created: 2026-09-12T10:00:00Z
 updated: 2026-09-12T11:00:00Z
 project: AIC
 credentials:
-  API key*: example-only-placeholder
+  API key*: example-only-placeholder | description | additional secret
 ---
 ```
 
-The preview uses the same row actions as security blocks. A property whose key ends in
-`*` is visually masked, including inside nested YAML maps or lists. Copy on its label
+The preview uses the same row actions as security blocks. In a v2 header, custom scalar
+keys ending in `*`, `#` or `_` use the same pipe-field kinds and empty-part Paste rules
+as v2 Security. A property whose key ends in `*` is visually masked, including inside
+nested YAML maps or lists. Copy on its label
 or value copies the original value without displaying it; an empty property can be
 filled with Paste or deleted. Change a filled value or key through **Edit properties**,
 which reveals the original YAML for direct editing. The star controls visual
 masking only: Markdown source, exports, other editors and copied values remain plaintext.
+
+Existing unmarked headers stay in legacy mode; a literal pipe or `#`/`_` in a key keeps
+its previous meaning. To activate v2 in an existing header, add the first-body-line marker
+explicitly after reviewing and escaping any literal pipes or marker-like keys. There is no
+blanket automatic migration.
 
 For contextual `*.note.md` files, `file`, `created` and `updated` appear as read-only
 metadata in the preview. Dates are formatted for reading, while Copy returns their
@@ -112,20 +154,22 @@ comments, nested structure and unrelated Markdown are preserved. Related notes, 
 available from the host, appear after metadata as read-only navigation and are never
 written into frontmatter. Ordinary Markdown notes do not acquire generated metadata.
 
-## Release 28.1.4
+## Release 29.4.3
 
-This release pairs with AIC Notes 37.1.4 and AIC Editor Core 4.1.0. This document
+This release pairs with AIC Notes 38.4.3 and AIC Editor Core 4.2.0. This document
 describes the release source and its contracts; deployment and the hosted manifest
 are verified separately by the release workflow.
 
-The new outcome is the shared Security-style Properties preview for YAML frontmatter,
-including masked custom fields and copy-only managed metadata. Targeted YAML edits now
-retain nested, quoted and multiline ownership, exact numeric and creation-value types;
-unchanged Security cards keep their live DOM, and starred Properties are redacted from
-unfinished plain-text excerpts. The security recovery, optional-title and save-boundary
-features below shipped in 27.4.4 and remain available; they are not new 28.1.4 outcomes.
+The four feature outcomes are compact searchable Security/Properties groups with menus and
+independent `#` card titles; safe field/group/whole-card pointer and keyboard reordering;
+a temporary whole-editor Markdown source toggle; and opt-in v2 pipe fields for Security
+and Properties, including separately copyable card parts and newly generated v2 content.
+Three fixes retire stale code-preview callbacks on source/note changes, preserve Mermaid
+visual drafts and focus through source mode while rejecting stale Apply, and keep coarse
+mobile controls readable without menu or part-layout overflow. Earlier Properties,
+recovery-code and save-boundary work remains available but is not recounted here.
 
-`/security` inserts a shared `aic-security` Markdown block in the Standard Notes
+`/security` inserts a shared `aic-security v2` Markdown block in the Standard Notes
 editor and AIC Notes. `## Main` starts a section; `Password*: value` masks a
 field in preview, while `Password: value` is visible. **Edit** opens Markdown
 source; there is no inline manual value editor. Preview can copy individual values, a current
@@ -136,9 +180,10 @@ The ordinary code-fence preview and Standard Notes plain-text note preview
 exclude security contents.
 
 Masking follows the marker, not the field's name: `Label*: value` is hidden and
-`Label: value` is visible. A starred `TOTP*: ...` field displays the current code
-without displaying its seed; an unstarred TOTP field remains an ordinary visible
-value. Sections and fields can be repeated independently.
+`Label: value` is visible. In v2, `Label#: seed` identifies a TOTP field and displays
+the current code without displaying its seed; an unstarred/unmarked TOTP label is an
+ordinary visible value. Legacy unversioned `TOTP*: ...` remains supported.
+Sections and fields can be repeated independently.
 
 This is **visual masking, not encryption of the Markdown itself**: raw source,
 other Markdown editors, exports, copied blocks and local files can expose the
@@ -402,6 +447,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `28.1.4` is sequence 28 with
-one feature outcome and four fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `29.4.3` is sequence 29 with
+four feature outcomes and three fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

@@ -4,17 +4,32 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 managed file properties, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 28.1.4 pairs with AIC Notes 37.1.4 and AIC Editor Core 4.1.0.
+storage format. Release 29.4.3 pairs with AIC Notes 38.4.3 and AIC Editor Core 4.2.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
 ## Current editor and lifecycle contracts
 
-- The 28.1.4 feature outcome is the shared Security-style Properties renderer over authored
-  YAML frontmatter. Four release fixes protect nested/quoted/multiline YAML ownership,
-  exact numeric and `created` scalar types, unchanged Security widget DOM lifetimes, and
-  starred-Properties redaction from unfinished plain-text excerpts. Earlier recovery-code,
-  optional-title and save-boundary work remains available but is not counted again.
+- The four 29.4.3 feature outcomes are compact searchable Security/Properties groups and
+  independent `#` card titles; safe field/group/whole-card DnD and keyboard reordering;
+  temporary whole-editor Markdown source mode; and opt-in v2 pipe fields for Security and
+  Properties, including newly generated v2 templates/conversions. Three fixes retire stale
+  code-preview callbacks, preserve Mermaid visual drafts/focus through source mode with
+  stale Apply blocked, and improve coarse mobile contrast/menu/part layout without overflow.
+  Earlier Properties, recovery-code and save-boundary work is not counted again.
+- `aic-security v2` opts into `*` masked values, `#` TOTP seeds and `_` card parts;
+  PAN/date/CVV copy independently, the third slot stays masked, and Paste fills only empty
+  parts. `# aic-fields: v2` must be the first body line of YAML frontmatter to activate
+  the equivalent custom Properties syntax; the comment is hidden in preview. Managed
+  `file`/`created`/`updated` remain read-only. Unversioned content keeps literal pipes and
+  legacy marker-like names. Existing headers require explicit marker insertion and review
+  of literal pipes/labels, never blanket migration. Filled values change only in source.
+- Security/Properties filtering searches names and visible values only; hidden values,
+  recovery codes and generated codes are excluded. It is local UI state and disables
+  reordering. Supported Security field/section/card and sibling Properties field/group
+  moves have Alt+Up/Down handles and reject stale, managed or unsupported targets.
+  Source mode changes no Markdown, Undo, save boundary or host editor choice, and resets
+  on a different note. Raw source may reveal visually masked values.
 - `security-recovery` parses hidden Recovery codes/Backup codes batches into independent,
   bounded codes; exact values and duplicates are preserved. The shared UI masks each code,
   supports individual Copy and reversible Used flags, and serializes flags into the Markdown
@@ -22,8 +37,8 @@ GitHub Pages deployment or hosted manifest has already been published.
   Empty fields offer Paste/Delete; filled fields cannot be replaced. Tests: `security-recovery`,
   `security-recovery-ui`, `security-field-actions`.
 - Optional section titles use an explicit bare `##` marker when unnamed, keeping legacy YAML
-  parsing strict. The first title occupies the card header; later named sections keep compact
-  headings. Tests: `security-model`, `security-block-ui`.
+  parsing strict. Without a `#` card title, the first section title occupies the card header;
+  later named sections keep compact headings. Tests: `security-model`, `security-block-ui`.
 - `save-boundary` centralizes focus-leave and annotated-action intent. Host managers own save
   queues, immutable note targets, acknowledgement and retry; widgets never write storage.
   Live widget sessions are distinct from CodeMirror descriptors, so viewport remounts remain
@@ -56,16 +71,17 @@ GitHub Pages deployment or hosted manifest has already been published.
   Tests: `security-field-actions`, `security-block-ui`.
 
 - `core/security-model`, `security-block` and `security-otp` own one fenced
-  `aic-security` Markdown format in both hosts. `/security` inserts a parseable
+  `aic-security` Markdown family in both hosts. `/security` inserts a parseable v2
   example. `##` headings define independent sections; `Label*: value` masks a
   field and `Label: value` leaves it visible, independent of the label text.
   Preview excludes the block, including quoted/list-contained fences, from Standard Notes
   plain-text metadata; each save also clears stale `preview_html`. Copy
   block copies complete source, including secrets; safe HTTP(S) URLs can open.
   Edit opens raw Markdown, and Add section, quick field actions and New block
-  insert content and request a host-managed save. `TOTP*: ...` derives the current code in memory
-  from Base32 or `otpauth://totp` without displaying its seed; unstarred TOTP
-  remains an ordinary visible value. No QR import UI, generated QR, native Authenticator
+  insert content and request a host-managed save. In v2, `Label#: ...` derives the current
+  code in memory from Base32 or `otpauth://totp` without displaying its seed; legacy
+  unversioned `TOTP*: ...` remains supported. An unmarked TOTP label in v2 is ordinary.
+  No QR import UI, generated QR, native Authenticator
   note-type migration or separate cryptographic storage is claimed. Standard Notes owns its
   account authentication, encryption and synchronization. The paired VS Code
   authentication integration does not synchronize notes.
@@ -90,7 +106,7 @@ GitHub Pages deployment or hosted manifest has already been published.
 - Table drops require a valid typed index and retain extra authored cells beyond the visible
   header width. Properties reuse the Security widget: copy-only managed metadata, nested custom
   fields, explicit `*` masking, empty-field paste/delete/generation and source-only replacement.
-  Targeted YAML edits preserve comments, scalar types and untouched source; no property drag or
+  Targeted YAML edits preserve comments, scalar types and untouched source; supported sibling property reorder but no
   inline value editor remains. Related-note navigation is dynamic host context, not persisted YAML.
 - Security TOTP refreshes permit one pending generation and retire with their widget;
   late results cannot update a replacement document.
@@ -145,25 +161,25 @@ available. Entity-map links are ordinary Markdown references, not implemented dr
 
 ## Functional matrix
 
-| Area / owner                                   | Behavior                                                                                                     | State / side effect                                                       | Failure boundary                                                                                       | Coverage                                                 |
-| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
-| Bootstrap (`src/main.ts`)                      | Detects standalone vs Standard Notes, mounts one editor, subscribes before editing                           | active UUID draft and remote generation                                   | Missing identity is read-only/unavailable                                                              | main, host tests                                         |
-| Host adapter (`src/standard-notes-host.ts`)    | Pins `sn-extension-api` 0.4.0, invalidates null contexts and retains same-note partial metadata              | sends a snapshot with text, redacted plain preview and empty HTML preview | UUID/lock/unknown-text guard; explicit empty-object ACK only                                           | standard-notes-host, standard-notes-transport, main      |
-| Draft registry                                 | Isolates `DraftSession` by UUID across rapid note switches                                                   | dirty/current text per note                                               | Remote refresh never discards dirty local text                                                         | registry, main, draft-session                            |
-| Explicit save                                  | Stamps managed note fields, computes plain preview, writes once                                              | dirty → pending → saved/dirty                                             | Failed save keeps the draft dirty                                                                      | main, editor                                             |
-| Preview selection                              | Native preview selection remains stable; source selection reveals intersected Markdown                       | shared keyboard/DOM boundary                                              | Outer `Ctrl/Cmd+A` reveals source; nested inputs retain their own selection                            | structured-preview, editor, lifecycle-regression         |
-| Preview navigation                             | Replaced previews are atomic; Edit pins one source block while the selection remains in it                   | shared CodeMirror range contract                                          | Arrow keys never enter hidden source mid-command                                                       | preview-ranges/editor                                    |
-| Links                                          | Click label to open; Copy and Edit icons are always visible                                                  | host URL/clipboard adapters                                               | Unsafe targets remain closed                                                                           | link-actions                                             |
-| Details                                        | Summary/chevron toggles independently from checkbox and body                                                 | exact open/closed marker                                                  | Fence-contained terminators do not close a card                                                        | details                                                  |
-| Code fences                                    | Same preview card, language label, and permanent Copy/Edit icons as VS Code                                  | exact fenced body; explicit source reveal                                 | Unknown language remains readable and copyable                                                         | code-fence/core/editor                                   |
-| Slash templates                                | `/` opens a compact grouped catalog in both shared editor surfaces without delayed activation                | snippet fields; Tab advances                                              | Disabled in code and read-only notes                                                                   | slash-snippets/editor                                    |
-| Mermaid                                        | Render, copy, edit, zoom, reset, clockwise rotate, two-axis scroll                                           | transform and viewport state only                                         | Render error exposes recoverable source                                                                | mermaid/viewport                                         |
-| Tables                                         | Content-sized columns, horizontal grid scroll and preservation of extra authored cells                       | one transient textarea popover; typed row/column DnD                      | Invalid/stale/unrelated mutations are rejected                                                         | blocks, structured-preview, editor                       |
-| Properties                                     | Shared Security-style card over authored root/nested YAML; managed metadata copy-only, starred fields masked | Empty-field Paste/Delete/quick Add; populated fields use source Edit      | Targeted edits retain comments, numeric scalars and unrelated source; no property drag or cell popover | properties-model, properties-block-ui, editor            |
-| Security (`core/security-*`, `src/preview.ts`) | Star-controlled masking, independent sections, field/code/block Copy and source Edit                         | plaintext Markdown; local in-memory TOTP                                  | Bounded fixed-error parsing, HTTP(S)-only opening, preview redaction, retired refresh guards           | security-model, security-block-ui, security-otp, preview |
-| Read-only                                      | Keeps preview, navigation, selection, and copy available                                                     | all mutation controls disabled                                            | No host write can run                                                                                  | editor/main                                              |
-| Theme and icons                                | Uses host tokens, CSS SVG masks, and Standard Notes' supported `>_` Code icon                                | renderer-independent editor actions                                       | No custom top-bar SVG API is assumed                                                                   | manifest/editor/publication                              |
-| Distribution                                   | Stable plugin identifier, hosted manifest, versioned desktop archive                                         | GitHub Pages plus release ZIP                                             | Tag/package/manifest versions must match                                                               | manifest/publication                                     |
+| Area / owner                                   | Behavior                                                                                                            | State / side effect                                                                                           | Failure boundary                                                                                      | Coverage                                                 |
+| ---------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | -------------------------------------------------------- |
+| Bootstrap (`src/main.ts`)                      | Detects standalone vs Standard Notes, mounts one editor, subscribes before editing                                  | active UUID draft and remote generation                                                                       | Missing identity is read-only/unavailable                                                             | main, host tests                                         |
+| Host adapter (`src/standard-notes-host.ts`)    | Pins `sn-extension-api` 0.4.0, invalidates null contexts and retains same-note partial metadata                     | sends a snapshot with text, redacted plain preview and empty HTML preview                                     | UUID/lock/unknown-text guard; explicit empty-object ACK only                                          | standard-notes-host, standard-notes-transport, main      |
+| Draft registry                                 | Isolates `DraftSession` by UUID across rapid note switches                                                          | dirty/current text per note                                                                                   | Remote refresh never discards dirty local text                                                        | registry, main, draft-session                            |
+| Explicit save                                  | Stamps managed note fields, computes plain preview, writes once                                                     | dirty → pending → saved/dirty                                                                                 | Failed save keeps the draft dirty                                                                     | main, editor                                             |
+| Preview selection                              | Native preview selection remains stable; source selection reveals intersected Markdown                              | shared keyboard/DOM boundary                                                                                  | Outer `Ctrl/Cmd+A` reveals source; nested inputs retain their own selection                           | structured-preview, editor, lifecycle-regression         |
+| Preview navigation                             | Replaced previews are atomic; Edit pins one source block while the selection remains in it                          | shared CodeMirror range contract                                                                              | Arrow keys never enter hidden source mid-command                                                      | preview-ranges/editor                                    |
+| Links                                          | Click label to open; Copy and Edit icons are always visible                                                         | host URL/clipboard adapters                                                                                   | Unsafe targets remain closed                                                                          | link-actions                                             |
+| Details                                        | Summary/chevron toggles independently from checkbox and body                                                        | exact open/closed marker                                                                                      | Fence-contained terminators do not close a card                                                       | details                                                  |
+| Code fences                                    | Same preview card, language label, and permanent Copy/Edit icons as VS Code                                         | exact fenced body; explicit source reveal                                                                     | Unknown language remains readable and copyable                                                        | code-fence/core/editor                                   |
+| Slash templates                                | `/` opens a compact grouped catalog in both shared editor surfaces without delayed activation                       | snippet fields; Tab advances                                                                                  | Disabled in code and read-only notes                                                                  | slash-snippets/editor                                    |
+| Mermaid                                        | Render, copy, edit, zoom, reset, clockwise rotate, two-axis scroll                                                  | transform and viewport state only                                                                             | Render error exposes recoverable source                                                               | mermaid/viewport                                         |
+| Tables                                         | Content-sized columns, horizontal grid scroll and preservation of extra authored cells                              | one transient textarea popover; typed row/column DnD                                                          | Invalid/stale/unrelated mutations are rejected                                                        | blocks, structured-preview, editor                       |
+| Properties                                     | Shared Security-style card over authored root/nested YAML; managed metadata copy-only; v2 marker gates typed fields | Empty-part Paste/Delete/quick Add and supported sibling field/group reorder; populated fields use source Edit | Targeted edits retain comments, scalar types and unrelated source; no sequence or managed-field moves | properties-model, properties-block-ui, editor            |
+| Security (`core/security-*`, `src/preview.ts`) | Star-controlled masking, independent sections, field/code/block Copy and source Edit                                | plaintext Markdown; local in-memory TOTP                                                                      | Bounded fixed-error parsing, HTTP(S)-only opening, preview redaction, retired refresh guards          | security-model, security-block-ui, security-otp, preview |
+| Read-only                                      | Keeps preview, navigation, selection, and copy available                                                            | all mutation controls disabled                                                                                | No host write can run                                                                                 | editor/main                                              |
+| Theme and icons                                | Uses host tokens, CSS SVG masks, and Standard Notes' supported `>_` Code icon                                       | renderer-independent editor actions                                                                           | No custom top-bar SVG API is assumed                                                                  | manifest/editor/publication                              |
+| Distribution                                   | Stable plugin identifier, hosted manifest, versioned desktop archive                                                | GitHub Pages plus release ZIP                                                                                 | Tag/package/manifest versions must match                                                              | manifest/publication                                     |
 
 Coverage names identify `test/<name>.test.ts`; browser scripts add synthetic DOM,
 navigation and lifecycle checks. They are separate from authenticated host verification.

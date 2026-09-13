@@ -12,9 +12,20 @@ function withoutFrontmatter(source: string): string {
   );
   if (closing >= 0) return lines.slice(closing + 1).join("\n");
   // A truncated preview or unfinished frontmatter can still contain secrets.
-  // Do not publish starred Properties keys merely because its closing marker
-  // is missing. Ordinary thematic breaks followed by prose remain visible.
-  return /^\s*[^\n:]*\*["']?\s*:/mu.test(source) ? "" : source;
+  // Do not publish masked Properties keys or card-value pieces merely because
+  // the closing marker is missing. Ordinary thematic breaks with prose remain.
+  return lines.some((line) => {
+    const marker = line.indexOf("*");
+    const colon = line.indexOf(":");
+    if (colon < 0) return false;
+    const key = line.slice(0, colon).trim().replace(/["']$/u, "");
+    return (
+      /[#_]$/u.test(key) ||
+      (marker >= 0 && (marker > colon || line.indexOf(":", marker + 1) >= 0))
+    );
+  })
+    ? ""
+    : source;
 }
 
 function isTableSeparator(line: string): boolean {

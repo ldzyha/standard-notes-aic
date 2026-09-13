@@ -4,6 +4,7 @@ import { StateEffect, StateField } from "@codemirror/state";
 import { showPanel } from "@codemirror/view";
 import { GFM, parser } from "@lezer/markdown";
 import { fenceInfo } from "./code-fence-extension.js";
+import { SECURITY_FENCE_INFO } from "./field-syntax.js";
 import { convertAuthenticatorJson } from "./security-import.js";
 import { createIconButton } from "./structured-preview.js";
 
@@ -70,7 +71,8 @@ function parsesAsSecurityBlocks(source, from, to, count) {
       const info = node.node.getChild("CodeInfo");
       if (
         info &&
-        source.slice(info.from, info.to).trim().toLowerCase() === "aic-security"
+        source.slice(info.from, info.to).trim().toLowerCase() ===
+          SECURITY_FENCE_INFO
       )
         parsedCount++;
     },

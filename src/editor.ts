@@ -27,6 +27,7 @@ import { blockViewExtensions } from "./block-views";
 import { makeCodeFenceExtension } from "./core/code-fence-extension.js";
 import { makeSecurityBlockExtension } from "./core/security-block.js";
 import { isSaveAction, wireSaveBoundary } from "./core/save-boundary.js";
+import { createSourceModeController } from "./core/source-mode.js";
 import {
   makeSecurityImportExtension,
   securityImportSaved,
@@ -123,6 +124,8 @@ export class AicEditor {
   private readonly document: Document;
   private readonly readOnlyCompartment = new Compartment();
   private readonly editableCompartment = new Compartment();
+  private readonly sourceMode = createSourceModeController();
+  private readonly sourceModeButton: HTMLButtonElement;
   private readonly onChange: (text: string) => void;
   private readonly onSave: AicEditorOptions["onSave"];
   private readonly saveButton: HTMLButtonElement | null;
@@ -150,6 +153,12 @@ export class AicEditor {
       if (!view) throw new Error("AIC editor is not ready");
       return view;
     }, this.document);
+    this.sourceModeButton = this.sourceMode.createButton(
+      this.document,
+      () => view,
+      "aic-toolbar-button",
+    );
+    this.toolbar.element.prepend(this.sourceModeButton);
     // Persistence belongs to the host manager, not to an individual block.
     // Keep a touch-accessible save action when a dirty draft is restored.
     this.saveButton = this.onSave
@@ -201,6 +210,7 @@ export class AicEditor {
       this.document,
     );
     this.toolbar.setReadOnly(this.currentReadOnly);
+    this.sourceModeButton.disabled = false;
     this.element.dataset.readOnly = String(this.currentReadOnly);
     this.element.dataset.saveState = "unavailable";
     this.refreshTheme();
@@ -244,19 +254,21 @@ export class AicEditor {
         ...historyKeymap,
         ...defaultKeymap,
       ]),
-      markdownDecorations,
-      makeCodeFenceExtension({ document: this.document }),
-      makeSecurityBlockExtension({
-        document: this.document,
-      }),
-      makeSecurityImportExtension({ onSave: this.onSave }),
-      blockViewExtensions(this.document),
-      detailsExtensions(),
-      makeMermaidExtension({
-        theme: () => detectTheme(this.document),
-        document: this.document,
-      }),
-      linkActionsExtension(),
+      this.sourceMode.extension([
+        markdownDecorations,
+        makeCodeFenceExtension({ document: this.document }),
+        makeSecurityBlockExtension({
+          document: this.document,
+        }),
+        makeSecurityImportExtension({ onSave: this.onSave }),
+        blockViewExtensions(this.document),
+        detailsExtensions(),
+        makeMermaidExtension({
+          theme: () => detectTheme(this.document),
+          document: this.document,
+        }),
+        linkActionsExtension(),
+      ]),
       EditorView.updateListener.of((update) => {
         if (!update.docChanged || this.suppressChange) return;
         this.onChange(this.serialize(update.state));
@@ -303,6 +315,7 @@ export class AicEditor {
     const text = String(document ?? "");
     if (text === this.value) return false;
     this.documentId = null;
+    this.sourceMode.reset();
     this.replaceState(text);
     return true;
   }
@@ -312,6 +325,7 @@ export class AicEditor {
     const text = String(document ?? "");
     if (this.documentId === id) return this.updateDocument(text);
     this.documentId = id;
+    this.sourceMode.reset();
     this.replaceState(text);
     return true;
   }
@@ -375,6 +389,7 @@ export class AicEditor {
       ],
     });
     this.toolbar.setReadOnly(readOnly);
+    this.sourceModeButton.disabled = false;
     this.reflectSaveAction();
     this.element.dataset.readOnly = String(readOnly);
     return true;

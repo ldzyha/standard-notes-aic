@@ -4,6 +4,7 @@ import {
   safeSecurityUrl,
   serializeSecurityBlock,
 } from "./security-model.js";
+import { PIPE_FIELD_OPTIONS, SECURITY_FENCE_INFO } from "./field-syntax.js";
 
 const MAX_SOURCE_LENGTH = 1024 * 1024;
 const MAX_ENTRIES = 256;
@@ -41,6 +42,12 @@ function securityLabel(value) {
   );
 }
 
+// v2 reserves terminal suffixes as field types/visibility. Keep imported keys
+// recognizable without silently turning an authored name into another type.
+function importedLabel(value) {
+  return /[#_]$/u.test(value) ? `${value} (imported)` : value;
+}
+
 function unfence(source) {
   const trimmed = source.replace(/^\uFEFF/u, "").trim();
   if (!/^[ \t]*(?:`{3,}|~{3,})[ \t]*json[ \t]*(?:\r\n|\n|\r)/iu.test(trimmed))
@@ -75,7 +82,7 @@ function convertEntry(entry) {
   const fields = [
     { label: "Service", value: entry.service, hide: false },
     { label: "Account", value: entry.account, hide: false },
-    { label: "TOTP", value: entry.secret, hide: true },
+    { label: "TOTP", value: entry.secret, hide: true, kind: "totp" },
   ];
   const url = serviceUrl(entry.service);
   if (url) fields.push({ label: "URL", value: url, hide: false });
@@ -88,7 +95,7 @@ function convertEntry(entry) {
     if (PROTOTYPE_KEYS.has(key)) return UNSUPPORTED;
     if (!STANDARD_KEYS.has(key)) {
       if (!securityLabel(key) || typeof value !== "string") return UNSUPPORTED;
-      fields.push({ label: key, value, hide: true });
+      fields.push({ label: importedLabel(key), value, hide: true });
     }
   }
   if (fields.length > MAX_FIELDS) return TOO_LARGE;
@@ -98,8 +105,8 @@ function convertEntry(entry) {
   }
   try {
     const model = { sections: [{ label: "Main", fields }] };
-    const body = serializeSecurityBlock(model);
-    const parsed = parseSecurityBlock(body);
+    const body = serializeSecurityBlock(model, PIPE_FIELD_OPTIONS);
+    const parsed = parseSecurityBlock(body, PIPE_FIELD_OPTIONS);
     if (
       !parsed.ok ||
       parsed.model.sections.length !== 1 ||
@@ -109,13 +116,14 @@ function convertEntry(entry) {
         (field, index) =>
           field.label !== fields[index].label ||
           field.value !== fields[index].value ||
-          field.hide !== fields[index].hide,
+          field.hide !== fields[index].hide ||
+          field.kind !== fields[index].kind,
       )
     )
       return UNSUPPORTED;
     return {
       ok: true,
-      block: `\`\`\`aic-security\n${body}\`\`\``,
+      block: `\`\`\`${SECURITY_FENCE_INFO}\n${body}\`\`\``,
     };
   } catch {
     return TOO_LARGE;

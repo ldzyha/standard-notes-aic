@@ -18,6 +18,11 @@ export function registerDiagramEditorHost(
   range: { from: number; to: number },
 ): void;
 export function releaseDiagramEditorHost(view: EditorView): void;
+/** Detach the current draft in raw source mode without applying or discarding it. */
+export function suspendDiagramEditor(
+  view: EditorView,
+  suspended: boolean,
+): void;
 export function openDiagramEditor(
   view: EditorView,
   range: { from: number; to: number },
