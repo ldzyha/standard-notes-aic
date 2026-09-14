@@ -115,8 +115,16 @@ is a TOTP seed, and `Name_: number | MM/YY | CVV` is a card. The marker defines 
 not the label. A field label may be empty (`*: secret`), or any valid authored label
 such as `alice@example.test`. TOTP codes derive only from `#` fields. Card number (PAN), date and CVV copy
 independently; the third slot is masked. Paste fills only an empty component, and changing a
-filled component requires source Edit. Escape a literal pipe as `\|` and a literal backslash
-as `\\`. Typed cards accept 12–19 number digits, a month/year and a 3–4 digit CVV; incomplete
+filled component requires source Edit. A pipe separates parts only with an ASCII space on
+each side and outside double quotes, as in `value | description`.
+All three value slots may be JSON-style double-quoted strings: `Password*: "a | b" | "description"`.
+Within quotes, every pipe is literal, even in `"a | b"`; use JSON escapes for quote, backslash and
+control characters. Bare or one-sided `|` outside quotes is also literal data. Existing
+`\|` outside quotes still parses. Quoting is optional for ordinary values, but pasted or
+imported values containing a pipe or quote are serialized with double quotes, preserving
+their actual quote characters. Labels, section titles and card titles do not acquire
+quote syntax. Spaces inside quotes are part of the value; surrounding spaces outside quotes
+are formatting. Typed cards accept 12–19 number digits, a month/year and a 3–4 digit CVV; incomplete
 parts may be empty. Invalid cards show a repair message without exposing raw contents.
 Earlier `aic-security` fences are quarantined from text summaries but are not parsed
 as Security blocks; edit their Markdown manually to the current format.
@@ -160,8 +168,14 @@ updated: 2026-09-12T11:00:00Z
 project: AIC
 credentials:
   API key*: example-only-placeholder | description | additional secret
+  Password*: '"a | b" | "description"'
 ---
 ```
+
+The outer single quotes on `Password*` are YAML storage syntax; the inner double quotes
+survive YAML parsing and delimit the two field slots. YAML outer quotes alone do not
+protect an inner `|` from splitting. Invalid slot quotes, escapes or trailing text
+produce generic, non-secret diagnostics; Security reports the exact source position.
 
 The preview uses the same row actions as security blocks. In a v2 header, custom scalar
 keys ending in `*`, `#` or `_` use the same pipe-field kinds and empty-part Paste rules
@@ -185,15 +199,16 @@ comments, nested structure and unrelated Markdown are preserved. Related notes, 
 available from the host, appear after metadata as read-only navigation and are never
 written into frontmatter. Ordinary Markdown notes do not acquire generated metadata.
 
-## Release 31.5.6
+## Release 32.1.1
 
-This release pairs with AIC Notes 40.6.6 and AIC Editor Core 5.0.0. This document
+This release pairs with AIC Notes 41.1.1 and AIC Editor Core 5.1.0. This document
 describes the release source and its contracts; deployment and the hosted manifest
 are verified separately by the release workflow.
 
-Five feature outcomes are the single `aic` grammar with optional labels, compact masked
+The 32.1.1 release has one quoted-slot feature and one literal-pipe fix. The prior
+release's five feature outcomes are the single `aic` grammar with optional labels, compact masked
 cards, cross-section field moves, Properties metadata/tree separation, and labelled Add
-controls with limit explanations. Six fixes cover Escape exits, transient ordered copy
+controls with limit explanations. Its six fixes cover Escape exits, transient ordered copy
 feedback, independent label/value copying, safe card filtering, responsive theme styling,
 and redundant rendering/filter work. Historical Security formats require manual source
 repair; no notes are automatically rewritten. The separate VS Code extension is now fully local.
@@ -477,6 +492,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `31.5.6` is sequence 31 with
-five feature outcomes and six fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `32.1.1` is sequence 32 with
+one feature outcome and one fixed-bug outcome; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

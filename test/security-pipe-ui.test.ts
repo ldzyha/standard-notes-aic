@@ -213,7 +213,7 @@ describe("explicit pipe-format preview", () => {
 
   it("pastes each empty card component once, with one save intent and undo", async () => {
     const { host, view, onReadClipboard, saves } = fixture(
-      security("Business_: 4242 4242 4242 4242 | 09/28 |"),
+      security('Business_: "4242 4242 4242 4242" | "09/28" | ""'),
     );
     expect(
       host.querySelector('[aria-label="Paste Business number"]'),

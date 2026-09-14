@@ -1,6 +1,10 @@
 import { blockDiagnostic } from "./block-diagnostic.js";
 import { parseFieldLabel, serializeFieldLabel } from "./field-label.js";
-import { joinFieldParts, splitFieldParts } from "./field-parts.js";
+import {
+  joinFieldParts,
+  quoteFieldPart,
+  scanFieldParts,
+} from "./field-parts.js";
 import { SECURITY_FIELD_OPTIONS, SECURITY_FENCE_INFO } from "./field-syntax.js";
 import { normalizeCardPart, parseCardField } from "./security-card.js";
 
@@ -207,39 +211,6 @@ function lineEntries(body) {
     }));
 }
 
-/** Positions only; splitFieldParts remains the component grammar. */
-function partRanges(raw) {
-  const ranges = [];
-  let start = 0;
-  for (let index = 0; index < raw.length; index += 1) {
-    if (raw[index] === "\\") {
-      index += 1;
-      continue;
-    }
-    if (raw[index] !== "|") continue;
-    let end = index;
-    if (end > start && raw[end - 1] === " ") end -= 1;
-    ranges.push({ from: start, to: end });
-    start = index + 1 + Number(raw[index + 1] === " ");
-    index = start - 1;
-  }
-  ranges.push({ from: start, to: raw.length });
-  return ranges;
-}
-
-function pipeFailureOffset(raw) {
-  let pipes = 0;
-  for (let index = 0; index < raw.length; index += 1) {
-    if (raw[index] === "\\") {
-      if (index + 1 === raw.length) return { code: "invalid_escape", index };
-      index += 1;
-    } else if (raw[index] === "|" && ++pipes === 3) {
-      return { code: "too_many_parts", index };
-    }
-  }
-  return { code: "value_too_long", index: raw.length };
-}
-
 function parseLines(body, report) {
   const lines = lineEntries(body);
   const sections = [];
@@ -414,37 +385,43 @@ function parseLines(body, report) {
     }
     const raw = source ? source.slice(1) : "";
     const valueFrom = from + colon + 1 + Number(Boolean(source));
-    let slots;
+    let ranges;
     try {
-      slots = splitFieldParts(raw);
-    } catch {
-      const failure = pipeFailureOffset(raw);
+      ranges = scanFieldParts(raw);
+    } catch (failure) {
       report(
         failure.code,
         failure.code === "too_many_parts"
-          ? "Use at most three pipe-separated field parts."
+          ? "Use at most three field parts separated by space, pipe, space ( | ) outside quotes."
           : failure.code === "invalid_escape"
-            ? "Complete the escape sequence."
-            : "Shorten this field value.",
-        valueFrom + failure.index,
-        valueFrom + failure.index + 1,
+            ? "Use a supported escape sequence; inside double quotes use JSON string escapes."
+            : failure.code === "unterminated_quote"
+              ? "Close this double-quoted value."
+              : failure.code === "unexpected_after_quote"
+                ? "After the closing quote, use a spaced | separator or end the field."
+                : failure.code === "control_character"
+                  ? "Escape control characters inside the quoted value."
+                  : "Shorten this field value.",
+        valueFrom + failure.offset,
+        valueFrom + failure.offset + 1,
       );
       return null;
     }
-    const ranges = partRanges(raw);
-    const values = slots.map((slot, index) =>
-      decode(slot, (offset, code) => {
-        report(
-          code,
-          code === "invalid_escape"
-            ? "Fix the escape sequence; use a supported backslash escape."
-            : code === "control_character"
-              ? "Escape control characters in the field value."
-              : "Shorten this field value.",
-          valueFrom + ranges[index].from + offset,
-          valueFrom + ranges[index].from + offset + 1,
-        );
-      }),
+    const values = ranges.map((part) =>
+      part.quoted
+        ? JSON.parse(part.encoded)
+        : decode(part.encoded, (offset, code) => {
+            report(
+              code,
+              code === "invalid_escape"
+                ? "Fix the escape sequence; use a supported backslash escape."
+                : code === "control_character"
+                  ? "Escape control characters in the field value."
+                  : "Shorten this field value.",
+              valueFrom + part.from + offset,
+              valueFrom + part.from + offset + 1,
+            );
+          }),
     );
     if (values.some((value) => value === null)) return null;
     const parsed = {
@@ -595,7 +572,7 @@ export function serializeSecurityBlock(model, options = {}) {
       let value;
       try {
         value = joinFieldParts(
-          slots.map((slot) => encode(slot).replaceAll("|", "\\|")),
+          slots.map((slot) => quoteFieldPart(slot) ?? encode(slot)),
         );
       } catch {
         throw new TypeError("invalid security block");

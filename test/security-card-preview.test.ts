@@ -84,7 +84,7 @@ describe("compact card preview", () => {
   });
 
   it("omits an empty label header and retains independently named paste controls", async () => {
-    const { host, view, onReadClipboard } = fixture("_:  |  |");
+    const { host, view, onReadClipboard } = fixture('_: "" | "" | ""');
     const card = host.querySelector<HTMLElement>(
       '.cm-aic-security-card[data-aic-card-kind="card"]',
     )!;

@@ -19,7 +19,7 @@ const source = JSON.stringify([
     service: "Synthetic mobile import",
     account: "fixture@example.invalid",
     secret: "GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ",
-    password: "DUMMY-IMPORT-SECRET",
+    password: 'DUMMY-IMPORT-SECRET | "literal quotes"',
   },
   {
     service: "Second synthetic import",
@@ -30,7 +30,7 @@ const source = JSON.stringify([
 const emptySecurityBlock = ["```aic", "## Main", "Password*:", "```"].join(
   "\n",
 );
-const pastedValue = "DUMMY-PASTED-NOT-A-CREDENTIAL";
+const pastedValue = 'DUMMY-PASTED-NOT-A-CREDENTIAL | "literal quotes"\\path';
 try {
   for (const theme of ["light", "dark"]) {
     const context = await browser.newContext({
@@ -223,7 +223,9 @@ try {
       pastedMarkdown,
       /^---\n# aic-fields: v2\nfile: secrets\.note\.md\ncreated: 2026-08-20T10:00:00\.000Z\nupdated: .+Z\n---\n/u,
     );
-    assert.match(pastedMarkdown, /Password\*: DUMMY-PASTED-NOT-A-CREDENTIAL/u);
+    assert.ok(
+      pastedMarkdown.includes(`Password*: ${JSON.stringify(pastedValue)}`),
+    );
     assert.doesNotMatch(
       await page.locator("#app").innerHTML(),
       /DUMMY-PASTED-NOT-A-CREDENTIAL/u,

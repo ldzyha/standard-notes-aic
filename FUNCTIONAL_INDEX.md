@@ -4,11 +4,25 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 managed file properties, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 31.5.6 pairs with AIC Notes 40.6.6 and AIC Editor Core 5.0.0.
+storage format. Release 32.1.1 pairs with AIC Notes 41.1.1 and AIC Editor Core 5.1.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
-## Shared-core changes in release 31.5.6
+## Shared-core changes in release 32.1.1
+
+- One feature: every value slot in Security and v2-marked custom Properties supports optional
+  JSON-style double quoting. Quoted pipes, quotes, backslashes and control escapes retain
+  their logical values. Serialization quotes logical values containing a pipe or quote;
+  ordinary values may remain unquoted. Labels and titles do not gain quote syntax.
+- One fix: only an exact spaced `|` outside double quotes separates slots. Bare and
+  one-sided pipes remain data; legacy `\|` outside quotes still parses. Invalid quotes,
+  escapes and trailing text yield generic, non-secret errors, with exact Security locations.
+  Properties remains YAML frontmatter: `Password*: '"a | b" | "description"'` uses
+  outer YAML single quotes to retain the inner field-slot double quotes; YAML outer quoting
+  alone cannot protect an inner spaced separator. Tests must verify these contracts;
+  publication and host behavior are separate gates.
+
+## Prior shared-core changes in release 31.5.6
 
 - New Security content uses one unversioned `aic` fence grammar with optional section
   labels. The grammar change is a breaking core change; existing authored versioned

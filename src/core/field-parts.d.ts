@@ -5,8 +5,18 @@ export type FieldParts = Readonly<{
   additionalSecret?: string;
 }>;
 
-/** Split on any unescaped pipe, removing at most one adjacent ASCII space. */
+export type EncodedFieldPart = Readonly<{
+  encoded: string;
+  from: number;
+  to: number;
+  quoted: boolean;
+}>;
+/** Scan spaced ` | ` delimiters outside JSON double-quoted strings; errors carry safe code/offset. */
+export function scanFieldParts(raw: string): EncodedFieldPart[];
+/** Split encoded parts, retaining their quote syntax until decoding. */
 export function splitFieldParts(raw: string): string[];
+/** JSON-encode a value containing pipe/quote, or return null for ordinary unquoted encoding. */
+export function quoteFieldPart(value: string): string | null;
 /** Join one to three slots already encoded for Security or YAML source. */
 export function joinFieldParts(encodedSlots: readonly string[]): string;
 /** Escape literal backslashes and pipes within a decoded slot. */

@@ -39,9 +39,11 @@ describe("security block model", () => {
     const parsed = parseSecurityBlock(body);
     expect(parsed).toEqual(parseSecurityBlock(body, SECURITY_FIELD_OPTIONS));
     if (!parsed.ok) return;
-    expect(serializeSecurityBlock(parsed.model)).toBe(body);
+    const canonical =
+      '## Main\nPassword*: "syn|thetic" | note\nTOTP#: KEY123\n';
+    expect(serializeSecurityBlock(parsed.model)).toBe(canonical);
     expect(serializeSecurityBlock(parsed.model, SECURITY_FIELD_OPTIONS)).toBe(
-      body,
+      canonical,
     );
   });
 
@@ -91,7 +93,10 @@ describe("security block model", () => {
       },
     });
     if (!parsed.ok) return;
-    expect(serializeSecurityBlock(parsed.model, options)).toBe(body);
+    const canonical =
+      '## Main\nPassword*: "syn|thetic" | WebDAV\nTOTP#: KEY123 | phone\nCard_: 4111111111111111 | 09/28 | 123\nNote: "left|right" |  | "extra|part"\n';
+    expect(serializeSecurityBlock(parsed.model, options)).toBe(canonical);
+    expect(parseSecurityBlock(canonical)).toEqual(parsed);
     expect(parseSecurityBlock(body)).toEqual(parsed);
   });
 

@@ -60,7 +60,7 @@ describe("Security separators", () => {
     };
     const body = serializeSecurityBlock(model, SECURITY_FIELD_OPTIONS);
     expect(body).toBe(
-      "# Accounts\nService: A\n---\n## Work\nPassword*: s\\|x\nCard_: 4111111111111111 | 09/28 | 123\n---\nTOTP#: seed\n",
+      '# Accounts\nService: A\n---\n## Work\nPassword*: "s|x"\nCard_: 4111111111111111 | 09/28 | 123\n---\nTOTP#: seed\n',
     );
     expect(parseSecurityBlock(body, SECURITY_FIELD_OPTIONS)).toEqual({
       ok: true,

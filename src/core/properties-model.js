@@ -243,7 +243,7 @@ function read(body, options = {}) {
       } catch {
         rejectAt(
           "invalid_field_parts",
-          "Use at most three pipe-separated parts and escape only backslash or pipe.",
+          "Use at most three parts separated by spaced | outside double-quoted strings. Keep YAML quoting around the complete property scalar.",
           node,
         );
       }

@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 32.1.1 — 2026-09-14
+
+Release sequence 32 · 1 feature outcome · 1 fixed-bug outcome. Release source target;
+publication and hosted-manifest deployment require separate verification. The shared
+editor core moves to 5.1.0.
+
+### Feature
+
+1. All three Security value slots, and custom Properties slots behind `# aic-fields: v2`, accept optional JSON-style double-quoted strings. Quoted pipes (including `|`), quotes, backslashes and control escapes retain their logical values. Serialization quotes values containing a pipe or quote, including pasted and imported values; ordinary values need no quotes. YAML outer quoting remains a separate storage layer: `Password*: '"a | b" | "description"'` preserves the inner slot quotes. Labels and titles have no quote syntax.
+
+### Fix
+
+1. Only the exact spaced `|` outside quotes separates slots. Bare or one-sided pipes remain literal data, while existing `\|` outside quotes still parses. Invalid quotes, escapes or trailing text receive generic, non-secret errors; Security errors identify exact source positions.
+
+Compatibility: AIC Notes 41.1.1 mirrors AIC Editor Core 5.1.0. Existing authored values are not automatically rewritten. Masking is visual, not encryption; this release adds no authentication or note synchronization. Publication requires separate verification.
+
 ## 31.5.6 — 2026-09-13
 
 Release sequence 31 · 5 feature outcomes · 6 fixed-bug outcomes. Release source target;
