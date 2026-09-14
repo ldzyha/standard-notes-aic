@@ -175,6 +175,61 @@ select {
   border-right: 0;
 }
 
+/* The browser panel opts into a disclosure; Standard Notes keeps the
+   original horizontally scrolling toolbar. */
+.aic-toolbar--compact {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+.aic-toolbar--compact .aic-save-controls {
+  position: static;
+  max-width: min(35%, 8rem);
+}
+
+.aic-formatting-toggle {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 0.45rem;
+  padding-inline: 0.6rem;
+}
+
+.aic-formatting-toggle::after {
+  content: "";
+  width: 0.38rem;
+  height: 0.38rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: translateY(-0.12rem) rotate(45deg);
+}
+
+.aic-formatting-toggle[aria-expanded="true"]::after {
+  transform: translateY(0.12rem) rotate(225deg);
+}
+
+.aic-toolbar-tray {
+  display: flex;
+  flex: 0 0 100%;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+  max-height: min(60vh, 18rem);
+  padding-top: 0.35rem;
+  overflow-x: hidden;
+  overflow-y: auto;
+  border-top: 1px solid var(--aic-border);
+}
+
+.aic-toolbar-tray[hidden] {
+  display: none;
+}
+
+.aic-toolbar-tray .aic-toolbar-group {
+  flex: 0 1 auto;
+}
+
 .aic-toolbar-button,
 .aic-toolbar-select,
 .cm-mermaid-edit,
@@ -264,7 +319,6 @@ select {
   min-height: 100%;
   margin: 0 auto;
   padding: clamp(1rem, 3vw, 2.5rem) clamp(1rem, 4vw, 3.5rem) 30vh;
-  caret-color: var(--aic-accent);
 }
 
 .aic-editor-host .cm-line {

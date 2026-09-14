@@ -207,6 +207,26 @@ describe("shared security block", () => {
     expect(clear.mock.calls.length).toBeGreaterThan(before);
   });
 
+  it("keeps multiple mounted cards and their masked DOM stable on an unrelated keystroke", () => {
+    const blocks = Array.from({ length: 24 }, (_, index) =>
+      [
+        "```aic",
+        `## Account ${index + 1}`,
+        `Password*: private-${index + 1}`,
+        "```",
+      ].join("\n"),
+    ).join("\n\n");
+    const { host, view } = fixture(`${blocks}\n\nTail`);
+    expect(securityBlocks(view.state)).toHaveLength(24);
+    const cards = [...host.querySelectorAll(".cm-aic-security")];
+    expect(cards.length).toBeGreaterThan(0);
+    view.dispatch({
+      changes: { from: view.state.doc.length, insert: "!" },
+    });
+    expect([...host.querySelectorAll(".cm-aic-security")]).toEqual(cards);
+    expect(host.innerHTML).not.toContain("private-24");
+  });
+
   it("generates and copies TOTP without showing its seed", async () => {
     vi.stubGlobal("crypto", {
       subtle: {

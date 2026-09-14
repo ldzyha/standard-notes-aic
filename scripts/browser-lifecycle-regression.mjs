@@ -43,50 +43,85 @@ try {
         .value,
     };
   };
-  const cycle = (count) =>
-    page.evaluate(async (iterations) => {
-      const { AicEditor } = await import("/src/editor.ts");
-      window.lifecycleWeakRefs = [];
-      for (let index = 0; index < iterations; index++) {
-        const mount = document.body.appendChild(document.createElement("div"));
-        const editor = new AicEditor(mount, {
-          initialText:
-            "---\nfile: test.note.md\n---\n\n- [ ] Task\n\n| A | B |\n| --- | --- |\n| x | y |\n\n>>>|open| Section\nText\n<<<\n\nEnd",
-        });
-        window.lifecycleWeakRefs.push(new WeakRef(editor.view.dom));
-        editor.switchDocument(`cycle-${index}`, "# Other\n\n- [ ] Next\n");
-        editor.destroy();
-        mount.remove();
-      }
-    }, count);
-  await cycle(20);
-  const baseline = await sample();
-  await cycle(200);
-  const after = await sample();
-  const retainedEditors = await page.evaluate(
-    () => window.lifecycleWeakRefs.filter((ref) => ref.deref()).length,
-  );
-  assert.equal(
-    retainedEditors,
-    0,
-    "closed editor roots are collectible after lifecycle settlement",
-  );
-  assert.ok(
-    after.jsEventListeners <= baseline.jsEventListeners + 2,
-    "no per-editor listener accumulation",
-  );
-  assert.ok(
-    after.nodes <= baseline.nodes + 20,
-    "no per-editor DOM accumulation after GC",
-  );
+  const cycle = (count, compactToolbar) =>
+    page.evaluate(
+      async ({ iterations, compactToolbar }) => {
+        const { AicEditor } = await import("/src/editor.ts");
+        window.lifecycleWeakRefs = [];
+        for (let index = 0; index < iterations; index++) {
+          const mount = document.body.appendChild(
+            document.createElement("div"),
+          );
+          const editor = new AicEditor(mount, {
+            compactToolbar,
+            initialText:
+              "---\nfile: test.note.md\n---\n\n- [ ] Task\n\n| A | B |\n| --- | --- |\n| x | y |\n\n>>>|open| Section\nText\n<<<\n\nEnd",
+          });
+          window.lifecycleWeakRefs.push(new WeakRef(editor.view.dom));
+          editor.switchDocument(`cycle-${index}`, "# Other\n\n- [ ] Next\n");
+          const formatting = editor.toolbar.element.querySelector(
+            ".aic-formatting-toggle",
+          );
+          if (compactToolbar) {
+            if (!formatting)
+              throw new Error("Compact formatting toggle missing");
+            const tray = document.getElementById(
+              formatting.getAttribute("aria-controls"),
+            );
+            if (!tray || !tray.hidden)
+              throw new Error("Compact formatting tray was not collapsed");
+            formatting.click();
+            if (
+              formatting.getAttribute("aria-expanded") !== "true" ||
+              tray.hidden
+            )
+              throw new Error("Compact formatting tray did not open");
+            formatting.click();
+            if (
+              formatting.getAttribute("aria-expanded") !== "false" ||
+              !tray.hidden
+            )
+              throw new Error("Compact formatting tray did not close");
+          } else if (formatting) {
+            throw new Error(
+              "Default toolbar unexpectedly has a compact toggle",
+            );
+          }
+          editor.destroy();
+          mount.remove();
+        }
+      },
+      { iterations: count, compactToolbar },
+    );
+  const modes = [];
+  for (const { name, compactToolbar } of [
+    { name: "default", compactToolbar: false },
+    { name: "compact", compactToolbar: true },
+  ]) {
+    await cycle(20, compactToolbar);
+    const baseline = await sample();
+    await cycle(200, compactToolbar);
+    const after = await sample();
+    const retainedEditors = await page.evaluate(
+      () => window.lifecycleWeakRefs.filter((ref) => ref.deref()).length,
+    );
+    assert.equal(
+      retainedEditors,
+      0,
+      `${name}: closed editor roots are collectible after lifecycle settlement`,
+    );
+    assert.ok(
+      after.jsEventListeners <= baseline.jsEventListeners + 2,
+      `${name}: no per-editor listener accumulation`,
+    );
+    assert.ok(
+      after.nodes <= baseline.nodes + 20,
+      `${name}: no per-editor DOM accumulation after GC`,
+    );
+    modes.push({ name, cycles: 200, retainedEditors, baseline, after });
+  }
   assert.deepEqual(errors, []);
-  console.log(
-    JSON.stringify(
-      { cycles: 200, retainedEditors, baseline, after, errors },
-      null,
-      2,
-    ),
-  );
+  console.log(JSON.stringify({ modes, errors }, null, 2));
 } finally {
   await browser.close();
 }

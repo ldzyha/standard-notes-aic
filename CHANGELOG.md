@@ -2,6 +2,31 @@
 
 ## Unreleased
 
+## 33.2.4 — 2026-09-14
+
+Release sequence 33 · 2 feature outcomes · 4 fixed-bug outcomes. The shared editor
+core moves to 5.2.0 with an additive read-only preview option. Release source target;
+GitHub publication and hosted-manifest deployment require separate verification.
+
+### Features
+
+1. The experimental browser component 0.1.4 for Chrome and Edge adds a compact, local encrypted page notebook using the canonical AIC editor. It supports explicit read-only page/selection imports, clipboard and Markdown import/export, encrypted backups, and immediate memory-only placeholders. It has no account, synchronization, autofill, or outgoing runtime connections. One Chromium ZIP accompanies this release; no browser-store submission is included.
+2. Separate exact-origin Properties records provide shared, masked domain information on child pages without duplicating fields into each note. Page/domain drafts use one acknowledged-save coordinator; compact domain/title navigation omits redundant single-child URL paths.
+
+### Fixes
+
+1. Generic pipe fields render label, value and description in one compact row with independent copy actions and local overflow. Shared Security parsing avoids repeated full-tree scans per block during edits.
+2. Properties/Security Add menus stay within the visible viewport, choose space above or below their button, scroll internally, and release their positioning listeners on disposal.
+3. CodeMirror's drawn caret and drop cursor use a visible 2 px, theme-aware stroke, including reduced-motion and forced-color handling.
+4. Standard Notes transport cleanup releases the adapter's completed, failed and timed-out save messages instead of retaining full note snapshots. Persistent context streams and other callers remain intact. Bounded real-transport and editing-memory checks cover this defect; unrelated Standard Notes API failures and all possible PWA crashes are not claimed fixed.
+
+Compatibility: AIC Notes 42.0.3 consumes core 5.2.0. Existing authored note syntax is
+unchanged; Markdown masking is not encryption. Browser 0.1.4 is experimental, with
+Edge packaged smoke evidence and remaining Chrome installed-runtime, clipboard,
+site-permission and cross-panel Lock gates recorded in browser/VERIFICATION.md.
+Use synthetic browser data until those gates are resolved. The marketplace HOWTO
+describes future manual submissions, not completed publications.
+
 ## 32.1.1 — 2026-09-14
 
 Release sequence 32 · 1 feature outcome · 1 fixed-bug outcome. Release source target;

@@ -199,13 +199,21 @@ comments, nested structure and unrelated Markdown are preserved. Related notes, 
 available from the host, appear after metadata as read-only navigation and are never
 written into frontmatter. Ordinary Markdown notes do not acquire generated metadata.
 
-## Release 32.1.1
+## Release 33.2.4
 
-This release pairs with AIC Notes 41.1.1 and AIC Editor Core 5.1.0. This document
+This release pairs with AIC Notes 42.0.3 and AIC Editor Core 5.2.0. This document
 describes the release source and its contracts; deployment and the hosted manifest
 are verified separately by the release workflow.
 
-The 32.1.1 release has one quoted-slot feature and one literal-pipe fix. The prior
+The 33.2.4 release adds an experimental Chrome/Edge page notebook and shared
+exact-origin Properties. It fixes compact pipe fields and repeated parsing work,
+viewport-clipped Add menus, caret visibility, and retained Standard Notes transport
+save messages. The browser archive has its own version, 0.1.4, and explicit
+[verification boundaries](browser/VERIFICATION.md); use synthetic data while its
+remaining packaged-runtime gates are open. See the [browser guide](browser/README.md)
+and [marketplace HOWTO](MARKETPLACE_HOWTO.md) for installation and future submissions.
+
+The 32.1.1 release introduced quoted slots and the literal-pipe fix. The prior
 release's five feature outcomes are the single `aic` grammar with optional labels, compact masked
 cards, cross-section field moves, Properties metadata/tree separation, and labelled Add
 controls with limit explanations. Its six fixes cover Escape exits, transient ordered copy
@@ -484,7 +492,9 @@ It never opens a real Standard Notes account or modifies workspace documents.
 `npm run build` writes the static component to `dist/`, including the production and local
 manifests. Pushes to `main` run the complete check and deploy only `dist/` to GitHub Pages. Tags in
 the form `vX.Y.Z` run the same check, require an exact `package.json` version match, and publish a
-release archive containing root `package.json` plus `dist/`.
+release archive containing root `package.json` plus `dist/`. The same release
+also builds and attaches the experimental Chrome/Edge ZIP, its SHA-256 checksum,
+and the [marketplace HOWTO](MARKETPLACE_HOWTO.md). No store submission is automatic.
 
 The production manifest is canonical at
 `https://ldzyha.github.io/standard-notes-aic/ext.json`. Its desktop archive is version-pinned, so a
@@ -492,6 +502,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `32.1.1` is sequence 32 with
-one feature outcome and one fixed-bug outcome; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `33.2.4` is sequence 33 with
+two feature outcomes and four fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

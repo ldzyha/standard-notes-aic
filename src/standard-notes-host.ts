@@ -22,7 +22,11 @@ export type StandardNotesApi = {
   initialize(options?: { debounceSave?: number }): void;
 };
 
-type TransportApi = StandardNotesApi & { postMessage: PostMessage };
+type TransportApi = StandardNotesApi & {
+  postMessage: PostMessage;
+  sentMessages?: { callback?: unknown }[];
+  messageQueue?: { callback?: unknown }[];
+};
 
 export type StandardNotesSnapshot = Readonly<{
   id: string | null;
@@ -335,7 +339,13 @@ export class StandardNotesHost {
         settled = true;
         clearTimeout(timer);
         this.cancellations.delete(cancel);
+        this.releaseSaveMessage(receive);
         resolve(result(saved));
+      };
+      const receive = (reply: unknown) => {
+        // ComponentViewer acknowledges local saving with {}, and reports
+        // {error: "save-error"} on failure; this does not confirm cloud sync.
+        complete(object(reply) && Object.keys(reply).length === 0);
       };
       const cancel = () => complete(false);
       const timer = setTimeout(cancel, this.saveTimeoutMs);
@@ -344,17 +354,25 @@ export class StandardNotesHost {
         (this.api as TransportApi).postMessage(
           "save-items",
           { items: [item] },
-          (reply) => {
-            // Standard Notes ComponentViewer replies {} from onPresyncSave and
-            // {error: "save-error"} on failure. This confirms local host saving,
-            // NOT cloud synchronization. Unknown/declined replies fail closed.
-            complete(object(reply) && Object.keys(reply).length === 0);
-          },
+          receive,
         );
       } catch {
         complete(false);
       }
     });
+  }
+
+  private releaseSaveMessage(callback: (reply: unknown) => void): void {
+    // Pinned sn-extension-api@0.4.0 retains every full outbound note in these
+    // arrays even after its callback runs. Our saves are one-shot requests:
+    // release only their exact callback identity, never a persistent stream or
+    // another caller's request. A timed-out queued save must not be sent later.
+    const transport = this.api as TransportApi;
+    for (const messages of [transport.sentMessages, transport.messageQueue]) {
+      if (!Array.isArray(messages)) continue;
+      for (let index = messages.length - 1; index >= 0; index--)
+        if (messages[index]?.callback === callback) messages.splice(index, 1);
+    }
   }
 
   dispose(): void {

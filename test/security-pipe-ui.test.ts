@@ -257,6 +257,23 @@ describe("explicit pipe-format preview", () => {
     );
     expect(host.innerHTML).not.toContain("synthetic-private");
     expect(host.innerHTML).not.toContain("hidden|pipe");
+    const account = host.querySelector<HTMLElement>(
+      '.cm-aic-security-card[data-aic-card-kind="fields"]',
+    )!;
+    expect(
+      account.querySelector(".cm-aic-security-section-title")?.textContent,
+    ).toBe("Account:");
+    expect(
+      account.querySelectorAll(
+        ".cm-aic-security-card-parts .cm-aic-security-label",
+      ),
+    ).toHaveLength(0);
+    expect(account.textContent).not.toMatch(/\b(?:Value|Description)\b/u);
+    expect(
+      account.querySelector<HTMLButtonElement>(
+        '[aria-label="Copy Account description value"]',
+      )?.title,
+    ).toBe("Account description");
     button(host, "Copy Account description value").click();
     expect(onCopy).toHaveBeenLastCalledWith("Work", "Account Description");
     button(host, "Copy Account additional secret value").click();
@@ -269,6 +286,47 @@ describe("explicit pipe-format preview", () => {
     expect(
       host.querySelector('[aria-label="Delete empty Account field"]'),
     ).toBeNull();
+  });
+
+  it("renders pipe extras in one labelled row for Properties without losing cell actions", () => {
+    const { host, onCopy } = fixture(
+      "---\n# aic-fields: v2\nSamsung*: synthetic-private | Two-year warranty\n---\nBody",
+    );
+    const samsung = host.querySelector<HTMLElement>(
+      '.cm-aic-properties .cm-aic-security-card[data-aic-card-kind="fields"]',
+    )!;
+    expect(
+      samsung.querySelector(".cm-aic-security-section-title")?.textContent,
+    ).toBe("Samsung:");
+    expect(
+      samsung.querySelectorAll(
+        ".cm-aic-security-card-parts .cm-aic-security-label",
+      ),
+    ).toHaveLength(0);
+    expect(samsung.textContent).toContain("Two-year warranty");
+    expect(samsung.textContent).not.toMatch(/\b(?:Value|Description)\b/u);
+    expect(samsung.innerHTML).not.toContain("synthetic-private");
+    button(samsung, "Copy Samsung value").click();
+    expect(onCopy).toHaveBeenLastCalledWith(
+      "synthetic-private",
+      "Samsung Value",
+    );
+    button(samsung, "Copy Samsung description value").click();
+    expect(onCopy).toHaveBeenLastCalledWith(
+      "Two-year warranty",
+      "Samsung Description",
+    );
+  });
+
+  it("keeps empty pipe cell actions and field reordering", () => {
+    const { host } = fixture(security('Samsung*: "" | ""\nOther: value'));
+    const samsung = host.querySelector<HTMLElement>(
+      '.cm-aic-security-card[data-aic-card-kind="fields"]',
+    )!;
+    expect(button(samsung, "Paste Samsung value")).toBeTruthy();
+    expect(button(samsung, "Paste Samsung description")).toBeTruthy();
+    expect(button(samsung, "Delete empty Samsung field")).toBeTruthy();
+    expect(button(samsung, "Reorder Samsung")).toBeTruthy();
   });
 
   it("identifies TOTP by # even when the label is not TOTP", () => {

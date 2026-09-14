@@ -382,6 +382,73 @@
 .cm-aic-security-card-parts .cm-aic-security-field-status {
   max-width: 100%;
 }
+.cm-aic-security-card[data-aic-card-kind="fields"] {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0.18rem 0.45rem;
+}
+.cm-aic-security-card[data-aic-card-kind="fields"] > .cm-aic-security-drag,
+.cm-aic-security-card[data-aic-card-kind="fields"] > .cm-aic-security-action {
+  flex: 0 0 auto;
+}
+.cm-aic-security-card[data-aic-card-kind="fields"]
+  > .cm-aic-security-section-header {
+  flex: 0 0 auto;
+  min-width: 0;
+  max-width: 38%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.cm-aic-security-card[data-aic-card-kind="fields"]
+  > .cm-aic-security-section-header
+  .cm-aic-security-section-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cm-aic-security-card[data-aic-card-kind="fields"]
+  > .cm-aic-security-card-parts {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 0;
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+.cm-aic-security-card[data-aic-card-kind="fields"]
+  > .cm-aic-security-card-parts
+  > .cm-aic-security-row {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: row;
+  align-items: center;
+  gap: 0;
+  max-width: 12rem;
+  min-height: 1.8rem;
+}
+.cm-aic-security-card[data-aic-card-kind="fields"] .cm-aic-security-value {
+  flex: 0 1 auto;
+  width: auto;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cm-aic-security-card[data-aic-card-kind="fields"]
+  .cm-aic-security-row-trailing,
+.cm-aic-security-card[data-aic-card-kind="fields"]
+  .cm-aic-security-row-actions {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  width: auto;
+}
 .cm-aic-security-card[data-aic-card-kind="card"] .cm-aic-security-card-parts {
   grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.85fr) minmax(0, 0.75fr);
   align-items: center;
@@ -517,16 +584,17 @@
   --aic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 2.5v11M2.5 8h11' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
 }
 .cm-aic-security-add-menu {
-  position: absolute;
-  z-index: 10;
-  bottom: calc(100% - 0.1rem);
-  left: 0.55rem;
+  position: fixed;
+  z-index: 1000;
+  top: 0;
+  left: 0;
   display: grid;
   gap: 0.1rem;
   box-sizing: border-box;
-  width: min(15rem, calc(100% - 1.1rem));
+  width: min(15rem, calc(100vw - 1rem));
   max-height: min(19rem, 55vh);
   padding: 0.3rem;
+  overflow-x: hidden;
   overflow-y: auto;
   border: 1px solid var(--aic-control-border, var(--aic-border));
   border-radius: 0.45rem;
@@ -550,6 +618,7 @@
   font: inherit;
   text-align: left;
   cursor: pointer;
+  overflow-wrap: anywhere;
 }
 .cm-aic-security-add-menu .cm-aic-security-action.cm-aic-icon-button {
   display: flex;
@@ -860,15 +929,6 @@
   }
 }
 @media (pointer: coarse) and (max-width: 380px) {
-  .cm-aic-security-card[data-aic-card-kind="fields"]
-    .cm-aic-security-card-parts:has(> :last-child:nth-child(3)) {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .cm-aic-security-card[data-aic-card-kind="fields"]
-    .cm-aic-security-card-parts:has(> :last-child:nth-child(3))
-    > :last-child {
-    grid-column: 1 / -1;
-  }
   .cm-aic-security-row:has(.cm-aic-security-row-actions > :nth-child(3)) {
     grid-template-columns: minmax(5.2rem, 35%) minmax(0, 1fr);
   }

@@ -26,6 +26,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run check
+      - run: npm run build:browser
 
   release:
     needs: test-platforms
@@ -53,6 +54,9 @@ jobs:
           PACKAGE_VERSION="$(node -p "require('./package.json').version")"
           test "$RELEASE_TAG" = "v$PACKAGE_VERSION"
 
+      - name: Build experimental Chrome and Edge package
+        run: npm run build:browser
+
       - name: Package desktop extension
         env:
           RELEASE_TAG: ${{ github.ref_name }}
@@ -74,13 +78,17 @@ jobs:
         run: |
           PACKAGE_VERSION="${RELEASE_TAG#v}"
           ASSET="standard-notes-aic-$PACKAGE_VERSION.zip"
+          BROWSER_VERSION="$(node -p "require('./browser/manifest.json').version")"
+          BROWSER_ASSET="dist-browser/artifacts/aic-browser-chromium-$BROWSER_VERSION.zip"
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
-            gh release upload "$RELEASE_TAG" "$ASSET" "$ASSET.sha256" --clobber
+            gh release upload "$RELEASE_TAG" "$ASSET" "$ASSET.sha256" \
+              "$BROWSER_ASSET" "$BROWSER_ASSET.sha256" MARKETPLACE_HOWTO.md --clobber
           else
             gh release create "$RELEASE_TAG" \
               "$ASSET" "$ASSET.sha256" \
+              "$BROWSER_ASSET" "$BROWSER_ASSET.sha256" MARKETPLACE_HOWTO.md \
               --verify-tag \
               --title "AIC $PACKAGE_VERSION" \
-              --notes "Website: https://dzyha.com/" \
+              --notes "Includes the experimental Chrome/Edge component $BROWSER_VERSION. Use synthetic data until browser/VERIFICATION.md acceptance gates are resolved. Marketplace submissions are not included. See CHANGELOG.md and MARKETPLACE_HOWTO.md. Website: https://dzyha.com/" \
               --generate-notes
           fi

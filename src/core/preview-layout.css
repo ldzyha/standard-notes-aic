@@ -8,3 +8,24 @@
   box-sizing: border-box;
   margin-block: 0;
 }
+
+/* drawSelection hides the native caret. Theme the actual drawn insertion and
+   drop cursors; keep CodeMirror's focus, selection and blink behavior intact. */
+.cm-editor .cm-cursor,
+.cm-editor .cm-dropCursor {
+  border-left: 2px solid var(--aic-caret, var(--aic-fg, currentColor));
+  margin-left: -1px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cm-editor.cm-focused > .cm-scroller > .cm-cursorLayer {
+    animation: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .cm-editor .cm-cursor,
+  .cm-editor .cm-dropCursor {
+    border-left-color: CanvasText;
+  }
+}

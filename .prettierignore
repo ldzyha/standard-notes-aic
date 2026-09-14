@@ -1,4 +1,5 @@
 dist
+dist-browser
 coverage
 node_modules
 package-lock.json

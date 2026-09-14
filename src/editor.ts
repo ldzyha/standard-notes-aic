@@ -55,6 +55,7 @@ export type AicEditorOptions = {
   document?: Document;
   initialText?: string;
   readOnly?: boolean;
+  compactToolbar?: boolean;
   onChange?: (text: string) => void;
   onSave?: (reason?: "action" | "boundary") => boolean | Promise<boolean>;
 };
@@ -149,10 +150,14 @@ export class AicEditor {
     this.editorHost = this.document.createElement("div");
     this.editorHost.className = "aic-editor-host";
     let view: EditorView | null = null;
-    this.toolbar = createToolbar(() => {
-      if (!view) throw new Error("AIC editor is not ready");
-      return view;
-    }, this.document);
+    this.toolbar = createToolbar(
+      () => {
+        if (!view) throw new Error("AIC editor is not ready");
+        return view;
+      },
+      this.document,
+      { compact: options.compactToolbar ?? false },
+    );
     this.sourceModeButton = this.sourceMode.createButton(
       this.document,
       () => view,

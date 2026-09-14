@@ -4,6 +4,7 @@ import readme from "../README.md?raw";
 import changelog from "../CHANGELOG.md?raw";
 import functionalIndex from "../FUNCTIONAL_INDEX.md?raw";
 import manifest from "../public/ext.json";
+import { parse } from "yaml";
 
 describe("publication metadata", () => {
   it("installs entirely from GitHub Pages", () => {
@@ -21,7 +22,9 @@ describe("publication metadata", () => {
 
   it("uses dzyha.com only as the release-notes website link", () => {
     expect(releaseWorkflow.match(/https:\/\/dzyha\.com\//gu)).toHaveLength(1);
-    expect(releaseWorkflow).toContain('--notes "Website: https://dzyha.com/"');
+    expect(releaseWorkflow).toMatch(
+      /--notes "[^"\n]*Website: https:\/\/dzyha\.com\/"/u,
+    );
   });
 
   it("serializes duplicate tag deliveries and republishes idempotently", () => {
@@ -29,9 +32,36 @@ describe("publication metadata", () => {
     expect(releaseWorkflow).toContain(
       'gh release view "$RELEASE_TAG" >/dev/null 2>&1',
     );
-    expect(releaseWorkflow).toContain(
-      'gh release upload "$RELEASE_TAG" "$ASSET" "$ASSET.sha256" --clobber',
+    expect(releaseWorkflow).toMatch(
+      /gh release upload "\$RELEASE_TAG" "\$ASSET" "\$ASSET.sha256" \\\n\s+"\$BROWSER_ASSET" "\$BROWSER_ASSET.sha256" MARKETPLACE_HOWTO.md --clobber/u,
     );
+  });
+
+  it("builds and attaches one verified Chrome/Edge ZIP with a checksum and HOWTO", () => {
+    const workflow = parse(releaseWorkflow);
+    expect(workflow.jobs["test-platforms"].steps).toContainEqual({
+      run: "npm run build:browser",
+    });
+    const steps = workflow.jobs.release.steps;
+    const buildIndex = steps.findIndex(
+      (step: { run?: string }) => step.run === "npm run build:browser",
+    );
+    const publishIndex = steps.findIndex(
+      (step: { name?: string }) => step.name === "Publish GitHub release",
+    );
+    expect(buildIndex).toBeGreaterThan(-1);
+    expect(publishIndex).toBeGreaterThan(buildIndex);
+    const script = steps[publishIndex].run as string;
+    expect(script).toContain(
+      'BROWSER_ASSET="dist-browser/artifacts/aic-browser-chromium-$BROWSER_VERSION.zip"',
+    );
+    expect(
+      script.match(
+        /"\$BROWSER_ASSET" "\$BROWSER_ASSET.sha256" MARKETPLACE_HOWTO.md/gu,
+      ),
+    ).toHaveLength(2);
+    expect(script).toContain("experimental Chrome/Edge");
+    expect(script).not.toMatch(/firefox|mullvad/iu);
   });
 
   it("documents the 26.0.1 R.F.B release and packages usage instructions", () => {

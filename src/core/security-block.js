@@ -321,7 +321,10 @@ function displayedValue(field) {
   return field.value;
 }
 
-function selectionIntersects(state, block) {
+function selectionIntersects(state, block, previewOnly = false) {
+  // A read-only domain preview must never reveal raw Properties (and secrets)
+  // just because a keyboard or pointer selection crosses its replacement.
+  if (previewOnly && state.readOnly) return false;
   return (
     state.field(securitySource) === block.from ||
     selectionRevealsPreview(state.selection.ranges, block.from, block.to)
@@ -1682,6 +1685,18 @@ class SecurityBlockWidget extends WidgetType {
               output.element.dataset.aicCardEmpty = "true";
               actions.querySelector("button")?.setAttribute("title", partLabel);
             }
+          } else {
+            // Pipe extras are peer copy cells in one compact field row. Keep
+            // their independent actions and accessible names, without visible
+            // technical Value/Description subheaders.
+            output.element.querySelector(".cm-aic-security-label")?.remove();
+            output.element.dataset.aicFieldPart = slot;
+            const hint = `${label} ${code ? "code" : partLabel.toLowerCase()}`;
+            output.content.title = hint;
+            output.content.setAttribute(
+              "aria-label",
+              slot === "value" ? `Copy ${hint}` : `Copy ${hint} value`,
+            );
           }
           return output.element;
         };
@@ -1697,7 +1712,8 @@ class SecurityBlockWidget extends WidgetType {
           if (field.label) {
             const partTitle = document.createElement("button");
             partTitle.className = "cm-aic-security-section-title";
-            partTitle.textContent = label;
+            partTitle.textContent = cardField ? label : `${label}:`;
+            partTitle.title = label;
             {
               const titleCopy = document.createElement("span");
               titleCopy.className = "cm-aic-security-card-title-copy";
@@ -1762,7 +1778,8 @@ class SecurityBlockWidget extends WidgetType {
                 "trash",
                 () => this.removeEmptyField(view, sectionIndex, fieldIndex),
               );
-              if (partHeader.parentNode === composite)
+              if (!cardField) composite.append(remove);
+              else if (partHeader.parentNode === composite)
                 partHeader.append(remove);
               else composite.append(remove);
             }
@@ -2164,6 +2181,7 @@ function makeBlockExtension(
     onReadClipboard,
     initialRelationships,
     onRelationshipOpen,
+    previewOnly = false,
   } = {},
 ) {
   if (!document?.createElement)
@@ -2199,11 +2217,15 @@ function makeBlockExtension(
     },
     provide: providePreviewRanges,
   });
-  const decorations = (state) =>
-    Decoration.set(
-      format
-        .blocks(state)
-        .filter((block) => !selectionIntersects(state, block))
+  const decorations = (state) => {
+    // Every document change rebuilds this view. Re-reading all fenced blocks
+    // once per widget made a note with N Security blocks scan its tree N²
+    // times on each keystroke.
+    const blocks = format.blocks(state);
+    const cardCount = cardOrdering ? blocks.length : 0;
+    return Decoration.set(
+      blocks
+        .filter((block) => !selectionIntersects(state, block, previewOnly))
         .map((block) =>
           Decoration.replace({
             block: true,
@@ -2220,12 +2242,13 @@ function makeBlockExtension(
                 : EMPTY_RELATIONSHIPS,
               onRelationshipOpen,
               cardOrdering,
-              cardOrdering ? securityBlocks(state).length : 0,
+              cardCount,
             ),
           }).range(block.from, block.to),
         ),
       true,
     );
+  };
   const exitHandler = sourcePreviewExitHandlers.of((state) => {
     const from = state.field(securitySource);
     return format.blocks(state).find((block) => block.from === from) ?? null;

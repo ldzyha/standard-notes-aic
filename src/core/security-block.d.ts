@@ -48,5 +48,7 @@ export function makePropertiesBlockExtension(
     Readonly<{
       initialRelationships?: () => readonly PropertyRelationship[];
       onRelationshipOpen?: (path: string) => void | Promise<void>;
+      /** Keep read-only Properties rendered even when selected. */
+      previewOnly?: boolean;
     }>,
 ): Extension;

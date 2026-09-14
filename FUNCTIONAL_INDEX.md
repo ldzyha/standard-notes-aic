@@ -4,11 +4,64 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 managed file properties, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 32.1.1 pairs with AIC Notes 41.1.1 and AIC Editor Core 5.1.0.
+storage format. Release 33.2.4 pairs with AIC Notes 42.0.3 and AIC Editor Core 5.2.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
-## Shared-core changes in release 32.1.1
+## Current host boundary — 2026-09-14
+
+The experimental browser release component 0.1.4 targets Chrome and Edge only, using one
+Chromium package and this repository's `AicEditor`, with
+an opt-in compact toolbar and explicit read-only page/selection/clipboard/Markdown
+import. See [browser/README.md](browser/README.md) and its verification record.
+It accompanies this GitHub release; browser-store publication remains a future step.
+
+New pages mount a memory-only Properties placeholder immediately. The draft
+coordinator creates a note on first edit, retains editor identity through the
+acknowledgment, and keeps failed writes exportable. Untouched placeholders do not
+create note records; first imports preserve their exact Markdown. Shared Security
+and Properties add menus are bounded by the visible editor and viewport, with
+internal scrolling and disposal-owned positioning listeners. The menu fix is
+mirrored into the VS Code release core snapshot.
+The same shared layout styles theme the actual CodeMirror cursor/drop cursor,
+instead of the hidden native caret, with host-aware color and a 2 px stroke.
+Focus visibility remains owned by CodeMirror; reduced motion stops blinking and
+forced colors use the system text color.
+
+Browser navigation projects saved pages into domain/title groups and only retains
+paths that group several notes. It does not rewrite URLs or persist display trees.
+The encrypted browser library v2 adds separate exact-origin Properties records;
+child pages display the masked canonical preview without copying shared fields
+into their Markdown. Page and domain drafts share one save coordinator. Version 1
+notes migrate unchanged, with no automatic inheritance from homepage notes.
+
+This release also compacts pipe fields into one row and
+remove repeated per-block full-tree scans. The Standard Notes adapter releases
+its own completed/failed transport save messages; the pinned transport otherwise
+retains full note snapshots. Real transport tests cover acknowledgment, timeout,
+queue cancellation and disposal without removing persistent context streams.
+
+The browser and Standard Notes share editor composition; VS Code constructs its
+own editor and consumes the explicitly distributed `src/core` modules. The compact
+browser shell is not automatically a VS Code feature. Adaptive activity, semantic
+zoom and a shared workspace tree are proposed, not implemented; their ownership,
+risks and dependency-ordered transition are in
+[ADAPTIVE_PREVIEW_STUDY.md](ADAPTIVE_PREVIEW_STUDY.md).
+
+## Shared-core changes in release 33.2.4
+
+- Generic pipe fields keep label, value and description in one compact row without
+  visible technical subheaders; independent copy, masking and local overflow remain.
+- Add menus follow viewport bounds and dispose their owned listeners. Shared caret
+  styles make CodeMirror's actual cursor visible in light, dark and forced colors.
+- Security parsing reuses one tree scan per rebuild. The additive `previewOnly`
+  option supports browser inherited domain Properties without revealing raw source;
+  normal Standard Notes and VS Code editing defaults do not change.
+- The Standard Notes host separately retires its own settled transport save messages.
+  See the changelog and browser verification record for bounded test evidence and
+  remaining runtime checks. Adaptive zoom and activity modes are not release features.
+
+## Prior shared-core changes in release 32.1.1
 
 - One feature: every value slot in Security and v2-marked custom Properties supports optional
   JSON-style double quoting. Quoted pipes, quotes, backslashes and control escapes retain
@@ -27,7 +80,7 @@ GitHub Pages deployment or hosted manifest has already been published.
 - New Security content uses one unversioned `aic` fence grammar with optional section
   labels. The grammar change is a breaking core change; existing authored versioned
   Security fences are not silently rewritten.
-- Compact Security cards show the last four fields and compact multi-part card fields.
+- Compact Security cards show only the last four PAN digits and compact multi-part card fields.
   Field moves now cross section boundaries while retaining unrelated authored source.
 - Properties brings managed metadata, related-note navigation and custom fields into
   the compact shared Security surface without making managed fields editable.
@@ -279,8 +332,8 @@ explicit distribution manifest, not maintained independently in the extension.
 - Code Copy: exact fenced body. Code Edit: reveal and focus the fenced source.
 - Security field Copy: the exact value, including a masked secret; TOTP Copy: a
   freshly generated code. Security block Copy: the entire plaintext fenced source.
-  Security Edit opens Markdown only. `## Section` headings and `Label*:` markers
-  remain the authored data; no inline form or QR interface duplicates them.
+  Security Edit opens Markdown only. Current `aic` sections use `---` boundaries,
+  optional titles and field markers; populated values change only in source.
 - Mermaid Copy: exact fenced body. Edit: reveal the complete fence.
 - Mermaid Zoom/Reset/Rotate: change preview only; never rewrite diagram source.
 - Table value activation opens one positioned textarea popover; Enter/explicit action
@@ -288,7 +341,9 @@ explicit distribution manifest, not maintained independently in the extension.
   handles serialize one valid Markdown block.
 - Properties label/value activation copies only its original value. Managed metadata is
   read-only; empty custom fields offer Paste/Delete and quick Add, while populated fields
-  and YAML structure change only through source Edit. No property drag or inline cell editor remains.
+  and YAML structure change only through source Edit. Supported custom sibling field/group
+  moves use shared reorder controls; managed rows and unsupported targets cannot move.
+  There is no duplicate inline property cell editor.
 - Task checkbox: change only its Markdown marker; disclosure controls do not
   consume checkbox activation.
 - Native mouse selection inside preview remains selectable and copyable without
@@ -316,8 +371,8 @@ explicit distribution manifest, not maintained independently in the extension.
 - Agentic Notes utilities do not enable a universal agent integration. This release adds no
   cross-application note synchronization transport or collaborative locking channel.
 - Standard Notes owns sign-in, encryption and its cloud service. This editor component
-  does not implement an account-login screen. VS Code's Standard Notes integration
-  is authentication-only and does not transfer or synchronize notes.
+  does not implement an account-login screen. VS Code has no Standard Notes sign-in
+  or synchronization; its remaining retired-auth/sync code only cleans up old state.
 
 ## Release verification
 

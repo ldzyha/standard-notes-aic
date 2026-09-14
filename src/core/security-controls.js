@@ -11,14 +11,136 @@ export function createSecurityAddMenu(document, label, entries, text = "") {
   menu.setAttribute("role", "group");
   menu.setAttribute("aria-label", label);
   let disposed = false;
+  const win = document.defaultView;
+  const requestFrame =
+    win.requestAnimationFrame?.bind(win) ||
+    ((callback) => win.setTimeout(callback, 16));
+  const cancelFrame =
+    win.cancelAnimationFrame?.bind(win) || win.clearTimeout.bind(win);
+  let frame = null;
+  let observer = null;
+  let measuredHeight = null;
+  let measuredWidth = null;
+  let measuredViewportHeight = null;
+  const clipAncestors = () => {
+    const ancestors = [];
+    for (
+      let parent = element.parentElement;
+      parent;
+      parent = parent.parentElement
+    ) {
+      const style = win.getComputedStyle(parent);
+      if (
+        [style.overflow, style.overflowX, style.overflowY].some(
+          (overflow) => overflow && overflow !== "visible",
+        )
+      )
+        ancestors.push(parent);
+    }
+    return ancestors;
+  };
+  const position = () => {
+    if (menu.hidden) return;
+    if (!element.isConnected) return close();
+    const viewport = win.visualViewport;
+    const bounds = {
+      left: viewport?.offsetLeft || 0,
+      top: viewport?.offsetTop || 0,
+      right: (viewport?.offsetLeft || 0) + (viewport?.width || win.innerWidth),
+      bottom:
+        (viewport?.offsetTop || 0) + (viewport?.height || win.innerHeight),
+    };
+    for (const ancestor of clipAncestors()) {
+      const rect = ancestor.getBoundingClientRect();
+      // A zero rect in a detached/test layout is not a useful clipping box.
+      if (!rect.width || !rect.height) continue;
+      const left = rect.left + ancestor.clientLeft;
+      const top = rect.top + ancestor.clientTop;
+      bounds.left = Math.max(bounds.left, left);
+      bounds.top = Math.max(bounds.top, top);
+      bounds.right = Math.min(
+        bounds.right,
+        left + (ancestor.clientWidth || rect.width - 2 * ancestor.clientLeft),
+      );
+      bounds.bottom = Math.min(
+        bounds.bottom,
+        top + (ancestor.clientHeight || rect.height - 2 * ancestor.clientTop),
+      );
+    }
+    const inset = 8;
+    bounds.left += inset;
+    bounds.top += inset;
+    bounds.right -= inset;
+    bounds.bottom -= inset;
+    const anchor = trigger.getBoundingClientRect();
+    if (
+      (anchor.width &&
+        anchor.height &&
+        (anchor.right <= bounds.left ||
+          anchor.left >= bounds.right ||
+          anchor.bottom <= bounds.top ||
+          anchor.top >= bounds.bottom)) ||
+      bounds.right <= bounds.left ||
+      bounds.bottom <= bounds.top
+    )
+      return close();
+    const availableWidth = bounds.right - bounds.left;
+    const viewportHeight = viewport?.height || win.innerHeight;
+    menu.style.maxWidth = `${availableWidth}px`;
+    if (
+      measuredHeight === null ||
+      measuredWidth !== availableWidth ||
+      measuredViewportHeight !== viewportHeight
+    ) {
+      const scrollTop = menu.scrollTop;
+      menu.style.maxHeight = "";
+      measuredHeight = menu.getBoundingClientRect().height;
+      measuredWidth = availableWidth;
+      measuredViewportHeight = viewportHeight;
+      menu.scrollTop = scrollTop;
+    }
+    const size = menu.getBoundingClientRect();
+    const gap = 4;
+    const above = Math.max(0, anchor.top - bounds.top - gap);
+    const below = Math.max(0, bounds.bottom - anchor.bottom - gap);
+    const placeAbove =
+      above >= measuredHeight || (below < measuredHeight && above > below);
+    const available = placeAbove ? above : below;
+    const height = Math.min(measuredHeight, available);
+    menu.style.maxHeight = `${height}px`;
+    menu.style.left = `${Math.max(bounds.left, Math.min(anchor.left, bounds.right - size.width))}px`;
+    menu.style.top = `${placeAbove ? anchor.top - gap - height : anchor.bottom + gap}px`;
+  };
+  const schedulePosition = () => {
+    if (menu.hidden || frame !== null) return;
+    frame = requestFrame(() => {
+      frame = null;
+      position();
+    });
+  };
   const close = (focus = false) => {
     menu.hidden = true;
     trigger.setAttribute("aria-expanded", "false");
     document.removeEventListener("pointerdown", outside, true);
     document.removeEventListener("keydown", escape, true);
+    document.removeEventListener("focusin", focusOutside, true);
+    document.removeEventListener("scroll", schedulePosition, true);
+    win.removeEventListener("resize", schedulePosition);
+    win.visualViewport?.removeEventListener("resize", schedulePosition);
+    win.visualViewport?.removeEventListener("scroll", schedulePosition);
+    observer?.disconnect();
+    observer = null;
+    measuredHeight = null;
+    measuredWidth = null;
+    measuredViewportHeight = null;
+    if (frame !== null) cancelFrame(frame);
+    frame = null;
     if (focus && trigger.isConnected) trigger.focus();
   };
   const outside = (event) => {
+    if (!element.contains(event.target)) close();
+  };
+  const focusOutside = (event) => {
     if (!element.contains(event.target)) close();
   };
   const escape = (event) => {
@@ -39,7 +161,21 @@ export function createSecurityAddMenu(document, label, entries, text = "") {
       trigger.setAttribute("aria-expanded", "true");
       document.addEventListener("pointerdown", outside, true);
       document.addEventListener("keydown", escape, true);
-      menu.querySelector("button:not(:disabled)")?.focus();
+      document.addEventListener("focusin", focusOutside, true);
+      document.addEventListener("scroll", schedulePosition, true);
+      win.addEventListener("resize", schedulePosition);
+      win.visualViewport?.addEventListener("resize", schedulePosition);
+      win.visualViewport?.addEventListener("scroll", schedulePosition);
+      if (win.ResizeObserver) {
+        observer = new win.ResizeObserver(schedulePosition);
+        observer.observe(trigger);
+        for (const ancestor of clipAncestors()) observer.observe(ancestor);
+      }
+      position();
+      if (!menu.hidden)
+        menu
+          .querySelector("button:not(:disabled)")
+          ?.focus({ preventScroll: true });
     },
   });
   if (text) trigger.append(document.createTextNode(text));

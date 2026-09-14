@@ -22,6 +22,8 @@ export type ToolbarController = Readonly<{
   setReadOnly: (readOnly: boolean) => void;
 }>;
 
+let nextTrayId = 0;
+
 function actionButton(
   icon: string,
   title: string,
@@ -55,6 +57,7 @@ function option(select: HTMLSelectElement, value: string, label: string) {
 export function createToolbar(
   getView: () => EditorView,
   document: Document = globalThis.document,
+  options: { compact?: boolean } = {},
 ): ToolbarController {
   const toolbar = document.createElement("header");
   toolbar.className = "aic-toolbar";
@@ -154,7 +157,41 @@ export function createToolbar(
   });
   insertGroup.append(insert);
 
-  toolbar.append(blockGroup, inlineGroup, listGroup, insertGroup);
+  if (options.compact) {
+    toolbar.classList.add("aic-toolbar--compact");
+    const trigger = document.createElement("button");
+    trigger.type = "button";
+    trigger.className = "aic-toolbar-button aic-formatting-toggle";
+    trigger.textContent = "Formatting";
+    trigger.setAttribute("aria-expanded", "false");
+
+    const tray = document.createElement("div");
+    tray.className = "aic-toolbar-tray";
+    tray.id = `aic-formatting-tray-${++nextTrayId}`;
+    tray.hidden = true;
+    trigger.setAttribute("aria-controls", tray.id);
+    tray.append(blockGroup, inlineGroup, listGroup, insertGroup);
+
+    const setOpen = (open: boolean) => {
+      if (!open && tray.contains(document.activeElement)) trigger.focus();
+      tray.hidden = !open;
+      trigger.setAttribute("aria-expanded", String(open));
+    };
+    // Match the shared icon buttons: pointer activation should not steal the
+    // editor selection that the formatting commands will act on.
+    trigger.addEventListener("pointerdown", (event) => event.preventDefault());
+    trigger.addEventListener("click", () => setOpen(tray.hidden));
+    tray.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      event.stopPropagation();
+      setOpen(false);
+      trigger.focus();
+    });
+    toolbar.append(trigger, tray);
+  } else {
+    toolbar.append(blockGroup, inlineGroup, listGroup, insertGroup);
+  }
   return Object.freeze({
     element: toolbar,
     setReadOnly(readOnly: boolean) {
@@ -163,6 +200,11 @@ export function createToolbar(
           "button,select",
         )
         .forEach((control) => {
+          if (
+            control.classList.contains("aic-formatting-toggle") ||
+            control.classList.contains("aic-source-mode-toggle")
+          )
+            return;
           control.disabled = readOnly;
         });
     },
