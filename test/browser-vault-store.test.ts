@@ -80,6 +80,47 @@ afterEach(() => {
 });
 
 describe("encrypted browser vault integration", () => {
+  it("encrypts profile-global properties across worker restart, Lock, restore and merge", async () => {
+    const source = memory();
+    await source.vault.setup(PASSWORD);
+    const markdown = `\`\`\`aic\nPassword *| ${SECRET}\n\`\`\`\n`;
+    const global = await source.vault.run((store) =>
+      store.createGlobal(markdown),
+    );
+    expect(JSON.stringify(source.state.disk)).not.toContain(SECRET);
+    const resumed = new BrowserVault(source.persistence);
+    expect((await resumed.run((store) => store.load())).global).toEqual(global);
+    await resumed.lock();
+    await expect(
+      resumed.run((store) => store.saveGlobal(global.id, markdown, 1)),
+    ).rejects.toMatchObject({ code: "locked" });
+    const backup = await resumed.exportBackup();
+    expect(backup).not.toContain(SECRET);
+    const restored = memory();
+    expect(await restored.vault.importBackup(backup, PASSWORD)).toMatchObject({
+      globalCreated: 1,
+      globalSkipped: 0,
+      restored: true,
+    });
+    expect((await restored.vault.run((store) => store.load())).global).toEqual(
+      global,
+    );
+    await restored.vault.run((store) =>
+      store.saveGlobal(global.id, markdown.replace(SECRET, "local-global"), 1),
+    );
+    expect(await restored.vault.importBackup(backup, PASSWORD)).toMatchObject({
+      globalCreated: 0,
+      globalSkipped: 1,
+      restored: false,
+    });
+    await restored.vault.lock();
+    const restarted = new BrowserVault(restored.persistence);
+    await restarted.unlock(PASSWORD);
+    expect(
+      (await restarted.run((store) => store.load())).global?.markdown,
+    ).toContain("local-global");
+  });
+
   it("round-trips shared Properties once and preserves existing origins during merge", async () => {
     const source = memory();
     await source.vault.setup(PASSWORD);
@@ -97,6 +138,8 @@ describe("encrypted browser vault integration", () => {
       created: 0,
       domainsCreated: 1,
       domainsSkipped: 0,
+      globalCreated: 0,
+      globalSkipped: 0,
       restored: true,
     });
     expect(
@@ -140,7 +183,8 @@ describe("encrypted browser vault integration", () => {
     await current.vault.unlock(PASSWORD);
     expect(await current.vault.run((store) => store.load())).toEqual({
       ...legacy,
-      version: 2,
+      version: 3,
+      global: null,
       domains: [],
     });
     expect(current.state.disk).toEqual(envelope);
@@ -148,7 +192,8 @@ describe("encrypted browser vault integration", () => {
     await destination.vault.importBackup(JSON.stringify(envelope), PASSWORD);
     expect(await destination.vault.run((store) => store.load())).toEqual({
       ...legacy,
-      version: 2,
+      version: 3,
+      global: null,
       domains: [],
     });
   });
@@ -169,7 +214,8 @@ describe("encrypted browser vault integration", () => {
     expect(state.session).toBeUndefined();
     expect(await vault.setup(PASSWORD)).toEqual({ state: "unlocked" });
     expect(await vault.run((store) => store.load())).toEqual({
-      version: 2,
+      version: 3,
+      global: null,
       notes: [],
       history: [],
       domains: [],
@@ -239,6 +285,8 @@ describe("encrypted browser vault integration", () => {
       skipped: 0,
       domainsCreated: 0,
       domainsSkipped: 0,
+      globalCreated: 0,
+      globalSkipped: 0,
       restored: true,
     });
     expect(await destination.vault.run((store) => store.load())).toEqual(
@@ -276,6 +324,8 @@ describe("encrypted browser vault integration", () => {
       skipped: 1,
       domainsCreated: 0,
       domainsSkipped: 0,
+      globalCreated: 0,
+      globalSkipped: 0,
       restored: false,
     });
     const library = await current.vault.run((store) => store.load());

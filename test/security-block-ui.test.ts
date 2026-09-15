@@ -64,7 +64,17 @@ afterEach(() => {
 });
 
 describe("shared security block", () => {
-  it("uses the optional first section title in the card header without a duplicate row", () => {
+  it("keeps each section title visible below the optional card title", () => {
+    const sectionOnly = fixture(source);
+    expect(
+      sectionOnly.host.querySelector(".cm-md-preview-header strong")
+        ?.textContent,
+    ).toBe("Security");
+    expect(
+      sectionOnly.host.querySelector(
+        ".cm-aic-security-section > .cm-aic-security-section-header > .cm-aic-security-section-title",
+      )?.textContent,
+    ).toBe("Main");
     const named = fixture(source.replace("## Main", "# Work account\n## Main"));
     expect(
       named.host.querySelector(".cm-md-preview-header strong")?.textContent,

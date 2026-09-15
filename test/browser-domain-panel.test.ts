@@ -1,10 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EditorView } from "@codemirror/view";
+import { AIC_EMPTY_DOCUMENT } from "../src/core/security-model.js";
 import { BrowserPanel } from "../src/browser/panel";
 import type { ActivePage, BrowserApi, Request } from "../src/browser/api";
 import {
   LibraryStore,
   type BrowserDomain,
+  type BrowserGlobal,
   type BrowserLibrary,
   type BrowserNote,
 } from "../src/browser/library";
@@ -70,12 +72,18 @@ const domain = (
 });
 
 function fixture(
-  options: { domains?: BrowserDomain[]; notes?: BrowserNote[] } = {},
+  options: {
+    domains?: BrowserDomain[];
+    notes?: BrowserNote[];
+    global?: BrowserGlobal;
+    noPage?: boolean;
+  } = {},
 ) {
   let page = first;
   let state = "unlocked";
   let library: BrowserLibrary = {
-    version: 2,
+    version: 3,
+    global: options.global ?? null,
     domains: options.domains ?? [],
     notes: options.notes ?? [],
     history: [],
@@ -110,11 +118,25 @@ function fixture(
               value = { state };
               break;
             case "context":
-              value = structuredClone(page);
+              value = options.noPage ? null : structuredClone(page);
               break;
             case "load":
             case "visit":
               value = await store.load();
+              break;
+            case "create-global":
+              value = await store.createGlobal(message.markdown);
+              emitStorage();
+              await beforeAck?.();
+              break;
+            case "save-global":
+              value = await store.saveGlobal(
+                message.id,
+                message.markdown,
+                message.revision,
+              );
+              emitStorage();
+              await beforeAck?.();
               break;
             case "create-domain":
               value = await store.createDomain(
@@ -213,7 +235,9 @@ function press(root: ParentNode, name: RegExp) {
   button!.click();
 }
 function shared(root: HTMLElement) {
-  return root.querySelector<HTMLElement>(".browser-domain-properties")!;
+  return root.querySelector<HTMLElement>(
+    '.browser-domain-properties[data-scope="domain"]',
+  )!;
 }
 function view(root: ParentNode, selector = ".cm-editor") {
   const element = root.querySelector<HTMLElement>(selector);
@@ -244,6 +268,168 @@ afterEach(() => {
   document.body.replaceChildren();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+describe("profile-global shared properties in the browser panel", () => {
+  const global = (markdown = properties("global-user")): BrowserGlobal => ({
+    id: "global-fixture",
+    scope: "global",
+    markdown,
+    createdAt: 1,
+    updatedAt: 1,
+    revision: 1,
+  });
+  const globalView = (root: HTMLElement) =>
+    root.querySelector<HTMLElement>(
+      '.browser-domain-properties[data-scope="global"]',
+    )!;
+
+  it("keeps the empty Global action inline before Shared and never persists an untouched placeholder", async () => {
+    const fake = fixture();
+    const { root } = await mount(fake.api);
+    const toolbar = root.querySelector(".browser-note .aic-toolbar")!;
+    expect(
+      [
+        ...toolbar.querySelectorAll<HTMLElement>(".browser-domain-properties"),
+      ].map((item) => item.dataset.scope),
+    ).toEqual(["global", "domain"]);
+    expect(globalView(root).textContent).toContain("Global");
+    press(globalView(root), /^Edit global shared properties$/u);
+    for (const action of [
+      "Import current content",
+      "Import Markdown file",
+      "Export Markdown file",
+    ])
+      expect(
+        root.querySelector(`.browser-toolbar [aria-label="${action}"]`),
+      ).toBeNull();
+    expect(view(globalView(root)).state.doc.toString()).toBe(
+      AIC_EMPTY_DOCUMENT,
+    );
+    press(globalView(root), /^Done$/u);
+    await vi.waitFor(() =>
+      expect(globalView(root).dataset.editing).toBe("false"),
+    );
+    expect((await fake.store.load()).global).toBeNull();
+    expect(
+      fake.messages.some((message) => message.type === "create-global"),
+    ).toBe(false);
+  });
+
+  it("shares acknowledged one-time state across panels and rejects detached Global controls", async () => {
+    const writeText = clipboard();
+    const before = "```aic\nCodes 1| global-synthetic-code | visible\n```\n";
+    const fake = fixture({
+      global: global(before),
+      domains: [domain()],
+      notes: [note(first)],
+    });
+    const a = await mount(fake.api);
+    const b = await mount(fake.api);
+    const button = globalView(a.root).querySelector<HTMLButtonElement>(
+      '[aria-label="Copy Codes one-time 1 and mark it used"]',
+    )!;
+    expect(button).not.toBeNull();
+    button.click();
+    await vi.waitFor(async () =>
+      expect((await fake.store.load()).global?.markdown).toContain(
+        "Codes 0| global-synthetic-code",
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(
+        globalView(b.root).querySelector(
+          '[aria-label="Reactivate Codes used 1 without copying"]',
+        ),
+      ).not.toBeNull(),
+    );
+    expect(writeText).toHaveBeenCalledExactlyOnceWith("global-synthetic-code");
+    expect(globalView(b.root).innerHTML).not.toContain("global-synthetic-code");
+    button.click();
+    expect(writeText).toHaveBeenCalledTimes(1);
+    press(globalView(b.root), /^Reactivate Codes used 1 without copying$/u);
+    await vi.waitFor(async () =>
+      expect((await fake.store.load()).global?.revision).toBe(3),
+    );
+    expect(writeText).toHaveBeenCalledTimes(1);
+    expect((await fake.store.load()).domains).toEqual([domain()]);
+    expect((await fake.store.load()).notes).toEqual([note(first)]);
+    expect(globalView(a.root).dataset.editing).toBe("false");
+  });
+
+  it("shows one masked global record across unrelated origins and leaves page/domain records intact", async () => {
+    const fake = fixture({
+      global: global(),
+      domains: [domain()],
+      notes: [note(first)],
+    });
+    const { root } = await mount(fake.api);
+    expect(globalView(root).textContent).toContain("global-user");
+    expect(globalView(root).innerHTML).not.toContain(
+      "synthetic-shared-password",
+    );
+    const before = await fake.store.load();
+    fake.navigate({ ...second, url: "https://unrelated.test/elsewhere" });
+    await vi.waitFor(() =>
+      expect(globalView(root)?.textContent).toContain("global-user"),
+    );
+    expect(shared(root).dataset.empty).toBe("true");
+    expect((await fake.store.load()).global).toEqual(before.global);
+    expect((await fake.store.load()).notes).toEqual(before.notes);
+    expect((await fake.store.load()).domains).toEqual(before.domains);
+  });
+
+  it("creates and saves Global with no active web page and refreshes a second panel", async () => {
+    const fake = fixture({ noPage: true });
+    const a = await mount(fake.api);
+    const b = await mount(fake.api);
+    expect(shared(a.root)).toBeNull();
+    press(globalView(a.root), /^Edit global shared properties$/u);
+    replace(view(globalView(a.root)), properties("global-no-page"));
+    press(globalView(a.root), /^Done$/u);
+    await vi.waitFor(() =>
+      expect(globalView(a.root).dataset.editing).toBe("false"),
+    );
+    await vi.waitFor(() =>
+      expect(globalView(b.root).textContent).toContain("global-no-page"),
+    );
+    expect(globalView(b.root).innerHTML).not.toContain(
+      "synthetic-shared-password",
+    );
+    expect((await fake.store.load()).global?.revision).toBe(1);
+    expect((await fake.store.load()).notes).toEqual([]);
+    expect(
+      fake.messages.filter((message) => message.type === "create-global"),
+    ).toHaveLength(1);
+    fake.lock();
+    expect(a.root.querySelector(".cm-editor")).toBeNull();
+    expect(b.root.querySelector(".browser-domain-properties")).toBeNull();
+  });
+
+  it("keeps Global dirty source during a remote conflict and clears pending ACKs on Lock", async () => {
+    const fake = fixture({ global: global() });
+    const { root } = await mount(fake.api);
+    press(globalView(root), /^Edit global shared properties$/u);
+    const editor = view(globalView(root));
+    replace(editor, properties("local-global"));
+    await fake.store.saveGlobal(
+      "global-fixture",
+      properties("remote-global"),
+      1,
+    );
+    fake.emitStorage();
+    await vi.waitFor(() =>
+      expect(root.textContent).toContain("Another window"),
+    );
+    expect(editor.state.doc.toString()).toBe(properties("local-global"));
+    expect((await fake.store.load()).global?.markdown).toBe(
+      properties("remote-global"),
+    );
+    fake.lock();
+    await new Promise((resolve) => setTimeout(resolve, 400));
+    expect(root.innerHTML).not.toContain("local-global");
+    expect(root.querySelector(".cm-editor")).toBeNull();
+  });
 });
 
 describe("shared domain Properties in the browser panel", () => {
@@ -558,7 +744,9 @@ describe("shared domain Properties in the browser panel", () => {
     expect(previewDestroy).toHaveBeenCalledOnce();
     expect(editorDestroy).toHaveBeenCalledOnce();
     for (const { root } of [a, b]) {
-      expect(root.querySelector(".browser-domain-properties")).toBeNull();
+      expect(
+        root.querySelector('.browser-domain-properties[data-scope="domain"]'),
+      ).toBeNull();
       expect(root.querySelector(".cm-editor")).toBeNull();
       expect(root.textContent).not.toContain("shared-user");
     }

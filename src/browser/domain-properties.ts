@@ -14,6 +14,7 @@ const EMPTY_PROPERTIES = AIC_EMPTY_DOCUMENT;
 
 export interface DomainPropertiesOptions {
   origin: string;
+  scope?: "domain" | "global";
   /** Null means no saved record; an invalid string is never rendered as source. */
   initialText?: string | null;
   onChange: (text: string) => void;
@@ -65,6 +66,7 @@ export class DomainPropertiesView {
     this.saved = safeSavedText(options.initialText ?? null);
     this.element = this.document.createElement("section");
     this.element.className = "browser-domain-properties";
+    this.element.dataset.scope = options.scope ?? "domain";
     applyUiComponent(this.element, "context", ["compact"]);
     this.element.dataset.editing = "false";
     const header = this.document.createElement("header");
@@ -120,12 +122,21 @@ export class DomainPropertiesView {
       displayed.kind === "empty",
     );
     this.element.classList.remove("aic-context--editing");
-    this.action.textContent = displayed.kind === "empty" ? "Shared" : "Edit";
-    this.action.setAttribute("aria-label", "Edit shared properties");
+    const global = this.options.scope === "global";
+    this.action.textContent =
+      displayed.kind === "empty" ? (global ? "Global" : "Shared") : "Edit";
+    this.action.setAttribute(
+      "aria-label",
+      global ? "Edit global shared properties" : "Edit shared properties",
+    );
     this.action.title =
       displayed.kind === "empty"
-        ? `Add shared properties for ${this.options.origin}`
-        : "Edit shared properties";
+        ? global
+          ? "Add properties shared across all pages in this browser profile"
+          : `Add shared properties for ${this.options.origin}`
+        : global
+          ? "Edit global shared properties"
+          : "Edit shared properties";
     this.action.disabled = false;
     this.action.removeAttribute("aria-busy");
     if (displayed.kind !== "valid" || displayed.text === null) {

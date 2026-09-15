@@ -298,7 +298,7 @@
     {
       "id": "core.security-blocks",
       "group": "structured-data",
-      "purpose": "Parse and render bounded AIC credential blocks with masking, copy, add, delete, filtering, diagnostics, and exact-source reordering.",
+      "purpose": "Parse and render bounded AIC credential blocks with masking, independently scoped field/section/block copy, add, delete, filtering, diagnostics, and exact-source reordering. Section copy uses canonical AIC serialization and preserves type and masking markers without copying adjacent sections.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/core/security-model.js",
@@ -327,6 +327,8 @@
       "verification": [
         "standard-notes-aic/test/security-model.test.ts",
         "standard-notes-aic/test/security-block-ui.test.ts",
+        "standard-notes-aic/test/security-section-copy.test.ts",
+        "standard-notes-aic/scripts/browser-section-copy-regression.mjs",
         "standard-notes-aic/test/security-field-actions.test.ts",
         "standard-notes-aic/test/security-add-menu.test.ts",
         "standard-notes-aic/test/security-templates.test.ts",
@@ -683,7 +685,7 @@
     {
       "id": "browser.domain-properties",
       "group": "browser-adapter",
-      "purpose": "Store one exact-origin shared AIC document separately from page Markdown, render a masked preview, and expose an explicit short-lived editor with conflict-safe drafts.",
+      "purpose": "Store one exact-origin shared AIC document separately from page Markdown, render a masked preview, and expose an explicit short-lived editor through the shared scope draft owner.",
       "hosts": ["browser"],
       "canonicalOwners": [
         "standard-notes-aic/src/browser/domain-properties.ts",
@@ -691,7 +693,8 @@
       ],
       "sourceFiles": [
         "standard-notes-aic/src/browser/domain-properties.ts",
-        "standard-notes-aic/src/browser/domain-drafts.ts"
+        "standard-notes-aic/src/browser/domain-drafts.ts",
+        "standard-notes-aic/src/browser/shared-drafts.ts"
       ],
       "entrypoints": [
         "standard-notes-aic/src/browser/panel.ts",
@@ -701,6 +704,32 @@
         "standard-notes-aic/test/browser-domain-properties.test.ts",
         "standard-notes-aic/test/browser-domain-drafts.test.ts",
         "standard-notes-aic/test/browser-domain-panel.test.ts"
+      ]
+    },
+    {
+      "id": "browser.global-properties",
+      "group": "browser-adapter",
+      "purpose": "Keep one explicit profile-local Global AIC record in encrypted library v3, visible across all origins and without a web page. Reuse the shared masked renderer and revisioned draft owner; losslessly migrate v1/v2 and report backup singleton conflicts without overwriting either source.",
+      "hosts": ["browser"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/browser/global-drafts.ts",
+        "standard-notes-aic/src/browser/shared-drafts.ts",
+        "standard-notes-aic/src/browser/domain-properties.ts"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/browser/global-drafts.ts",
+        "standard-notes-aic/src/browser/shared-drafts.ts"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/browser/panel.ts",
+        "standard-notes-aic/src/browser/service.ts",
+        "standard-notes-aic/src/browser/library.ts"
+      ],
+      "verification": [
+        "standard-notes-aic/test/browser-global.test.ts",
+        "standard-notes-aic/test/browser-domain-panel.test.ts",
+        "standard-notes-aic/test/browser-vault-store.test.ts",
+        "standard-notes-aic/test/browser-service.test.ts"
       ]
     },
     {

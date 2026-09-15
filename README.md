@@ -160,30 +160,47 @@ Legacy YAML Properties remain ordinary authored Markdown. They are not rendered 
 fields, interpreted as metadata, rewritten on save, or automatically migrated. Source
 mode keeps that text accessible for manual repair.
 
-## Release 36.0.1
+## Release 37.2.0
 
-This release pairs with AIC Notes 44.4.7 and AIC Editor Core 6.0.0. This document
+This release pairs with AIC Notes 45.1.0 and AIC Editor Core 6.1.0. This document
 describes the release source and its contracts; deployment and the hosted manifest
 are verified separately by the release workflow.
 
-Release 36.0.1 fixes the Standard Notes editor toolbar by removing the retired full
-variant and using the same single compact action set as the browser. Source mode and
-the local guide remain directly available, while Bold, Italic, Inline code, block
-styles and inserted structures remain keyboard-, Markdown- or slash-command actions.
-Wrapping prevents narrow layouts from gaining a toolbar scrollbar, and coarse-pointer
-targets remain 44 px. Browser 0.3.1 carries the changed shared host toolbar and CSS
-bundle. AIC Notes remains 44.4.7 and shared core remains 6.0.0. The browser archive
-has explicit
+Two features are included. **Copy section** in each AIC section header copies a
+standalone fenced `aic` block containing that section, including its masked and
+filter-hidden rows, without the card title or sibling sections. The shared serializer
+preserves logical values and their types; authored whitespace and quoting may change.
+Copy works in read-only views and leaves the note and save state unchanged. Unnamed
+empty sections omit the redundant action. The same
+action is shared by Standard Notes, the browser and both VS Code editor surfaces.
+
+Browser 0.4.0 adds **Global Shared**: one encrypted record in the current browser
+profile's vault, available above Domain Shared on every page and without an active
+web page. The empty **Global** action opens an editable placeholder; the first
+actual edit creates the record. This record has its own
+revision and draft; it is not copied into page or domain Markdown. Library v1/v2
+content migrates without changes, and the next write uses library v3. Older builds
+cannot read v3. During backup merge, an existing local Global record is preserved
+and a persistent notice reports that the imported Global record was skipped; the
+original encrypted backup remains available.
+
+Global Shared belongs only to the browser vault. This release does not implement
+the proposed generated-key or VS Code `global.aic` encryption architecture, account
+connections or synchronization. It makes no PWA crash-fix claim. Core 6.1.0 is an
+additive section-copy release; AIC Notes 45.1.0 adds that shared action only.
+The browser archive remains experimental and has explicit
 [verification boundaries](browser/VERIFICATION.md); use synthetic data while its
 remaining packaged-runtime gates are open. See the [browser guide](browser/README.md)
 and [marketplace HOWTO](MARKETPLACE_HOWTO.md) for installation and future submissions.
+
+The prior 36.0.1 release unified the Standard Notes and browser compact toolbar,
+including direct source and guide actions, wrapping and 44 px coarse-pointer targets.
 
 The prior 35.3.9 release introduced the typed-pipe AIC document and local guide,
 aligned card and field actions, bounded browser labels, parser-backed link labels,
 compact field menus and direct browser import/export actions. Core 6.0.0 remains
 breaking because old colon/YAML field forms are no longer active syntax; old text
-stays accessible and is not converted. This release does not include the separately
-proposed global Shared/encryption work.
+stays accessible and is not converted.
 
 The prior 34.3.1 release added the compact browser surface, metadata-only saved
 ancestors and guarded local page-note deletion, plus the shared component/BEM layer
@@ -456,6 +473,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `36.0.1` is sequence 36 with
-zero feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `37.2.0` is sequence 37 with
+two feature outcomes and zero fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

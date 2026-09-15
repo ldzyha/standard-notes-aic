@@ -55,7 +55,8 @@ function fixture(
   let state = options.state ?? "unlocked";
   let page = options.page === undefined ? firstPage : options.page;
   const library: BrowserLibrary = {
-    version: 2,
+    version: 3,
+    global: null,
     domains: [],
     notes: options.notes ?? [],
     history: options.history ?? [],

@@ -67,17 +67,17 @@ describe("publication metadata", () => {
   });
 
   it("documents the current R.F.B release and packages usage and UI contracts", () => {
-    expect(manifest.version).toBe("36.0.1");
-    expect(browserManifest.version).toBe("0.3.1");
+    expect(manifest.version).toBe("37.2.0");
+    expect(browserManifest.version).toBe("0.4.0");
     expect(changelog).toContain(`## ${manifest.version} — 2026-09-15`);
     expect(changelog).toContain(
-      "Release sequence 36 · 0 feature outcomes · 1 fixed-bug outcome",
+      "Release sequence 37 · 2 feature outcomes · 0 fixed-bug outcomes",
     );
     expect(changelog).toContain(
-      "Browser 0.3.1 includes the shared host-toolbar and CSS bundle",
+      "Browser 0.4.0 adds Global Shared in encrypted library v3",
     );
-    expect(marketplaceHowto).toContain("aic-browser-chromium-0.3.1.zip");
-    expect(marketplaceHowto).toContain("Standard Notes AIC **36.0.1**");
+    expect(marketplaceHowto).toContain("aic-browser-chromium-0.4.0.zip");
+    expect(marketplaceHowto).toContain("Standard Notes AIC **37.2.0**");
     expect(readme).toContain("## Slash templates");
     expect(readme).toContain("`Tab` to move through");
     expect(readme).toContain("ordinary `.md` documents");

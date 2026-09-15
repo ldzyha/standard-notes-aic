@@ -52,7 +52,8 @@ function fixture(
     url: "https://example.com/a",
   };
   const library: BrowserLibrary = {
-    version: 2,
+    version: 3,
+    global: null,
     domains: [],
     notes: options.notes ?? [],
     history: [],

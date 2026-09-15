@@ -251,6 +251,12 @@
   margin-left: auto;
   padding: 0;
 }
+.browser-panel
+  .aic-toolbar--compact
+  > .browser-domain-properties
+  + .browser-domain-properties {
+  margin-left: 0;
+}
 .browser-domain-properties[data-editing="false"][data-empty="true"]
   .browser-domain-properties-header {
   display: block;
@@ -271,7 +277,8 @@
 .browser-content[data-domain-editing="true"] .browser-note {
   display: none;
 }
-.browser-content[data-domain-editing="true"] .browser-shared-host {
+.browser-content[data-domain-editing="true"]
+  .browser-shared-host:has([data-editing="true"]) {
   display: flex;
   flex: 1;
   max-height: none;

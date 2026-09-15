@@ -325,6 +325,14 @@ function button(document, label, icon, onActivate, disabled = false) {
   });
 }
 
+function sectionCopyMarkdown(section, block) {
+  const fence = /^(?:`{3,}|~{3,})$/u.test(block.fence ?? "")
+    ? block.fence
+    : "```";
+  const body = serializeSecurityBlock({ sections: [section] }, block);
+  return `${fence}aic\n${body}${fence}`;
+}
+
 function selectionIntersects(state, block, previewOnly = false) {
   // A read-only domain preview must never reveal raw Properties (and secrets)
   // just because a keyboard or pointer selection crosses its replacement.
@@ -1302,7 +1310,7 @@ class SecurityBlockWidget extends WidgetType {
     title.textContent = isProperties
       ? "Properties"
       : parsed.ok
-        ? (parsed.model.title ?? (parsed.model.sections[0].label || "Security"))
+        ? (parsed.model.title ?? "Security")
         : "Security";
     const actions = document.createElement("span");
     actions.className = "cm-md-preview-actions";
@@ -1541,12 +1549,40 @@ class SecurityBlockWidget extends WidgetType {
         applyUiComponent(sectionHeading, "card", [], "section-title");
         sectionHeading.textContent = isProperties
           ? section.label || "Group " + (sectionIndex + 1)
-          : sectionIndex > 0 || parsed.model.title !== undefined
-            ? section.label
-            : "";
+          : section.label;
         if (sectionHeading.textContent) sectionHeader.append(sectionHeading);
         group.append(sectionHeader);
         if (!isProperties) {
+          if (section.label || section.fields.length) {
+            const sectionName = section.label || String(sectionIndex + 1);
+            const copyStatus = document.createElement("span");
+            copyStatus.className = "cm-aic-security-field-status";
+            applyUiComponent(copyStatus, "field", [], "status");
+            copyStatus.setAttribute("role", "status");
+            const copySection = document.createElement("span");
+            copySection.className = "cm-aic-security-inline-actions";
+            applyUiComponent(copySection, "card", [], "section-actions");
+            copySection.append(
+              button(
+                document,
+                "Copy section " + sectionName,
+                "copy",
+                async () => {
+                  const block = this.currentBlock(view);
+                  if (!block || !wrapper.isConnected) return;
+                  await copyValue(
+                    sectionCopyMarkdown(section, block),
+                    section.label
+                      ? `${section.label} section`
+                      : `section ${sectionName}`,
+                    copyStatus,
+                  );
+                },
+              ),
+              copyStatus,
+            );
+            sectionHeader.append(copySection);
+          }
           if (nearLimit(section.fields.length, SECURITY_LIMITS.maxFields)) {
             const count = document.createElement("span");
             count.className = "cm-aic-security-field-count";

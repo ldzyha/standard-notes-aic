@@ -49,7 +49,8 @@ const note = (page: ActivePage, markdown: string): BrowserNote => ({
 function fixture() {
   let page = firstPage;
   const library: BrowserLibrary = {
-    version: 2,
+    version: 3,
+    global: null,
     notes: [note(firstPage, "First"), note(secondPage, "Second")],
     history: [],
     domains: [],

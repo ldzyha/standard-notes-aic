@@ -15,10 +15,23 @@ const browser = await chromium.launch({
   executablePath:
     "C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe",
 });
+const report = {
+  browserVersion: browser.version(),
+  initial: null,
+  workloads: [],
+  final: null,
+  errors: [],
+  crashes: 0,
+  unexpectedDisconnects: 0,
+};
+let closing = false;
+browser.on("disconnected", () => {
+  if (!closing) report.unexpectedDisconnects++;
+});
 try {
   const page = await browser.newPage({ viewport: { width: 600, height: 850 } });
-  const errors = [];
-  page.on("pageerror", (error) => errors.push(error.message));
+  page.on("pageerror", (error) => report.errors.push(error.message));
+  page.on("crash", () => report.crashes++);
   await page.goto(url.href);
   await page.evaluate(async () => {
     const { AicEditor } = await import("/src/editor.ts");
@@ -26,7 +39,9 @@ try {
     document.querySelector("#app").replaceChildren();
     // Warm one-time renderer/sanitizer caches before measuring retained growth.
     const warm = new AicEditor(document.querySelector("#app"), {
-      initialText: "```aic\nAccount*: synthetic | example.invalid\n```\n\nEnd",
+      initialText:
+        "```aic\nAccount *| synthetic | example.invalid\n```\n\n" +
+        '```javascript\nconst value = "synthetic";\n```\n\nEnd',
     });
     warm.destroy();
   });
@@ -48,9 +63,9 @@ try {
     };
   };
   const initial = await sample();
-  const workloads = [];
-  for (const mode of ["many-blocks", "large-block"]) {
-    await page.evaluate(async (mode) => {
+  report.initial = initial;
+  for (const mode of ["many-blocks", "large-block", "source-code"]) {
+    const fixture = await page.evaluate(async (mode) => {
       const { parseSecurityBlock } =
         await import("/src/core/security-model.js");
       const sections = Array.from(
@@ -60,37 +75,66 @@ try {
           Array.from(
             { length: 48 },
             (_, field) =>
-              `Account ${field}*: synthetic-${section}-${field} | account${field}@example.invalid`,
+              `Account ${field} *| synthetic-${section}-${field} | account${field}@example.invalid`,
           ).join("\n"),
       );
       const text =
-        mode === "large-block"
-          ? "```aic\n" + sections.join("\n---\n") + "\n```"
-          : Array.from(
-              { length: 48 },
-              (_, block) =>
-                "```aic\n# Service " +
-                block +
-                "\n" +
-                Array.from(
-                  { length: 8 },
-                  (_, field) =>
-                    `Account ${field}*: synthetic-${block}-${field} | account@example.invalid`,
-                ).join("\n") +
-                "\n```",
-            ).join("\n\n");
+        mode === "source-code"
+          ? "```javascript\n" +
+            Array.from(
+              { length: 10_000 },
+              (_, line) =>
+                `const data${line} = {key: "synthetic", value: ${line}};`,
+            ).join("\n") +
+            "\n```"
+          : mode === "large-block"
+            ? "```aic\n" + sections.join("\n---\n") + "\n```"
+            : Array.from(
+                { length: 48 },
+                (_, block) =>
+                  "```aic\n# Service " +
+                  block +
+                  "\n" +
+                  Array.from(
+                    { length: 8 },
+                    (_, field) =>
+                      `Account ${field} *| synthetic-${block}-${field} | account@example.invalid`,
+                  ).join("\n") +
+                  "\n```",
+              ).join("\n\n");
       const host = document.querySelector("#app");
+      let fieldCount = 0;
       for (const match of text.matchAll(/```aic\n([\s\S]*?)\n```/gu)) {
         const parsed = parseSecurityBlock(match[1]);
         if (!parsed.ok)
           throw new Error("Stress fixture must be valid: " + mode);
+        for (const section of parsed.model.sections) {
+          for (const field of section.fields) {
+            if (
+              field.parts.length !== 2 ||
+              field.parts[0].kind !== "secret" ||
+              field.parts[1].kind !== "text"
+            )
+              throw new Error("Stress fixture must exercise typed parts");
+            fieldCount++;
+          }
+        }
       }
+      if (mode !== "source-code" && fieldCount !== 384)
+        throw new Error("Stress fixture must contain 384 typed rows");
       host.style.cssText = "height:100vh;display:flex";
       const editor = new window.memoryEditorType(host, {
         initialText: text + "\n\nEditing here",
       });
       window.memoryQa = editor;
-      editor.view.dispatch({ selection: { anchor: editor.value.length } });
+      // Code edits stay inside a quoted JS value, with nested language support
+      // active in both whole-note Source and local source inside preview mode.
+      window.memoryEditAt =
+        mode === "source-code"
+          ? editor.value.indexOf("synthetic") + "synthetic".length
+          : editor.value.length;
+      editor.view.dispatch({ selection: { anchor: window.memoryEditAt } });
+      return { characters: editor.value.length, fieldCount };
     }, mode);
     const edit = (count) =>
       page.evaluate(async (count) => {
@@ -101,12 +145,13 @@ try {
             editor.toolbar.element
               .querySelector('[aria-label="Show Markdown source"]')
               ?.click();
-          const at = editor.value.length;
+          const at = window.memoryEditAt;
           const started = performance.now();
           editor.view.dispatch({
             changes: { from: at, insert: "x" },
             selection: { anchor: at + 1 },
           });
+          window.memoryEditAt++;
           timings.push(performance.now() - started);
           if (index % 20 === 10)
             editor.toolbar.element
@@ -150,13 +195,27 @@ try {
       await page.evaluate(() => Boolean(window.memoryClosedRoot.deref())),
       false,
     );
-    workloads.push({ mode, edits: 340, baseline, batches, disposed });
+    report.workloads.push({
+      mode,
+      ...fixture,
+      edits: 340,
+      baseline,
+      batches,
+      disposed,
+    });
   }
   const final = await sample();
-  console.log(JSON.stringify({ initial, workloads, final, errors }, null, 2));
+  report.final = final;
   assert.ok(final.nodes <= initial.nodes + 30);
   assert.ok(final.jsEventListeners <= initial.jsEventListeners + 4);
-  assert.deepEqual(errors, []);
+  assert.deepEqual(report.errors, []);
+  assert.equal(report.crashes, 0);
+  assert.equal(report.unexpectedDisconnects, 0);
+} catch (error) {
+  report.failure = error.message;
+  throw error;
 } finally {
+  closing = true;
   await browser.close();
+  console.log(JSON.stringify(report, null, 2));
 }

@@ -3,6 +3,11 @@ import { AIC_EMPTY_DOCUMENT } from "../core/security-model.js";
 import { request, type ActivePage, type BrowserApi } from "./api";
 import { BrowserDrafts, type Draft } from "./drafts";
 import { DomainDrafts, type DomainDraft } from "./domain-drafts";
+import {
+  GlobalDrafts,
+  GLOBAL_CONTEXT,
+  type GlobalDraft,
+} from "./global-drafts";
 import { DomainPropertiesView } from "./domain-properties";
 import { savedPageAncestors } from "./page-ancestors";
 import { applyUiComponent, createUiButton } from "../core/ui-system.js";
@@ -11,6 +16,7 @@ import {
   buildDomainTree,
   type BrowserLibrary,
   type BrowserDomain,
+  type BrowserGlobal,
   type BrowserNote,
 } from "./library";
 import {
@@ -27,10 +33,11 @@ import type { VaultStatus } from "./vault-store";
 const SESSION_KEY = "aic-browser-unlock";
 const PLACEHOLDER_TEXT = AIC_EMPTY_DOCUMENT;
 const emptyLibrary = (): BrowserLibrary => ({
-  version: 2,
+  version: 3,
   notes: [],
   history: [],
   domains: [],
+  global: null,
 });
 
 /** One panel owns its window context and ephemeral plaintext. The worker owns storage. */
@@ -50,6 +57,10 @@ export class BrowserPanel {
   private noteId: string | null = null;
   private drafts: BrowserDrafts | null = null;
   private domainDrafts: DomainDrafts | null = null;
+  private globalDrafts: GlobalDrafts | null = null;
+  private globalShared: DomainPropertiesView | null = null;
+  private globalKey: string | null = null;
+  private globalRefreshDeferred = false;
   private shared: DomainPropertiesView | null = null;
   private domainKey: string | null = null;
   private domainReload: Promise<void> | null = null;
@@ -169,13 +180,15 @@ export class BrowserPanel {
     const theme = () => {
       this.editor?.refreshTheme();
       this.shared?.refreshTheme();
+      this.globalShared?.refreshTheme();
     };
     media?.addEventListener("change", theme);
     this.cleanups.push(() => media?.removeEventListener("change", theme));
     const beforeUnload = (event: BeforeUnloadEvent) => {
       if (
         this.drafts?.hasPendingChanges() ||
-        this.domainDrafts?.hasPendingChanges()
+        this.domainDrafts?.hasPendingChanges() ||
+        this.globalDrafts?.hasPendingChanges()
       ) {
         event.preventDefault();
         event.returnValue = "";
@@ -364,7 +377,7 @@ export class BrowserPanel {
         identity.append(source);
       }
       this.toolbar.append(identity);
-      if (this.page && !this.shared?.editing) {
+      if (this.page && !this.shared?.editing && !this.globalShared?.editing) {
         const capture = this.importIconButton(
           "Import current content",
           "↳",
@@ -446,7 +459,12 @@ export class BrowserPanel {
   private showMoreMenu(trigger: HTMLButtonElement): void {
     const box = this.showPopover("More options", trigger);
     if (!box) return;
-    if (this.page && this.canUseLibrary()) {
+    if (
+      this.page &&
+      this.canUseLibrary() &&
+      !this.shared?.editing &&
+      !this.globalShared?.editing
+    ) {
       const page = { ...this.page };
       const draft = this.drafts?.getForPage(page.url);
       const hasNote =
@@ -895,6 +913,44 @@ export class BrowserPanel {
         },
       );
     }
+    if (!this.globalDrafts) {
+      const generation = this.generation;
+      this.globalDrafts = new GlobalDrafts(
+        async (id, markdown, revision) => {
+          if (!this.valid(generation)) throw new Error("AIC is locked.");
+          return request<BrowserGlobal>(this.api, {
+            type: "save-global",
+            id,
+            markdown,
+            revision,
+          });
+        },
+        (draft) => {
+          if (!this.valid(generation)) return;
+          if (
+            draft.record &&
+            (!this.library.global ||
+              (this.library.global.id === draft.record.id &&
+                this.library.global.revision <= draft.record.revision))
+          )
+            this.library.global = draft.record;
+          if (this.globalKey === draft.key)
+            this.reflectDomainDraft(draft, this.globalShared);
+          this.renderDraftWarnings();
+          if (this.globalRefreshDeferred && !draft.saving) {
+            this.globalRefreshDeferred = false;
+            this.refreshSharedData();
+          }
+        },
+        async (_context, markdown) => {
+          if (!this.valid(generation)) throw new Error("AIC is locked.");
+          return request<BrowserGlobal>(this.api, {
+            type: "create-global",
+            markdown,
+          });
+        },
+      );
+    }
     await this.refreshContext();
   }
 
@@ -930,6 +986,9 @@ export class BrowserPanel {
     this.shared?.destroy();
     this.shared = null;
     this.domainKey = null;
+    this.globalShared?.destroy();
+    this.globalShared = null;
+    this.globalKey = null;
     this.content.dataset.domainEditing = "false";
   }
 
@@ -981,6 +1040,7 @@ export class BrowserPanel {
       );
       return;
     }
+    this.mountGlobalProperties();
     if (this.page) {
       this.mountSharedProperties();
       this.content.append(this.el("nav", "browser-page-ancestors"));
@@ -1078,6 +1138,7 @@ export class BrowserPanel {
     const generation = this.generation;
     const context = this.contextGeneration;
     const host = this.el("section", "browser-shared-host");
+    host.dataset.scope = "domain";
     this.content.append(host);
     this.shared = new DomainPropertiesView(host, {
       origin,
@@ -1093,7 +1154,9 @@ export class BrowserPanel {
       },
       onEditingChange: (editing) => {
         if (!this.valid(generation, context)) return;
-        this.content.dataset.domainEditing = String(editing);
+        this.content.dataset.domainEditing = String(
+          editing || this.globalShared?.editing || false,
+        );
         this.placeSharedProperties();
         this.renderToolbar();
         if (!editing) this.editor?.focus();
@@ -1107,16 +1170,58 @@ export class BrowserPanel {
     this.reflectDomainDraft(draft);
   }
 
-  /** An empty shared scope is one toolbar action, not an extra header row. */
+  private mountGlobalProperties(): void {
+    if (!this.globalDrafts) return;
+    const draft = this.library.global
+      ? this.globalDrafts.activate(this.library.global)
+      : this.globalDrafts.activatePlaceholder(GLOBAL_CONTEXT, PLACEHOLDER_TEXT);
+    this.globalKey = draft.key;
+    const generation = this.generation;
+    const context = this.contextGeneration;
+    const host = this.el("section", "browser-shared-host");
+    host.dataset.scope = "global";
+    this.content.append(host);
+    this.globalShared = new DomainPropertiesView(host, {
+      origin: "Global Shared",
+      scope: "global",
+      initialText: draft.record?.markdown ?? null,
+      onChange: (text) => {
+        if (this.valid(generation, context))
+          this.globalDrafts?.edit(draft.key, text);
+      },
+      onSave: (text) => {
+        if (!this.valid(generation, context)) return Promise.resolve(false);
+        this.globalDrafts!.edit(draft.key, text);
+        return this.globalDrafts!.flush(draft.key);
+      },
+      onEditingChange: (editing) => {
+        if (!this.valid(generation, context)) return;
+        this.content.dataset.domainEditing = String(
+          editing || this.shared?.editing || false,
+        );
+        this.placeSharedProperties();
+        this.renderToolbar();
+        if (!editing) this.editor?.focus();
+      },
+    });
+    if (draft.dirty) this.globalShared.startEditing(draft.text);
+    this.reflectDomainDraft(draft, this.globalShared);
+  }
+
+  /** Empty scopes share compact inline actions in Global, then domain order. */
   private placeSharedProperties(): void {
-    if (!this.shared) return;
-    const empty =
-      !this.shared.editing && this.shared.element.dataset.empty === "true";
     const toolbar = this.content.querySelector(".browser-note .aic-toolbar");
-    const host = this.content.querySelector(".browser-shared-host");
-    const target = empty && toolbar ? toolbar : host;
-    if (target && this.shared.element.parentElement !== target)
-      target.append(this.shared.element);
+    for (const view of [this.globalShared, this.shared]) {
+      if (!view) continue;
+      const empty = !view.editing && view.element.dataset.empty === "true";
+      const scope = view === this.globalShared ? "global" : "domain";
+      const host = this.content.querySelector(
+        `.browser-shared-host[data-scope="${scope}"]`,
+      );
+      const target = empty && toolbar ? toolbar : host;
+      if (target && view.element.parentElement !== target)
+        target.append(view.element);
+    }
   }
 
   private renderPageAncestors(): void {
@@ -1151,11 +1256,14 @@ export class BrowserPanel {
     nav.append(list);
   }
 
-  private reflectDomainDraft(draft: DomainDraft): void {
-    if (!this.shared) return;
+  private reflectDomainDraft(
+    draft: DomainDraft | GlobalDraft,
+    view = this.shared,
+  ): void {
+    if (!view) return;
     if (!draft.dirty && !draft.saving && draft.record)
-      this.shared.update(draft.record.markdown);
-    this.shared.setSaveState(
+      view.update(draft.record.markdown);
+    view.setSaveState(
       draft.dirty ? "dirty" : draft.record ? "saved" : "placeholder",
       draft.saving,
       draft.error
@@ -1209,6 +1317,23 @@ export class BrowserPanel {
           else if (this.library.domains[index]!.revision <= record.revision)
             this.library.domains[index] = record;
         }
+        if (
+          library.global &&
+          (!this.library.global ||
+            library.global.id !== this.library.global.id ||
+            library.global.revision >= this.library.global.revision)
+        )
+          this.library.global = library.global;
+        if (this.globalShared && this.globalDrafts && this.library.global) {
+          if (this.globalKey && this.globalDrafts.get(this.globalKey)?.saving)
+            this.globalRefreshDeferred = true;
+          else {
+            const draft = this.globalDrafts.activate(this.library.global);
+            this.globalKey = draft.key;
+            if (!draft.dirty) this.globalShared.update(draft.text);
+            this.reflectDomainDraft(draft, this.globalShared);
+          }
+        }
         if (!this.page || !this.shared || !this.domainDrafts) continue;
         const origin = new URL(this.page.url).origin;
         const record = this.library.domains.find(
@@ -1244,6 +1369,7 @@ export class BrowserPanel {
     const results = await Promise.all([
       this.drafts?.flushAll() ?? true,
       this.domainDrafts?.flushAll() ?? true,
+      this.globalDrafts?.flushAll() ?? true,
     ]);
     return results.every(Boolean);
   }
@@ -1276,6 +1402,20 @@ export class BrowserPanel {
         ),
         this.button("Export unsaved shared properties", () =>
           this.exportDomainDraft(draft.key),
+        ),
+      );
+      target.append(warning);
+    }
+    for (const draft of this.globalDrafts?.dirtyDrafts() ?? []) {
+      if (!draft.error) continue;
+      const warning = this.el("div", "browser-draft-error");
+      warning.append(
+        this.el("p", "", `Global: ${draft.error}`),
+        this.button("Retry global save", () =>
+          this.globalDrafts?.flush(draft.key),
+        ),
+        this.button("Export unsaved global properties", () =>
+          this.exportDomainDraft(draft.key, true),
         ),
       );
       target.append(warning);
@@ -1509,12 +1649,16 @@ export class BrowserPanel {
     );
   }
 
-  private exportDomainDraft(key: string): void {
-    const draft = this.domainDrafts?.get(key);
+  private exportDomainDraft(key: string, global = false): void {
+    const draft = global
+      ? this.globalDrafts?.get(key)
+      : this.domainDrafts?.get(key);
     if (!draft) return;
     this.download(
       draft.text,
-      "aic-unsaved-shared-properties.md",
+      global
+        ? "aic-unsaved-global-properties.md"
+        : "aic-unsaved-shared-properties.md",
       "text/markdown;charset=utf-8",
     );
     this.tell(
@@ -1611,6 +1755,8 @@ export class BrowserPanel {
           skipped: number;
           domainsCreated: number;
           domainsSkipped: number;
+          globalCreated: number;
+          globalSkipped: number;
         }>(this.api, { type: "import", text, password: phrase });
         phrase = "";
         const result = await pending;
@@ -1621,7 +1767,8 @@ export class BrowserPanel {
         await this.startUnlocked();
         if (this.valid(generation))
           this.tell(
-            `Imported ${result.created} notes and ${result.domainsCreated} shared sets; skipped ${result.skipped} existing URLs and ${result.domainsSkipped} existing shared sets.`,
+            `Imported ${result.created} notes and ${result.domainsCreated} domain shared sets; skipped ${result.skipped} existing URLs and ${result.domainsSkipped} existing domain shared sets.${result.globalCreated ? " Imported Global properties." : ""}${result.globalSkipped ? " Kept existing Global properties; the backup’s Global properties were skipped and remain in your backup file." : ""}`,
+            result.globalSkipped ? "progress" : "info",
           );
       })()
         .catch(async (error: unknown) => {
@@ -1747,6 +1894,12 @@ export class BrowserPanel {
             () => this.exportDomainDraft(draft.key),
           ),
         );
+      for (const draft of this.globalDrafts?.dirtyDrafts() ?? [])
+        this.overlay.append(
+          this.button("Export unsaved global properties", () =>
+            this.exportDomainDraft(draft.key, true),
+          ),
+        );
       this.overlay.append(
         this.button("Discard unsaved changes and lock", () => this.lock(true)),
         this.button("Keep editing", () => this.closeOverlay()),
@@ -1783,6 +1936,9 @@ export class BrowserPanel {
     this.drafts = null;
     this.domainDrafts?.dispose();
     this.domainDrafts = null;
+    this.globalDrafts?.dispose();
+    this.globalDrafts = null;
+    this.globalRefreshDeferred = false;
     this.domainReload = null;
     this.domainRefreshDeferred = false;
     ++this.domainReloadRevision;

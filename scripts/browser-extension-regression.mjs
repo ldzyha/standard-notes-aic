@@ -41,6 +41,16 @@ const profile = await mkdtemp(path.join(tmpdir(), "aic-extension-regression-"));
 const syntheticPassword = "synthetic-packaged-test-passphrase-only";
 const syntheticMarkdown = "Synthetic packaged extension note 82751";
 const syntheticSharedSecret = "SYNTHETIC-ONLY-SHARED-SECRET-82751";
+const syntheticGlobalSecret = "SYNTHETIC-ONLY-GLOBAL-SECRET-82751";
+const syntheticGlobalMarkdown = [
+  "```aic",
+  "# Profile",
+  "## Everywhere",
+  `Password *| ${syntheticGlobalSecret}`,
+  "Username | profile@example.invalid",
+  "```",
+  "",
+].join("\n");
 const syntheticSharedMarkdown = [
   "```aic",
   "# Properties",
@@ -50,6 +60,9 @@ const syntheticSharedMarkdown = [
   "",
 ].join("\n");
 const childFixture = new URL("./two", fixture);
+const otherFixture = new URL(fixture);
+otherFixture.hostname =
+  fixture.hostname === "localhost" ? "127.0.0.1" : "localhost";
 const results = {
   packagedExtension: true,
   browser: executable,
@@ -70,6 +83,8 @@ async function assertNoSharedPlaintextOnDisk() {
   const markers = [
     Buffer.from(syntheticSharedSecret),
     Buffer.from(syntheticSharedSecret, "utf16le"),
+    Buffer.from(syntheticGlobalSecret),
+    Buffer.from(syntheticGlobalSecret, "utf16le"),
   ];
   const stack = [profile];
   let inspected = 0;
@@ -266,7 +281,9 @@ async function loadLibrary(page) {
 }
 
 async function assertMaskedSharedPreview(page) {
-  const shared = page.locator(".browser-domain-properties");
+  const shared = page.locator(
+    '.browser-domain-properties[data-scope="domain"]',
+  );
   await shared.waitFor();
   const preview = shared.getByLabel("Shared properties preview");
   await preview.waitFor();
@@ -280,6 +297,24 @@ async function assertMaskedSharedPreview(page) {
     await preview.evaluate((element) => element.outerHTML),
     /SYNTHETIC-ONLY-SHARED-SECRET-82751/u,
   );
+}
+
+async function assertMaskedGlobalPreview(page) {
+  const shared = page.locator(
+    '.browser-domain-properties[data-scope="global"]',
+  );
+  await shared
+    .getByRole("button", { name: "Copy Password value", exact: true })
+    .waitFor();
+  assert.equal(await shared.getAttribute("data-editing"), "false");
+  assert.equal(await shared.locator(".aic-editor").count(), 0);
+  assert.equal(
+    (await shared.evaluate((element) => element.outerHTML)).includes(
+      syntheticGlobalSecret,
+    ),
+    false,
+  );
+  assert.ok((await shared.textContent()).includes("Global Shared"));
 }
 
 async function attachTarget(cdp, targetId) {
@@ -339,6 +374,13 @@ try {
     "packaged MV3 service worker started in isolated profile",
   );
   await context.route(`${fixture.origin}/**`, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "text/html",
+      body: fixtureHtml(route.request().url()),
+    }),
+  );
+  await context.route(`${otherFixture.origin}/**`, (route) =>
     route.fulfill({
       status: 200,
       contentType: "text/html",
@@ -497,7 +539,9 @@ try {
         document.querySelector(".cm-content")?.textContent?.includes(expected),
       syntheticMarkdown,
     );
-    const shared = sidePage.locator(".browser-domain-properties");
+    const shared = sidePage.locator(
+      '.browser-domain-properties[data-scope="domain"]',
+    );
     await shared
       .getByRole("button", { name: "Edit shared properties" })
       .click();
@@ -522,7 +566,9 @@ try {
     await sidePage
       .waitForFunction(
         () => {
-          const shared = document.querySelector(".browser-domain-properties");
+          const shared = document.querySelector(
+            '.browser-domain-properties[data-scope="domain"]',
+          );
           return (
             shared?.getAttribute("data-editing") === "false" ||
             !!shared
@@ -553,13 +599,43 @@ try {
     );
     await assertMaskedSharedPreview(sidePage);
     const storedLibrary = await loadLibrary(sidePage);
-    assert.equal(storedLibrary.version, 2);
+    assert.equal(storedLibrary.version, 3);
+    assert.equal(
+      storedLibrary.global,
+      null,
+      "Untouched Global placeholder must not create a record.",
+    );
     assert.equal(storedLibrary.notes.length, 1);
     assert.equal(storedLibrary.domains.length, 1);
     assert.equal(storedLibrary.domains[0].origin, fixture.origin);
     assert.equal(storedLibrary.domains[0].markdown, syntheticSharedMarkdown);
     results.passed.push(
       "genuine sidebar saved exactly one shared domain Properties record",
+    );
+    const global = sidePage.locator(
+      '.browser-domain-properties[data-scope="global"]',
+    );
+    await global
+      .getByRole("button", { name: "Edit global shared properties" })
+      .click();
+    await global.getByRole("button", { name: "Show Markdown source" }).click();
+    await global.locator(".aic-editor .cm-content").click();
+    await sidePage.keyboard.press("Control+A");
+    await sidePage.keyboard.insertText(syntheticGlobalMarkdown);
+    await global.getByRole("button", { name: "Done", exact: true }).click();
+    await sidePage.waitForFunction(
+      () =>
+        document
+          .querySelector('.browser-domain-properties[data-scope="global"]')
+          ?.getAttribute("data-editing") === "false",
+    );
+    await assertMaskedGlobalPreview(sidePage);
+    assert.equal(
+      (await loadLibrary(sidePage)).global.markdown,
+      syntheticGlobalMarkdown,
+    );
+    results.passed.push(
+      "Global Shared first edit creates one encrypted profile record through visible sidebar UI",
     );
     await source.goto(childFixture.href);
     await sidePage.waitForFunction(() =>
@@ -568,12 +644,79 @@ try {
         ?.textContent?.includes("Synthetic child fixture"),
     );
     await assertMaskedSharedPreview(sidePage);
+    await assertMaskedGlobalPreview(sidePage);
     assert.equal((await loadLibrary(sidePage)).domains.length, 1);
     await sidePage.screenshot({
       path: path.join(output, "package-domain-child-before-edge.png"),
     });
     results.passed.push(
       "same-origin child inherits masked shared Properties preview",
+    );
+    for (const [theme, width] of [
+      ["light", 320],
+      ["dark", 320],
+      ["dark", 600],
+    ]) {
+      await sidePage.emulateMedia({ colorScheme: theme });
+      await sidePage.setViewportSize({ width, height: 720 });
+      await sidePage.evaluate(
+        () =>
+          new Promise((resolve) =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve)),
+          ),
+      );
+      const geometry = await sidePage.evaluate(() => {
+        const global = document
+          .querySelector('.browser-shared-host[data-scope="global"]')
+          .getBoundingClientRect();
+        const domain = document
+          .querySelector('.browser-shared-host[data-scope="domain"]')
+          .getBoundingClientRect();
+        return {
+          overflow: document.documentElement.scrollWidth > innerWidth,
+          ordered: global.bottom <= domain.top + 1,
+        };
+      });
+      assert.deepEqual(geometry, { overflow: false, ordered: true });
+      await assertMaskedGlobalPreview(sidePage);
+      await sidePage.screenshot({
+        path: path.join(output, `package-shared-${theme}-${width}-edge.png`),
+      });
+    }
+    results.passed.push(
+      "Global then domain layout stays masked and bounded at 320/600px in light/dark Edge",
+    );
+    await source.goto(otherFixture.href);
+    await sidePage.waitForFunction(
+      (host) =>
+        document.querySelector(".browser-page-origin")?.textContent === host,
+      otherFixture.host,
+    );
+    await assertMaskedGlobalPreview(sidePage);
+    assert.equal(
+      await sidePage
+        .locator('.browser-domain-properties[data-scope="domain"]')
+        .getAttribute("data-empty"),
+      "true",
+    );
+    const differentOriginLibrary = await loadLibrary(sidePage);
+    assert.equal(differentOriginLibrary.notes.length, 1);
+    assert.equal(differentOriginLibrary.domains.length, 1);
+    assert.equal(
+      differentOriginLibrary.global.markdown,
+      syntheticGlobalMarkdown,
+    );
+    results.passed.push(
+      "Global follows another origin without copying into page notes or domain data",
+    );
+    await source.goto("about:blank");
+    await sidePage.locator(".browser-empty-context").waitFor();
+    await assertMaskedGlobalPreview(sidePage);
+    await sidePage.screenshot({
+      path: path.join(output, "package-global-no-page-edge.png"),
+    });
+    results.passed.push(
+      "Global Shared remains available without a supported active page",
     );
     await source.goto(fixture.href);
     await sidePage.waitForFunction(
@@ -598,6 +741,7 @@ try {
       /Synthetic packaged extension note 82751|synthetic-packaged-test-passphrase-only/u,
     );
     assert.equal(localJson.includes(syntheticSharedSecret), false);
+    assert.equal(localJson.includes(syntheticGlobalSecret), false);
     results.passed.push(
       "genuine sidebar saved note to encrypted chrome.storage.local",
     );
@@ -694,6 +838,8 @@ try {
     assert.equal(reopenedLibrary.domains.length, 1);
     assert.equal(reopenedLibrary.domains[0].origin, fixture.origin);
     assert.equal(reopenedLibrary.domains[0].markdown, syntheticSharedMarkdown);
+    assert.equal(reopenedLibrary.global.markdown, syntheticGlobalMarkdown);
+    await assertMaskedGlobalPreview(reopenedPanel);
     await assertMaskedSharedPreview(reopenedPanel);
     await reopenedSource.goto(childFixture.href);
     await reopenedPanel.waitForFunction(() =>

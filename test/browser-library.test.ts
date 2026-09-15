@@ -233,7 +233,8 @@ describe("local browser library", () => {
     const persistence = memory({ version: 1, notes: [root], history: [] });
     const store = new LibraryStore(persistence);
     expect(await store.load()).toEqual({
-      version: 2,
+      version: 3,
+      global: null,
       notes: [root],
       history: [],
       domains: [],
@@ -242,7 +243,8 @@ describe("local browser library", () => {
     await store.createDomain("https://example.com", properties("shared"));
     expect((await store.load()).notes).toEqual([root]);
     expect(persistence.value).toMatchObject({
-      version: 2,
+      version: 3,
+      global: null,
       domains: [{ origin: "https://example.com" }],
     });
   });
@@ -354,7 +356,8 @@ describe("local browser library", () => {
       properties("local"),
     );
     const incoming = {
-      version: 2,
+      version: 3,
+      global: null,
       notes: [],
       history: [],
       domains: [
@@ -405,7 +408,8 @@ describe("local browser library", () => {
     ).toThrow(LibraryError);
     expect(() =>
       validateBrowserLibrary({
-        version: 2,
+        version: 3,
+        global: null,
         notes: [],
         history: [],
         domains: Array.from({ length: 501 }, (_, index) => ({
@@ -420,7 +424,8 @@ describe("local browser library", () => {
   it("loads and transfers unsupported stored Shared text without parsing, changing or losing it", async () => {
     const source = "---\n# aic-fields: v2\nPassword*: legacy-secret\n---\n";
     const stored = {
-      version: 2,
+      version: 3,
+      global: null,
       notes: [],
       history: [],
       domains: [
@@ -459,7 +464,13 @@ describe("local browser library", () => {
       updatedAt: 1,
       revision: 1,
     }));
-    const persistence = memory({ version: 2, notes: [], history: [], domains });
+    const persistence = memory({
+      version: 3,
+      global: null,
+      notes: [],
+      history: [],
+      domains,
+    });
     const store = new LibraryStore(persistence);
     await expect(
       store.createDomain(
@@ -484,7 +495,8 @@ describe("local browser library", () => {
     loaded.notes[0]!.markdown = "Corruption attempt";
     expect((await second.load()).notes[0]?.markdown).toBe("Original");
     expect(JSON.parse(await second.exportBackup())).toMatchObject({
-      version: 2,
+      version: 3,
+      global: null,
       notes: [{ markdown: "Original" }],
     });
   });

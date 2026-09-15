@@ -18,10 +18,21 @@ export interface PageVisit {
 }
 
 export interface BrowserLibrary {
-  version: 2;
+  version: 3;
   notes: BrowserNote[];
   history: PageVisit[];
   domains: BrowserDomain[];
+  global: BrowserGlobal | null;
+}
+
+/** One profile-local shared record, deliberately independent of every URL. */
+export interface BrowserGlobal {
+  id: string;
+  scope: "global";
+  markdown: string;
+  createdAt: number;
+  updatedAt: number;
+  revision: number;
 }
 
 /** Shared Properties have their own identity and never own a page's Markdown. */
@@ -65,6 +76,8 @@ export interface ImportResult {
   skipped: number;
   domainsCreated: number;
   domainsSkipped: number;
+  globalCreated: number;
+  globalSkipped: number;
   library: BrowserLibrary;
 }
 
@@ -213,6 +226,47 @@ function validDomain(value: unknown): BrowserDomain {
   };
 }
 
+function validGlobal(value: unknown): BrowserGlobal {
+  if (
+    !record(value, [
+      "id",
+      "scope",
+      "markdown",
+      "createdAt",
+      "updatedAt",
+      "revision",
+    ]) ||
+    value.scope !== "global"
+  )
+    throw invalid();
+  if (!validDocumentFields(value)) throw invalid();
+  return {
+    id: value.id as string,
+    scope: "global",
+    markdown: value.markdown as string,
+    createdAt: value.createdAt as number,
+    updatedAt: value.updatedAt as number,
+    revision: value.revision as number,
+  };
+}
+
+function validDocumentFields(value: Record<string, unknown>): boolean {
+  return (
+    stringWithin(value.id, 128) &&
+    !!value.id &&
+    ![...value.id].some(
+      (character) =>
+        character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+    ) &&
+    stringWithin(value.markdown, MAX_NOTE_BYTES) &&
+    timestamp(value.createdAt) &&
+    timestamp(value.updatedAt) &&
+    value.updatedAt >= value.createdAt &&
+    Number.isSafeInteger(value.revision) &&
+    (value.revision as number) >= 1
+  );
+}
+
 function validPage(value: unknown): PageContext {
   try {
     if (
@@ -240,30 +294,19 @@ function validNote(value: unknown): BrowserNote {
   )
     throw invalid();
   if (
-    !stringWithin(value.id, 128) ||
-    !value.id ||
-    [...value.id].some(
-      (character) =>
-        character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
-    ) ||
-    !stringWithin(value.title, MAX_TITLE_BYTES) ||
-    !stringWithin(value.markdown, MAX_NOTE_BYTES) ||
-    !timestamp(value.createdAt) ||
-    !timestamp(value.updatedAt) ||
-    value.updatedAt < value.createdAt ||
-    !Number.isSafeInteger(value.revision) ||
-    (value.revision as number) < 1
+    !validDocumentFields(value) ||
+    !stringWithin(value.title, MAX_TITLE_BYTES)
   )
     throw invalid();
   const url = normalizePageUrl(value.url as string);
   if (url !== value.url) throw invalid();
   return {
-    id: value.id,
+    id: value.id as string,
     url,
     title: value.title,
-    markdown: value.markdown,
-    createdAt: value.createdAt,
-    updatedAt: value.updatedAt,
+    markdown: value.markdown as string,
+    createdAt: value.createdAt as number,
+    updatedAt: value.updatedAt as number,
     revision: value.revision as number,
   };
 }
@@ -289,7 +332,9 @@ export function validateBrowserLibrary(value: unknown): BrowserLibrary {
       !(
         legacy ||
         (record(value, ["version", "notes", "history", "domains"]) &&
-          value.version === 2)
+          value.version === 2) ||
+        (record(value, ["version", "notes", "history", "domains", "global"]) &&
+          value.version === 3)
       ) ||
       !denseArray(value.notes) ||
       !denseArray(value.history) ||
@@ -302,16 +347,30 @@ export function validateBrowserLibrary(value: unknown): BrowserLibrary {
     const notes = value.notes.map(validNote);
     const history = value.history.map(validVisit);
     const domains = legacy ? [] : (value.domains as unknown[]).map(validDomain);
-    const ids = new Set([...notes, ...domains].map((item) => item.id));
+    const global =
+      value.version === 3 && value.global !== null
+        ? validGlobal(value.global)
+        : null;
+    const ids = new Set(
+      [...notes, ...domains, ...(global ? [global] : [])].map(
+        (item) => item.id,
+      ),
+    );
     const urls = new Set(notes.map((note) => note.url));
     const origins = new Set(domains.map((domain) => domain.origin));
     if (
-      ids.size !== notes.length + domains.length ||
+      ids.size !== notes.length + domains.length + Number(!!global) ||
       urls.size !== notes.length ||
       origins.size !== domains.length
     )
       throw invalid();
-    const library: BrowserLibrary = { version: 2, notes, history, domains };
+    const library: BrowserLibrary = {
+      version: 3,
+      notes,
+      history,
+      domains,
+      global,
+    };
     if (bytes(JSON.stringify(library)) > MAX_LIBRARY_BYTES) throw quota();
     return library;
   } catch (error) {
@@ -322,10 +381,11 @@ export function validateBrowserLibrary(value: unknown): BrowserLibrary {
 
 function snapshot(library: BrowserLibrary): BrowserLibrary {
   return {
-    version: 2,
+    version: 3,
     notes: library.notes.map((note) => ({ ...note })),
     history: library.history.map((visit) => ({ ...visit })),
     domains: library.domains.map((domain) => ({ ...domain })),
+    global: library.global ? { ...library.global } : null,
   };
 }
 
@@ -352,7 +412,7 @@ export class LibraryStore {
       throw storage();
     }
     return raw === null || raw === undefined
-      ? { version: 2, notes: [], history: [], domains: [] }
+      ? { version: 3, notes: [], history: [], domains: [], global: null }
       : validateBrowserLibrary(raw);
   }
 
@@ -559,6 +619,58 @@ export class LibraryStore {
     });
   }
 
+  createGlobal(markdown: string): Promise<BrowserGlobal> {
+    return this.queued(async () => {
+      validateDomainProperties(markdown);
+      const current = await this.read();
+      if (current.global) throw conflict();
+      const now = Date.now();
+      const global: BrowserGlobal = {
+        id: crypto.randomUUID(),
+        scope: "global",
+        markdown,
+        createdAt: now,
+        updatedAt: now,
+        revision: 1,
+      };
+      await this.write({ ...current, global });
+      return { ...global };
+    });
+  }
+
+  saveGlobal(
+    id: string,
+    markdown: string,
+    expectedRevision: number,
+  ): Promise<BrowserGlobal> {
+    return this.queued(async () => {
+      if (
+        typeof id !== "string" ||
+        !id ||
+        !Number.isSafeInteger(expectedRevision) ||
+        expectedRevision < 1
+      )
+        throw invalid();
+      validateDomainProperties(markdown);
+      const current = await this.read();
+      const original = current.global;
+      if (
+        !original ||
+        original.id !== id ||
+        original.revision !== expectedRevision
+      )
+        throw conflict();
+      const global: BrowserGlobal = {
+        ...original,
+        markdown,
+        updatedAt: Math.max(Date.now(), original.updatedAt),
+        revision: original.revision + 1,
+      };
+      await this.write({ ...current, global });
+      return { ...global };
+    });
+  }
+
   importBackup(text: string): Promise<ImportResult> {
     return this.queued(async () => {
       if (typeof text !== "string" || bytes(text) > MAX_LIBRARY_BYTES)
@@ -573,7 +685,11 @@ export class LibraryStore {
       const current = await this.read();
       const urls = new Set(current.notes.map((note) => note.url));
       const ids = new Set(
-        [...current.notes, ...current.domains].map((item) => item.id),
+        [
+          ...current.notes,
+          ...current.domains,
+          ...(current.global ? [current.global] : []),
+        ].map((item) => item.id),
       );
       const additions: BrowserNote[] = [];
       let skipped = 0;
@@ -602,6 +718,15 @@ export class LibraryStore {
         ids.add(imported.id);
         domainAdditions.push(imported);
       }
+      const globalCreated = Number(!current.global && !!incoming.global);
+      const globalSkipped = Number(!!current.global && !!incoming.global);
+      const global = current.global
+        ? { ...current.global }
+        : incoming.global
+          ? { ...incoming.global }
+          : null;
+      if (globalCreated && global && ids.has(global.id))
+        global.id = crypto.randomUUID();
       const history = [...current.history];
       const visitKeys = new Set(
         history.map((visit) => `${visit.url}\u0000${visit.visitedAt}`),
@@ -616,14 +741,16 @@ export class LibraryStore {
       }
       history.sort((a, b) => b.visitedAt - a.visitedAt);
       const merged = validateBrowserLibrary({
-        version: 2,
+        version: 3,
         notes: [...current.notes, ...additions],
         history,
         domains: [...current.domains, ...domainAdditions],
+        global,
       });
       if (
         additions.length ||
         domainAdditions.length ||
+        globalCreated ||
         history.length !== current.history.length
       )
         await this.write(merged);
@@ -632,6 +759,8 @@ export class LibraryStore {
         skipped,
         domainsCreated: domainAdditions.length,
         domainsSkipped,
+        globalCreated,
+        globalSkipped,
         library: snapshot(merged),
       };
     });

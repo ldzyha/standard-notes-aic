@@ -14,13 +14,13 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 structured AIC fields, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 36.0.1 pairs with AIC Notes 44.4.7 and AIC Editor Core 6.0.0.
+storage format. Release 37.2.0 pairs with AIC Notes 45.1.0 and AIC Editor Core 6.1.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
 ## Current host boundary — 2026-09-15
 
-The experimental browser release component 0.3.1 targets Chrome and Edge only, using one
+The experimental browser release component 0.4.0 targets Chrome and Edge only, using one
 Chromium package and this repository's `AicEditor`, with
 the same always-compact editor toolbar as Standard Notes and explicit read-only
 page/selection/Markdown import. When shared AIC data are empty, their
@@ -44,10 +44,26 @@ Browser navigation projects saved pages into domain/title groups and only retain
 paths that group several notes. It does not rewrite URLs or persist display trees.
 Visible history labels are bounded and omit raw query/fragment text; the exact stored
 URL remains the navigation target and note identity.
-The encrypted browser library v2 adds separate exact-origin AIC records;
-child pages display the masked canonical preview without copying shared fields
-into their Markdown. Page and domain drafts share one save coordinator. Version 1
-notes migrate unchanged, with no automatic inheritance from homepage notes.
+The encrypted browser library v3 contains separate exact-origin AIC records and
+one nullable explicit `global` record (`scope: "global"`, identity, Markdown,
+timestamps and revision). Global Shared appears before domain properties across
+all origins, including history-only or unavailable web-page contexts. Its empty
+Global action stays compact; an untouched `AIC_EMPTY_DOCUMENT` placeholder creates
+no record. All scopes reuse the masked canonical renderer and draft/save coordinator;
+their values are never copied into page Markdown. The current browser profile's
+encrypted vault is the boundary: this feature adds no server, synchronization or
+generated-key `.aic` storage architecture.
+
+Reading library v1/v2 preserves all authored page/domain text and history, adds
+`global: null`, and does not write storage. The next acknowledged mutation writes
+v3 inside the existing encrypted envelope. Older browser builds do not understand
+v3; backward read compatibility is not claimed. Encrypted export/restore includes
+Global, and merge preserves an existing Global record while reporting the skipped
+incoming Global record, which remains in the original backup file. Singleton
+creation, saves, remote conflicts, pending acknowledgments and Lock share the
+worker queue and revision guards. Synthetic storage, encrypted restart/restore,
+cross-origin/no-page panel and draft tests cover this contract; package/browser QA
+and publication are separate release acceptance steps.
 
 Above the current editor, a compact chain exposes only metadata links for saved
 same-origin path-segment ancestors. Query-bearing lookalikes and siblings are not
@@ -66,6 +82,17 @@ browser shell is not automatically a VS Code feature. Adaptive activity, semanti
 zoom and a shared workspace tree are proposed, not implemented; their ownership,
 risks and dependency-ordered transition are in
 [ADAPTIVE_PREVIEW_STUDY.md](ADAPTIVE_PREVIEW_STUDY.md).
+
+## Section copy and profile Global in release 37.2.0
+
+Shared core 6.1.0 adds a Copy action for one AIC section using the canonical AIC
+serializer. It retains that section's heading and typed/masking markers, excludes
+adjacent sections, and leaves field/value and whole-block Copy independent.
+The same renderer provides this action in Standard Notes, browser properties and
+the VS Code core mirror. Browser 0.4.0 additionally introduces the profile-local
+Global scope and encrypted-library v3 migration described above; Global storage
+is a browser adapter capability. These changes do not assert a fix for an
+unreproduced Standard Notes PWA crash.
 
 ## Host toolbar fix in release 36.0.1
 

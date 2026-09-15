@@ -53,8 +53,8 @@ describe("domain Properties drafts", () => {
 
   it("bounds origin lookups to active or pending drafts across many untouched sites", () => {
     const drafts = new DomainDrafts(vi.fn());
-    const lookup = (drafts as unknown as { keyByOrigin: Map<string, string> })
-      .keyByOrigin;
+    const lookup = (drafts as unknown as { keyByScope: Map<string, string> })
+      .keyByScope;
     const retained = drafts.activatePlaceholder(first, seed).key;
     drafts.edit(retained, `${seed}Unsaved`);
     for (let index = 0; index < 120; index += 1) {

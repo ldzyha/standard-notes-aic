@@ -56,7 +56,8 @@ const domain: BrowserDomain = {
 function fixture() {
   let state = "unlocked";
   let library: BrowserLibrary = {
-    version: 2,
+    version: 3,
+    global: null,
     domains: [domain],
     notes: [
       note("https://example.test/", "Site"),
@@ -175,6 +176,7 @@ describe("saved page ancestors in the browser panel", () => {
     const root = await mount(fake.api);
     const content = root.querySelector(".browser-content")!;
     const ordered = [
+      "browser-shared-host",
       "browser-shared-host",
       "browser-page-ancestors",
       "browser-note",

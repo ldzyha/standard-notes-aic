@@ -164,6 +164,12 @@ export function createBrowserService(api: BrowserApi) {
         return vault.run((store) =>
           store.saveDomain(message.id, message.markdown, message.revision),
         );
+      case "create-global":
+        return vault.run((store) => store.createGlobal(message.markdown));
+      case "save-global":
+        return vault.run((store) =>
+          store.saveGlobal(message.id, message.markdown, message.revision),
+        );
       case "import":
         return vault.importBackup(message.text, message.password);
       case "export":

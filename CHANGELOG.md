@@ -2,6 +2,35 @@
 
 ## Unreleased
 
+## 37.2.0 — 2026-09-15
+
+Release sequence 37 · 2 feature outcomes · 0 fixed-bug outcomes. Shared editor core
+moves to 6.1.0 with additive section copying. Release source target; GitHub
+publication, hosted-manifest deployment and packaged-runtime acceptance require
+separate verification. No PWA crash fix is claimed.
+
+### Features
+
+1. Browser 0.4.0 adds Global Shared in encrypted library v3: one explicit global
+   record in the current browser profile's vault, above Domain Shared and available
+   without an active web page. It uses independent draft/revision checks. Reading
+   v1/v2 preserves all content; the next write emits v3, which older builds cannot
+   read. Backup merge preserves an existing Global record and reports the skipped
+   imported record, leaving the original encrypted backup intact.
+2. Each AIC section has a Copy section action through the shared serializer and
+   clipboard owner. The result is a standalone fenced `aic` block with only that
+   section, including masked and filter-hidden values. Logical labels, value text
+   and typed parts are preserved; source whitespace/quoting may be normalized.
+   The card title and sibling sections are excluded. Read-only views can copy;
+   stale controls are guarded and source/save state do not change. Unnamed empty
+   sections remain layoutless without a redundant copy action.
+
+Compatibility: AIC Notes 45.1.0 receives section copying through shared core 6.1.0.
+Browser Global Shared does not add VS Code global storage, generated-key exchange,
+`global.aic` encryption, account connections or synchronization. The browser remains
+experimental; store publication and authenticated Standard Notes PWA behavior are
+separate acceptance boundaries.
+
 ## 36.0.1 — 2026-09-15
 
 Release sequence 36 · 0 feature outcomes · 1 fixed-bug outcome. AIC Editor Core

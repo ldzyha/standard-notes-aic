@@ -121,7 +121,13 @@ export class BrowserVault {
         );
       const { envelope, session } = await createVault(
         password,
-        JSON.stringify({ version: 2, notes: [], history: [], domains: [] }),
+        JSON.stringify({
+          version: 3,
+          notes: [],
+          history: [],
+          domains: [],
+          global: null,
+        }),
       );
       try {
         await this.persistence.writeLocal(envelope);
@@ -206,6 +212,8 @@ export class BrowserVault {
     skipped: number;
     domainsCreated: number;
     domainsSkipped: number;
+    globalCreated: number;
+    globalSkipped: number;
     restored: boolean;
   }> {
     return this.queued(async () => {
@@ -241,6 +249,8 @@ export class BrowserVault {
           skipped: 0,
           domainsCreated: library.domains.length,
           domainsSkipped: 0,
+          globalCreated: Number(!!library.global),
+          globalSkipped: 0,
           restored: true,
         };
       }
@@ -266,6 +276,8 @@ export class BrowserVault {
         skipped: result.skipped,
         domainsCreated: result.domainsCreated,
         domainsSkipped: result.domainsSkipped,
+        globalCreated: result.globalCreated,
+        globalSkipped: result.globalSkipped,
         restored: false,
       };
     });

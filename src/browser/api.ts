@@ -100,6 +100,8 @@ export type Request =
       allowPrivate?: boolean;
     }
   | { type: "save-domain"; id: string; markdown: string; revision: number }
+  | { type: "create-global"; markdown: string }
+  | { type: "save-global"; id: string; markdown: string; revision: number }
   | {
       type: "capture";
       page: ActivePage;

@@ -76,6 +76,13 @@
 .cm-aic-security-section-header .cm-aic-security-drag {
   flex: 0 0 auto;
 }
+.cm-aic-security-section-header:has(> .aic-card__section-actions:only-child) {
+  justify-content: flex-end;
+  min-height: 0;
+  padding-block: 0;
+  border-bottom: 0;
+  background: transparent;
+}
 .cm-aic-security-filter {
   display: flex;
   /* Reserve room for the query and its clear action; the title yields first. */

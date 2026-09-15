@@ -46,7 +46,8 @@ function fixture(
     updatedAt: 1,
   });
   const library: BrowserLibrary = {
-    version: 2,
+    version: 3,
+    global: null,
     domains: [],
     notes: options.empty
       ? []

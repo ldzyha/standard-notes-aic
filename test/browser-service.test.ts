@@ -8,6 +8,7 @@ import type { ActivePage, BrowserApi } from "../src/browser/api";
 import type {
   BrowserNote,
   BrowserDomain,
+  BrowserGlobal,
   BrowserLibrary,
 } from "../src/browser/library";
 
@@ -85,6 +86,34 @@ function harness() {
 }
 
 describe("browser service encrypted boundaries", () => {
+  it("creates Global without a webpage and rejects writes after Lock", async () => {
+    const h = harness();
+    await h.service.handle({ type: "setup", password });
+    h.change({ url: "edge://newtab" });
+    const markdown = "```aic\nPassword *| synthetic-global-secret\n```\n";
+    const global = (await h.service.handle({
+      type: "create-global",
+      markdown,
+    })) as BrowserGlobal;
+    expect(global.scope).toBe("global");
+    expect(h.api.tabs.query).not.toHaveBeenCalled();
+    expect(h.api.scripting.executeScript).not.toHaveBeenCalled();
+    expect(JSON.stringify(h.disk())).not.toContain("synthetic-global-secret");
+    await h.service.handle({ type: "lock" });
+    await expect(
+      h.service.handle({
+        type: "save-global",
+        id: global.id,
+        revision: 1,
+        markdown,
+      }),
+    ).rejects.toMatchObject({ code: "locked" });
+    await h.service.handle({ type: "unlock", password });
+    expect(
+      ((await h.service.handle({ type: "load" })) as BrowserLibrary).global,
+    ).toEqual(global);
+  });
+
   it("deletes a local note and its history through one encrypted write without touching the website", async () => {
     const h = harness();
     await h.service.handle({ type: "setup", password });

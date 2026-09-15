@@ -1,11 +1,50 @@
 # Chrome / Edge experimental build verification — 2026-09-15
 
-Status: **0.3.1 experimental component**, not a store release or an independently
+Status: **0.4.0 experimental component**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
 using one Chromium Manifest V3 package. All test passphrases, notes and clipboard
 substitutes are synthetic. No user profile or real notes are part of these tests.
 
-## 0.3.1 compact shared editor toolbar — release verification
+## 0.4.0 Global Shared and section copy — release verification
+
+- Version pair: Standard Notes **37.2.0**, browser **0.4.0**, AIC Notes
+  **45.1.0**, shared core **6.1.0**. Library v3 adds one explicit profile-local
+  Global Shared record. Reading v1/v2 preserves content without writing; the next
+  mutation writes v3. Older builds cannot read v3. No synchronization or generated
+  key/VS Code vault is introduced.
+- Final installed Edge package passed **16 checks** in a disposable profile:
+  actual worker/sidebar activation, sender isolation, outgoing-request CSP,
+  unchanged empty Global placeholder, first edit through visible UI, exact-origin
+  Shared, masked cross-origin/no-page Global, ordered light/dark 320/600 px layout,
+  encrypted local storage, Lock, and full browser restart/unlock restoring all
+  scopes. Scanning 230 disposable profile files found neither synthetic Global
+  nor domain secrets in UTF-8/UTF-16. This is not a forensic erasure guarantee.
+  Evidence: `D:\aic\reviews\browser-extension-20260914\release-0.4.0-edge-final`.
+- Section-copy runtime QA passed eight Chrome/Edge light/dark 320/600 px cases,
+  using an in-memory clipboard substitute. Standalone AIC contains only the chosen
+  section, including masked/filter-hidden rows; labels and typed values round-trip
+  through the canonical serializer. Focus and read-only source stay intact, there
+  is no horizontal overflow, and coarse controls are 44 px. Unnamed empty sections
+  remain layoutless without a redundant copy action. Evidence:
+  `D:\aic\reviews\section-copy-20260915`.
+- Shared core is distributed byte-identically into VS Code. Its full local suite
+  passed 217 tests and its production build passed. Native VS Code acceptance,
+  actual installed Chrome, interactive permissions, OS clipboard integration and
+  cross-panel Lock remain separate checks; the packaged Edge run does not claim
+  them. Browser unit tests separately cover two-panel Global conflicts, one-time
+  state acknowledgments, stale controls, migration and encrypted backup restore.
+- Final canonical verification passed 1,070 tests in 94 files, TypeScript, whole
+  repository lint, formatting, notices, shared-core parity and production builds.
+- The reported Standard Notes PWA exit is **not fixed or reproduced** by this
+  release. A repaired synthetic stress harness exercised 1,020 edits with current
+  typed fields and 498k-character JavaScript source without page errors, crashes
+  or unexpected disconnects; DOM/listener counts were stable and destroyed editor
+  roots were collectible. That bounded run is not authenticated PWA acceptance.
+  See `D:\aic\reviews\pwa-crash-20260915` for observations and limitations.
+- GitHub publication and Pages deployment must be checked after CI completes.
+  Store submissions and independent security audit remain unverified.
+
+## 0.3.1 compact shared editor toolbar — prior release verification
 
 - Scope: Standard Notes and the browser share one always-compact editor
   toolbar with direct strike, link, bullet-list, ordered-list and task-list actions,
