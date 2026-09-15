@@ -14,7 +14,7 @@ import { isSaveAction } from "../src/core/save-boundary.js";
 import { securityCardMove } from "../src/core/security-card-order.js";
 
 const note =
-  "```aic\n# Accounts\n## Work\nEmail: work@example.test\nPassword*: synthetic-hidden-work\n---\n## Personal\nEmail: personal@example.test\nURL: https://example.test\n```\n\nEnd";
+  "```aic\n# Accounts\n## Work\nEmail | work@example.test\nPassword *| synthetic-hidden-work\n---\n## Personal\nEmail | personal@example.test\nURL | https://example.test\n```\n\nEnd";
 const views: EditorView[] = [];
 function fixture(doc = note, readOnly = false) {
   const host = document.body.appendChild(document.createElement("div"));
@@ -76,20 +76,66 @@ afterEach(() => {
 });
 
 describe("shared compact Security and Properties groups", () => {
+  it.each([
+    [note, "Copy security block", "Edit security block"],
+    [
+      "```aic\n# Properties\nEmail | public@example.test\n```\nBody",
+      "Copy security block",
+      "Edit security block",
+    ],
+  ])(
+    "keeps the filter between the title and actions in the shared header: %s",
+    (doc, copyLabel, editLabel) => {
+      const { host, view, saves } = fixture(doc);
+      const header = host.querySelector<HTMLElement>(".aic-card__header")!;
+      const title = header.querySelector(".aic-card__title")!;
+      const filter = header.querySelector<HTMLElement>(
+        ".cm-aic-security-filter",
+      )!;
+      const input = filter.querySelector<HTMLInputElement>("input")!;
+      expect(title.nextElementSibling).toBe(filter);
+      expect(filter.nextElementSibling).toBe(
+        header.querySelector(".aic-card__actions"),
+      );
+      expect(control(header, copyLabel)).toBeTruthy();
+      expect(control(header, editLabel)).toBeTruthy();
+      expect(input.placeholder).toBe("Filter");
+      expect(input.getAttribute("aria-label")).toBe("Filter fields and groups");
+      const headerAction = vi.fn();
+      for (const type of ["pointerdown", "click", "input", "keydown"])
+        header.addEventListener(type, headerAction);
+      input.focus();
+      input.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+      input.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+      search(host, "Email");
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }),
+      );
+      expect(headerAction).not.toHaveBeenCalled();
+      expect(document.activeElement).toBe(input);
+      expect(view.state.doc.toString()).toBe(doc);
+      expect(saves).toEqual([]);
+    },
+  );
+
   it("renders # as card title, sections separately, and add choices as hidden disclosures", () => {
     const { host, view, saves } = fixture();
     expect(
       host.querySelector(".cm-md-preview-header strong")?.textContent,
     ).toBe("Accounts");
     expect(
-      [...host.querySelectorAll(".cm-aic-security-section-title")].map(
-        (e) => e.textContent,
-      ),
+      [
+        ...host.querySelectorAll(
+          ".cm-aic-security-section > .cm-aic-security-section-header > .cm-aic-security-section-title",
+        ),
+      ].map((e) => e.textContent),
     ).toEqual(["Work", "Personal"]);
     expect(host.querySelector(".cm-aic-security-quick-add")).toBeNull();
-    const menu = host.querySelector<HTMLElement>(".cm-aic-security-add-menu")!;
+    const add = control(host, "Add row to Work");
+    const menu = add.parentElement!.querySelector<HTMLElement>(
+      ".cm-aic-security-add-menu",
+    )!;
     expect(menu.hidden).toBe(true);
-    const add = control(host, "Add field to Work");
     add.click();
     expect(menu.hidden).toBe(false);
     expect(add.getAttribute("aria-expanded")).toBe("true");
@@ -113,7 +159,7 @@ describe("shared compact Security and Properties groups", () => {
     ).toHaveLength(1);
     expect(
       host.querySelectorAll(
-        ".cm-aic-security-section:not([hidden]) .cm-aic-security-row:not([hidden])",
+        ".cm-aic-security-section:not([hidden]) .cm-aic-security-card:not([hidden])",
       ),
     ).toHaveLength(1);
     search(host, "synthetic-hidden-work");
@@ -138,10 +184,10 @@ describe("shared compact Security and Properties groups", () => {
     const { host, view, saves } = fixture();
     search(host, "Email");
     expect(control(host, "Reorder Email").disabled).toBe(true);
-    control(host, "Add field to Work").click();
-    control(host, "Add Email").click();
+    control(host, "Add row to Work").click();
+    control(host, "Add account row to Work").click();
     expect(model(view).title).toBe("Accounts");
-    expect(model(view).sections[0]!.fields.at(-1)?.label).toBe("Email");
+    expect(model(view).sections[0]!.fields.at(-1)?.label).toBe("Account");
     expect(
       host.querySelector<HTMLInputElement>('input[type="search"]')?.value,
     ).toBe("Email");
@@ -165,7 +211,7 @@ describe("shared compact Security and Properties groups", () => {
       "Password",
       "Email",
     ]);
-    expect(model(view).sections[0]!.fields[0]!.value).toBe(
+    expect(model(view).sections[0]!.fields[0]!.parts[0]!.value).toBe(
       "synthetic-hidden-work",
     );
     expect(saves).toEqual([true]);
@@ -182,9 +228,9 @@ describe("shared compact Security and Properties groups", () => {
     );
   });
 
-  it("keeps managed properties and tree pinned while moving exact custom YAML bytes", () => {
+  it("keeps host relationships outside canonical field reorder and filtering", () => {
     const doc =
-      '---\nfile: sample.note.md\ncreated: 2026-09-13T10:00:00Z\nupdated: 2026-09-13T11:00:00Z\nEmail: public@example.test\n# token comment\nPassword*: "synthetic-hidden-work"\nwork:\n  login: someone\npersonal:\n  login: other\n---\nBody';
+      "```aic\n# Properties\n## Work\nEmail | public@example.test\nPassword *| synthetic-hidden-work\n---\n## Personal\nLogin | other\n```\n\nBody";
     const { host, view, saves } = fixture(doc);
     view.dispatch({
       effects: setPropertyRelationships.of([
@@ -196,33 +242,22 @@ describe("shared compact Security and Properties groups", () => {
         },
       ]),
     });
-    const card = host.querySelector<HTMLElement>(".cm-aic-properties")!;
-    expect(card.querySelector('[aria-label="Copy file"]')).toBeNull();
-    expect(control(card, "Copy created")).toBeTruthy();
-    expect(card.querySelector('[aria-label="Reorder file"]')).toBeNull();
-    expect(
-      card.querySelector('[aria-label="Reorder group Fields"]'),
-    ).toBeNull();
-    move(control(card, "Reorder Email"));
-    expect(view.state.doc.toString()).toBe(
-      doc.replace(
-        'Email: public@example.test\n# token comment\nPassword*: "synthetic-hidden-work"',
-        '# token comment\nPassword*: "synthetic-hidden-work"\nEmail: public@example.test',
-      ),
+    move(control(host, "Reorder Email"));
+    expect(view.state.doc.toString()).toContain(
+      "Password *| synthetic-hidden-work\nEmail | public@example.test",
     );
     expect(saves).toEqual([true]);
     search(host, "no-such-public-value");
-    const current = host.querySelector<HTMLElement>(".cm-aic-properties")!;
     expect(
-      current.querySelectorAll(".cm-aic-security-section:not([hidden])"),
+      host.querySelectorAll(".cm-aic-security-section:not([hidden])"),
     ).toHaveLength(0);
-    expect(
-      current.querySelector(".cm-aic-note-relations")?.textContent,
-    ).toContain("Project");
-    control(current, "Clear filter").click();
-    move(control(current, "Reorder group /work"));
-    expect(view.state.doc.toString().indexOf("personal:")).toBeLessThan(
-      view.state.doc.toString().indexOf("work:"),
+    expect(host.querySelector(".cm-aic-note-relations")?.textContent).toContain(
+      "Project",
+    );
+    control(host, "Clear filter").click();
+    move(control(host, "Reorder group Work"));
+    expect(view.state.doc.toString().indexOf("## Personal")).toBeLessThan(
+      view.state.doc.toString().indexOf("## Work"),
     );
   });
 
@@ -232,7 +267,7 @@ describe("shared compact Security and Properties groups", () => {
     expect(host.querySelector(".cm-aic-security-add")).toBeNull();
     expect(host.querySelector('[aria-label="Edit security block"]')).toBeNull();
     search(host, "Password");
-    control(host, "Copy Password").click();
+    control(host, "Copy Password label").click();
     expect(onCopy).toHaveBeenCalledWith("Password", "Password label");
     control(host, "Copy Password value").click();
     expect(onCopy).toHaveBeenCalledWith("synthetic-hidden-work", "Password");
@@ -250,35 +285,31 @@ describe("shared compact Security and Properties groups", () => {
 
   it("shows and filters a description but copies only the exact escaped value", () => {
     const text = note.replace(
-      "Password*: synthetic-hidden-work",
-      "Password*: synthetic\\|secret | WebDAV",
+      "Password *| synthetic-hidden-work",
+      'Password *| "synthetic|secret" | WebDAV',
     );
     const { host, view, onCopy } = fixture(text);
     expect(
-      host.querySelector('[aria-label="Copy Password description value"]')
-        ?.textContent,
+      host.querySelector('[aria-label="Copy Password text 2"]')?.textContent,
     ).toBe("WebDAV");
     search(host, "WebDAV");
     const visible = host.querySelector(".cm-aic-security-card:not([hidden])")!;
-    control(visible, "Copy Password value").click();
-    expect(onCopy).toHaveBeenCalledWith("synthetic|secret", "Password Value");
+    control(visible, "Copy Password secret 1").click();
+    expect(onCopy).toHaveBeenCalledWith(
+      "synthetic|secret",
+      "Password secret 1",
+    );
     expect(visible.textContent).not.toContain("synthetic|secret");
     expect(view.state.doc.toString()).toBe(text);
   });
 
-  it("inherits parent masking when adding a Properties field", () => {
-    const text =
-      '---\ncredentials*:\n  Password*: "synthetic|secret"\n---\nBody';
-    const { host, view } = fixture(text);
-    expect(host.querySelector(".cm-aic-security-error")).toBeNull();
-    expect(host.textContent).not.toContain("synthetic|secret");
-    const group = [...host.querySelectorAll(".cm-aic-security-section")].find(
-      (section) => section.textContent?.includes("/credentials*"),
-    )!;
-    control(group, "Add Field").click();
-    expect(view.state.doc.toString()).toContain('  "Field": ""');
-    expect(host.querySelector('[aria-label="Paste Field"]')).not.toBeNull();
-    expect(host.textContent).not.toContain("synthetic|secret");
+  it("does not expose or add fields to a retired YAML hidden group", () => {
+    const doc = "---\ncredentials*:\n  Password*: synthetic-private\n---\nBody";
+    const { host, view } = fixture(doc);
+    expect(host.textContent).toContain("no longer supported");
+    expect(host.innerHTML).not.toContain("synthetic-private");
+    expect(host.querySelector(".cm-aic-security-add")).toBeNull();
+    expect(view.state.doc.toString()).toBe(doc);
   });
 
   it("discards an in-flight empty-field paste after a reorder", async () => {
@@ -299,11 +330,11 @@ describe("shared compact Security and Properties groups", () => {
     expect(view.state.doc.toString()).not.toContain(
       "stale-value-must-not-land",
     );
-    expect(model(view).sections[0]!.fields[0]!.value).toBe("");
+    expect(model(view).sections[0]!.fields[0]!.parts[0]!.value).toBe("");
   });
 
   it("moves whole standalone cards and preserves non-card text; rejects nested/unclosed fences", () => {
-    const second = "```aic\n# Second\nPassword*: other-synthetic\n```";
+    const second = "```aic\n# Second\nPassword *| other-synthetic\n```";
     const doc = note + "\n\nParagraph between\n\n" + second + "\n\nTail";
     const { host, view, saves } = fixture(doc);
     const handles = host.querySelectorAll<HTMLButtonElement>(
@@ -319,12 +350,12 @@ describe("shared compact Security and Properties groups", () => {
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(doc);
     const unclosed = fixture(
-      second + "\n\n```aic\n## Open\nPassword*: partial",
+      second + "\n\n```aic\n## Open\nPassword *| partial",
     ).view;
     const blocks = securityBlocks(unclosed.state);
     expect(securityCardMove(unclosed.state, blocks[0]!, blocks[1]!)).toBeNull();
     const nested = fixture(
-      second + "\n\n> ```aic\n> ## Nested\n> Password*: partial\n> ```",
+      second + "\n\n> ```aic\n> ## Nested\n> Password *| partial\n> ```",
     ).view;
     const nestedBlocks = securityBlocks(nested.state);
     expect(

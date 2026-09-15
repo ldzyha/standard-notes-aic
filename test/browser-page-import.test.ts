@@ -90,6 +90,59 @@ describe("read-only browser page capture", () => {
     expect(() => capturePage("selection")).toThrow(/Select visible/iu);
   });
 
+  it("automatically prefers readable selected content", () => {
+    document.body.innerHTML =
+      "<main><p>Before selected after</p><p>Other paragraph</p></main>";
+    const text = document.querySelector("p")!.firstChild!;
+    const range = document.createRange();
+    range.setStart(text, 7);
+    range.setEnd(text, 15);
+    window.getSelection()!.addRange(range);
+    const capture = capturePage("auto");
+    expect(capture.html).toContain("selected");
+    expect(capture.html).not.toMatch(/Before|after|Other/iu);
+  });
+
+  it("automatically falls back to the readable page without a selection", () => {
+    document.body.innerHTML =
+      "<main><h1>Page heading</h1><p>Readable fallback</p></main>";
+    expect(capturePage("auto").html).toMatch(
+      /Page heading.*Readable fallback/su,
+    );
+  });
+
+  it("never captures selected form data when automatically falling back", () => {
+    document.body.innerHTML = `<main><p>Safe page content</p><form>
+      <label>Account secret <span>selected-private-value</span></label>
+      <input value="input-private-value"></form></main>`;
+    const selected = document.querySelector("form span")!.firstChild!;
+    const range = document.createRange();
+    range.selectNodeContents(selected);
+    window.getSelection()!.addRange(range);
+    const capture = capturePage("auto");
+    expect(capture.html).toContain("Safe page content");
+    expect(capture.html).not.toMatch(
+      /private-value|Account secret|<form|<input/iu,
+    );
+  });
+
+  it("does not mask capture failures as an automatic page fallback", () => {
+    document.body.innerHTML = "<main><p>Selected text</p></main>";
+    const selected = document.querySelector("p")!.firstChild!;
+    const range = document.createRange();
+    range.selectNodeContents(selected);
+    window.getSelection()!.addRange(range);
+    const original = window.getComputedStyle;
+    window.getComputedStyle = () => {
+      throw new Error("synthetic style failure");
+    };
+    try {
+      expect(() => capturePage("auto")).toThrow(/synthetic style failure/iu);
+    } finally {
+      window.getComputedStyle = original;
+    }
+  });
+
   it("honors selected structure across table cells", () => {
     document.body.innerHTML =
       "<table><tr><td>Alpha</td><td>Beta</td></tr></table>";

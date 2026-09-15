@@ -1,480 +1,238 @@
-import { Compartment, EditorState } from "@codemirror/state";
 import { history, undo } from "@codemirror/commands";
+import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { aicMarkdownLanguage } from "../src/language";
 import {
   makeSecurityBlockExtension,
-  makePropertiesBlockExtension,
-  propertiesBlocks,
   securityBlocks,
 } from "../src/core/security-block.js";
 import { parseSecurityBlock } from "../src/core/security-model.js";
-import { parsePropertiesBody } from "../src/core/properties-model.js";
-import { createSourceModeController } from "../src/core/source-mode.js";
 import { isSaveAction } from "../src/core/save-boundary.js";
 
 const views: EditorView[] = [];
-const security = (lines: string) => "```aic\n" + lines + "\n```\n\nEnd";
-function fixture(doc: string) {
+const security = (body: string) => "```aic\n" + body + "\n```";
+
+function fixture(
+  body: string,
+  options: { clipboard?: readonly string[]; readOnly?: boolean } = {},
+) {
   const host = document.body.appendChild(document.createElement("div"));
-  const onCopy = vi.fn(() => true);
-  const onReadClipboard = vi.fn(async () => "000");
-  const access = new Compartment();
-  const mode = createSourceModeController();
+  const onCopy = vi.fn<(value: string, label: string) => Promise<boolean>>(
+    async () => true,
+  );
+  const clipboard = [...(options.clipboard ?? [])];
+  const onReadClipboard = vi.fn(async () => clipboard.shift() ?? "");
   const saves: boolean[] = [];
   const view = new EditorView({
     parent: host,
     state: EditorState.create({
-      doc,
+      doc: security(body),
       extensions: [
         aicMarkdownLanguage(),
         history(),
-        access.of(EditorState.readOnly.of(false)),
-        mode.extension([
-          makeSecurityBlockExtension({ document, onCopy, onReadClipboard }),
-          makePropertiesBlockExtension({ document, onCopy, onReadClipboard }),
-        ]),
-        EditorView.updateListener.of((u) => {
-          if (u.docChanged) saves.push(isSaveAction(u));
+        EditorState.readOnly.of(options.readOnly ?? false),
+        makeSecurityBlockExtension({ document, onCopy, onReadClipboard }),
+        EditorView.updateListener.of((update) => {
+          if (update.docChanged) saves.push(isSaveAction(update));
         }),
       ],
     }),
   });
   views.push(view);
-  return { host, view, onCopy, onReadClipboard, access, mode, saves };
+  return { host, view, onCopy, onReadClipboard, saves };
 }
-function button(host: ParentNode, label: string) {
-  const result = host.querySelector<HTMLButtonElement>(
+
+function control(host: ParentNode, label: string) {
+  const found = host.querySelector<HTMLButtonElement>(
     `button[aria-label="${label}"]`,
   );
-  expect(result, label).not.toBeNull();
-  return result!;
+  expect(found, label).not.toBeNull();
+  return found!;
 }
-function field(view: EditorView) {
+
+function model(view: EditorView) {
   const block = securityBlocks(view.state)[0]!;
-  const result = parseSecurityBlock(block.body, block);
-  if (!result.ok) throw new Error("Invalid synthetic fixture");
-  return result.model.sections[0]!.fields[0]!;
+  const parsed = parseSecurityBlock(block.body);
+  expect(parsed.ok).toBe(true);
+  if (!parsed.ok) throw new Error("Synthetic aic block was invalid");
+  return parsed.model;
 }
-function card(host: ParentNode) {
-  const result = host.querySelector<HTMLElement>(
-    '.cm-aic-security-card[data-aic-card-kind="card"]',
-  );
-  expect(result).not.toBeNull();
-  return result!;
-}
+
 afterEach(() => {
   views.splice(0).forEach((view) => view.destroy());
   document.body.replaceChildren();
 });
 
-describe("explicit pipe-format preview", () => {
-  it("activates marked Properties, copies parts, fills once and preserves the marker on save/reopen", async () => {
-    const doc =
-      "---\n# aic-fields: v2\nfile: card.note.md\nCard_: '4242 4242 4242 4242 | 09/28 | '\nCorporate#: 'JBSWY3DPEHPK3PXP | Work'\n---\nBody";
-    const { host, view, onCopy, saves } = fixture(doc);
-    expect(host.querySelector(".cm-aic-properties")).not.toBeNull();
-    expect(host.textContent).not.toContain("aic-fields");
-    expect(host.innerHTML).not.toContain("JBSWY3DPEHPK3PXP");
-    expect(host.querySelector(".cm-aic-security-code")).not.toBeNull();
-    button(host, "Copy Card number value").click();
-    expect(onCopy).toHaveBeenLastCalledWith(
-      "4242 4242 4242 4242",
-      "Card Number",
+describe("typed pipe preview", () => {
+  it("renders and copies card, text and secret parts independently", async () => {
+    const { host, onCopy } = fixture(
+      "Card _| 4242 4242 4242 4242 | 09/28 *| 123",
     );
-    button(host, "Paste Card cvv").click();
-    await vi.waitFor(() =>
-      expect(host.querySelector('[aria-label="Paste Card cvv"]')).toBeNull(),
-    );
-    const saved = view.state.doc.toString();
-    expect(saved).toContain("---\n# aic-fields: v2\nfile: card.note.md");
-    expect(saved).toContain("09/28 | 000");
-    expect(saves).toEqual([true]);
-    const reopened = fixture(saved);
-    expect(reopened.host.innerHTML).not.toContain("000");
-    button(reopened.host, "Copy Card cvv value").click();
-    expect(reopened.onCopy).toHaveBeenLastCalledWith("000", "Card CVV");
-    expect(button(reopened.host, "Add Card")).toBeTruthy();
-    expect(undo(view)).toBe(true);
-    expect(view.state.doc.toString()).toBe(doc);
+    expect(host.innerHTML).not.toContain("4242 4242 4242 4242");
+    expect(host.innerHTML).not.toContain(">123<");
+    expect(host.textContent).toContain("•••• 4242");
+    expect(host.textContent).toContain("09/28");
+    control(host, "Copy Card card number 1").click();
+    control(host, "Copy Card text 2").click();
+    control(host, "Copy Card secret 3").click();
+    await vi.waitFor(() => expect(onCopy).toHaveBeenCalledTimes(3));
+    expect(onCopy.mock.calls.map(([value, label]) => [value, label])).toEqual([
+      ["4242 4242 4242 4242", "Card card number 1"],
+      ["09/28", "Card text 2"],
+      ["123", "Card secret 3"],
+    ]);
   });
 
-  it("does not activate or rewrite unmarked Properties", () => {
-    const doc =
-      "---\nPassword*: 'left | middle | right'\nCard_: ordinary\n---\nBody";
-    const { host, view, onCopy } = fixture(doc);
-    expect(host.textContent).not.toContain("middle");
-    button(host, "Copy Password").click();
-    expect(onCopy).toHaveBeenLastCalledWith("Password", "Password label");
-    button(host, "Copy Password value").click();
-    expect(onCopy).toHaveBeenLastCalledWith(
-      "left | middle | right",
-      "Password",
-    );
-    expect(host.querySelector('[aria-label="Add Card"]')).toBeNull();
-    expect(view.state.doc.toString()).toBe(doc);
-  });
-
-  it("keeps a Properties directive outside first-field and group reorder ranges", () => {
-    const doc =
-      "---\n# aic-fields: v2\nFirst*: 'a | public'\nSecond: b\n---\nBody";
-    const { host, view, saves } = fixture(doc);
-    button(host, "Reorder First").dispatchEvent(
-      new KeyboardEvent("keydown", {
-        key: "ArrowDown",
-        altKey: true,
-        bubbles: true,
-        cancelable: true,
-      }),
-    );
-    expect(view.state.doc.toString()).toBe(
-      "---\n# aic-fields: v2\nSecond: b\nFirst*: 'a | public'\n---\nBody",
-    );
-    const block = propertiesBlocks(view.state)[0]!;
-    expect(block.fieldSyntax).toBe("pipes");
-    const parsed = parsePropertiesBody(block.body);
-    expect(parsed.ok && parsed.model.sections[1]!.fields[1]!.description).toBe(
-      "public",
-    );
-    expect(saves).toEqual([true]);
-  });
-
-  it("fails closed for unknown Properties versions and ignores directives inside a value", () => {
-    const unknown = fixture(
-      "---\n# aic-fields: v3\nCard_: future-private\n---\nBody",
-    );
-    expect(unknown.host.querySelector(".cm-aic-security-error")).not.toBeNull();
-    expect(unknown.host.innerHTML).not.toContain("future-private");
-    const inside = fixture(
-      "---\nMemo: |\n  # aic-fields: v2\nPassword*: 'left | right'\n---\nBody",
-    );
-    expect(propertiesBlocks(inside.view.state)[0]!.fieldSyntax).toBeUndefined();
-    button(inside.host, "Copy Password").click();
-    expect(inside.onCopy).toHaveBeenLastCalledWith(
-      "Password",
-      "Password label",
-    );
-    button(inside.host, "Copy Password value").click();
-    expect(inside.onCopy).toHaveBeenLastCalledWith("left | right", "Password");
-  });
-
-  it("quarantines historical Security fences without exposing their values", () => {
+  it("uses explicit markers only; labels never select a renderer", () => {
     const { host } = fixture(
-      "```aic-security\n##\nPassword*: left | middle | right\nLegacy_: ordinary\n```\n\nEnd",
+      "Card | ordinary\nOther _| 4111111111111111\nTOTP *| not-a-code",
     );
-    expect(host.querySelector(".cm-aic-security-error")).not.toBeNull();
-    expect(host.textContent).not.toContain("middle");
-    expect(host.querySelector('[aria-label="Copy Password"]')).toBeNull();
+    expect(host.textContent).toContain("ordinary");
+    expect(host.textContent).toContain("•••• 1111");
+    expect(host.querySelector(".cm-aic-security-code")).toBeNull();
+    expect(control(host, "Copy Card value").textContent).toContain("ordinary");
   });
 
-  it("uses the card marker, masks CVV and copies all three parts independently", () => {
-    const doc = security("Business_: 4242 4242 4242 4242 | 09/28 | 019");
-    const { host, view, onCopy, saves } = fixture(doc);
-    const business = card(host);
-    expect(
-      business.querySelector(".cm-aic-security-section-title")?.textContent,
-    ).toBe("Business:");
-    expect(
-      business.querySelectorAll(
-        ".cm-aic-security-card-parts > .cm-aic-security-row",
+  it("pastes into each empty typed cell once with save boundaries and Undo", async () => {
+    const body = "Business _| | |";
+    const { host, view, onReadClipboard, saves } = fixture(body, {
+      clipboard: ["4111111111111111", "12/30", "999"],
+    });
+    control(host, "Paste Business card number 1").click();
+    await vi.waitFor(() =>
+      expect(model(view).sections[0]!.fields[0]!.parts[0]!.value).toBe(
+        "4111111111111111",
       ),
-    ).toHaveLength(3);
-    expect(
-      business.querySelectorAll(
-        ".cm-aic-security-card-parts .cm-aic-security-label",
-      ),
-    ).toHaveLength(0);
-    expect(business.textContent).toContain("•••• 4242");
-    expect(business.textContent).toContain("09/28");
-    expect(business.textContent).toContain("•••");
-    expect(business.innerHTML).not.toContain("4242 4242 4242 4242");
-    expect(business.innerHTML).not.toContain("019");
-    expect(host.querySelector('[aria-label^="Paste Business"]')).toBeNull();
-    button(business, "Copy Business label").click();
-    expect(onCopy).toHaveBeenLastCalledWith("Business", "Business label");
-    button(host, "Copy Business number value").click();
-    expect(onCopy).toHaveBeenLastCalledWith(
-      "4242 4242 4242 4242",
-      "Business Number",
     );
-    button(host, "Copy Business expiry value").click();
-    expect(onCopy).toHaveBeenLastCalledWith("09/28", "Business Expiry");
-    button(host, "Copy Business cvv value").click();
-    expect(onCopy).toHaveBeenLastCalledWith("019", "Business CVV");
-    const input = host.querySelector<HTMLInputElement>('input[type="search"]')!;
-    input.value = "019";
+    control(host, "Paste Business text 2").click();
+    await vi.waitFor(() =>
+      expect(model(view).sections[0]!.fields[0]!.parts[1]!.value).toBe("12/30"),
+    );
+    control(host, "Paste Business text 3").click();
+    await vi.waitFor(() =>
+      expect(model(view).sections[0]!.fields[0]!.parts[2]!.value).toBe("999"),
+    );
+    expect(onReadClipboard).toHaveBeenCalledTimes(3);
+    expect(saves).toEqual([true, true, true]);
+    expect(undo(view)).toBe(true);
+    expect(undo(view)).toBe(true);
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe(security(body));
+  });
+
+  it("renders TOTP only for #| and never exposes its seed", async () => {
+    const { host, onCopy } = fixture(
+      "Corporate #| JBSWY3DPEHPK3PXP\nNamed TOTP *| JBSWY3DPEHPK3PXP",
+    );
+    await vi.waitFor(() =>
+      expect(host.querySelector(".cm-aic-security-code")?.textContent).toMatch(
+        /^\d{6}$/u,
+      ),
+    );
+    expect(host.innerHTML).not.toContain("JBSWY3DPEHPK3PXP");
+    control(host, "Copy Corporate code").click();
+    await vi.waitFor(() => expect(onCopy).toHaveBeenCalledOnce());
+    expect(onCopy.mock.calls[0]![0]).toMatch(/^\d{6}$/u);
+    expect(control(host, "Copy Named TOTP value")).toBeTruthy();
+  });
+
+  it("adds every explicit field type to the current row", () => {
+    const { host, view } = fixture("Login | account");
+    const additions = [
+      ["Secret", "secret"],
+      ["TOTP", "totp"],
+      ["Card number", "card"],
+      ["One-time", "one-time"],
+      ["Used", "used"],
+      ["Text", "text"],
+    ] as const;
+    for (const [text, kind] of additions) {
+      control(host, "Add field to Login").click();
+      control(host, `Add ${text.toLowerCase()} field to Login`).click();
+      expect(model(view).sections[0]!.fields[0]!.parts.at(-1)?.kind).toBe(kind);
+    }
+    expect(model(view).sections[0]!.fields).toHaveLength(1);
+  });
+
+  it("inserts canonical row templates immediately below the current row", () => {
+    const { host, view } = fixture("First | a\nSecond | b");
+    control(host, "Add row after First").click();
+    control(host, "Add account row after First").click();
+    const rows = model(view).sections[0]!.fields;
+    expect(rows.map((row) => row.label)).toEqual([
+      "First",
+      "Account",
+      "Second",
+    ]);
+    expect(rows[1]!.parts.map((part) => part.kind)).toEqual(["text", "secret"]);
+  });
+
+  it("uses the section footer to append a row and bootstrap an empty section", () => {
+    const { host, view } = fixture("## Empty");
+    control(host, "Add row to Empty").click();
+    control(host, "Add card row to Empty").click();
+    expect(model(view).sections[0]!.fields[0]).toEqual({
+      label: "Card",
+      parts: [
+        { value: "", kind: "card" },
+        { value: "", kind: "text" },
+        { value: "", kind: "secret" },
+      ],
+    });
+  });
+
+  it("inserts a section immediately after its owning section", () => {
+    const { host, view } = fixture("## First\nA | a\n---\n## Last\nB | b");
+    control(host, "Add section after First").click();
+    expect(model(view).sections.map((section) => section.label)).toEqual([
+      "First",
+      "",
+      "Last",
+    ]);
+  });
+
+  it("filters labels and visible text without indexing confidential parts", () => {
+    const { host } = fixture(
+      "Public | searchable\nPrivate *| hidden-search-term\nCard _| 4111111111111111",
+    );
+    const input = host.querySelector<HTMLInputElement>(
+      '[aria-label="Filter fields and groups"]',
+    )!;
+    input.value = "searchable";
     input.dispatchEvent(new Event("input", { bubbles: true }));
     expect(
-      host
-        .querySelector<HTMLElement>(".cm-aic-security-card")
-        ?.closest<HTMLElement>(".cm-aic-security-section")?.hidden,
-    ).toBe(true);
-    expect(view.state.doc.toString()).toBe(doc);
-    expect(saves).toEqual([]);
+      host.querySelector('[aria-label="Copy Public label"]')?.closest("section")
+        ?.hidden,
+    ).toBe(false);
+    input.value = "hidden-search-term";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(host.textContent).toContain("No matching fields or groups");
+    input.value = "1111";
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(host.textContent).toContain("No matching fields or groups");
   });
 
-  it("fails closed for invalid CVV or an extra pipe part", () => {
-    for (const value of [
-      "4242 4242 4242 4242 | 09/28 | invalid-private",
-      "4242 4242 4242 4242 | 09/28 | 019 | invalid-private",
-    ]) {
-      const { host } = fixture(security("Business_: " + value));
-      expect(host.querySelector(".cm-aic-security-error")).not.toBeNull();
-      expect(host.innerHTML).not.toContain("invalid-private");
-      expect(host.querySelector('[aria-label^="Copy Business"]')).toBeNull();
-    }
+  it("keeps all typed cells non-editable in a read-only preview", () => {
+    const { host } = fixture("Row | visible *| hidden #| JBSWY3DPEHPK3PXP", {
+      readOnly: true,
+    });
+    expect(host.querySelector('[aria-label="Add field to Row"]')).toBeNull();
+    expect(host.querySelector('[aria-label^="Paste "]')).toBeNull();
+    expect(host.querySelector('[aria-label^="Generate "]')).toBeNull();
+    expect(host.querySelector('[aria-label^="Reorder "]')).toBeNull();
   });
 
-  it("does not expose an unsupported fence suffix", () => {
-    const { host } = fixture(
-      security("Business_: future-private-value").replace(
-        "```aic",
-        "```aic v9",
-      ),
-    );
-    expect(host.querySelector(".cm-aic-security-error")).not.toBeNull();
-    expect(host.innerHTML).not.toContain("future-private-value");
-  });
-
-  it("pastes each empty card component once, with one save intent and undo", async () => {
-    const { host, view, onReadClipboard, saves } = fixture(
-      security('Business_: "4242 4242 4242 4242" | "09/28" | ""'),
-    );
-    expect(
-      host.querySelector('[aria-label="Paste Business number"]'),
-    ).toBeNull();
-    const stale = button(host, "Paste Business cvv");
-    stale.click();
-    await vi.waitFor(() => expect(field(view).additionalSecret).toBe("000"));
-    expect(host.innerHTML).not.toContain("000");
-    expect(host.querySelector('[aria-label="Paste Business cvv"]')).toBeNull();
-    stale.click();
-    expect(onReadClipboard).toHaveBeenCalledTimes(1);
-    expect(saves).toEqual([true]);
-    expect(undo(view)).toBe(true);
-    expect(field(view).additionalSecret).toBe("");
-  });
-
-  it.each([
-    {
-      name: "Security",
-      doc: security("Card_: 4242 4242 4242 1234 | 09/28 | 019"),
-    },
-    {
-      name: "Properties",
-      doc: "---\n# aic-fields: v2\nCard_: '4242 4242 4242 1234 | 09/28 | 019'\n---\nBody",
-    },
-  ])("keeps labelled $name card parts independent", ({ doc }) => {
-    const { host, onCopy } = fixture(doc);
-    const element = card(host);
-    expect(
-      element.querySelector(".cm-aic-security-section-title")?.textContent,
-    ).toBe("Card:");
-    expect(element.innerHTML).not.toContain("4242 4242 4242 1234");
-    expect(element.innerHTML).not.toContain("019");
-    expect(element.textContent).toContain("•••• 1234");
-    expect(element.textContent).toContain("09/28");
-    expect(element.textContent).toContain("•••");
-    for (const [part, expected, copyLabel] of [
-      ["label", "Card", "Card label"],
-      ["number value", "4242 4242 4242 1234", "Card Number"],
-      ["expiry value", "09/28", "Card Expiry"],
-      ["cvv value", "019", "Card CVV"],
-    ]) {
-      button(element, `Copy Card ${part}`).click();
-      expect(onCopy).toHaveBeenLastCalledWith(expected, copyLabel);
-    }
-  });
-
-  it.each([
-    { label: "Card", line: 'Card_: "" | "" | ""', serialized: "Card_:  |  | " },
-    { label: "Field", line: '_: "" | "" | ""', serialized: "_:  |  | " },
-  ])(
-    "keeps $label empty card paste, delete and reorder actions",
-    ({ label, line, serialized }) => {
-      const { host, view } = fixture(security(`${line}\nOther: value`));
-      const element = card(host);
-      if (label === "Field") {
-        expect(
-          element.querySelector(".cm-aic-security-section-title"),
-        ).toBeNull();
-      } else {
-        expect(
-          element.querySelector(".cm-aic-security-section-title")?.textContent,
-        ).toBe("Card:");
-      }
-      for (const part of ["number", "expiry", "cvv"])
-        expect(button(element, `Paste ${label} ${part}`)).toBeTruthy();
-      expect(button(element, `Delete empty ${label} field`)).toBeTruthy();
-      button(element, `Reorder ${label}`).dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: "ArrowDown",
-          altKey: true,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
-      expect(view.state.doc.toString()).toContain(
-        `Other: value\n${serialized}`,
-      );
-      button(card(host), `Delete empty ${label} field`).click();
-      expect(view.state.doc.toString()).not.toContain(serialized);
-    },
-  );
-
-  it.each([
-    {
-      label: "Card",
-      line: 'Card_: "" | "09/28" | ""',
-      serialized: "Card_:  | 09/28 | ",
-    },
-    { label: "Field", line: '_: "" | "" | "019"', serialized: "_:  |  | 019" },
-  ])(
-    "keeps $label part-filled card actions without deleting data",
-    ({ label, line, serialized }) => {
-      const { host, view, onCopy } = fixture(security(`${line}\nOther: value`));
-      const element = card(host);
-      expect(button(element, `Paste ${label} number`)).toBeTruthy();
-      expect(
-        element.querySelector(`[aria-label="Delete empty ${label} field"]`),
-      ).toBeNull();
-      if (label === "Card") {
-        button(element, "Copy Card expiry value").click();
-        expect(onCopy).toHaveBeenLastCalledWith("09/28", "Card Expiry");
-        expect(button(element, "Paste Card cvv")).toBeTruthy();
-      } else {
-        button(element, "Copy Field cvv value").click();
-        expect(onCopy).toHaveBeenLastCalledWith("019", "Field CVV");
-        expect(element.innerHTML).not.toContain("019");
-        expect(button(element, "Paste Field expiry")).toBeTruthy();
-      }
-      button(element, `Reorder ${label}`).dispatchEvent(
-        new KeyboardEvent("keydown", {
-          key: "ArrowDown",
-          altKey: true,
-          bubbles: true,
-          cancelable: true,
-        }),
-      );
-      expect(view.state.doc.toString()).toContain(
-        `Other: value\n${serialized}`,
-      );
-    },
-  );
-
-  it("discards pending card clipboard data after switching to source", async () => {
-    const doc = security("Business_:");
-    const { host, view, mode, onReadClipboard } = fixture(doc);
-    let resolve!: (value: string) => void;
-    onReadClipboard.mockImplementation(
-      () =>
-        new Promise<string>((done) => {
-          resolve = done;
-        }),
-    );
-    button(host, "Paste Business cvv").click();
-    mode.toggle(view);
-    resolve("019");
-    await new Promise((done) => setTimeout(done, 5));
-    expect(view.state.doc.toString()).toBe(doc);
-    mode.toggle(view);
-    expect(button(host, "Paste Business cvv")).toBeTruthy();
-  });
-
-  it("copies public descriptions separately while never showing the additional secret", () => {
-    const { host, onCopy } = fixture(
-      security(
-        "Account: person@example.test | Work | synthetic-private\nPass*: hidden\\|pipe | WebDAV",
-      ),
-    );
-    expect(host.innerHTML).not.toContain("synthetic-private");
-    expect(host.innerHTML).not.toContain("hidden|pipe");
-    const account = host.querySelector<HTMLElement>(
-      '.cm-aic-security-card[data-aic-card-kind="fields"]',
-    )!;
-    expect(
-      account.querySelector(".cm-aic-security-section-title")?.textContent,
-    ).toBe("Account:");
-    expect(
-      account.querySelectorAll(
-        ".cm-aic-security-card-parts .cm-aic-security-label",
-      ),
-    ).toHaveLength(0);
-    expect(account.textContent).not.toMatch(/\b(?:Value|Description)\b/u);
-    expect(
-      account.querySelector<HTMLButtonElement>(
-        '[aria-label="Copy Account description value"]',
-      )?.title,
-    ).toBe("Account description");
-    button(host, "Copy Account description value").click();
-    expect(onCopy).toHaveBeenLastCalledWith("Work", "Account Description");
-    button(host, "Copy Account additional secret value").click();
-    expect(onCopy).toHaveBeenLastCalledWith(
-      "synthetic-private",
-      "Account Additional secret",
-    );
-    button(host, "Copy Pass value").click();
-    expect(onCopy).toHaveBeenLastCalledWith("hidden|pipe", "Pass Value");
-    expect(
-      host.querySelector('[aria-label="Delete empty Account field"]'),
-    ).toBeNull();
-  });
-
-  it("renders pipe extras in one labelled row for Properties without losing cell actions", () => {
-    const { host, onCopy } = fixture(
-      "---\n# aic-fields: v2\nSamsung*: synthetic-private | Two-year warranty\n---\nBody",
-    );
-    const samsung = host.querySelector<HTMLElement>(
-      '.cm-aic-properties .cm-aic-security-card[data-aic-card-kind="fields"]',
-    )!;
-    expect(
-      samsung.querySelector(".cm-aic-security-section-title")?.textContent,
-    ).toBe("Samsung:");
-    expect(
-      samsung.querySelectorAll(
-        ".cm-aic-security-card-parts .cm-aic-security-label",
-      ),
-    ).toHaveLength(0);
-    expect(samsung.textContent).toContain("Two-year warranty");
-    expect(samsung.textContent).not.toMatch(/\b(?:Value|Description)\b/u);
-    expect(samsung.innerHTML).not.toContain("synthetic-private");
-    button(samsung, "Copy Samsung value").click();
-    expect(onCopy).toHaveBeenLastCalledWith(
-      "synthetic-private",
-      "Samsung Value",
-    );
-    button(samsung, "Copy Samsung description value").click();
-    expect(onCopy).toHaveBeenLastCalledWith(
-      "Two-year warranty",
-      "Samsung Description",
-    );
-  });
-
-  it("keeps empty pipe cell actions and field reordering", () => {
-    const { host } = fixture(security('Samsung*: "" | ""\nOther: value'));
-    const samsung = host.querySelector<HTMLElement>(
-      '.cm-aic-security-card[data-aic-card-kind="fields"]',
-    )!;
-    expect(button(samsung, "Paste Samsung value")).toBeTruthy();
-    expect(button(samsung, "Paste Samsung description")).toBeTruthy();
-    expect(button(samsung, "Delete empty Samsung field")).toBeTruthy();
-    expect(button(samsung, "Reorder Samsung")).toBeTruthy();
-  });
-
-  it("identifies TOTP by # even when the label is not TOTP", () => {
-    const { host } = fixture(security("Corporate#: JBSWY3DPEHPK3PXP | Work"));
-    expect(host.innerHTML).not.toContain("JBSWY3DPEHPK3PXP");
-    expect(host.querySelector(".cm-aic-security-code")).not.toBeNull();
-    expect(button(host, "Copy Corporate code")).toBeTruthy();
-  });
-
-  it("does not infer a TOTP type from a plain hidden field", () => {
-    const { host, onCopy } = fixture(security("TOTP*: synthetic-secret"));
-    expect(host.querySelector(".cm-aic-security-code")).toBeNull();
-    button(host, "Copy TOTP").click();
-    expect(onCopy).toHaveBeenCalledWith("TOTP", "TOTP label");
-    button(host, "Copy TOTP value").click();
-    expect(onCopy).toHaveBeenCalledWith("synthetic-secret", "TOTP");
+  it("keeps compact valid source previewable when canonical form fills the block", () => {
+    const compactRows = Array.from(
+      { length: 64 },
+      () => "R*|" + "x".repeat(1018),
+    ).join("\n");
+    const { host, view } = fixture(compactRows);
+    expect(model(view).sections[0]!.fields).toHaveLength(64);
+    expect(host.querySelector(".cm-aic-security-error")).toBeNull();
+    control(host, "Add field to R").click();
+    expect(control(host, "Add text field to R").disabled).toBe(true);
+    expect(view.state.doc.toString()).toBe(security(compactRows));
   });
 });

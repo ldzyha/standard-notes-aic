@@ -1,13 +1,12 @@
-import { syntaxTree } from "@codemirror/language";
 import { AicEditor } from "../editor";
-import { writeTextToClipboard } from "../core/structured-preview.js";
-import { PROPERTIES_SYNTAX_MARKER } from "../core/field-syntax.js";
+import { AIC_EMPTY_DOCUMENT } from "../core/security-model.js";
 import { request, type ActivePage, type BrowserApi } from "./api";
 import { BrowserDrafts, type Draft } from "./drafts";
 import { DomainDrafts, type DomainDraft } from "./domain-drafts";
 import { DomainPropertiesView } from "./domain-properties";
 import { savedPageAncestors } from "./page-ancestors";
 import { applyUiComponent, createUiButton } from "../core/ui-system.js";
+import { createEditorHelp } from "../core/editor-help.js";
 import {
   buildDomainTree,
   type BrowserLibrary,
@@ -15,9 +14,10 @@ import {
   type BrowserNote,
 } from "./library";
 import {
+  displayPageLocation,
+  displayPageTitle,
   navigationLabels,
   projectDomain,
-  shortPath,
   type NavigationItem,
 } from "./navigation";
 import { importCapturedPage } from "./import-page";
@@ -25,7 +25,7 @@ import type { PageCapture } from "./capture-page";
 import type { VaultStatus } from "./vault-store";
 
 const SESSION_KEY = "aic-browser-unlock";
-const PLACEHOLDER_TEXT = `---\n${PROPERTIES_SYNTAX_MARKER}\n---\n\n`;
+const PLACEHOLDER_TEXT = AIC_EMPTY_DOCUMENT;
 const emptyLibrary = (): BrowserLibrary => ({
   version: 2,
   notes: [],
@@ -61,6 +61,10 @@ export class BrowserPanel {
   private libraryRefreshDeferred = false;
   private contextLoading = false;
   private overlayTrigger: HTMLButtonElement | null = null;
+  private markdownImport: {
+    input: HTMLInputElement;
+    cancelled: boolean;
+  } | null = null;
   private feedbackTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly urls = new Set<string>();
   private readonly cleanups: (() => void)[] = [];
@@ -139,8 +143,9 @@ export class BrowserPanel {
           this.page.title = change.title;
           const title = this.toolbar.querySelector(".browser-page-title");
           if (title) {
-            title.textContent = change.title;
-            (title as HTMLElement).title = change.title;
+            const label = displayPageTitle(this.page);
+            title.textContent = label;
+            (title as HTMLElement).title = label;
           }
         }
         return;
@@ -308,11 +313,12 @@ export class BrowserPanel {
     return button;
   }
 
-  private importButton(
+  private importIconButton(
     label: string,
+    glyph: string,
     action: (button: HTMLButtonElement) => void | Promise<unknown>,
   ): HTMLButtonElement {
-    const button = this.button(label, action);
+    const button = this.iconButton(label, glyph, action);
     button.dataset.importAction = "true";
     button.disabled = this.importing;
     return button;
@@ -342,9 +348,11 @@ export class BrowserPanel {
         "browser-page-title",
         this.contextLoading
           ? "Loading page…"
-          : this.page?.title || "Your notes",
+          : this.page
+            ? displayPageTitle(this.page)
+            : "Your notes",
       );
-      title.title = this.page?.title || "Your notes";
+      title.title = this.page ? displayPageTitle(this.page) : "Your notes";
       identity.append(title);
       if (this.page) {
         const source = this.el(
@@ -352,22 +360,46 @@ export class BrowserPanel {
           "browser-page-origin",
           new URL(this.page.url).host,
         );
-        source.title = this.page.url;
+        source.title = displayPageLocation(this.page.url);
         identity.append(source);
       }
       this.toolbar.append(identity);
       if (this.page && !this.shared?.editing) {
-        const add = this.importButton("Add content", (button) =>
-          this.showImportMenu(button),
+        const capture = this.importIconButton(
+          "Import current content",
+          "↳",
+          () => this.capture("auto"),
         );
-        add.classList.add("browser-add-content");
-        add.title =
-          "Add page content, selected text, clipboard text, or Markdown to this note";
-        this.toolbar.append(add);
+        capture.title =
+          "Import selected readable content when available; otherwise import the readable page";
+        const markdown = this.importIconButton(
+          "Import Markdown file",
+          "↑",
+          () => this.chooseMarkdownFile(),
+        );
+        markdown.title = "Import a plaintext Markdown file into this note";
+        markdown.setAttribute("aria-description", markdown.title);
+        this.toolbar.append(capture, markdown);
+        if (this.editor && this.noteId) {
+          const noteId = this.noteId;
+          const exportMarkdown = this.iconButton(
+            "Export Markdown file",
+            "↓",
+            () => this.exportDraft(noteId),
+          );
+          exportMarkdown.title =
+            "Export plaintext Markdown; the file may contain secrets";
+          exportMarkdown.setAttribute("aria-description", exportMarkdown.title);
+          this.toolbar.append(exportMarkdown);
+        }
       }
     } else {
       this.toolbar.append(this.el("span", "browser-brand", ">_ AIC"));
     }
+    if (this.canUseLibrary())
+      this.toolbar.append(
+        this.iconButton("AIC guide", "?", (button) => this.showGuide(button)),
+      );
     const more = this.iconButton("More options", "⋯", (button) =>
       this.showMoreMenu(button),
     );
@@ -383,7 +415,7 @@ export class BrowserPanel {
       "button",
     )) {
       if (
-        ["Notes and history", "More options", "Add content"].includes(
+        ["Notes and history", "AIC guide", "More options"].includes(
           button.getAttribute("aria-label") || "",
         )
       ) {
@@ -411,51 +443,9 @@ export class BrowserPanel {
     return box;
   }
 
-  private showImportMenu(trigger: HTMLButtonElement): void {
-    if (!this.page || !this.canUseLibrary()) return;
-    const box = this.showPopover("Add content", trigger);
-    if (!box) return;
-    box.append(
-      this.el("h2", "", "Add to this note"),
-      this.el(
-        "p",
-        "browser-menu-hint",
-        "Append content. The website and existing text stay unchanged.",
-      ),
-      this.importButton("Import page", () => this.capture("page")),
-      this.importButton("Import selection", () => this.capture("selection")),
-      this.importButton("Paste from clipboard", () => this.pasteClipboard()),
-      this.importButton("Import Markdown", () => this.importMarkdownDialog()),
-    );
-    box.querySelector<HTMLButtonElement>("button")?.focus();
-  }
-
   private showMoreMenu(trigger: HTMLButtonElement): void {
     const box = this.showPopover("More options", trigger);
     if (!box) return;
-    if (this.editor && this.noteId && !this.shared?.editing) {
-      const noteId = this.noteId;
-      box.append(
-        this.button("Copy note", () => {
-          this.closeOverlay(true);
-          return this.copy(false);
-        }),
-        this.button("Copy block or selection", () => {
-          this.closeOverlay(true);
-          return this.copy(true);
-        }),
-        this.button("Export Markdown", () => {
-          this.closeOverlay(true);
-          this.exportDraft(noteId);
-        }),
-        this.el(
-          "p",
-          "browser-menu-hint",
-          "Copy and Markdown export include plaintext, including hidden secrets.",
-        ),
-        this.el("hr"),
-      );
-    }
     if (this.page && this.canUseLibrary()) {
       const page = { ...this.page };
       const draft = this.drafts?.getForPage(page.url);
@@ -472,17 +462,38 @@ export class BrowserPanel {
           () => this.showDeletePage(page.url, page.title, trigger),
         );
         remove.disabled = this.importing || this.deleting;
-        box.append(remove, this.el("hr"));
+        box.append(
+          this.el(
+            "h2",
+            "browser-menu-group",
+            hasNote ? "Local note" : "Recent page",
+          ),
+          remove,
+          this.el("hr"),
+        );
       }
     }
+    box.append(this.el("h2", "browser-menu-group", "Encrypted backup"));
+    if (this.state === "unlocked")
+      box.append(
+        this.button("Export encrypted backup", () => {
+          this.closeOverlay(true);
+          return this.exportBackup();
+        }),
+      );
     box.append(
-      this.button("Export encrypted backup", () => {
-        this.closeOverlay(true);
-        return this.exportBackup();
-      }),
       this.button("Import encrypted backup", () => this.importBackupDialog()),
     );
     box.querySelector<HTMLButtonElement>("button")?.focus();
+  }
+
+  private showGuide(trigger: HTMLButtonElement): void {
+    const box = this.showPopover("AIC guide", trigger);
+    if (!box) return;
+    box.classList.add("browser-guide");
+    box.append(createEditorHelp(this.document, { host: "browser" }));
+    box.tabIndex = -1;
+    box.focus();
   }
 
   private showDeletePage(
@@ -510,7 +521,7 @@ export class BrowserPanel {
         "",
         hasNote ? "Delete this local note?" : "Remove this recent page?",
       ),
-      this.el("p", "browser-delete-title", title || shortPath(url)),
+      this.el("p", "browser-delete-title", displayPageTitle({ url, title })),
       this.el(
         "p",
         "browser-menu-hint",
@@ -924,6 +935,7 @@ export class BrowserPanel {
 
   private async refreshContext(): Promise<void> {
     if (!this.canUseLibrary() || this.windowId === null) return;
+    this.clearMarkdownImport();
     const generation = this.generation;
     const context = ++this.contextGeneration;
     this.contextLoading = true;
@@ -1032,6 +1044,7 @@ export class BrowserPanel {
     if (!draft.note && !draft.dirty && draft.text === PLACEHOLDER_TEXT)
       this.editor.view.dispatch({ selection: { anchor: draft.text.length } });
     this.reflectDraft(draft);
+    this.renderToolbar();
     this.placeSharedProperties();
   }
 
@@ -1120,21 +1133,20 @@ export class BrowserPanel {
     const list = this.el("ol");
     for (const parent of parents) {
       const item = this.el("li");
-      const link = this.button(
-        parent.title.trim() || shortPath(parent.url),
-        () => this.navigate(parent.url),
+      const link = this.button(displayPageTitle(parent), () =>
+        this.navigate(parent.url),
       );
-      link.title = parent.url;
+      link.title = displayPageLocation(parent.url);
       item.append(link);
       list.append(item);
     }
     const current = this.el(
       "li",
       "browser-ancestor-current",
-      this.page.title || shortPath(this.page.url),
+      displayPageTitle(this.page),
     );
     current.setAttribute("aria-current", "page");
-    current.title = this.page.url;
+    current.title = displayPageLocation(this.page.url);
     list.append(current);
     nav.append(list);
   }
@@ -1247,7 +1259,7 @@ export class BrowserPanel {
         this.el(
           "p",
           "",
-          `${draft.page.title || draft.page.url}: ${draft.error}`,
+          `${displayPageTitle(draft.page)} (${displayPageLocation(draft.page.url)}): ${draft.error}`,
         ),
         this.button("Retry save", () => this.drafts?.flush(draft.key)),
         this.button("Export unsaved draft", () => this.exportDraft(draft.key)),
@@ -1278,7 +1290,9 @@ export class BrowserPanel {
     nav.replaceChildren();
     const query = this.filter.toLocaleLowerCase();
     const matches = (item: { title: string; url: string }) =>
-      `${item.title}\n${item.url}`.toLocaleLowerCase().includes(query);
+      `${displayPageTitle(item)}\n${displayPageLocation(item.url)}`
+        .toLocaleLowerCase()
+        .includes(query);
     const domains = buildDomainTree(this.library.notes.filter(matches));
     const activeHost = this.page ? new URL(this.page.url).host : null;
     domains.sort(
@@ -1294,7 +1308,8 @@ export class BrowserPanel {
       const row = this.el("div", "browser-page-row");
       row.dataset.current = String(page.url === this.page?.url);
       const button = this.button(label, () => this.navigate(page.url));
-      button.title = page.url;
+      button.title = displayPageLocation(page.url);
+      button.replaceChildren(this.el("span", "browser-page-label", label));
       if (page.url === this.page?.url)
         button.setAttribute("aria-current", "page");
       const remove = this.iconButton(
@@ -1321,8 +1336,7 @@ export class BrowserPanel {
           parent.append(
             pageLink(
               entry.note,
-              noteLabels.get(entry.note.url) ??
-                (entry.note.title.trim() || shortPath(entry.note.url)),
+              noteLabels.get(entry.note.url) ?? displayPageTitle(entry.note),
               true,
             ),
           );
@@ -1358,8 +1372,7 @@ export class BrowserPanel {
     for (const visit of visits) {
       const item = pageLink(
         visit,
-        visitLabels.get(visit.url) ??
-          (visit.title.trim() || shortPath(visit.url)),
+        visitLabels.get(visit.url) ?? displayPageTitle(visit),
         false,
       );
       item.append(this.el("small", "browser-url", new URL(visit.url).host));
@@ -1368,7 +1381,7 @@ export class BrowserPanel {
     nav.append(history);
   }
 
-  private capture(mode: "page" | "selection"): Promise<void> | void {
+  private capture(mode: "auto" | "page" | "selection"): Promise<void> | void {
     if (!this.page || !this.canUseLibrary()) return;
     this.requireImportReady();
     const page = { ...this.page };
@@ -1381,7 +1394,11 @@ export class BrowserPanel {
     this.closeOverlay();
     this.setImporting(true);
     this.tell(
-      mode === "page" ? "Importing page…" : "Importing selected text…",
+      mode === "page"
+        ? "Importing page…"
+        : mode === "selection"
+          ? "Importing selected text…"
+          : "Importing current content…",
       "progress",
     );
     return (async () => {
@@ -1399,7 +1416,7 @@ export class BrowserPanel {
       if (!imported.markdown) {
         this.tell(
           imported.warnings.join(" ") ||
-            "No readable content found. Select text on the page or paste from the clipboard.",
+            "No readable content found. Select readable text or open a content page and retry.",
           "error",
         );
         return;
@@ -1410,47 +1427,6 @@ export class BrowserPanel {
           imported.warnings.join(" ") || "Imported into this page’s note.",
           imported.warnings.length ? "info" : "success",
         );
-    })().finally(() => {
-      if (this.valid(generation, context)) this.setImporting(false);
-    });
-  }
-
-  private pasteClipboard(): Promise<void> | void {
-    if (!this.page || !this.canUseLibrary()) return;
-    this.requireImportReady();
-    const clipboard = this.document.defaultView?.navigator.clipboard;
-    if (!clipboard?.readText)
-      throw new Error(
-        "Clipboard access is unavailable. Paste directly into the note with Ctrl+V, or import a Markdown file.",
-      );
-    const generation = this.generation;
-    const context = this.contextGeneration;
-    // Read only on an explicit click, before its user activation expires.
-    const pending = clipboard.readText();
-    this.closeOverlay();
-    this.setImporting(true);
-    this.tell("Pasting from clipboard…", "progress");
-    return (async () => {
-      let text: string;
-      try {
-        text = await pending;
-      } catch {
-        throw new Error(
-          "Clipboard access was denied. Paste directly into the note with Ctrl+V, or import a Markdown file.",
-        );
-      }
-      if (!this.valid(generation, context)) return;
-      if (!text.trim()) {
-        this.tell("Clipboard is empty. Copy text first, then try again.");
-        return;
-      }
-      if (new TextEncoder().encode(text).length > 512 * 1024)
-        throw new Error(
-          "Clipboard text exceeds the note size limit. Import a smaller selection.",
-        );
-      await this.appendMarkdown(text);
-      if (this.valid(generation, context))
-        this.tell("Pasted into this page’s note.", "success");
     })().finally(() => {
       if (this.valid(generation, context)) this.setImporting(false);
     });
@@ -1504,36 +1480,6 @@ export class BrowserPanel {
       allowPrivate: this.allowPrivate,
     });
     if (this.valid(generation, context)) await this.refreshContext();
-  }
-
-  private async copy(block: boolean): Promise<void> {
-    if (!this.editor) return;
-    const generation = this.generation;
-    const context = this.contextGeneration;
-    const state = this.editor.view.state;
-    let text = this.editor.value;
-    if (block) {
-      const selection = state.selection.main;
-      if (!selection.empty) text = state.sliceDoc(selection.from, selection.to);
-      else {
-        let node = syntaxTree(state).resolveInner(selection.head, -1);
-        while (node.parent?.parent) node = node.parent;
-        if (!node.parent) {
-          this.tell(
-            "Place the cursor in a Markdown block or select text to copy.",
-          );
-          return;
-        }
-        text = state.sliceDoc(node.from, node.to);
-      }
-    }
-    const copied = await writeTextToClipboard(text, this.document);
-    if (this.valid(generation, context))
-      this.tell(
-        copied
-          ? "Plaintext copied to clipboard."
-          : "Clipboard is unavailable. Export Markdown instead.",
-      );
   }
 
   private download(text: string, filename: string, type: string): void {
@@ -1693,49 +1639,90 @@ export class BrowserPanel {
     file.focus();
   }
 
-  private importMarkdownDialog(): void {
+  private chooseMarkdownFile(): void {
     if (!this.page) return;
-    const trigger = this.overlayTrigger;
-    this.closeOverlay();
-    this.overlayTrigger = trigger;
-    trigger?.setAttribute("aria-expanded", "true");
-    const box = this.el("section", "browser-import");
-    box.setAttribute("role", "dialog");
-    box.setAttribute("aria-label", "Import Markdown");
-    box.append(
-      this.el("p", "", "Append a Markdown file to the active page’s note."),
+    this.requireImportReady();
+    this.clearMarkdownImport();
+    const generation = this.generation;
+    const context = this.contextGeneration;
+    const input = this.el("input");
+    input.type = "file";
+    input.accept = ".md,.markdown,text/markdown,text/plain";
+    input.hidden = true;
+    input.tabIndex = -1;
+    input.setAttribute("aria-label", "Markdown file");
+    const pending = { input, cancelled: false };
+    this.markdownImport = pending;
+    const removeInput = () => input.remove();
+    input.addEventListener(
+      "cancel",
+      () => {
+        if (this.markdownImport !== pending) return;
+        pending.cancelled = true;
+        this.markdownImport = null;
+        removeInput();
+      },
+      { once: true },
     );
-    const file = this.el("input");
-    file.type = "file";
-    file.accept = ".md,.markdown,text/markdown,text/plain";
-    file.setAttribute("aria-label", "Markdown file");
-    box.append(
-      file,
-      this.button("Append Markdown file", async () => {
-        this.requireImportReady();
-        const selected = file.files?.[0];
-        if (!selected) return;
-        if (selected.size > 512 * 1024)
-          throw new Error("Markdown file exceeds the note size limit.");
-        const generation = this.generation;
-        const context = this.contextGeneration;
+    input.addEventListener(
+      "change",
+      () => {
+        if (pending.cancelled || this.markdownImport !== pending) {
+          removeInput();
+          return;
+        }
+        const selected = input.files?.[0];
+        removeInput();
+        if (!selected) {
+          if (this.markdownImport === pending) this.markdownImport = null;
+          return;
+        }
+        if (selected.size > 512 * 1024) {
+          if (this.markdownImport === pending) this.markdownImport = null;
+          this.fail(new Error("Markdown file exceeds the note size limit."));
+          return;
+        }
         this.setImporting(true);
         this.tell("Importing Markdown…", "progress");
-        try {
+        void (async () => {
           const text = await selected.text();
-          if (!this.valid(generation, context) || !box.isConnected) return;
-          this.closeOverlay();
+          if (
+            pending.cancelled ||
+            this.markdownImport !== pending ||
+            !this.valid(generation, context)
+          )
+            return;
           await this.appendMarkdown(text);
-          if (this.valid(generation, context))
+          if (
+            !pending.cancelled &&
+            this.markdownImport === pending &&
+            this.valid(generation, context)
+          )
             this.tell("Imported into this page’s note.", "success");
-        } finally {
-          if (this.valid(generation, context)) this.setImporting(false);
-        }
-      }),
-      this.button("Cancel import", () => this.closeOverlay(true)),
+        })()
+          .catch((error: unknown) => {
+            if (
+              !pending.cancelled &&
+              this.markdownImport === pending &&
+              this.valid(generation, context)
+            )
+              this.fail(error);
+          })
+          .finally(() => {
+            if (this.markdownImport !== pending) return;
+            this.markdownImport = null;
+            if (this.valid(generation, context)) this.setImporting(false);
+          });
+      },
+      { once: true },
     );
-    this.overlay.append(box);
-    file.focus();
+    this.root.append(input);
+    try {
+      input.click();
+    } catch (error) {
+      this.clearMarkdownImport();
+      throw error;
+    }
   }
 
   private async lock(discard = false): Promise<void> {
@@ -1749,7 +1736,7 @@ export class BrowserPanel {
       for (const draft of this.drafts?.dirtyDrafts() ?? [])
         this.overlay.append(
           this.button(
-            `Export unsaved draft: ${draft.page.title || "note"}`,
+            `Export unsaved draft: ${displayPageTitle(draft.page)}`,
             () => this.exportDraft(draft.key),
           ),
         );
@@ -1784,6 +1771,7 @@ export class BrowserPanel {
   }
 
   private clearPlaintext(): void {
+    this.clearMarkdownImport();
     ++this.generation;
     ++this.contextGeneration;
     this.deleting = false;
@@ -1811,6 +1799,14 @@ export class BrowserPanel {
     this.tell("");
     for (const url of this.urls) URL.revokeObjectURL(url);
     this.urls.clear();
+  }
+
+  private clearMarkdownImport(): void {
+    const pending = this.markdownImport;
+    if (!pending) return;
+    pending.cancelled = true;
+    pending.input.remove();
+    this.markdownImport = null;
   }
 
   private flushBeforeHide(): void {

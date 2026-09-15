@@ -23,10 +23,11 @@ describe("Security separators", () => {
     expect(SECURITY_LIMITS).toEqual({
       maxSections: 16,
       maxFields: 64,
+      maxParts: 64,
       maxBodyLength: 65536,
       maxValueLength: 16384,
     });
-    expect(securityTemplate()).toMatch(/^```aic\nService:/u);
+    expect(securityTemplate()).toMatch(/^```aic\nService \|/u);
     expect(securityTemplate()).not.toMatch(/^##/mu);
   });
 
@@ -36,31 +37,31 @@ describe("Security separators", () => {
       sections: [
         {
           label: "",
-          fields: [{ label: "Service", value: "A", hide: false }],
+          fields: [{ label: "Service", parts: [{ value: "A", kind: "text" }] }],
         },
         {
           label: "Work",
           fields: [
-            { label: "Password", value: "s|x", hide: true },
+            { label: "Password", parts: [{ value: "s|x", kind: "secret" }] },
             {
               label: "Card",
-              value: "4111111111111111",
-              description: "09/28",
-              additionalSecret: "123",
-              hide: false,
-              kind: "card",
+              parts: [
+                { value: "4111111111111111", kind: "card" },
+                { value: "09/28", kind: "text" },
+                { value: "123", kind: "secret" },
+              ],
             },
           ],
         },
         {
           label: "",
-          fields: [{ label: "TOTP", value: "seed", hide: true, kind: "totp" }],
+          fields: [{ label: "TOTP", parts: [{ value: "seed", kind: "totp" }] }],
         },
       ],
     };
     const body = serializeSecurityBlock(model, SECURITY_FIELD_OPTIONS);
     expect(body).toBe(
-      '# Accounts\nService: A\n---\n## Work\nPassword*: "s|x"\nCard_: 4111111111111111 | 09/28 | 123\n---\nTOTP#: seed\n',
+      '# Accounts\nService | A\n---\n## Work\nPassword *| "s|x"\nCard _| 4111111111111111 | 09/28 *| 123\n---\nTOTP #| seed\n',
     );
     expect(parseSecurityBlock(body, SECURITY_FIELD_OPTIONS)).toEqual({
       ok: true,
@@ -74,15 +75,15 @@ describe("Security separators", () => {
     ).toMatchObject({
       ok: true,
       fieldRanges: [
-        [{ from: body.indexOf("Service:"), to: body.indexOf("\n---") }],
+        [{ from: body.indexOf("Service |"), to: body.indexOf("\n---") }],
         [
-          { from: body.indexOf("Password*:"), to: body.indexOf("\nCard_:") },
+          { from: body.indexOf("Password *|"), to: body.indexOf("\nCard _|") },
           {
-            from: body.indexOf("Card_:"),
-            to: body.indexOf("\n---", body.indexOf("Card_:")),
+            from: body.indexOf("Card _|"),
+            to: body.indexOf("\n---", body.indexOf("Card _|")),
           },
         ],
-        [{ from: body.indexOf("TOTP#:"), to: body.lastIndexOf("\n") }],
+        [{ from: body.indexOf("TOTP #|"), to: body.lastIndexOf("\n") }],
       ],
     });
   });
@@ -111,14 +112,16 @@ describe("Security separators", () => {
       });
     }
     expect(
-      parseSecurityBlock("Field: value\n", SECURITY_FIELD_OPTIONS),
+      parseSecurityBlock("Field | value\n", SECURITY_FIELD_OPTIONS),
     ).toEqual({
       ok: true,
       model: {
         sections: [
           {
             label: "",
-            fields: [{ label: "Field", value: "value", hide: false }],
+            fields: [
+              { label: "Field", parts: [{ value: "value", kind: "text" }] },
+            ],
           },
         ],
       },
@@ -126,7 +129,7 @@ describe("Security separators", () => {
   });
 
   it("rejects heading-only section boundaries without ---, regardless of options", () => {
-    const old = "## First\nField: one\n## Second\nField: two\n";
+    const old = "## First\nField | one\n## Second\nField | two\n";
     expect(parseSecurityBlock(old)).toMatchObject({ ok: false });
     expect(parseSecurityBlock(old, SECURITY_FIELD_OPTIONS)).toMatchObject({
       ok: false,
@@ -139,19 +142,19 @@ describe("Security separators", () => {
     };
     expect(serializeSecurityBlock(model)).toBe("---\n");
     expect(
-      parseSecurityBlock("Field: value", SECURITY_FIELD_OPTIONS),
+      parseSecurityBlock("Field | value", SECURITY_FIELD_OPTIONS),
     ).toMatchObject({ ok: true });
-    expect(parseSecurityBlock("Field: value")).toMatchObject({ ok: true });
+    expect(parseSecurityBlock("Field | value")).toMatchObject({ ok: true });
   });
 
   it("rejects misplaced/duplicate titles and overflows without leaking source", () => {
     for (const [body, code] of [
-      ["# One\n# Two\nField: secret-9031", "duplicate_title"],
-      ["Field: secret-9031\n# Two", "misplaced_title"],
-      ["Field: secret-9031\n## More", "misplaced_section_title"],
+      ["# One\n# Two\nField | secret-9031", "duplicate_title"],
+      ["Field | secret-9031\n# Two", "misplaced_title"],
+      ["Field | secret-9031\n## More", "misplaced_section_title"],
       ["## One\n## Two", "misplaced_section_title"],
-      [`${"---\n".repeat(16)}Field: secret-9031`, "too_many_sections"],
-      [`${"Field: x\n".repeat(64)}Extra: secret-9031`, "too_many_fields"],
+      [`${"---\n".repeat(16)}Field | secret-9031`, "too_many_sections"],
+      [`${"Field | x\n".repeat(64)}Extra | secret-9031`, "too_many_fields"],
     ] as const) {
       const parsed = parseSecurityBlock(body, {
         ...SECURITY_FIELD_OPTIONS,
@@ -165,7 +168,7 @@ describe("Security separators", () => {
   });
 
   it("accepts an exact-size body but rejects a noncanonical rewrite that adds a newline", () => {
-    const body = `${`A: ${"x".repeat(16380)}\n`.repeat(3)}A: ${"x".repeat(16381)}`;
+    const body = `${`A | ${"x".repeat(16379)}\n`.repeat(3)}A | ${"x".repeat(16380)}`;
     expect(body.length).toBe(SECURITY_LIMITS.maxBodyLength);
     const parsed = parseSecurityBlock(body, SECURITY_FIELD_OPTIONS);
     expect(parsed.ok).toBe(true);

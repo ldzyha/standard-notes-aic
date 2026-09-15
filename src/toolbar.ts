@@ -1,6 +1,5 @@
 import type { EditorView } from "@codemirror/view";
 import { createIconButton } from "./core/structured-preview.js";
-import { createUiButton } from "./core/ui-system.js";
 import {
   insertCodeFence,
   insertHorizontalRule,
@@ -22,8 +21,6 @@ export type ToolbarController = Readonly<{
   element: HTMLElement;
   setReadOnly: (readOnly: boolean) => void;
 }>;
-
-let nextTrayId = 0;
 
 function actionButton(
   icon: string,
@@ -63,44 +60,57 @@ export function createToolbar(
   const toolbar = document.createElement("header");
   toolbar.className = "aic-toolbar";
   toolbar.setAttribute("aria-label", "AIC formatting");
+  if (options.compact) toolbar.classList.add("aic-toolbar--compact");
 
-  const blockGroup = group("Block style", document);
-  const block = document.createElement("select");
-  block.className = "aic-toolbar-select";
-  block.setAttribute("aria-label", "Block style");
-  option(block, "", "Style");
-  option(block, "paragraph", "Paragraph");
-  for (let level = 1; level <= 6; level++)
-    option(block, String(level), `Heading ${level}`);
-  option(block, "quote", "Quote");
-  block.addEventListener("change", () => {
-    if (!block.value) return;
-    const value: BlockKind = /^\d$/u.test(block.value)
-      ? (Number(block.value) as BlockKind)
-      : (block.value as BlockKind);
-    setBlockKind(getView(), value);
-    block.value = "";
-  });
-  blockGroup.append(block);
+  if (!options.compact) {
+    const blockGroup = group("Block style", document);
+    const block = document.createElement("select");
+    block.className = "aic-toolbar-select";
+    block.setAttribute("aria-label", "Block style");
+    option(block, "", "Style");
+    option(block, "paragraph", "Paragraph");
+    for (let level = 1; level <= 6; level++)
+      option(block, String(level), `Heading ${level}`);
+    option(block, "quote", "Quote");
+    block.addEventListener("change", () => {
+      if (!block.value) return;
+      const value: BlockKind = /^\d$/u.test(block.value)
+        ? (Number(block.value) as BlockKind)
+        : (block.value as BlockKind);
+      setBlockKind(getView(), value);
+      block.value = "";
+    });
+    blockGroup.append(block);
+    toolbar.append(blockGroup);
+  }
 
   const inlineGroup = group("Inline formatting", document);
+  if (!options.compact) {
+    inlineGroup.append(
+      actionButton(
+        "bold",
+        "Bold (Ctrl/Command+B)",
+        toggleBold,
+        getView,
+        document,
+      ),
+      actionButton(
+        "italic",
+        "Italic (Ctrl/Command+I)",
+        toggleItalic,
+        getView,
+        document,
+      ),
+    );
+  }
   inlineGroup.append(
-    actionButton(
-      "bold",
-      "Bold (Ctrl/Command+B)",
-      toggleBold,
-      getView,
-      document,
-    ),
-    actionButton(
-      "italic",
-      "Italic (Ctrl/Command+I)",
-      toggleItalic,
-      getView,
-      document,
-    ),
     actionButton("strike", "Strikethrough", toggleStrike, getView, document),
-    actionButton("code", "Inline code", toggleInlineCode, getView, document),
+  );
+  if (!options.compact)
+    inlineGroup.append(
+      actionButton("code", "Inline code", toggleInlineCode, getView, document),
+    );
+  inlineGroup.append(
     actionButton(
       "link",
       "Insert link (Ctrl/Command+K)",
@@ -134,79 +144,32 @@ export function createToolbar(
       document,
     ),
   );
+  toolbar.append(inlineGroup, listGroup);
 
-  const insertGroup = group("Insert block", document);
-  const insert = document.createElement("select");
-  insert.className = "aic-toolbar-select";
-  insert.setAttribute("aria-label", "Insert block");
-  option(insert, "", "Insert");
-  option(insert, "table", "Table");
-  option(insert, "properties", "Properties");
-  option(insert, "code", "Code block");
-  option(insert, "mermaid", "Mermaid");
-  option(insert, "rule", "Horizontal rule");
-  const insertCommands: Record<string, AicCommand> = {
-    table: insertTable,
-    properties: insertProperties,
-    code: insertCodeFence,
-    mermaid: insertMermaid,
-    rule: insertHorizontalRule,
-  };
-  insert.addEventListener("change", () => {
-    insertCommands[insert.value]?.(getView());
-    insert.value = "";
-  });
-  insertGroup.append(insert);
-
-  if (options.compact) {
-    toolbar.classList.add("aic-toolbar--compact");
-    const trigger = createUiButton(document, {
-      label: "Formatting",
-      text: "Format",
-      variant: "ghost",
-      size: "compact",
-    });
-    trigger.classList.add("aic-toolbar-button", "aic-formatting-toggle");
-    trigger.setAttribute("aria-expanded", "false");
-
-    const tray = document.createElement("div");
-    tray.className = "aic-toolbar-tray";
-    tray.id = `aic-formatting-tray-${++nextTrayId}`;
-    tray.hidden = true;
-    trigger.setAttribute("aria-controls", tray.id);
-    tray.append(blockGroup, inlineGroup, listGroup, insertGroup);
-
-    const placeTray = () => {
-      const viewportHeight = document.defaultView?.innerHeight;
-      if (!viewportHeight) return;
-      const bounds = toolbar.getBoundingClientRect();
-      const below = Math.max(0, viewportHeight - bounds.bottom - 7);
-      const above = Math.max(0, bounds.top - 7);
-      const required = Math.min(tray.scrollHeight, 180);
-      const placement = below < required && above > below ? "above" : "below";
-      tray.dataset.placement = placement;
-      tray.style.maxHeight = `${Math.floor(placement === "above" ? above : below)}px`;
+  if (!options.compact) {
+    const insertGroup = group("Insert block", document);
+    const insert = document.createElement("select");
+    insert.className = "aic-toolbar-select";
+    insert.setAttribute("aria-label", "Insert block");
+    option(insert, "", "Insert");
+    option(insert, "table", "Table");
+    option(insert, "properties", "AIC fields");
+    option(insert, "code", "Code block");
+    option(insert, "mermaid", "Mermaid");
+    option(insert, "rule", "Horizontal rule");
+    const insertCommands: Record<string, AicCommand> = {
+      table: insertTable,
+      properties: insertProperties,
+      code: insertCodeFence,
+      mermaid: insertMermaid,
+      rule: insertHorizontalRule,
     };
-    const setOpen = (open: boolean) => {
-      if (!open && tray.contains(document.activeElement)) trigger.focus();
-      tray.hidden = !open;
-      if (open) placeTray();
-      trigger.setAttribute("aria-expanded", String(open));
-    };
-    // Match the shared icon buttons: pointer activation should not steal the
-    // editor selection that the formatting commands will act on.
-    trigger.addEventListener("pointerdown", (event) => event.preventDefault());
-    trigger.addEventListener("click", () => setOpen(tray.hidden));
-    tray.addEventListener("keydown", (event) => {
-      if (event.key !== "Escape") return;
-      event.preventDefault();
-      event.stopPropagation();
-      setOpen(false);
-      trigger.focus();
+    insert.addEventListener("change", () => {
+      insertCommands[insert.value]?.(getView());
+      insert.value = "";
     });
-    toolbar.append(trigger, tray);
-  } else {
-    toolbar.append(blockGroup, inlineGroup, listGroup, insertGroup);
+    insertGroup.append(insert);
+    toolbar.append(insertGroup);
   }
   return Object.freeze({
     element: toolbar,
@@ -217,8 +180,8 @@ export function createToolbar(
         )
         .forEach((control) => {
           if (
-            control.classList.contains("aic-formatting-toggle") ||
-            control.classList.contains("aic-source-mode-toggle")
+            control.classList.contains("aic-source-mode-toggle") ||
+            control.dataset.aicReadonlyAction === "true"
           )
             return;
           control.disabled = readOnly;

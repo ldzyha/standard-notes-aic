@@ -42,11 +42,11 @@ const syntheticPassword = "synthetic-packaged-test-passphrase-only";
 const syntheticMarkdown = "Synthetic packaged extension note 82751";
 const syntheticSharedSecret = "SYNTHETIC-ONLY-SHARED-SECRET-82751";
 const syntheticSharedMarkdown = [
-  "---",
-  "# aic-fields: v2",
-  `Password*: "${syntheticSharedSecret}"`,
-  "Username: synthetic@example.invalid",
-  "---",
+  "```aic",
+  "# Properties",
+  `Password *| "${syntheticSharedSecret}"`,
+  "Username | synthetic@example.invalid",
+  "```",
   "",
 ].join("\n");
 const childFixture = new URL("./two", fixture);

@@ -71,7 +71,7 @@ export type BrowserApi = {
     executeScript(options: {
       target: { tabId: number };
       func: typeof capturePage;
-      args: ["page" | "selection"];
+      args: ["auto" | "page" | "selection"];
     }): Promise<{ result?: ReturnType<typeof capturePage> }[]>;
   };
 };
@@ -103,7 +103,7 @@ export type Request =
   | {
       type: "capture";
       page: ActivePage;
-      mode: "page" | "selection";
+      mode: "auto" | "page" | "selection";
       allowPrivate?: boolean;
     }
   | { type: "navigate"; windowId: number; url: string; allowPrivate?: boolean }

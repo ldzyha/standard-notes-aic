@@ -1,8 +1,6 @@
 const INVALID = Object.freeze({ ok: false, code: "invalid_card_field" });
 const NUMBER = /^[0-9][0-9 -]*[0-9]$/u;
 const NUMBER_DIGITS = /^[0-9]{12,19}$/u;
-const CVV = /^[0-9]{3,4}$/u;
-const DATE = /^(?:0[1-9]|1[0-2])\/(?:[0-9]{2}|[0-9]{4})$/u;
 const MAX_VALUE_LENGTH = 128;
 const ERROR = "Invalid card field";
 
@@ -12,8 +10,6 @@ function validPart(part, value) {
     return (
       NUMBER.test(value) && NUMBER_DIGITS.test(value.replace(/[ -]/gu, ""))
     );
-  if (part === "cvv") return CVV.test(value);
-  if (part === "date") return DATE.test(value);
   return false;
 }
 
@@ -26,26 +22,15 @@ export function isCardField(field) {
 export function parseCardField(field) {
   if (!isCardField(field) || typeof field.value !== "string") return INVALID;
   const number = field.value;
-  const date = Object.hasOwn(field, "description") ? field.description : "";
-  const cvv = Object.hasOwn(field, "additionalSecret")
-    ? field.additionalSecret
-    : "";
-  if (
-    typeof date !== "string" ||
-    typeof cvv !== "string" ||
-    number.length + date.length + cvv.length > MAX_VALUE_LENGTH ||
-    !validPart("number", number) ||
-    !validPart("date", date) ||
-    !validPart("cvv", cvv)
-  )
+  if (number.length > MAX_VALUE_LENGTH || !validPart("number", number))
     return INVALID;
-  return { ok: true, card: { number, date, cvv } };
+  return { ok: true, card: { number } };
 }
 
-/** Clipboard data is raw digits/date; CVV remains masked by the renderer. */
+/** A card part owns only its number; adjacent text/secrets have independent types. */
 export function normalizeCardPart(part, value) {
   if (
-    !["number", "cvv", "date"].includes(part) ||
+    part !== "number" ||
     typeof value !== "string" ||
     value.length > MAX_VALUE_LENGTH
   )

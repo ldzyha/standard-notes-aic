@@ -98,7 +98,7 @@ describe("browser service encrypted boundaries", () => {
     await h.service.handle({
       type: "create-domain",
       page,
-      markdown: "---\n# aic-fields: v2\nShared: keep\n---\n",
+      markdown: "```aic\n# Properties\nShared | keep\n```\n",
     });
     h.change({ url: "https://other.test/" });
     await h.service.handle({
@@ -233,7 +233,7 @@ describe("browser service encrypted boundaries", () => {
     const h = harness();
     await h.service.handle({ type: "setup", password });
     const markdown =
-      "---\n# aic-fields: v2\nPassword*: synthetic-domain-secret\n---\n";
+      "```aic\n# Properties\nPassword *| synthetic-domain-secret\n```\n";
     const page = h.page();
     const domain = (await h.service.handle({
       type: "create-domain",

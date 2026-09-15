@@ -7,6 +7,11 @@ import {
 } from "../src/core/field-syntax.js";
 
 type Entry = Record<string, unknown>;
+const field = (
+  label: string,
+  value: string,
+  kind: "text" | "secret" | "totp" = "text",
+) => ({ label, parts: [{ value, kind }] });
 
 function convert(entries: Entry[]) {
   return convertAuthenticatorJson(JSON.stringify(entries));
@@ -41,9 +46,9 @@ describe("Authenticator JSON import", () => {
         sections: entries.map((entry) => ({
           label: "",
           fields: [
-            { label: "Service", value: entry.service, hide: false },
-            { label: "Account", value: entry.account, hide: false },
-            { label: "TOTP", value: entry.secret, hide: true, kind: "totp" },
+            field("Service", entry.service, "text"),
+            field("Account", entry.account, "text"),
+            field("TOTP", entry.secret, "totp"),
           ],
         })),
       },
@@ -67,7 +72,7 @@ describe("Authenticator JSON import", () => {
     expect(
       parsed
         .flatMap((model) => model!.sections)
-        .map((section) => section.fields[0]!.value),
+        .map((section) => section.fields[0]!.parts[0]!.value),
     ).toEqual(entries.map((entry) => entry.service));
   });
 
@@ -85,7 +90,7 @@ describe("Authenticator JSON import", () => {
     expect(
       models(result.markdown)
         .flatMap((model) => model!.sections)
-        .map((section) => section.fields[2]!.value),
+        .map((section) => section.fields[2]!.parts[0]!.value),
     ).toEqual(entries.map((entry) => entry.secret));
     const failure = convert([
       { service: "S", account: "A", secret: "PRIVATE".repeat(3000) },
@@ -109,15 +114,9 @@ describe("Authenticator JSON import", () => {
     const parsed = models(result.markdown);
     for (const [index, service] of services.entries()) {
       const fields = parsed[0]!.sections[index]!.fields;
-      expect(fields[0]).toEqual({
-        label: "Service",
-        value: service,
-        hide: false,
-      });
+      expect(fields[0]).toEqual(field("Service", service));
       expect(fields.filter((field) => field.label === "URL")).toEqual(
-        index < 2
-          ? [{ label: "URL", value: "https://example.test/login", hide: false }]
-          : [],
+        index < 2 ? [field("URL", "https://example.test/login", "text")] : [],
       );
     }
   });
@@ -136,13 +135,13 @@ describe("Authenticator JSON import", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(models(result.markdown)[0]!.sections[0]!.fields).toEqual([
-      { label: "Service", value: "S", hide: false },
-      { label: "Account", value: "", hide: false },
-      { label: "TOTP", value: entry.secret, hide: true, kind: "totp" },
-      { label: "Password", value: "", hide: true },
-      { label: "Notes", value: "user note", hide: false },
-      { label: "issuer", value: "original issuer", hide: true },
-      { label: "API Token", value: " private ", hide: true },
+      field("Service", "S", "text"),
+      field("Account", "", "text"),
+      field("TOTP", entry.secret, "totp"),
+      field("Password", "", "secret"),
+      field("Notes", "user note", "text"),
+      field("issuer", "original issuer", "secret"),
+      field("API Token", " private ", "secret"),
     ]);
   });
 
@@ -159,14 +158,14 @@ describe("Authenticator JSON import", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     const fields = models(result.markdown)[0]!.sections[0]!.fields;
-    expect(fields.map((field) => field.value)).toEqual(Object.values(entry));
-    expect(fields.every((field) => !Object.hasOwn(field, "description"))).toBe(
-      true,
+    expect(fields.map((field) => field.parts[0]!.value)).toEqual(
+      Object.values(entry),
     );
-    expect(fields[2]!.kind).toBe("totp");
+    expect(fields.every((field) => field.parts.length === 1)).toBe(true);
+    expect(fields[2]!.parts[0]!.kind).toBe("totp");
   });
 
-  it("sanitizes typed marker suffixes without changing field kinds", () => {
+  it("preserves marker-looking names without changing independent part kinds", () => {
     const result = convert([
       {
         service: "S",
@@ -179,8 +178,8 @@ describe("Authenticator JSON import", () => {
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(models(result.markdown)[0]!.sections[0]!.fields.slice(3)).toEqual([
-      { label: "backup# (imported)", value: "first", hide: true },
-      { label: "ending_ (imported)", value: "second", hide: true },
+      field("backup#", "first", "secret"),
+      field("ending_", "second", "secret"),
     ]);
   });
 
@@ -299,9 +298,7 @@ describe("Authenticator JSON import", () => {
       { service: "S", account: "A" },
       { service: "S", account: "A", secret: "K", notes: null },
       { service: "S", account: "A", secret: "K", count: 1 },
-      { service: "S", account: "A", secret: "K", "bad:key": "v" },
       { service: "S", account: "A", secret: "K", " bad": "v" },
-      { service: "S", account: "A", secret: "K", "## backup": "v" },
     ])
       expect(convert([entry])).toEqual({
         ok: false,
@@ -314,17 +311,23 @@ describe("Authenticator JSON import", () => {
     ).toEqual({ ok: false, code: "unsupported_authenticator" });
   });
 
-  it("escapes controls and fence-shaped values, and rejects serializer-lossy scalars", () => {
+  it("escapes controls and fence-shaped values while preserving invisible Unicode exactly", () => {
     const secret = " start\\@~\n```\r\t\u0000\u2028end ";
     const result = convert([{ service: "S", account: "A", secret }]);
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.markdown.match(/^```$/gmu)).toHaveLength(1);
-    expect(models(result.markdown)[0]!.sections[0]!.fields[2]!.value).toBe(
-      secret,
-    );
     expect(
-      convert([{ service: "S", account: "A", secret: "K\u{E0001}" }]),
-    ).toEqual({ ok: false, code: "unsupported_authenticator" });
+      models(result.markdown)[0]!.sections[0]!.fields[2]!.parts[0]!.value,
+    ).toBe(secret);
+    const invisible = "K\u{E0001}";
+    const encoded = convert([
+      { service: "S", account: "A", secret: invisible },
+    ]);
+    expect(encoded.ok).toBe(true);
+    if (encoded.ok)
+      expect(
+        models(encoded.markdown)[0]!.sections[0]!.fields[2]!.parts[0]!.value,
+      ).toBe(invisible);
   });
 });

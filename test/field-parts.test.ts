@@ -1,146 +1,162 @@
 import { describe, expect, it } from "vitest";
 import {
-  escapePipePart,
-  joinFieldParts,
+  FIELD_PARTS_MAX_COUNT,
+  FIELD_PARTS_MAX_LENGTH,
   parseFieldParts,
-  serializeFieldParts,
   scanFieldParts,
-  splitFieldParts,
-  unescapePipePart,
+  serializeFieldParts,
 } from "../src/core/field-parts.js";
+import {
+  parseFieldLabel,
+  scanFieldLabel,
+  serializeFieldLabel,
+} from "../src/core/field-label.js";
 
-describe("opt-in pipe field parts", () => {
-  it("splits only spaced pipes and preserves sparse empty slots", () => {
-    expect(splitFieldParts("value | description | secret")).toEqual([
-      "value",
-      "description",
-      "secret",
+describe("typed pipe parts", () => {
+  it("binds each delimiter to the NEXT value, independently of spacing", () => {
+    expect(parseFieldParts("|a*|b#|c_|4111111111111111 |12/30 *|123")).toEqual([
+      { kind: "text", value: "a" },
+      { kind: "secret", value: "b" },
+      { kind: "totp", value: "c" },
+      { kind: "card", value: "4111111111111111" },
+      { kind: "text", value: "12/30" },
+      { kind: "secret", value: "123" },
     ]);
-    expect(splitFieldParts("value |  | secret")).toEqual([
-      "value",
-      "",
-      "secret",
+    expect(parseFieldParts("1|active0|spent")).toEqual([
+      { kind: "one-time", value: "active" },
+      { kind: "used", value: "spent" },
     ]);
-    expect(parseFieldParts("value |  | secret")).toEqual({
-      value: "value",
-      description: "",
-      additionalSecret: "secret",
-    });
-    expect(parseFieldParts("Password")).toEqual({ value: "Password" });
-    expect(parseFieldParts("Password | ")).toEqual({
-      value: "Password",
-      description: "",
-    });
-    for (const value of [
-      "value|description|secret",
-      "a|b|c|d",
-      "a |b",
-      "a| b",
-      "|",
-      "a\t|\tb",
-      "a\u00a0|\u00a0b",
-    ])
-      expect(parseFieldParts(value)).toEqual({ value });
+    expect(parseFieldParts("|value1|next")).toEqual([
+      { kind: "text", value: "value" },
+      { kind: "one-time", value: "next" },
+    ]);
+    expect(parseFieldParts("|value1 |next")).toEqual([
+      { kind: "text", value: "value1" },
+      { kind: "text", value: "next" },
+    ]);
   });
-
-  it("round-trips real boundary spaces, tabs, URL colons, newline, and marker characters", () => {
-    const field = {
-      value: "  pass*#_ | with\\slash ",
-      description: " https://example.invalid:8443/a|b\nsecond line",
-      additionalSecret: "\t000 ",
-    };
-    expect(parseFieldParts(serializeFieldParts(field))).toEqual(field);
-    expect(serializeFieldParts({ value: "x ", description: " y" })).toBe(
-      "x  |  y",
-    );
-    expect(parseFieldParts("x  |  y")).toEqual({
-      value: "x ",
-      description: " y",
-    });
-  });
-
-  it("uses backslash parity and leaves host escapes intact for Security", () => {
-    expect(splitFieldParts(String.raw`one\|two | three`)).toEqual([
-      String.raw`one\|two`,
-      "three",
+  it("retains empty parts, trims syntax spaces, and treats backslashes literally outside quotes", () => {
+    expect(parseFieldParts(" |  first  *| #|  |last  ")).toEqual([
+      { kind: "text", value: "first" },
+      { kind: "secret", value: "" },
+      { kind: "totp", value: "" },
+      { kind: "text", value: "last" },
     ]);
-    expect(splitFieldParts(String.raw`one\\ | two`)).toEqual([
-      String.raw`one\\`,
-      "two",
+    expect(parseFieldParts("| a\\|b")).toEqual([
+      { kind: "text", value: "a\\" },
+      { kind: "text", value: "b" },
     ]);
-    expect(splitFieldParts(String.raw`line\n | date`)).toEqual([
-      String.raw`line\n`,
-      "date",
-    ]);
-    expect(unescapePipePart(String.raw`one\|two\\three`)).toBe(
-      "one|two\\three",
-    );
-    expect(escapePipePart("one|two\\three")).toBe(String.raw`one\|two\\three`);
-    expect(joinFieldParts(["one", "", "three"])).toBe("one |  | three");
-  });
-
-  it("rejects more than three slots and malformed escapes without echoing input", () => {
-    for (const source of ["a | b | c | d", "a\\", "x".repeat(16 * 1024 + 1)])
-      expect(() => splitFieldParts(source)).toThrowError("Invalid field parts");
-    expect(() => parseFieldParts(String.raw`bad\q`)).toThrowError(
-      new TypeError("Invalid field parts"),
-    );
-    expect(() => joinFieldParts(["a", "b", "c", "d"])).toThrowError(
-      new TypeError("Invalid field parts"),
+    expect(parseFieldParts("|* |# |_ |1 |0")).toEqual(
+      ["*", "#", "_", "1", "0"].map((value) => ({ kind: "text", value })),
     );
   });
-
-  it("keeps source ranges and JSON quote errors in the shared scanner", () => {
-    const raw = '"a | b" | "" | "c|d"';
-    expect(scanFieldParts(raw)).toEqual([
-      { encoded: '"a | b"', from: 0, to: 7, quoted: true },
-      { encoded: '""', from: 10, to: 12, quoted: true },
-      { encoded: '"c|d"', from: 15, to: 20, quoted: true },
-    ]);
-    for (const [source, code, offset] of [
-      ['"private', "unterminated_quote", 0],
-      ['"private"junk', "unexpected_after_quote", 9],
-      ['"private\\q"', "invalid_escape", 8],
-      ['"private\\u12Q4"', "invalid_escape", 8],
-      ['"private\t"', "control_character", 8],
-      ['"a | b" | "c | d" | "e" | "private"', "too_many_parts", 24],
-    ] as const) {
-      try {
-        scanFieldParts(source);
-        expect.unreachable("Malformed quoted source must fail");
-      } catch (error) {
-        expect(error).toMatchObject({
-          message: "Invalid field parts",
-          code,
-          offset,
-        });
-        expect(JSON.stringify(error)).not.toContain("private");
-      }
-    }
-  });
-
-  it("round-trips every combination of literal syntax characters in all slots", () => {
+  it("protects literal modifiers, pipes, escapes and significant spaces with JSON strings", () => {
     const values = [
-      "",
-      "normal",
-      "a|b",
-      "a | b",
-      '"quoted"',
-      'a"b',
-      "\\",
-      " | ",
-      " a ",
-      "\t\n",
-      "😀",
-      'x\\" | y',
+      "a|b*|c#|d_|e1|f0|g",
+      'say "hello"',
+      "  padded  ",
+      "\\folder\n\tend",
+      "trailing*",
+      "1",
+      "0",
+      "😀\u2028x",
     ];
-    for (const value of values) {
-      for (const description of values) {
-        for (const additionalSecret of values) {
-          const field = { value, description, additionalSecret };
-          expect(parseFieldParts(serializeFieldParts(field))).toEqual(field);
-        }
-      }
+    const parts = values.map((value) => ({ kind: "secret" as const, value }));
+    expect(parseFieldParts(serializeFieldParts(parts))).toEqual(parts);
+    expect(parseFieldParts('| "a\\"b\\\\c" *|"line\\nnext"')).toEqual([
+      { kind: "text", value: 'a"b\\c' },
+      { kind: "secret", value: "line\nnext" },
+    ]);
+  });
+  it("returns precise value and separator offsets including empty quoted values", () => {
+    const raw = ' *| "a|b"0|"" | tail ';
+    expect(
+      scanFieldParts(raw).map((part) => ({
+        kind: part.kind,
+        value: raw.slice(part.from, part.to),
+        separator: raw.slice(part.separatorFrom, part.separatorTo),
+      })),
+    ).toEqual([
+      { kind: "secret", value: '"a|b"', separator: "*|" },
+      { kind: "used", value: '""', separator: "0|" },
+      { kind: "text", value: "tail", separator: "|" },
+    ]);
+  });
+  it.each([
+    "text without separator",
+    '| "unclosed',
+    '| "closed" junk',
+    '| "bad\\q"',
+    '| "bad\\u00xx"',
+    '| partial"quote',
+    "| actual\u0000control",
+  ])("rejects malformed input with fixed non-leaking errors: %s", (raw) => {
+    expect(() => parseFieldParts(raw)).toThrow("Invalid field parts");
+    try {
+      parseFieldParts(raw);
+    } catch (error) {
+      expect(String(error)).not.toContain(raw);
     }
+  });
+  it("bounds encoded rows and part counts in both directions", () => {
+    expect(parseFieldParts("|".repeat(FIELD_PARTS_MAX_COUNT))).toHaveLength(64);
+    expect(() => parseFieldParts("|".repeat(65))).toThrow();
+    expect(() =>
+      parseFieldParts("|" + "x".repeat(FIELD_PARTS_MAX_LENGTH)),
+    ).toThrow();
+    expect(() =>
+      serializeFieldParts(
+        Array.from({ length: 65 }, () => ({ kind: "text", value: "" })),
+      ),
+    ).toThrow();
+    expect(() =>
+      serializeFieldParts([{ kind: "unknown", value: "" }] as never),
+    ).toThrow();
+    expect(() =>
+      serializeFieldParts([{ kind: "text", value: "", hide: true }] as never),
+    ).toThrow();
+  });
+});
+
+describe("type-free field labels", () => {
+  it("quotes punctuation or heading syntax without modifying authored names", () => {
+    for (const label of [
+      "Login: primary",
+      "a|b",
+      'a"b',
+      "# Heading",
+      "## section",
+      "---",
+      "\\folder",
+      "__proto__",
+      "trailing*",
+      "Account1",
+    ]) {
+      const encoded = serializeFieldLabel({ label });
+      expect(parseFieldLabel(encoded)).toEqual({ label });
+      expect(scanFieldLabel(encoded + " | value")).toMatchObject({ label });
+    }
+    expect(scanFieldLabel('"a|b: c"1|active')).toEqual({
+      label: "a|b: c",
+      separatorFrom: 8,
+    });
+    expect(scanFieldLabel(" *| secret", { allowEmptyLabel: true })).toEqual({
+      label: "",
+      separatorFrom: 1,
+    });
+  });
+  it("rejects old colon labels and malformed quoted labels", () => {
+    for (const line of [
+      "Password*: old | suffix",
+      '"bad"junk|',
+      '"unclosed | secret',
+    ]) {
+      expect(() => scanFieldLabel(line, { allowEmptyLabel: true })).toThrow(
+        "Invalid field label",
+      );
+    }
+    expect(() => serializeFieldLabel({ label: " padded" })).toThrow();
+    expect(() => parseFieldLabel('"\\n"')).toThrow();
+    expect(scanFieldLabel("no delimiter")).toBeNull();
   });
 });

@@ -24,6 +24,19 @@ async function sourceFiles(directory: string): Promise<string[]> {
 }
 
 describe("shared design and feature registry contract", () => {
+  it("gives Field, Row and Section distinct registered icons", async () => {
+    const css = await read("src/core/icons.css");
+    const masks = ["add-property", "add-row", "add-section"].map((name) => {
+      const rule = css.match(
+        new RegExp(`\\[data-aic-icon="${name}"\\] \\{([^}]+)\\}`, "u"),
+      );
+      expect(rule, `Missing ${name} icon`).not.toBeNull();
+      expect(rule![1]).toContain("--aic-icon:");
+      return rule![1]!.trim();
+    });
+    expect(new Set(masks).size).toBe(3);
+  });
+
   it("requires a feature owner for every runtime source file", async () => {
     const registry = JSON.parse(await read("FEATURES.json"));
     const ids = registry.features.map((feature: { id: string }) => feature.id);

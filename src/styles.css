@@ -172,59 +172,33 @@ select {
   border-right: 0;
 }
 
-/* The browser panel opts into a disclosure; Standard Notes keeps the
-   original horizontally scrolling toolbar. */
+/* Browser editors use five direct actions; Markdown/slash/keymaps own the rest. */
 .aic-toolbar--compact {
-  flex-wrap: wrap;
-  overflow: visible;
+  --aic-control-size-compact: 24px;
+  flex-wrap: nowrap;
+  min-height: 32px;
+  padding: 2px 6px;
+  gap: 2px;
 }
 
 .aic-toolbar--compact .aic-save-controls {
   position: static;
-  max-width: min(35%, 8rem);
-}
-
-.aic-formatting-toggle {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 0.45rem;
-  padding-inline: 0.6rem;
-}
-
-.aic-formatting-toggle::after {
-  content: "";
-  width: 0.38rem;
-  height: 0.38rem;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: translateY(-0.12rem) rotate(45deg);
-}
-
-.aic-formatting-toggle[aria-expanded="true"]::after {
-  transform: translateY(0.12rem) rotate(225deg);
-}
-
-.aic-toolbar-tray {
-  display: flex;
-  flex: 0 0 100%;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.35rem;
-  min-width: 0;
-  max-height: min(60vh, 18rem);
-  padding-top: 0.35rem;
-  overflow-x: hidden;
-  overflow-y: auto;
-  border-top: 1px solid var(--aic-border);
-}
-
-.aic-toolbar-tray[hidden] {
-  display: none;
-}
-
-.aic-toolbar-tray .aic-toolbar-group {
   flex: 0 1 auto;
+  max-width: min(30%, 8rem);
+}
+
+.aic-toolbar--compact .aic-toolbar-group {
+  gap: 1px;
+  padding-right: 2px;
+}
+.aic-toolbar--compact .aic-save-status {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.aic-toolbar--compact .aic-toolbar-button::before {
+  width: 14px;
+  height: 14px;
 }
 
 .aic-toolbar-select {
@@ -238,6 +212,24 @@ select {
 
 .aic-toolbar-button {
   font-weight: 650;
+}
+
+.aic-editor-help-toggle {
+  margin-left: auto;
+}
+
+.aic-editor-help-popover {
+  position: fixed;
+  inset: auto 0.75rem 0.75rem auto;
+  z-index: 30;
+  width: min(28rem, calc(100vw - 1.5rem));
+  max-height: min(80vh, 36rem);
+  margin: 0;
+  overflow: auto;
+  border: 1px solid var(--aic-border);
+  color: var(--aic-fg);
+  background: var(--aic-bg);
+  box-shadow: 0 0.75rem 2rem color-mix(in srgb, var(--aic-fg) 18%, transparent);
 }
 
 .aic-toolbar-select {

@@ -12,7 +12,7 @@ afterEach(() => {
 });
 
 it("clears transient feedback and ignores an older acknowledgement on the same target", async () => {
-  const { view, copy } = fixture("Account: visible-value");
+  const { view, copy } = fixture("Account | visible-value");
   const target = view.dom.querySelector<HTMLButtonElement>(
     ".cm-aic-security-value",
   )!;
@@ -48,9 +48,9 @@ it("clears transient feedback and ignores an older acknowledgement on the same t
   expect(target.textContent).toBe("visible-value");
 });
 
-it("filters only visible card digits and restores partial groups after a no-match query", () => {
+it("filters labels and text parts but never card digits or secret parts", () => {
   const { view } = fixture(
-    "Card_: 4242 4242 4242 1234 | 09/28 | 019\nUsername: alice",
+    "Card _| 4242 4242 4242 1234 | 09/28 *| 019\nUsername | alice",
   );
   const search = view.dom.querySelector<HTMLInputElement>(
     'input[type="search"]',
@@ -61,7 +61,8 @@ it("filters only visible card digits and restores partial groups after a no-matc
   };
   filter("alice");
   expect(
-    view.dom.querySelector<HTMLElement>('[data-aic-card-kind="card"]')!.hidden,
+    view.dom.querySelector<HTMLElement>('[data-aic-card-kind="fields"]')!
+      .hidden,
   ).toBe(true);
   filter("4242");
   expect(
@@ -69,7 +70,17 @@ it("filters only visible card digits and restores partial groups after a no-matc
   ).toHaveLength(0);
   filter("1234");
   expect(
-    view.dom.querySelector<HTMLElement>('[data-aic-card-kind="card"]')!.hidden,
+    view.dom.querySelector<HTMLElement>('[data-aic-card-kind="fields"]')!
+      .hidden,
+  ).toBe(true);
+  filter("019");
+  expect(
+    view.dom.querySelectorAll(".cm-aic-security-section:not([hidden])"),
+  ).toHaveLength(0);
+  filter("09/28");
+  expect(
+    view.dom.querySelector<HTMLElement>('[data-aic-card-kind="fields"]')!
+      .hidden,
   ).toBe(false);
   filter("");
   expect(
@@ -78,7 +89,7 @@ it("filters only visible card digits and restores partial groups after a no-matc
     ),
   ).toHaveLength(0);
 });
-function fixture(body: string) {
+function fixture(body: string, readOnly = false) {
   const copy = vi.fn(async () => true);
   const view = new EditorView({
     parent: document.body,
@@ -86,6 +97,7 @@ function fixture(body: string) {
       doc: "```aic\n" + body + "\n```",
       extensions: [
         aicMarkdownLanguage(),
+        EditorState.readOnly.of(readOnly),
         makeSecurityBlockExtension({ onCopy: copy }),
       ],
     }),
@@ -95,10 +107,10 @@ function fixture(body: string) {
 }
 
 it("copies an arbitrary username independently from its hidden value without editing", async () => {
-  const { view, copy } = fixture("alice@example.test*: SYNTHETIC-SECRET");
+  const { view, copy } = fixture("alice@example.test *| SYNTHETIC-SECRET");
   const doc = view.state.doc;
   const label = view.dom.querySelector<HTMLButtonElement>(
-    ".cm-aic-security-label",
+    ".cm-aic-security-section-title",
   )!;
   const value = view.dom.querySelector<HTMLButtonElement>(
     ".cm-aic-security-value",
@@ -122,20 +134,20 @@ it("copies an arbitrary username independently from its hidden value without edi
 });
 
 it("renders unnamed fields without a phantom label and copies the value", async () => {
-  const { view, copy } = fixture("*: SYNTHETIC-SECRET\n: visible");
+  const { view, copy } = fixture("*| SYNTHETIC-SECRET\n| visible");
   expect(view.dom.querySelectorAll(".is-unlabelled")).toHaveLength(2);
   expect(view.dom.querySelector(".cm-aic-security-label")).toBeNull();
   view.dom
-    .querySelector<HTMLButtonElement>('[aria-label="Copy Field value"]')!
+    .querySelector<HTMLButtonElement>('[aria-label="Copy Row value"]')!
     .click();
   await vi.waitFor(() =>
-    expect(copy).toHaveBeenCalledWith("SYNTHETIC-SECRET", "Field"),
+    expect(copy).toHaveBeenCalledWith("SYNTHETIC-SECRET", "Row"),
   );
   expect(view.dom.innerHTML).not.toContain("SYNTHETIC-SECRET");
 });
 
 it("positions copy feedback over the pressed target, outside normal row layout", async () => {
-  const { view } = fixture("Account: visible-value");
+  const { view } = fixture("Account | visible-value");
   const row = view.dom.querySelector<HTMLElement>(".cm-aic-security-row")!;
   const target = row.querySelector<HTMLButtonElement>(
     ".cm-aic-security-value",
@@ -169,7 +181,7 @@ it("positions copy feedback over the pressed target, outside normal row layout",
 
 it("copies a composite field's optional label independently of every value part", async () => {
   const { view, copy } = fixture(
-    "username*: SYNTHETIC-SECRET | Work\n*: SECOND-SECRET | Home",
+    "username *| SYNTHETIC-SECRET | Work\n*| SECOND-SECRET | Home",
   );
   const headers = view.dom.querySelectorAll<HTMLButtonElement>(
     ".cm-aic-security-card-title-copy button",
@@ -183,47 +195,69 @@ it("copies a composite field's optional label independently of every value part"
   expect(view.dom.innerHTML).not.toContain("SECOND-SECRET");
 });
 
-it("labels add controls and explains disabled limits while preserving New block", () => {
+it("disables contextual Section actions at the limit without blocking row insertion", () => {
   const { view } = fixture(
-    Array.from({ length: 16 }, () => "Password*: value").join("\n---\n"),
+    Array.from({ length: 16 }, () => "Password *| value").join("\n---\n"),
   );
-  const addField = view.dom.querySelector<HTMLButtonElement>(
-    '[aria-label="Add field to group"]',
-  )!;
-  expect(addField.textContent).toBe("Field");
-  const add = view.dom.querySelector<HTMLButtonElement>(
-    '[aria-label="Add group or block"]',
-  )!;
-  expect(add.textContent).toBe("Section");
   const section = view.dom.querySelector<HTMLButtonElement>(
-    '[aria-label="Add security section"]',
+    '[aria-label="Add section after section 1"]',
   )!;
   expect(section.disabled).toBe(true);
-  const reason = document.getElementById(
-    section.getAttribute("aria-describedby")!,
-  )!;
-  expect(reason.textContent).toContain("16 sections");
-  expect(reason.textContent).toContain("Create a new block");
+  expect(section.title).toContain("16 sections");
   expect(
     view.dom.querySelector<HTMLButtonElement>(
-      '[aria-label="New security block"]',
+      '[aria-label="Add row after Password"]',
     )!.disabled,
   ).toBe(false);
   expect(view.dom.textContent).toContain("When you reach a limit");
 });
 
+it("keeps read-only typed previews masked and label/value copying independent", async () => {
+  const { view, copy } = fixture(
+    "Account *| SYNTHETIC-READONLY-SECRET | visible note",
+    true,
+  );
+  const original = view.state.doc;
+  expect(
+    view.dom.querySelector('[aria-label="Add field to Account"]'),
+  ).toBeNull();
+  expect(
+    view.dom.querySelector('[aria-label="Add row after Account"]'),
+  ).toBeNull();
+  expect(
+    view.dom.querySelector('[aria-label="Edit security block"]'),
+  ).toBeNull();
+  view.dom
+    .querySelector<HTMLButtonElement>('[aria-label="Copy Account label"]')!
+    .click();
+  await vi.waitFor(() =>
+    expect(copy).toHaveBeenLastCalledWith("Account", "Account label"),
+  );
+  view.dom
+    .querySelector<HTMLButtonElement>('[aria-label="Copy Account secret 1"]')!
+    .click();
+  await vi.waitFor(() =>
+    expect(copy).toHaveBeenLastCalledWith(
+      "SYNTHETIC-READONLY-SECRET",
+      "Account secret 1",
+    ),
+  );
+  expect(view.state.doc).toBe(original);
+  expect(view.dom.innerHTML).not.toContain("SYNTHETIC-READONLY-SECRET");
+});
+
 it("disables the Field trigger at capacity with an accessible visible reason", () => {
   const { view } = fixture(
-    Array.from({ length: 64 }, (_, i) => `Field ${i}*: value`).join("\n"),
+    "Row " + Array.from({ length: 64 }, () => "*| value").join(" "),
   );
   const add = view.dom.querySelector<HTMLButtonElement>(
-    '[aria-label="Add field to group"]',
+    '[aria-label="Add field to Row"]',
   )!;
   expect(add.disabled).toBe(true);
   expect(
     document.getElementById(add.getAttribute("aria-describedby")!)?.textContent,
   ).toContain("64 fields");
-  expect(add.title).toContain("Create a new block");
+  expect(add.title).toContain("Add a row instead");
 });
 
 it("quarantines historical or versioned fences without interpreting or showing secrets", () => {

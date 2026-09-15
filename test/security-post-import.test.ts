@@ -11,7 +11,7 @@ import {
   securityImportSaved,
 } from "../src/core/security-import-extension.js";
 
-const source = "```aic\n## Main\nAccount: fixture-account\n```";
+const source = "```aic\n## Main\nAccount | fixture-account\n```";
 const views: EditorView[] = [];
 function fixture(
   text = source,
@@ -116,12 +116,13 @@ describe("security preview after import", () => {
 
   it("does not revive detached controls when the decoration mounts again", () => {
     const { host, view } = fixture();
-    const detached = button(host, "Add Email");
+    const detached = button(host, "Add row after Account");
     view.setState(view.state);
     detached.click();
     expect(view.state.doc.toString()).toBe(source);
-    button(host, "Add Email").click();
-    expect(view.state.doc.toString()).toContain("Email:");
+    button(host, "Add row after Account").click();
+    button(host, "Add blank row after Account").click();
+    expect(view.state.doc.toString()).toContain("\n|\n");
   });
 
   it("discards a clipboard read from the destroyed DOM when the same state mounts again", async () => {
@@ -132,7 +133,7 @@ describe("security preview after import", () => {
           resolveRead = resolve;
         }),
     );
-    const text = "```aic\n## Main\nAccount:\n```";
+    const text = "```aic\n## Main\nAccount |\n```";
     const { host, view } = fixture(text, undefined, onReadClipboard);
     button(host, "Paste Account").click();
     expect(onReadClipboard).toHaveBeenCalledOnce();
@@ -153,7 +154,7 @@ describe("security preview after import", () => {
         args[1] === 1000 ? [interval.mock.results[index]!.value] : [],
       );
     const { view } = fixture(
-      "```aic\n## Main\nTOTP#: JBSWY3DPEHPK3PXP\n```\n\nAfter",
+      "```aic\n## Main\nTOTP #| JBSWY3DPEHPK3PXP\n```\n\nAfter",
     );
     expect(codeTimers()).toHaveLength(1);
     const original = codeTimers()[0];
@@ -170,9 +171,10 @@ describe("security preview after import", () => {
     const { host, view } = fixture(source + "\n\n" + source + "\n\nAfter");
     view.dispatch({ changes: { from: 0, insert: "First prefix\n\n" } });
     view.dispatch({ changes: { from: 0, insert: "Second prefix\n\n" } });
-    button(host, "Add Email").click();
+    button(host, "Add row after Account").click();
+    button(host, "Add blank row after Account").click();
     const blocks = securityBlocks(view.state);
-    expect(blocks[0]!.body).toContain("Email:");
-    expect(blocks[1]!.body).not.toContain("Email:");
+    expect(blocks[0]!.body).toContain("\n|\n");
+    expect(blocks[1]!.body).not.toContain("\n|\n");
   });
 });

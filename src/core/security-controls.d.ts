@@ -10,6 +10,7 @@ export function createSecurityAddMenu(
     run: () => void;
   }[],
   text?: string,
+  triggerIcon?: string,
 ): { element: HTMLDivElement; dispose: () => void };
 export function createSecurityFilter(
   document: Document,
@@ -23,11 +24,7 @@ export function createSecurityFilter(
         element: HTMLElement;
         field: {
           label: string;
-          value: string;
-          hide: boolean;
-          recovery?: boolean;
-          kind?: string;
-          description?: string;
+          visibleValues?: readonly string[];
         };
       }[];
     }[];

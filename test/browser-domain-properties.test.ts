@@ -1,9 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { EditorView } from "@codemirror/view";
 import { DomainPropertiesView } from "../src/browser/domain-properties";
+import { AIC_EMPTY_DOCUMENT } from "../src/core/security-model.js";
 
 const secret = "SYNTHETIC-ONLY-SECRET";
-const properties = `---\n# aic-fields: v2\nPassword*: "${secret}"\nUsername: person@example.com\n---\n`;
+const properties =
+  '```aic\n# Properties\nPassword *| "' +
+  secret +
+  '"\nUsername | person@example.com\n```\n';
 const views: DomainPropertiesView[] = [];
 
 function editorView(component: DomainPropertiesView): EditorView {
@@ -45,6 +49,60 @@ afterEach(() => {
 });
 
 describe("domain Properties view", () => {
+  it("saves state-only Shared actions through the same owner and rejects stale or concurrent intents", async () => {
+    const before = "```aic\nCodes 1| synthetic-code\n```\n";
+    const after = "```aic\nCodes 0| synthetic-code\n```\n";
+    const { component, parent, onChange, onSave } = fixture(before);
+    const gate = deferred<boolean>();
+    onSave.mockImplementationOnce(() => gate.promise);
+    const mutate = (source: string, next: string) =>
+      (
+        component as unknown as {
+          changePreview(before: string, after: string): Promise<boolean>;
+        }
+      ).changePreview(source, next);
+    const pending = mutate(before, after);
+    expect(component.value).toBe(after);
+    expect(onChange).toHaveBeenCalledWith(after);
+    expect(onSave).toHaveBeenCalledWith(after);
+    expect(parent.querySelector<HTMLElement>(".cm-editor")!.inert).toBe(true);
+    expect(await mutate(after, before)).toBe(false);
+    gate.resolve(true);
+    expect(await pending).toBe(true);
+    expect(await mutate(before, after)).toBe(false);
+    expect(parent.innerHTML).not.toContain("synthetic-code");
+    expect(component.editing).toBe(false);
+    expect(parent.querySelector<HTMLElement>(".cm-editor")!.inert).not.toBe(
+      true,
+    );
+    expect(
+      parent.querySelector<HTMLButtonElement>(
+        '[aria-label="Reactivate Codes used 1 without copying"]',
+      )!.disabled,
+    ).toBe(false);
+  });
+
+  it("keeps an unsaved consumed-code state as a repairable draft rather than restoring it as unused", async () => {
+    const before = "```aic\nCodes 1| synthetic-code\n```\n";
+    const after = "```aic\nCodes 0| synthetic-code\n```\n";
+    const { component, parent, onSave } = fixture(before);
+    onSave.mockResolvedValueOnce(false);
+    expect(
+      await (
+        component as unknown as {
+          changePreview(before: string, after: string): Promise<boolean>;
+        }
+      ).changePreview(before, after),
+    ).toBe(false);
+    expect(component.value).toBe(after);
+    expect(parent.textContent).toContain("Field state was not saved");
+    component.startEditing();
+    expect(component.value).toBe(after);
+    expect(await component.finishEditing()).toBe(true);
+    expect(component.value).toBe(after);
+    expect(onSave).toHaveBeenCalledTimes(2);
+  });
+
   it("keeps valid secrets masked in a lightweight read-only preview even on selection", () => {
     const writeText = vi.fn(async () => {});
     vi.stubGlobal(
@@ -56,14 +114,16 @@ describe("domain Properties view", () => {
     const { parent, component } = fixture();
     expect(component.editing).toBe(false);
     expect(parent.querySelector(".aic-editor")).toBeNull();
-    const card = parent.querySelector(".cm-aic-properties")!;
+    const card = parent.querySelector(".cm-aic-security")!;
     expect(card.outerHTML).not.toContain(secret);
-    expect(parent.querySelector('[aria-label="Copy Password"]')).not.toBeNull();
+    expect(
+      parent.querySelector('[aria-label="Copy Password value"]'),
+    ).not.toBeNull();
     const preview = (component as unknown as { preview: EditorView }).preview;
     preview.dispatch({
       selection: { anchor: 0, head: preview.state.doc.length },
     });
-    expect(parent.querySelector(".cm-aic-properties")).not.toBeNull();
+    expect(parent.querySelector(".cm-aic-security")).not.toBeNull();
     expect(parent.querySelector(".cm-editor")?.textContent).not.toContain(
       secret,
     );
@@ -76,8 +136,14 @@ describe("domain Properties view", () => {
   it("never renders invalid saved source or a fake record for an empty domain", () => {
     const invalid = fixture(`---\nPassword*: ${secret}\n# unclosed`);
     expect(invalid.parent.textContent).not.toContain(secret);
-    expect(invalid.parent.querySelector(".cm-aic-properties")).toBeNull();
-    expect(invalid.parent.textContent).toContain("cannot be displayed");
+    expect(invalid.parent.querySelector(".cm-aic-security")).toBeNull();
+    expect(invalid.parent.textContent).toContain(
+      "Edit to repair the saved text",
+    );
+    invalid.component.startEditing();
+    expect(invalid.component.value).toBe(
+      `---\nPassword*: ${secret}\n# unclosed`,
+    );
 
     const empty = fixture(null);
     expect(empty.parent.querySelector(".cm-editor")).toBeNull();
@@ -99,12 +165,11 @@ describe("domain Properties view", () => {
     expect(edit.textContent).toBe("Done");
     expect(edit.getAttribute("aria-label")).toBe("Done");
     expect(edit.title).toBe("Save and finish editing shared properties");
-    expect(empty.component.value).toBe("---\n# aic-fields: v2\n---\n\n");
+    expect(empty.component.value).toBe(AIC_EMPTY_DOCUMENT);
   });
 
   it("collapses a valid zero-field record but keeps real empty-valued fields", () => {
-    const clearedSource =
-      "---\n# aic-fields: v2\n# intentionally cleared\n---\n";
+    const clearedSource = "```aic\n# Properties\n```\n";
     const cleared = fixture(clearedSource);
     expect(cleared.component.element.dataset.empty).toBe("true");
     expect(cleared.parent.querySelector(".cm-editor")).toBeNull();
@@ -116,7 +181,7 @@ describe("domain Properties view", () => {
     cleared.component.startEditing();
     expect(cleared.component.value).toBe(clearedSource);
 
-    const emptyField = fixture("---\n# aic-fields: v2\nEmpty_: ' | | '\n---\n");
+    const emptyField = fixture('```aic\n# Properties\nEmpty | ""\n```\n');
     expect(emptyField.component.element.dataset.empty).toBe("false");
     expect(emptyField.parent.querySelector(".cm-editor")).not.toBeNull();
   });
@@ -163,7 +228,7 @@ describe("domain Properties view", () => {
     expect(component.value).toBe(dirtyText);
     expect(await component.finishEditing()).toBe(true);
     expect(component.editing).toBe(false);
-    expect(parent.querySelector(".cm-aic-properties")).not.toBeNull();
+    expect(parent.querySelector(".cm-aic-security")).not.toBeNull();
     expect(onSave).toHaveBeenCalledTimes(2);
     expect(onEditingChange.mock.calls.map(([editing]) => editing)).toEqual([
       true,
@@ -245,7 +310,7 @@ describe("domain Properties view", () => {
     expect(onChange).not.toHaveBeenCalled();
     expect(await component.finishEditing()).toBe(true);
     expect(onSave).not.toHaveBeenCalled();
-    expect(parent.querySelector(".cm-aic-properties")?.outerHTML).toContain(
+    expect(parent.querySelector(".cm-aic-security")?.outerHTML).toContain(
       "new@example.com",
     );
   });
@@ -272,12 +337,12 @@ describe("domain Properties view", () => {
     expect(await finishing).toBe(false);
     expect(component.editing).toBe(true);
     expect(component.value).toBe(latest);
-    expect(parent.querySelector(".cm-aic-properties")?.outerHTML).not.toContain(
+    expect(parent.querySelector(".cm-aic-security")?.outerHTML).not.toContain(
       "first@example.com",
     );
     expect(await component.finishEditing()).toBe(true);
     expect(component.editing).toBe(false);
-    expect(parent.querySelector(".cm-aic-properties")?.outerHTML).toContain(
+    expect(parent.querySelector(".cm-aic-security")?.outerHTML).toContain(
       "latest@example.com",
     );
     expect(onSave.mock.calls.map(([text]) => text)).toEqual([first, latest]);

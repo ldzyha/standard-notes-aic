@@ -1,4 +1,4 @@
-import type { SecurityField } from "./security-model.js";
+import type { SecurityPart } from "./security-model.js";
 
 export type PasswordOptions = Readonly<{
   length: number;
@@ -16,7 +16,5 @@ export function generatePassword(
   crypto?: Pick<Crypto, "getRandomValues">,
 ): string;
 
-/** Explicit password labels on hidden fields only; emptiness is a UI guard. */
-export function isPasswordField(
-  field: Pick<SecurityField, "label" | "hide">,
-): boolean;
+/** Explicit secret type only; labels do not select behavior, emptiness is a UI guard. */
+export function isPasswordField(field: Pick<SecurityPart, "kind">): boolean;

@@ -1,16 +1,17 @@
 import { blockDiagnostic } from "./block-diagnostic.js";
-import { parseFieldLabel, serializeFieldLabel } from "./field-label.js";
+import { scanFieldLabel, serializeFieldLabel } from "./field-label.js";
 import {
-  joinFieldParts,
-  quoteFieldPart,
+  FIELD_PARTS_MAX_COUNT,
   scanFieldParts,
+  serializeFieldParts,
 } from "./field-parts.js";
 import { SECURITY_FIELD_OPTIONS, SECURITY_FENCE_INFO } from "./field-syntax.js";
-import { normalizeCardPart, parseCardField } from "./security-card.js";
+import { parseCardField } from "./security-card.js";
 
 export const SECURITY_LIMITS = Object.freeze({
   maxSections: 16,
   maxFields: 64,
+  maxParts: FIELD_PARTS_MAX_COUNT,
   maxBodyLength: 64 * 1024,
   maxValueLength: 16 * 1024,
 });
@@ -19,6 +20,29 @@ const MAX_SECTIONS = SECURITY_LIMITS.maxSections;
 const MAX_FIELDS = SECURITY_LIMITS.maxFields;
 const MAX_VALUE_LENGTH = SECURITY_LIMITS.maxValueLength;
 const INVALID = Object.freeze({ ok: false, code: "invalid_security_block" });
+export const AIC_EMPTY_DOCUMENT = "```aic\n# Properties\n\n```\n\n";
+
+/** One complete top-level AIC block for shared records; field syntax has one owner. */
+export function parseSecurityDocument(markdown) {
+  if (typeof markdown !== "string" || markdown.length > MAX_BODY_LENGTH + 1024)
+    return INVALID;
+  const lines = markdown.replace(/\r\n?/gu, "\n").split("\n");
+  const start = lines.findIndex((line) => line.trim());
+  const opening = /^ {0,3}(`{3,}|~{3,})aic[ \t]*$/u.exec(lines[start] || "");
+  if (!opening) return INVALID;
+  const closing = lines.findIndex(
+    (line, index) =>
+      index > start &&
+      /^ {0,3}(?:`{3,}|~{3,})[ \t]*$/u.test(line) &&
+      closeFence(line, opening[1]),
+  );
+  if (closing < 0 || lines.slice(closing + 1).some((line) => line.trim()))
+    return INVALID;
+  return parseSecurityBlock(
+    lines.slice(start + 1, closing).join("\n"),
+    SECURITY_FIELD_OPTIONS,
+  );
+}
 
 function exactly(value, names) {
   if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -46,10 +70,6 @@ function name(value) {
     value.trim() === value &&
     !/[:*\\\p{C}\u2028\u2029]/u.test(value)
   );
-}
-
-function fieldName(value) {
-  return value === "" || name(value);
 }
 
 function titleText(value) {
@@ -87,57 +107,41 @@ function normalize(model) {
     if (!Array.isArray(fields) || fields.length > MAX_FIELDS) return null;
     const normalizedFields = [];
     for (const field of fields) {
-      const allowed = new Set([
-        "label",
-        "value",
-        "hide",
-        "kind",
-        "description",
-        "additionalSecret",
-      ]);
-      if (
-        !field ||
-        typeof field !== "object" ||
-        Array.isArray(field) ||
-        Object.keys(field).some((key) => !allowed.has(key)) ||
-        !["label", "value", "hide"].every((key) => has(field, key)) ||
-        !fieldName(get(field, "label")) ||
-        !string(get(field, "value"), MAX_VALUE_LENGTH) ||
-        typeof get(field, "hide") !== "boolean"
-      )
-        return null;
-      const description = get(field, "description");
-      const additionalSecret = get(field, "additionalSecret");
-      const kind = get(field, "kind");
-      if (
-        (has(field, "description") && !string(description, MAX_VALUE_LENGTH)) ||
-        (has(field, "additionalSecret") &&
-          !string(additionalSecret, MAX_VALUE_LENGTH)) ||
-        (has(field, "kind") && !["totp", "card"].includes(kind)) ||
-        (kind === "card" && get(field, "hide"))
-      )
-        return null;
-      if (kind === "card" && !parseCardField(field).ok) return null;
+      if (!exactly(field, ["label", "parts"])) return null;
+      const label = get(field, "label");
+      const parts = get(field, "parts");
       try {
-        serializeFieldLabel(
-          {
-            label: get(field, "label"),
-            hide: get(field, "hide"),
-            ...(kind === undefined ? {} : { kind }),
-          },
-          SECURITY_FIELD_OPTIONS,
-        );
+        serializeFieldLabel({ label }, SECURITY_FIELD_OPTIONS);
+        if (
+          !Array.isArray(parts) ||
+          !parts.length ||
+          parts.length > FIELD_PARTS_MAX_COUNT
+        )
+          return null;
+        for (const part of parts) {
+          if (
+            !exactly(part, ["kind", "value"]) ||
+            !["text", "secret", "totp", "card", "one-time", "used"].includes(
+              get(part, "kind"),
+            ) ||
+            !string(get(part, "value"), MAX_VALUE_LENGTH)
+          )
+            return null;
+          if (
+            get(part, "kind") === "card" &&
+            !parseCardField({ kind: "card", value: get(part, "value") }).ok
+          )
+            return null;
+        }
+        const normalizedParts = parts.map((part) => ({
+          kind: get(part, "kind"),
+          value: get(part, "value"),
+        }));
+        serializeFieldParts(normalizedParts);
+        normalizedFields.push({ label, parts: normalizedParts });
       } catch {
         return null;
       }
-      normalizedFields.push({
-        label: get(field, "label"),
-        value: get(field, "value"),
-        hide: get(field, "hide"),
-        ...(has(field, "kind") ? { kind } : {}),
-        ...(has(field, "description") ? { description } : {}),
-        ...(has(field, "additionalSecret") ? { additionalSecret } : {}),
-      });
     }
     result.push({ label: get(section, "label"), fields: normalizedFields });
   }
@@ -147,7 +151,7 @@ function normalize(model) {
   };
 }
 
-function decode(encoded, onError = () => {}) {
+function decodeTitle(encoded, onError = () => {}) {
   let value = "";
   for (let index = 0; index < encoded.length; index += 1) {
     const character = encoded[index];
@@ -192,7 +196,7 @@ function decode(encoded, onError = () => {}) {
   return value.length <= MAX_VALUE_LENGTH ? value : null;
 }
 
-function encode(value) {
+function encodeTitle(value) {
   return value.replace(/[\\\p{C}\u2028\u2029]/gu, (character) => {
     if (character === "\\") return "\\\\";
     if (character === "\n") return "\\n";
@@ -215,6 +219,7 @@ function parseLines(body, report) {
   const lines = lineEntries(body);
   const sections = [];
   const fieldRanges = [];
+  const partRanges = [];
   let title;
   let current = null;
   let sectionHeadingSeen = false;
@@ -222,6 +227,7 @@ function parseLines(body, report) {
     current = { label, fields: [] };
     sections.push(current);
     fieldRanges.push([]);
+    partRanges.push([]);
     sectionHeadingSeen = false;
   };
   for (const { text: line, from } of lines) {
@@ -250,7 +256,7 @@ function parseLines(body, report) {
       title =
         line === "#"
           ? ""
-          : decode(line.slice(2), (index, code) => {
+          : decodeTitle(line.slice(2), (index, code) => {
               report(
                 code,
                 code === "invalid_escape"
@@ -341,133 +347,82 @@ function parseLines(body, report) {
       );
       return null;
     }
-    const colon = line.indexOf(":");
-    if (colon < 0) {
+    let scannedLabel;
+    try {
+      scannedLabel = scanFieldLabel(line, SECURITY_FIELD_OPTIONS);
+    } catch {
       report(
-        "missing_field_colon",
-        "Write each field as Label: value.",
+        "invalid_field_label",
+        "Use an optional printable label before the first typed pipe separator; quote labels containing colons or pipes.",
         from,
         end,
       );
       return null;
     }
-    const marked = line.slice(0, colon);
-    let field;
-    try {
-      field = parseFieldLabel(marked, SECURITY_FIELD_OPTIONS);
-    } catch {
+    if (!scannedLabel) {
       report(
-        "invalid_field_label",
-        "Use a trimmed printable field label before the colon.",
+        "missing_field_separator",
+        "Write each value after |, *|, #|, _|, 1| or 0|. Colon fields are unsupported.",
         from,
-        from + colon,
+        end,
       );
       return null;
     }
-    const source = line.slice(colon + 1);
-    if (!fieldName(field.label)) {
-      report(
-        "invalid_field_label",
-        "Use a trimmed printable field label before the colon.",
-        from,
-        from + colon,
-      );
-      return null;
-    }
-    if (source && !source.startsWith(" ")) {
-      report(
-        "missing_value_space",
-        "Add a space after the field colon.",
-        from + colon,
-        from + colon + 1,
-      );
-      return null;
-    }
-    const raw = source ? source.slice(1) : "";
-    const valueFrom = from + colon + 1 + Number(Boolean(source));
+    const { label, separatorFrom } = scannedLabel;
+    const raw = line.slice(separatorFrom);
+    const valueFrom = from + separatorFrom;
     let ranges;
     try {
       ranges = scanFieldParts(raw);
     } catch (failure) {
+      const advice = {
+        too_many_parts:
+          "Use at most 64 independently typed parts in one field.",
+        invalid_escape: "Inside double quotes, use JSON string escapes.",
+        unterminated_quote: "Close this double-quoted value.",
+        unexpected_after_quote:
+          "After a quoted value, use a typed pipe separator or end the field.",
+        unexpected_quote: "Enclose the whole value in JSON double quotes.",
+        control_character:
+          "Encode control characters inside a quoted JSON value.",
+        missing_field_separator:
+          "Write each value after |, *|, #|, _|, 1| or 0|.",
+      };
       report(
         failure.code,
-        failure.code === "too_many_parts"
-          ? "Use at most three field parts separated by space, pipe, space ( | ) outside quotes."
-          : failure.code === "invalid_escape"
-            ? "Use a supported escape sequence; inside double quotes use JSON string escapes."
-            : failure.code === "unterminated_quote"
-              ? "Close this double-quoted value."
-              : failure.code === "unexpected_after_quote"
-                ? "After the closing quote, use a spaced | separator or end the field."
-                : failure.code === "control_character"
-                  ? "Escape control characters inside the quoted value."
-                  : "Shorten this field value.",
+        advice[failure.code] ??
+          "Shorten this field to at most 16,384 characters.",
         valueFrom + failure.offset,
         valueFrom + failure.offset + 1,
       );
       return null;
     }
-    const values = ranges.map((part) =>
-      part.quoted
-        ? JSON.parse(part.encoded)
-        : decode(part.encoded, (offset, code) => {
-            report(
-              code,
-              code === "invalid_escape"
-                ? "Fix the escape sequence; use a supported backslash escape."
-                : code === "control_character"
-                  ? "Escape control characters in the field value."
-                  : "Shorten this field value.",
-              valueFrom + part.from + offset,
-              valueFrom + part.from + offset + 1,
-            );
-          }),
-    );
-    if (values.some((value) => value === null)) return null;
-    const parsed = {
-      ...field,
-      value: values[0],
-      ...(values.length > 1 ? { description: values[1] } : {}),
-      ...(values.length > 2 ? { additionalSecret: values[2] } : {}),
-    };
-    if (field.kind === "card" && !parseCardField(parsed).ok) {
-      for (const [index, part] of ["number", "date", "cvv"].entries()) {
-        try {
-          const normalized = normalizeCardPart(part, values[index] ?? "");
-          if (normalized !== (values[index] ?? "")) {
-            const range = ranges[index] ?? ranges[0];
-            report(
-              `invalid_card_${part}`,
-              "Remove extra spaces around this card part.",
-              valueFrom + range.from,
-              valueFrom + range.to,
-            );
-            return null;
-          }
-        } catch {
-          const range = ranges[index] ?? ranges[0];
-          report(
-            `invalid_card_${part}`,
-            part === "number"
-              ? "Use 12–19 card digits, optionally separated by spaces or hyphens."
-              : part === "date"
-                ? "Use an expiry date in MM/YY or MM/YYYY format."
-                : "Use a 3- or 4-digit CVV.",
-            valueFrom + range.from,
-            valueFrom + range.to,
-          );
-          return null;
-        }
+    const parts = ranges.map(({ kind, encoded, quoted }) => ({
+      kind,
+      value: quoted ? JSON.parse(encoded) : encoded,
+    }));
+    for (const [index, part] of parts.entries()) {
+      if (part.kind === "card" && !parseCardField(part).ok) {
+        report(
+          "invalid_card_number",
+          "Use 12–19 card digits, optionally separated by spaces or hyphens.",
+          valueFrom + ranges[index].from,
+          valueFrom + ranges[index].to,
+        );
+        return null;
       }
-      report(
-        "card_too_long",
-        "Keep the combined card parts within 128 characters.",
-        valueFrom,
-        end,
-      );
-      return null;
     }
-    current.fields.push(parsed);
+    current.fields.push({ label, parts });
+    partRanges.at(-1).push(
+      ranges.map(
+        ({ from: start, to, separatorFrom: separatorStart, separatorTo }) => ({
+          from: valueFrom + start,
+          to: valueFrom + to,
+          separatorFrom: valueFrom + separatorStart,
+          separatorTo: valueFrom + separatorTo,
+        }),
+      ),
+    );
     fieldRanges.at(-1).push({ from, to: end });
   }
   if (!sections.length) openSection();
@@ -478,6 +433,7 @@ function parseLines(body, report) {
   return {
     model: { ...(title !== undefined ? { title } : {}), sections },
     fieldRanges,
+    partRanges,
   };
 }
 
@@ -536,7 +492,12 @@ export function parseSecurityBlock(body, options = {}) {
     const parsed = parseLines(body, report);
     return parsed && normalize(parsed.model)
       ? diagnostics
-        ? { ok: true, model: parsed.model, fieldRanges: parsed.fieldRanges }
+        ? {
+            ok: true,
+            model: parsed.model,
+            fieldRanges: parsed.fieldRanges,
+            partRanges: parsed.partRanges,
+          }
         : { ok: true, model: parsed.model }
       : invalid();
   } catch {
@@ -556,30 +517,19 @@ export function serializeSecurityBlock(model, options = {}) {
   if (!normalized) throw new TypeError("invalid security block");
   const lines = [];
   if (has(normalized, "title"))
-    lines.push(normalized.title ? `# ${encode(normalized.title)}` : "#");
+    lines.push(normalized.title ? `# ${encodeTitle(normalized.title)}` : "#");
   for (const [index, section] of normalized.sections.entries()) {
     if (index) lines.push("---");
     if (section.label) lines.push(`## ${section.label}`);
     for (const field of section.fields) {
-      const slots = [field.value];
-      if (
-        Object.hasOwn(field, "description") ||
-        Object.hasOwn(field, "additionalSecret")
-      )
-        slots.push(field.description ?? "");
-      if (Object.hasOwn(field, "additionalSecret"))
-        slots.push(field.additionalSecret);
-      let value;
       try {
-        value = joinFieldParts(
-          slots.map((slot) => quoteFieldPart(slot) ?? encode(slot)),
+        const label = serializeFieldLabel(field, SECURITY_FIELD_OPTIONS);
+        lines.push(
+          (label ? label + " " : "") + serializeFieldParts(field.parts),
         );
       } catch {
         throw new TypeError("invalid security block");
       }
-      lines.push(
-        `${serializeFieldLabel(field, SECURITY_FIELD_OPTIONS)}:${value ? ` ${value}` : ""}`,
-      );
     }
   }
   const body = `${lines.join("\n")}\n`;
@@ -595,12 +545,12 @@ export function securityTemplate() {
         {
           label: "",
           fields: [
-            { label: "Service", value: "", hide: false },
-            { label: "Account", value: "", hide: false },
-            { label: "Email", value: "", hide: false },
-            { label: "URL", value: "", hide: false },
-            { label: "TOTP", value: "", hide: true, kind: "totp" },
-            { label: "Password", value: "", hide: true },
+            { label: "Service", parts: [{ value: "", kind: "text" }] },
+            { label: "Account", parts: [{ value: "", kind: "text" }] },
+            { label: "Email", parts: [{ value: "", kind: "text" }] },
+            { label: "URL", parts: [{ value: "", kind: "text" }] },
+            { label: "TOTP", parts: [{ value: "", kind: "totp" }] },
+            { label: "Password", parts: [{ value: "", kind: "secret" }] },
           ],
         },
       ],
@@ -610,9 +560,9 @@ export function securityTemplate() {
   return "```" + SECURITY_FENCE_INFO + "\n" + body + "```";
 }
 
-/** Masking is explicit in the field marker. */
-export function isSecretField(field) {
-  return field?.hide === true;
+/** Every explicitly non-text part is confidential. */
+export function isSecretPart(part) {
+  return ["secret", "totp", "card", "one-time", "used"].includes(part?.kind);
 }
 
 /** Only absolute HTTP(S) destinations can be opened from a security block. */

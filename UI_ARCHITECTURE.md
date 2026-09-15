@@ -38,16 +38,20 @@ the release-oriented `FUNCTIONAL_INDEX.md`:
    and code-preview layout that was previously duplicated between the Standard
    Notes stylesheet and VS Code theme. Compatibility selectors remain while
    producers migrate.
-5. The browser Shared Properties surface uses the same compact inline formatting
-   toolbar as the page editor; it does not introduce a second permanent header
-   row. Domain identity and actions remain part of the compact shared surface.
+5. The browser page and Shared Properties editors use five direct compact actions:
+   strike, link, bullet/ordered/task lists. No Format disclosure, Style selector or
+   Insert selector is created in this host; Markdown, slash commands and keymaps
+   remain the command owners. Standard Notes retains its full formatting controls
+   and adds the shared local `?` guide.
+   Domain identity and actions remain part of the compact shared surface.
 6. `src/core/ui-system.*` now defines the eight IDs, allowed elements and
    modifiers, additive class application, a native button factory, and common
    geometry. Adoption is partial: legacy `.cm-*`, `.browser-*`, `.aic-*`,
    `.aic-db-*`, and `.aicn-*` hooks remain active.
-7. CodeMirror's `.cm-*` classes and VS Code's native TreeItem/workbench surfaces
-   are integration boundaries. They cannot all be renamed or styled as ordinary
-   AIC DOM.
+7. CodeMirror's `.cm-*` classes and VS Code's native workbench views, editor
+   associations and commands are integration boundaries. They cannot all be
+   renamed or styled as ordinary AIC DOM. The retired Notes & Documents
+   `TreeDataProvider` is not a current surface.
 8. The existing release feature descriptions remain in `FUNCTIONAL_INDEX.md`.
    The machine-readable registries index them; they do not prove live host or
    cross-platform behavior that the listed tests do not exercise.
@@ -63,7 +67,7 @@ canonical shared modules  <------  src/core/ui-system.{js,d.ts,css}
       |
       +---- Standard Notes adapter: context, lock, transport save
       +---- Chromium adapter: vault, tabs, capture, local navigation
-      +---- VS Code adapter: workspace.fs, editor protocol, TreeItem, commands
+      +---- VS Code adapter: workspace.fs, editor protocol, workbench views, commands
 ```
 
 The shared layer owns visual semantics and reusable DOM construction. Each host
@@ -101,9 +105,9 @@ Rules:
 6. Do not rename CodeMirror-owned `.cm-*` classes. Add BEM classes to AIC-owned
    nodes produced inside CodeMirror widgets, and retain `.cm-*` only where the
    editor framework or an unmigrated query requires it.
-7. VS Code native views remain native. `aic-tree` applies to AIC-owned DOM trees
-   inside webviews; `vscode.TreeItem` keeps its platform identity and is recorded
-   as an adapter hook.
+7. VS Code native views and commands remain native. `aic-tree` applies only to
+   AIC-owned DOM trees inside webviews; the extension-specific native Notes &
+   Documents tree has been retired.
 8. Component factories create DOM and baseline semantics only. They do not read
    storage, navigate, request permissions, save notes, or retain host secrets.
 9. Labels and error messages use `textContent`; URL and note metadata stay
@@ -196,8 +200,8 @@ has completed.
 ### 6. Migrate navigation context
 
 - Necessary change: apply `tree` and `context` to browser history/ancestors and
-  VS webview relationship trees; keep native VS Code TreeItem outside the CSS
-  contract.
+  VS webview relationship trees; keep native VS Code workbench commands and views
+  outside the CSS contract.
 - Prerequisites: navigation metadata is separated from note Markdown and source
   callbacks remain host-owned.
 - Verifiable result: ordering, current/placeholder state, exact-origin/path

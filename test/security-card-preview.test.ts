@@ -41,12 +41,12 @@ afterEach(() => {
 });
 
 describe("compact card preview", () => {
-  it("renders only the last four number digits and a masked CVV while copying each full part", () => {
+  it("renders a masked card number, independent text and secret parts with separate copy actions", () => {
     const { host, onCopy } = fixture(
-      `person@example.invalid_: ${number} | 09/28 | ${cvv}`,
+      `person@example.invalid _| ${number} | 09/28 *| ${cvv}`,
     );
     const card = host.querySelector<HTMLElement>(
-      '.cm-aic-security-card[data-aic-card-kind="card"]',
+      '.cm-aic-security-card[data-aic-card-kind="fields"]',
     );
     expect(card).not.toBeNull();
     const parts = card!.querySelectorAll(
@@ -69,51 +69,54 @@ describe("compact card preview", () => {
       "person@example.invalid",
       "person@example.invalid label",
     );
-    control(host, "Copy person@example.invalid number value").click();
+    control(host, "Copy person@example.invalid card number 1").click();
     expect(onCopy).toHaveBeenLastCalledWith(
       number,
-      "person@example.invalid Number",
+      "person@example.invalid card number 1",
     );
-    control(host, "Copy person@example.invalid expiry value").click();
+    control(host, "Copy person@example.invalid text 2").click();
     expect(onCopy).toHaveBeenLastCalledWith(
       "09/28",
-      "person@example.invalid Expiry",
+      "person@example.invalid text 2",
     );
-    control(host, "Copy person@example.invalid cvv value").click();
-    expect(onCopy).toHaveBeenLastCalledWith(cvv, "person@example.invalid CVV");
+    control(host, "Copy person@example.invalid secret 3").click();
+    expect(onCopy).toHaveBeenLastCalledWith(
+      cvv,
+      "person@example.invalid secret 3",
+    );
   });
 
   it("omits an empty label header and retains independently named paste controls", async () => {
-    const { host, view, onReadClipboard } = fixture('_: "" | "" | ""');
+    const { host, view, onReadClipboard } = fixture('_| "" | "" *| ""');
     const card = host.querySelector<HTMLElement>(
-      '.cm-aic-security-card[data-aic-card-kind="card"]',
+      '.cm-aic-security-card[data-aic-card-kind="fields"]',
     )!;
-    expect(card.querySelector(".cm-aic-security-section-header")).toBeNull();
+    expect(card.querySelector(".cm-aic-security-card-title-copy")).toBeNull();
     expect(card.textContent).not.toContain("Field");
     expect(
       card.querySelectorAll(
         ".cm-aic-security-card-parts > .cm-aic-security-row",
       ),
     ).toHaveLength(3);
-    control(host, "Paste Field number").click();
+    control(host, "Paste Row card number 1").click();
     await vi.waitFor(() => expect(onReadClipboard).toHaveBeenCalledTimes(1));
     await vi.waitFor(() => expect(view.state.doc.toString()).toContain(number));
     expect(host.innerHTML).not.toContain(number);
     expect(host.textContent).toContain("•••• 1234");
-    expect(control(host, "Paste Field expiry")).toBeTruthy();
-    expect(control(host, "Paste Field cvv")).toBeTruthy();
+    expect(control(host, "Paste Row text 2")).toBeTruthy();
+    expect(control(host, "Paste Row secret 3")).toBeTruthy();
   });
 
   it("keeps named copy buttons focusable in read-only preview", () => {
-    const { host, onCopy } = fixture(`_: ${number} | 09/28 | ${cvv}`, true);
+    const { host, onCopy } = fixture(`_| ${number} | 09/28 *| ${cvv}`, true);
     const card = host.querySelector<HTMLElement>(
-      '.cm-aic-security-card[data-aic-card-kind="card"]',
+      '.cm-aic-security-card[data-aic-card-kind="fields"]',
     )!;
     expect(card.querySelector(".cm-aic-security-section-header")).toBeNull();
-    expect(host.querySelector('[aria-label^="Paste Field"]')).toBeNull();
-    const numberButton = control(host, "Copy Field number value");
+    expect(host.querySelector('[aria-label^="Paste Row"]')).toBeNull();
+    const numberButton = control(host, "Copy Row card number 1");
     expect(numberButton.tabIndex).toBe(0);
     numberButton.click();
-    expect(onCopy).toHaveBeenLastCalledWith(number, "Field Number");
+    expect(onCopy).toHaveBeenLastCalledWith(number, "Row card number 1");
   });
 });

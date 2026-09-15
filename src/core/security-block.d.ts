@@ -41,14 +41,14 @@ type BlockOptions = Readonly<{
   ) => boolean | void | Promise<boolean | void>;
   onOpen?: (url: string) => void | Promise<void>;
   onReadClipboard?: () => Promise<string>;
+  /** Persist a full-document stateful change from a read-only preview. */
+  onPreviewChange?: (before: string, after: string) => Promise<boolean>;
+  /** False while the read-only host cannot accept another stateful change. */
+  canPreviewChange?: () => boolean;
+  /** Preserve the masked preview even when selected in a read-only surface. */
+  previewOnly?: boolean;
+  initialRelationships?: () => readonly PropertyRelationship[];
+  onRelationshipOpen?: (path: string) => void | Promise<void>;
 }>;
 export function makeSecurityBlockExtension(options?: BlockOptions): Extension;
-export function makePropertiesBlockExtension(
-  options?: BlockOptions &
-    Readonly<{
-      initialRelationships?: () => readonly PropertyRelationship[];
-      onRelationshipOpen?: (path: string) => void | Promise<void>;
-      /** Keep read-only Properties rendered even when selected. */
-      previewOnly?: boolean;
-    }>,
-): Extension;
+export function makePropertiesBlockExtension(options?: BlockOptions): Extension;

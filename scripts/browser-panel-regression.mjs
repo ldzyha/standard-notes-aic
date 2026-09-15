@@ -6,7 +6,10 @@ import path from "node:path";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
-const { chromium } = require(process.env.AIC_REVIEW_PLAYWRIGHT || "playwright");
+const { chromium } = require(
+  process.env.AIC_REVIEW_PLAYWRIGHT ||
+    "C:/Users/leoni/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/node_modules/playwright",
+);
 const url = new URL(
   process.env.AIC_REVIEW_URL || "http://127.0.0.1:5289/browser/index.html",
 );
@@ -29,6 +32,7 @@ const browser = await chromium.launch({
   headless: true,
   executablePath:
     process.env.AIC_REVIEW_BROWSER ||
+    process.argv[2] ||
     "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
 });
 const passed = [];
@@ -37,6 +41,8 @@ const syntheticPassword =
   "synthetic-panel-regression-passphrase-not-a-credential";
 const syntheticUrl = "https://fixture.example.invalid/guide/one";
 const otherUrl = "https://fixture.example.invalid/guide/two";
+const syntheticLocation = "fixture.example.invalid/guide/one";
+const otherLocation = "fixture.example.invalid/guide/two";
 const syntheticHtml = [
   "<article><h1>Fixture heading</h1><p>Plain <strong>bold</strong> and <a href='/safe'>link</a>.</p>",
   "<ul><li>First item</li><li>Second item</li></ul>",
@@ -107,6 +113,16 @@ async function assertCompactEditor(panel) {
     const editorBox = editor.getBoundingClientRect();
     const toolbarBox = toolbar.getBoundingClientRect();
     const toolbarStyle = getComputedStyle(toolbar);
+    const actionBounds = [
+      ...toolbar.querySelectorAll(".aic-toolbar-group button"),
+    ].map((button) => {
+      const box = button.getBoundingClientRect();
+      return {
+        label: button.getAttribute("aria-label"),
+        width: box.width,
+        height: box.height,
+      };
+    });
     return {
       top: editorBox.top - panelBox.top,
       height: editorBox.height,
@@ -115,6 +131,7 @@ async function assertCompactEditor(panel) {
       toolbarClass: toolbar.className,
       toolbarMinHeight: toolbarStyle.minHeight,
       toolbarPadding: toolbarStyle.padding,
+      actionBounds,
       coarsePointer: matchMedia("(pointer: coarse)").matches,
     };
   });
@@ -127,8 +144,16 @@ async function assertCompactEditor(panel) {
     `editor is too short: ${JSON.stringify(layout)}`,
   );
   assert.ok(
-    layout.toolbarHeight >= 32 && layout.toolbarHeight <= 36,
-    `compact desktop toolbar should stay 32-36px tall: ${JSON.stringify(layout)}`,
+    layout.toolbarHeight >= 32 && layout.toolbarHeight <= 56,
+    `compact desktop toolbar should stay within two 24px control rows: ${JSON.stringify(layout)}`,
+  );
+  assert.equal(layout.actionBounds.length, 5);
+  assert.ok(
+    layout.actionBounds.every(
+      ({ width, height }) =>
+        Math.abs(width - 24) <= 1 && Math.abs(height - 24) <= 1,
+    ),
+    `desktop compact formatting actions must stay 24px: ${JSON.stringify(layout.actionBounds)}`,
   );
   const explicitTouch = await panel.evaluate(async (element) => {
     const { createUiButton } = await import("/src/core/ui-system.js");
@@ -150,36 +175,36 @@ async function assertCompactEditor(panel) {
     `an explicit touch button must override a fine compact toolbar: ${JSON.stringify(explicitTouch)}`,
   );
   const widths = await assertNoHorizontalOverflow(panel);
-  const formatting = panel.getByRole("button", { name: "Formatting" });
-  assert.equal(await formatting.getAttribute("aria-expanded"), "false");
-  await formatting.click();
-  assert.equal(await formatting.getAttribute("aria-expanded"), "true");
-  await panel.locator(".aic-toolbar-tray").waitFor({ state: "visible" });
-  await formatting.click();
-  assert.equal(await formatting.getAttribute("aria-expanded"), "false");
-  await panel.locator(".aic-toolbar-tray").waitFor({ state: "hidden" });
+  const toolbar = panel.locator(".browser-note .aic-toolbar--compact");
+  for (const label of [
+    "Strikethrough",
+    "Insert link (Ctrl/Command+K)",
+    "Bullet list",
+    "Ordered list",
+    "Task list",
+  ])
+    assert.equal(
+      await toolbar.getByRole("button", { name: label, exact: true }).count(),
+      1,
+    );
+  assert.equal(await toolbar.locator("select,.aic-toolbar-tray").count(), 0);
   return { ...layout, explicitTouch, widths };
 }
 
-async function assertFormattingPopover(page, panel, theme, width, height) {
+async function assertInlineToolbarAtSmallViewport(
+  page,
+  panel,
+  theme,
+  width,
+  height,
+) {
   const toolbar = panel.locator(".browser-note .aic-toolbar--compact");
-  const trigger = toolbar.getByRole("button", { name: "Formatting" });
-  assert.equal(await trigger.innerText(), "Format");
-  assert.equal(await trigger.getAttribute("title"), "Formatting");
-  assert.equal(
-    await toolbar.getByRole("button", { name: "Show Markdown source" }).count(),
-    1,
-  );
-  assert.equal(
-    await toolbar.locator('button[aria-label="Save note"]').count(),
-    1,
-  );
-  await trigger.click();
-  const tray = toolbar.locator(".aic-toolbar-tray");
-  await tray.waitFor({ state: "visible" });
-  const layout = await tray.evaluate((element) => {
+  await toolbar.scrollIntoViewIfNeeded();
+  const layout = await toolbar.evaluate((element) => {
     const box = element.getBoundingClientRect();
-    const controls = [...element.querySelectorAll("button,select")];
+    const controls = [
+      ...element.querySelectorAll(".aic-toolbar-group button"),
+    ].filter((control) => control.getBoundingClientRect().height > 0);
     return {
       left: box.left,
       top: box.top,
@@ -187,7 +212,7 @@ async function assertFormattingPopover(page, panel, theme, width, height) {
       bottom: box.bottom,
       viewportWidth: window.innerWidth,
       viewportHeight: window.innerHeight,
-      overflowY: getComputedStyle(element).overflowY,
+      labels: controls.map((control) => control.getAttribute("aria-label")),
       controlsNamed: controls.every(
         (control) =>
           !!control.getAttribute("aria-label") ||
@@ -201,25 +226,24 @@ async function assertFormattingPopover(page, panel, theme, width, height) {
       layout.top >= 0 &&
       layout.right <= layout.viewportWidth + 1 &&
       layout.bottom <= layout.viewportHeight + 1,
-    `formatting popover must fit the viewport: ${JSON.stringify(layout)}`,
+    `inline toolbar must fit the viewport: ${JSON.stringify(layout)}`,
   );
-  assert.equal(layout.overflowY, "auto");
   assert.equal(layout.controlsNamed, true);
+  for (const label of [
+    "Strikethrough",
+    "Insert link (Ctrl/Command+K)",
+    "Bullet list",
+    "Ordered list",
+    "Task list",
+  ])
+    assert.ok(layout.labels.includes(label), `missing inline action ${label}`);
+  assert.equal(await toolbar.locator("select,.aic-toolbar-tray").count(), 0);
   await page.screenshot({
-    path: path.join(
-      output,
-      `formatting-popover-${theme}-${width}x${height}.png`,
-    ),
+    path: path.join(output, `inline-toolbar-${theme}-${width}x${height}.png`),
   });
-  const controls = tray.locator("button,select");
-  const controlCount = await controls.count();
-  assert.ok(controlCount >= 10, "formatting popover should expose every group");
-  for (let index = 0; index < controlCount; index += 1) {
-    const control = controls.nth(index);
-    await control.evaluate((element) =>
-      element.scrollIntoView({ block: "nearest", inline: "nearest" }),
-    );
-    const hit = await control.evaluate((element) => {
+  const controls = toolbar.locator(".aic-toolbar-group button");
+  for (let index = 0; index < (await controls.count()); index += 1) {
+    const hit = await controls.nth(index).evaluate((element) => {
       const box = element.getBoundingClientRect();
       const target = document.elementFromPoint(
         box.left + box.width / 2,
@@ -233,20 +257,9 @@ async function assertFormattingPopover(page, panel, theme, width, height) {
     });
     assert.ok(
       hit.reachable,
-      `formatting control ${index + 1} must be reachable: ${JSON.stringify(hit)}`,
+      `inline toolbar control ${index + 1} must be reachable: ${JSON.stringify(hit)}`,
     );
-    if ((await control.evaluate((element) => element.tagName)) === "BUTTON")
-      await control.click();
-    assert.equal(await tray.isVisible(), true);
   }
-  await tray.locator("select").first().focus();
-  await page.keyboard.press("Escape");
-  await tray.waitFor({ state: "hidden" });
-  assert.equal(await trigger.getAttribute("aria-expanded"), "false");
-  assert.equal(
-    await trigger.evaluate((element) => element === document.activeElement),
-    true,
-  );
   return { theme, width, height, ...layout };
 }
 
@@ -326,7 +339,7 @@ async function assertPageDeletion(page, panel, theme, width) {
   }, otherUrl);
   assert.equal(
     await panel.locator(".browser-page-origin").getAttribute("title"),
-    syntheticUrl,
+    syntheticLocation,
     "deleting another tree item must keep the current editor",
   );
   assert.match(
@@ -393,8 +406,8 @@ async function assertPageDeletion(page, panel, theme, width) {
   );
 }
 
-async function assertFieldMenu(page, panel, selector, theme, kind) {
-  const trigger = panel.locator(selector).first();
+async function assertFieldMenu(page, panel, selector, theme, kind, index = 0) {
+  const trigger = panel.locator(selector).nth(index);
   await trigger.scrollIntoViewIfNeeded();
   await trigger.click();
   const menu = trigger.locator("..").locator(".cm-aic-security-add-menu");
@@ -634,7 +647,8 @@ async function mount(page) {
               {
                 result: {
                   html:
-                    args[0] === "selection"
+                    args[0] === "selection" ||
+                    (args[0] === "auto" && qa.captureSelection)
                       ? "<h2>Selected fixture</h2><p>Selection content</p>"
                       : syntheticHtml,
                   title: current.title,
@@ -654,7 +668,9 @@ async function mount(page) {
         heldType: null,
         heldReplies: [],
         privateWindow: false,
+        captureSelection: false,
         clipboard: "",
+        clipboardReads: 0,
         panels: [],
         setPrivate(value) {
           this.privateWindow = value;
@@ -700,7 +716,10 @@ async function mount(page) {
           writeText: async (text) => {
             qa.clipboard = text;
           },
-          readText: async () => qa.clipboard,
+          readText: async () => {
+            qa.clipboardReads += 1;
+            return qa.clipboard;
+          },
         },
       });
       const root = document.querySelector("#app");
@@ -711,6 +730,120 @@ async function mount(page) {
       await qa.mount();
     },
     { syntheticUrl, otherUrl, syntheticHtml },
+  );
+}
+
+async function assertSanitizedNavigation(page, panel, theme, width) {
+  const longSegment = `project-${"x".repeat(96)}`;
+  const cases = [
+    {
+      url: `https://jira.example/${longSegment}/issues?jql=first-private#hidden-one`,
+      title: `Jira results — https://jira.example/${longSegment}/issues?jql=first-private#hidden-one`,
+    },
+    {
+      url: `https://jira.example/${longSegment}/issues?jql=second-private#hidden-two`,
+      title: `Jira results — https://jira.example/${longSegment}/issues?jql=second-private#hidden-two`,
+    },
+    {
+      url: "https://auth.example/oauth/start?login_hint=person%40example.invalid&continue=%2Fprivate",
+      title:
+        "Sign in — login_hint=person%40example.invalid&continue=%2Fprivate",
+    },
+    {
+      url: `https://docs.example/space/${"deep-".repeat(32)}page?token=private#fragment`,
+      title: `A useful captured title ${"that stays intentionally long ".repeat(6)}`,
+    },
+    {
+      url: "https://docs.example/login%253Fcontinue%253Dprivate%2526login_hint%253Dperson",
+      title:
+        "https://docs.example/login%253Fcontinue%253Dprivate%2526login_hint%253Dperson",
+    },
+  ];
+  await page.evaluate(
+    async ({ cases, syntheticUrl }) => {
+      const qa = window.panelQa;
+      for (const entry of cases) {
+        await qa.next(entry.url, entry.title);
+        const [tab] = await qa.api.tabs.query({
+          active: true,
+          windowId: 7,
+        });
+        tab.title = entry.title;
+        const visit = await qa.api.runtime.sendMessage({
+          type: "visit",
+          windowId: 7,
+        });
+        if (!visit.ok) throw Error(visit.error);
+      }
+      await qa.next(syntheticUrl, "Fixture page one");
+    },
+    { cases, syntheticUrl },
+  );
+  await page.waitForFunction(
+    (expected) =>
+      document
+        .querySelector(".qa-panel .browser-page-origin")
+        ?.getAttribute("title") === expected &&
+      document.querySelector(".qa-panel .browser-note .cm-editor") !== null,
+    syntheticLocation,
+  );
+  const navigation = await openMenu(panel, "Notes and history");
+  const history = navigation.locator(".browser-history");
+  await history
+    .locator("li")
+    .nth(cases.length - 1)
+    .waitFor();
+  const presentation = await history.evaluate((element) => {
+    const labels = [...element.querySelectorAll(".browser-page-label")].map(
+      (label) => ({
+        text: label.textContent?.trim() ?? "",
+        height: label.getBoundingClientRect().height,
+      }),
+    );
+    const exposed = [...element.querySelectorAll("[title], [aria-label]")]
+      .flatMap((node) => [
+        node.getAttribute("title") ?? "",
+        node.getAttribute("aria-label") ?? "",
+      ])
+      .join("\n");
+    const box = element.getBoundingClientRect();
+    return {
+      labels,
+      exposed,
+      horizontalOverflow: document.documentElement.scrollWidth > innerWidth,
+      rowsInside: [...element.querySelectorAll(".browser-page-row")].every(
+        (row) => {
+          const rowBox = row.getBoundingClientRect();
+          return rowBox.left >= box.left - 1 && rowBox.right <= box.right + 1;
+        },
+      ),
+    };
+  });
+  const jiraLabels = presentation.labels
+    .map(({ text }) => text)
+    .filter((label) => label.startsWith("Jira results"));
+  assert.equal(jiraLabels.length, 2);
+  assert.equal(new Set(jiraLabels).size, 2);
+  assert.ok(jiraLabels.some((label) => / · 1\)$/u.test(label)));
+  assert.ok(jiraLabels.some((label) => / · 2\)$/u.test(label)));
+  assert.ok(
+    presentation.labels.every(
+      ({ text, height }) => Array.from(text).length <= 112 && height <= 42,
+    ),
+    `navigation labels must remain bounded to two lines: ${JSON.stringify(presentation.labels)}`,
+  );
+  assert.doesNotMatch(
+    `${presentation.labels.map(({ text }) => text).join("\n")}\n${presentation.exposed}`,
+    /jql|login_hint|continue|first-private|second-private|hidden-|token=|fragment|person%40|[?#]/iu,
+  );
+  assert.equal(presentation.horizontalOverflow, false);
+  assert.equal(presentation.rowsInside, true);
+  await page.screenshot({
+    path: path.join(output, `navigation-safe-${theme}-${width}.png`),
+  });
+  await page.keyboard.press("Escape");
+  passed.push(
+    `${theme}/${width}: long recent-page titles stay bounded and URL metadata stays private`,
   );
 }
 
@@ -762,7 +895,7 @@ try {
             return { width: box.width, height: box.height };
           });
         assert.ok(
-          emptySharedButton.height >= 28 && emptySharedButton.height <= 32,
+          emptySharedButton.height >= 24 && emptySharedButton.height <= 28,
           `empty Shared action should use the compact token: ${JSON.stringify(emptySharedButton)}`,
         );
         assert.equal(
@@ -800,7 +933,7 @@ try {
         );
         assert.equal(
           await identity.locator(".browser-page-origin").getAttribute("title"),
-          syntheticUrl,
+          syntheticLocation,
         );
         assert.equal(await panel.locator(".browser-navigation").count(), 0);
         await assertNoHorizontalOverflow(panel);
@@ -809,24 +942,91 @@ try {
           path: path.join(output, `empty-${theme}-${width}.png`),
         });
 
-        const addMenu = await openMenu(panel, "Add content");
         for (const label of [
-          "Import page",
-          "Import selection",
-          "Paste from clipboard",
-          "Import Markdown",
+          "Import current content",
+          "Import Markdown file",
+          "Export Markdown file",
+          "AIC guide",
         ])
           assert.equal(
-            await addMenu
+            await panel
               .getByRole("button", { name: label, exact: true })
               .count(),
             1,
           );
+        assert.equal(
+          await panel
+            .getByRole("button", { name: /Add content|Paste from clipboard/u })
+            .count(),
+          0,
+        );
         await assertNoHorizontalOverflow(panel);
         await page.screenshot({
-          path: path.join(output, `add-content-${theme}-${width}.png`),
+          path: path.join(output, `header-actions-${theme}-${width}.png`),
         });
-        await addMenu.getByRole("button", { name: "Import page" }).click();
+        const guide = await openMenu(panel, "AIC guide");
+        assert.match(await guide.innerText(), /Browser transfer.*↑ Markdown/su);
+        const guideBounds = await guide.evaluate((element) => {
+          const box = element.getBoundingClientRect();
+          const overlay = element.parentElement.getBoundingClientRect();
+          return {
+            left: box.left,
+            top: box.top,
+            right: box.right,
+            bottom: box.bottom,
+            overlayLeft: overlay.left,
+            overlayTop: overlay.top,
+            overlayRight: overlay.right,
+            overlayBottom: overlay.bottom,
+            overlayOverflowY: getComputedStyle(element.parentElement).overflowY,
+            overlayClientHeight: element.parentElement.clientHeight,
+            overlayScrollHeight: element.parentElement.scrollHeight,
+            viewportWidth: innerWidth,
+            viewportHeight: innerHeight,
+          };
+        });
+        assert.ok(
+          guideBounds.left >= 0 &&
+            guideBounds.right <= guideBounds.viewportWidth + 1 &&
+            guideBounds.left >= guideBounds.overlayLeft - 1 &&
+            guideBounds.right <= guideBounds.overlayRight + 1 &&
+            guideBounds.overlayTop >= 0 &&
+            guideBounds.overlayBottom <= guideBounds.viewportHeight + 1 &&
+            (guideBounds.bottom <= guideBounds.overlayBottom + 1 ||
+              (guideBounds.overlayOverflowY === "auto" &&
+                guideBounds.overlayScrollHeight >
+                  guideBounds.overlayClientHeight)),
+          `guide must stay within its viewport popover: ${JSON.stringify(guideBounds)}`,
+        );
+        await assertNoHorizontalOverflow(panel);
+        await page.screenshot({
+          path: path.join(output, `guide-${theme}-${width}.png`),
+        });
+        const guideEnd = await guide.evaluate((element) => {
+          const overlay = element.parentElement;
+          overlay.scrollTop = overlay.scrollHeight;
+          const last =
+            element.lastElementChild?.lastElementChild?.getBoundingClientRect();
+          const bounds = overlay.getBoundingClientRect();
+          return {
+            lastTop: last?.top ?? null,
+            lastBottom: last?.bottom ?? null,
+            overlayTop: bounds.top,
+            overlayBottom: bounds.bottom,
+            scrollTop: overlay.scrollTop,
+            maximumScroll: overlay.scrollHeight - overlay.clientHeight,
+          };
+        });
+        assert.ok(
+          guideEnd.lastTop !== null &&
+            guideEnd.lastTop >= guideEnd.overlayTop - 1 &&
+            guideEnd.lastBottom <= guideEnd.overlayBottom + 12,
+          `the end of the guide must remain reachable inside the viewport scroller: ${JSON.stringify(guideEnd)}`,
+        );
+        await page.keyboard.press("Escape");
+        await panel
+          .getByRole("button", { name: "Import current content" })
+          .click();
         await panel.locator(".aic-editor .cm-editor").waitFor();
         assert.match(
           await panel.locator(".cm-content").innerText(),
@@ -847,6 +1047,22 @@ try {
         await page.waitForFunction(
           () =>
             document.querySelector(".qa-panel")?.dataset.importing === "false",
+        );
+        const markdownChooser = page.waitForEvent("filechooser");
+        await panel
+          .getByRole("button", { name: "Import Markdown file" })
+          .click();
+        await (
+          await markdownChooser
+        ).setFiles({
+          name: "synthetic-import.md",
+          mimeType: "text/markdown",
+          buffer: Buffer.from("# Synthetic file import"),
+        });
+        await page.waitForFunction(() =>
+          document
+            .querySelector(".qa-panel .cm-content")
+            ?.textContent?.includes("Synthetic file import"),
         );
         measurements.push({
           theme,
@@ -886,14 +1102,17 @@ try {
           true,
           "autosave must keep the editor selection",
         );
-        await page.evaluate(() => {
-          window.panelQa.clipboard = "Synthetic clipboard addition";
+        await panel.locator(".cm-content").evaluate((element) => {
+          const clipboard = new DataTransfer();
+          clipboard.setData("text/plain", "Synthetic clipboard addition");
+          element.dispatchEvent(
+            new ClipboardEvent("paste", {
+              bubbles: true,
+              cancelable: true,
+              clipboardData: clipboard,
+            }),
+          );
         });
-        await (
-          await openMenu(panel, "Add content")
-        )
-          .getByRole("button", { name: "Paste from clipboard" })
-          .click();
         await page.waitForFunction(async () => {
           const library = await window.panelQa.api.runtime.sendMessage({
             type: "load",
@@ -908,7 +1127,12 @@ try {
         });
         assert.match(
           await panel.locator(".cm-content").innerText(),
-          /Synthetic handwritten edit\s+Synthetic clipboard addition/u,
+          /Synthetic handwritten edit\s*Synthetic clipboard addition/u,
+        );
+        assert.equal(
+          await page.evaluate(() => window.panelQa.clipboardReads),
+          0,
+          "native editor paste must not call the panel clipboard-read API",
         );
         await page.evaluate(
           (next) => window.panelQa.next(next, "Fixture page two"),
@@ -921,7 +1145,7 @@ try {
               ?.getAttribute("title") === expected &&
             document.querySelector(".qa-panel .browser-note .aic-editor") !==
               null,
-          otherUrl,
+          otherLocation,
         );
         await (
           await openMenu(panel, "Notes and history")
@@ -936,7 +1160,7 @@ try {
             document
               .querySelector(".qa-panel .cm-content")
               ?.textContent?.includes("Synthetic handwritten edit"),
-          syntheticUrl,
+          syntheticLocation,
         );
         await page.evaluate(
           (next) => window.panelQa.next(next, "Fixture page two"),
@@ -950,33 +1174,23 @@ try {
           await panel.locator(".browser-note .cm-content").innerText(),
           /Synthetic page-two draft/u,
         );
-        await (
-          await openMenu(panel, "Add content")
-        )
-          .getByRole("button", { name: "Import selection" })
+        await page.evaluate(() => {
+          window.panelQa.captureSelection = true;
+        });
+        await panel
+          .getByRole("button", { name: "Import current content" })
           .click();
+        await page.evaluate(() => {
+          window.panelQa.captureSelection = false;
+        });
         await page.waitForFunction(() =>
           document
             .querySelector(".qa-panel .cm-content")
             ?.textContent?.includes("Selection content"),
         );
-        await panel.locator(".cm-content").click();
-        await page.keyboard.press("Control+End");
-        await page.keyboard.press("Shift+Home");
-        await (
-          await openMenu(panel, "More options")
-        )
-          .getByRole("button", { name: "Copy block or selection" })
-          .click();
-        assert.equal(
-          (await page.evaluate(() => window.panelQa.clipboard)).trim(),
-          "Selection content",
-        );
         const draftDownloadPromise = page.waitForEvent("download");
-        await (
-          await openMenu(panel, "More options")
-        )
-          .getByRole("button", { name: "Export Markdown" })
+        await panel
+          .getByRole("button", { name: "Export Markdown file" })
           .click();
         const draftDownload = await draftDownloadPromise;
         const draftTarget = path.join(
@@ -994,13 +1208,18 @@ try {
           .getByText("Synthetic handwritten edit")
           .waitFor();
 
-        await (
-          await openMenu(panel, "More options")
-        )
-          .getByRole("button", { name: "Copy note" })
-          .click();
-        const copied = await page.evaluate(() => window.panelQa.clipboard);
-        assert.match(copied, /Synthetic handwritten edit/u);
+        const more = await openMenu(panel, "More options");
+        assert.equal(
+          await more
+            .getByRole("button", { name: /Copy note|Export Markdown/u })
+            .count(),
+          0,
+        );
+        assert.equal(
+          await more.getByRole("heading", { name: "Local note" }).count(),
+          1,
+        );
+        await page.keyboard.press("Escape");
         assert.doesNotMatch(
           await panel.innerHTML(),
           /synthetic-panel-regression-passphrase/u,
@@ -1087,11 +1306,15 @@ try {
             .locator(".cm-content")
             .getByText("Synthetic handwritten edit")
             .waitFor();
-          await (
-            await openMenu(privatePanel, "Add content")
-          )
-            .getByRole("button", { name: "Import selection" })
+          await page.evaluate(() => {
+            window.panelQa.captureSelection = true;
+          });
+          await privatePanel
+            .getByRole("button", { name: "Import current content" })
             .click();
+          await page.evaluate(() => {
+            window.panelQa.captureSelection = false;
+          });
           await page.waitForFunction(() =>
             document
               .querySelector(".qa-panel:last-child .cm-content")
@@ -1159,8 +1382,33 @@ try {
         }
         assert.deepEqual(errors, [], "no uncaught page exceptions");
         passed.push(
-          `${theme}/${width}: setup, import, edit/save, page binding, clipboard, encrypted download, lock/reopen`,
+          `${theme}/${width}: setup, direct imports, edit/save, page binding, native paste, encrypted download, lock/reopen`,
         );
+        await context.close();
+      }
+    }
+  if (process.env.AIC_REVIEW_MENU_ONLY !== "1")
+    for (const theme of ["light", "dark"]) {
+      for (const width of [320, 600]) {
+        const context = await browser.newContext({
+          viewport: { width, height: 800 },
+          colorScheme: theme,
+        });
+        const page = await context.newPage();
+        page.setDefaultTimeout(10000);
+        await mount(page);
+        const panel = page.locator(".qa-panel").first();
+        await panel
+          .getByLabel("Master passphrase", { exact: true })
+          .fill(syntheticPassword);
+        await panel
+          .getByLabel("Confirm master passphrase")
+          .fill(syntheticPassword);
+        await panel
+          .getByRole("button", { name: "Create encrypted library" })
+          .click();
+        await panel.locator(".browser-note .cm-editor").waitFor();
+        await assertSanitizedNavigation(page, panel, theme, width);
         await context.close();
       }
     }
@@ -1181,7 +1429,7 @@ try {
       .getByRole("button", { name: "Create encrypted library" })
       .click();
     await panel.locator(".browser-note .cm-editor").waitFor();
-    const deepUrl = await page.evaluate(
+    await page.evaluate(
       async ({ syntheticUrl }) => {
         const qa = window.panelQa;
         const origin = new URL(syntheticUrl).origin;
@@ -1221,7 +1469,7 @@ try {
           type: "create-domain",
           page: await activePage(),
           markdown:
-            "---\n# aic-fields: v2\nUsername: synthetic@example.test\n---\n",
+            "```aic\n# Properties\n\nUsername: synthetic@example.test\n```\n",
         });
         if (!domain.ok) throw Error(domain.error);
         return current;
@@ -1238,15 +1486,15 @@ try {
         !ancestors.hidden &&
         ancestors.querySelectorAll("li").length >= 7 &&
         panel.querySelector(
-          ".browser-shared-host > .browser-domain-properties .cm-aic-properties",
+          ".browser-shared-host > .browser-domain-properties .cm-aic-security",
         )
       );
-    }, deepUrl);
+    }, "fixture.example.invalid/four/five");
     measurements.push(
-      await assertFormattingPopover(page, panel, theme, 320, 360),
+      await assertInlineToolbarAtSmallViewport(page, panel, theme, 320, 360),
     );
     passed.push(
-      `${theme}/320x360: compact formatting popover fits the viewport and restores disclosure focus`,
+      `${theme}/320x360: direct inline formatting actions fit the viewport and remain reachable`,
     );
     await context.close();
     context = await browser.newContext({
@@ -1272,13 +1520,15 @@ try {
           from: 0,
           to: view.state.doc.length,
           insert: [
-            "---",
-            "# aic-fields: v2",
+            "```aic",
+            "# Properties",
+            "",
             "Email: synthetic@example.test",
-            "---",
+            "```",
             "",
             "```aic",
             "# Accounts",
+            "",
             "## Identity",
             "Email: synthetic@example.test",
             "```",
@@ -1287,30 +1537,17 @@ try {
         },
       });
     });
-    await panel
-      .locator(".cm-aic-properties .cm-aic-security-add-trigger")
-      .first()
-      .waitFor();
+    const fieldTrigger =
+      ".browser-note .cm-aic-security .cm-aic-security-add-trigger";
+    await panel.locator(fieldTrigger).first().waitFor();
     measurements.push(
-      await assertFieldMenu(
-        page,
-        panel,
-        ".cm-aic-properties .cm-aic-security-add-trigger",
-        theme,
-        "properties",
-      ),
+      await assertFieldMenu(page, panel, fieldTrigger, theme, "properties"),
     );
     measurements.push(
-      await assertFieldMenu(
-        page,
-        panel,
-        ".cm-aic-security:not(.cm-aic-properties) .cm-aic-security-add-trigger",
-        theme,
-        "security",
-      ),
+      await assertFieldMenu(page, panel, fieldTrigger, theme, "accounts", 1),
     );
     passed.push(
-      `${theme}/320x360: Security and Properties field menus stay visible and scroll internally`,
+      `${theme}/320x360: both AIC field menus stay visible and scroll internally`,
     );
     await context.close();
 

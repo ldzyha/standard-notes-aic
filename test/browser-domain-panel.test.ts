@@ -43,7 +43,11 @@ const properties = (
   username = "shared-user",
   password = "synthetic-shared-password",
 ) =>
-  `---\n# aic-fields: v2\nUsername: ${username}\nPassword*: ${password}\n---\n\n`;
+  "```aic\n# Properties\nUsername | " +
+  username +
+  "\nPassword *| " +
+  password +
+  "\n```\n\n";
 const note = (page: ActivePage, markdown = "Page-only body"): BrowserNote => ({
   id: `page:${page.url}`,
   url: page.url,
@@ -243,6 +247,68 @@ afterEach(() => {
 });
 
 describe("shared domain Properties in the browser panel", () => {
+  it("persists one-time preview actions and refreshes another panel without changing the page", async () => {
+    const writeText = clipboard();
+    const before = "```aic\nCodes 1| fixture-code | visible-note\n```\n";
+    const fake = fixture({
+      domains: [domain("https://example.com", before)],
+      notes: [note(first)],
+    });
+    const a = await mount(fake.api);
+    const b = await mount(fake.api);
+    press(shared(a.root), /^Copy Codes one-time 1 and mark it used$/u);
+    await vi.waitFor(async () =>
+      expect((await fake.store.load()).domains[0]!.markdown).toContain(
+        "Codes 0| fixture-code",
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(
+        shared(b.root).querySelector(
+          '[aria-label="Reactivate Codes used 1 without copying"]',
+        ),
+      ).not.toBeNull(),
+    );
+    expect(writeText).toHaveBeenCalledExactlyOnceWith("fixture-code");
+    expect(shared(a.root).dataset.editing).toBe("false");
+    expect(shared(a.root).innerHTML).not.toContain("fixture-code");
+    expect(pageView(a.root).state.doc.toString()).toBe("Page-only body");
+    expect(pageView(b.root).state.doc.toString()).toBe("Page-only body");
+    press(shared(b.root), /^Reactivate Codes used 1 without copying$/u);
+    await vi.waitFor(async () =>
+      expect((await fake.store.load()).domains[0]!.markdown).toContain(
+        "Codes 1| fixture-code",
+      ),
+    );
+    expect(writeText).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() =>
+      expect(
+        shared(a.root).querySelector(
+          '[aria-label="Copy Codes one-time 1 and mark it used"]',
+        ),
+      ).not.toBeNull(),
+    );
+    press(shared(a.root), /^Copy Codes one-time 1 and mark it used$/u);
+    await vi.waitFor(async () =>
+      expect((await fake.store.load()).domains[0]!.markdown).toContain(
+        "Codes 0| fixture-code",
+      ),
+    );
+    expect(writeText).toHaveBeenCalledTimes(2);
+    await vi.waitFor(() =>
+      expect(
+        shared(a.root).querySelector('[aria-label="Delete Codes used 1"]'),
+      ).not.toBeNull(),
+    );
+    press(shared(a.root), /^Delete Codes used 1$/u);
+    await vi.waitFor(async () =>
+      expect((await fake.store.load()).domains[0]!.markdown).toContain(
+        "Codes | visible-note",
+      ),
+    );
+    expect((await fake.store.load()).notes[0]!.markdown).toBe("Page-only body");
+  });
+
   it("renders masked copyable Properties for the exact origin only", async () => {
     const writeText = clipboard();
     const fake = fixture({
@@ -274,7 +340,7 @@ describe("shared domain Properties in the browser panel", () => {
   });
 
   it("keeps page copy, Markdown export and imported content free of inherited source", async () => {
-    const writeText = clipboard();
+    clipboard();
     const fake = fixture({ domains: [domain()], notes: [note(first)] });
     const { root } = await mount(fake.api);
     const initialPage = pageView(root);
@@ -290,21 +356,31 @@ describe("shared domain Properties in the browser panel", () => {
       },
     );
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
-    press(root, /^More options$/u);
-    press(root, /^Copy note$/u);
-    await vi.waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith("Page-only body"),
-    );
-    press(root, /^More options$/u);
-    press(root, /^Export Markdown$/u);
+    initialPage.dispatch({
+      selection: { anchor: 0, head: initialPage.state.doc.length },
+    });
+    expect(
+      initialPage.state.sliceDoc(
+        initialPage.state.selection.main.from,
+        initialPage.state.selection.main.to,
+      ),
+    ).toBe("Page-only body");
+    press(root, /^Export Markdown file$/u);
     const exportText = await new Promise<string>((resolve) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
       reader.readAsText(blobs[0]!);
     });
     expect(exportText).toBe("Page-only body");
-    press(root, /^Add content$/u);
-    press(root, /^Paste from clipboard$/u);
+    const paste = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(paste, "clipboardData", {
+      value: {
+        getData: (type: string) =>
+          type === "text/plain" ? "Imported page content" : "",
+        files: [],
+      },
+    });
+    initialPage.contentDOM.dispatchEvent(paste);
     await vi.waitFor(() =>
       expect(initialPage.state.doc.toString()).toContain(
         "Imported page content",
@@ -534,9 +610,7 @@ describe("shared domain Properties in the browser panel", () => {
     replace(view(shared(root)), invalid);
     press(shared(root), /^Done$/u);
     await vi.waitFor(() =>
-      expect(shared(root).textContent).toContain(
-        "Finish a valid Properties block",
-      ),
+      expect(shared(root).textContent).toContain("Finish a valid aic block"),
     );
     expect((await fake.store.load()).domains[0]!.markdown).toBe(properties());
     expect(shared(sibling.root).dataset.editing).toBe("false");

@@ -8,9 +8,9 @@ import { makeSecurityBlockExtension } from "../src/core/security-block.js";
 const source = [
   "```aic",
   "## Main",
-  "Password*:",
-  "Email: alice@example.com",
-  "TOTP*:",
+  "Password *|",
+  "Email | alice@example.com",
+  "TOTP #|",
   "```",
 ].join("\n");
 const views: EditorView[] = [];
@@ -77,27 +77,29 @@ afterEach(() => {
 describe("security field actions", () => {
   it("copies the label and value independently and confirms locally", async () => {
     const { host, onCopy, control } = fixture();
-    control("Copy Email").click();
+    control("Copy Email label").click();
     await vi.waitFor(() =>
       expect(onCopy).toHaveBeenCalledWith("Email", "Email label"),
     );
     expect(
       host.querySelector(".cm-aic-security-field-status")?.textContent,
     ).toBe("");
-    const row = control("Copy Email").closest(".cm-aic-security-row")!;
+    const row = control("Copy Email label").closest(".cm-aic-security-card")!;
     expect(
       row.querySelector(".cm-aic-security-field-status")?.textContent,
     ).toBe("Copied");
-    expect(row.textContent).not.toContain("Password*:");
+    expect(row.textContent).not.toContain("Password *|");
     control("Copy Email value").click();
     await vi.waitFor(() => expect(onCopy).toHaveBeenCalledTimes(2));
     expect(onCopy).toHaveBeenLastCalledWith("alice@example.com", "Email");
-    expect(control("Copy Email").tabIndex).toBe(0);
+    expect(control("Copy Email label").tabIndex).toBe(0);
     expect(control("Copy Email value").tabIndex).toBe(0);
     expect(
       host.querySelector('[aria-label="Copy Password value"]'),
     ).not.toBeNull();
-    expect(host.querySelector('[aria-label="Copy Password"]')).not.toBeNull();
+    expect(
+      host.querySelector('[aria-label="Copy Password label"]'),
+    ).not.toBeNull();
     expect(host.querySelector('[aria-label="Copy Password code"]')).toBeNull();
   });
 
@@ -109,7 +111,7 @@ describe("security field actions", () => {
     expect(host.querySelector(".cm-aic-security-panel")).toBeNull();
     await vi.waitFor(() =>
       expect(view.state.doc.toString()).toContain(
-        "Password*: new-secret-value",
+        "Password *| new-secret-value",
       ),
     );
     expect(host.querySelector(".cm-aic-security-panel")).toBeNull();
@@ -157,8 +159,8 @@ describe("security field actions", () => {
   it("omits Paste and Delete for filled hidden, visible, and whitespace fields", () => {
     const read = vi.fn(async () => "forbidden-value");
     for (const filled of [
-      source.replace("Password*:", "Password*: original-secret"),
-      source.replace("Password*:", "Password*:  "),
+      source.replace("Password *|", "Password *| original-secret"),
+      source.replace("Password *|", 'Password *| "  "'),
       source,
     ]) {
       const { host, view } = fixture(filled, {
@@ -170,7 +172,7 @@ describe("security field actions", () => {
         expect(host.querySelector(`button[aria-label="${label}"]`)).toBeNull();
         expect(
           host.querySelector(
-            `button[aria-label="Delete empty ${label.slice(6)} field"]`,
+            `button[aria-label="Delete empty ${label.slice(6)} row"]`,
           ),
         ).toBeNull();
       }
@@ -181,7 +183,7 @@ describe("security field actions", () => {
   });
 
   it("enables Paste after a filled field is cleared in source Edit", () => {
-    const filled = source.replace("Password*:", "Password*: original-secret");
+    const filled = source.replace("Password *|", "Password *| original-secret");
     const { host, view, control } = fixture(filled + "\n\nOutside");
     expect(host.querySelector('[aria-label="Paste Password"]')).toBeNull();
     control("Edit security block").click();
@@ -191,37 +193,37 @@ describe("security field actions", () => {
     });
     view.dispatch({ selection: { anchor: view.state.doc.length } });
     expect(control("Paste Password").disabled).toBe(false);
-    expect(control("Delete empty Password field").disabled).toBe(false);
+    expect(control("Delete empty Password row").disabled).toBe(false);
   });
 
   it("deletes only an empty field and keeps filled values and the empty section", () => {
     const mixed = source;
     const { host, view, control } = fixture(mixed);
-    control("Delete empty Password field").click();
-    expect(view.state.doc.toString()).not.toContain("Password*:");
-    expect(view.state.doc.toString()).toContain("Email: alice@example.com");
-    expect(view.state.doc.toString()).toContain("TOTP*:");
+    control("Delete empty Password row").click();
+    expect(view.state.doc.toString()).not.toContain("Password *|");
+    expect(view.state.doc.toString()).toContain("Email | alice@example.com");
+    expect(view.state.doc.toString()).toContain("TOTP #|");
     expect(
-      host.querySelector('[aria-label="Delete empty Email field"]'),
+      host.querySelector('[aria-label="Delete empty Email row"]'),
     ).toBeNull();
     expect(undo(view)).toBe(true);
     expect(view.state.doc.toString()).toBe(mixed);
-    const single = fixture("```aic\n## Keep section\nEmail:\n```\n");
-    single.control("Delete empty Email field").click();
+    const single = fixture("```aic\n## Keep section\nEmail |\n```\n");
+    single.control("Delete empty Email row").click();
     expect(single.view.state.doc.toString()).toBe(
       "```aic\n## Keep section\n```\n",
     );
     expect(single.host.querySelector(".cm-aic-security-error")).toBeNull();
-    expect(single.control("Add Email")).not.toBeNull();
+    expect(single.control("Add row to Keep section")).not.toBeNull();
   });
 
   it("cannot delete through a stale control after its field is filled or another note opens", () => {
     const { view, control } = fixture();
-    const stale = control("Delete empty Password field");
-    const from = source.indexOf("Password*:") + "Password*:".length;
+    const stale = control("Delete empty Password row");
+    const from = source.indexOf("Password *|") + "Password *|".length;
     view.dispatch({ changes: { from, insert: " newly-filled" } });
     stale.click();
-    expect(view.state.doc.toString()).toContain("Password*: newly-filled");
+    expect(view.state.doc.toString()).toContain("Password *| newly-filled");
     view.setState(EditorState.create({ doc: "Different note" }));
     stale.click();
     expect(view.state.doc.toString()).toBe("Different note");
@@ -233,12 +235,12 @@ describe("security field actions", () => {
       onReadClipboard: () => pending.promise,
     });
     control("Paste Password").click();
-    control("Delete empty Password field").click();
+    control("Delete empty Password row").click();
     pending.resolve("stale-paste-value");
     await settlePromises();
-    expect(view.state.doc.toString()).not.toContain("Password*:");
+    expect(view.state.doc.toString()).not.toContain("Password *|");
     expect(view.state.doc.toString()).not.toContain("stale-paste-value");
-    expect(view.state.doc.toString()).toContain("Email: alice@example.com");
+    expect(view.state.doc.toString()).toContain("Email | alice@example.com");
   });
 
   it("never overwrites a field filled while a read is pending", async () => {
@@ -248,11 +250,11 @@ describe("security field actions", () => {
     control("Paste Password").click();
     expect(host.querySelector(".cm-aic-security-panel")).toBeNull();
     const from =
-      view.state.doc.toString().indexOf("Password*:") + "Password*:".length;
+      view.state.doc.toString().indexOf("Password *|") + "Password *|".length;
     view.dispatch({ changes: { from, insert: " newly-filled" } });
     pending.resolve("stale-secret");
     await settlePromises();
-    expect(view.state.doc.toString()).toContain("Password*: newly-filled");
+    expect(view.state.doc.toString()).toContain("Password *| newly-filled");
     expect(view.state.doc.toString()).not.toContain("stale-secret");
     expect(read).toHaveBeenCalledTimes(1);
   });
@@ -331,7 +333,7 @@ describe("security field actions", () => {
     expect(view.state.doc.toString()).toBe(source);
     second.resolve("fresh-secret");
     await vi.advanceTimersByTimeAsync(0);
-    expect(view.state.doc.toString()).toContain("Password*: fresh-secret");
+    expect(view.state.doc.toString()).toContain("Password *| fresh-secret");
     expect(host.textContent).not.toContain("fresh-secret");
   });
 
@@ -392,7 +394,7 @@ describe("security field actions", () => {
     input.dispatchEvent(paste);
     expect(paste.defaultPrevented).toBe(true);
     expect(input.value).toBe("");
-    expect(view.state.doc.toString()).toContain("Password*: captured-secret");
+    expect(view.state.doc.toString()).toContain("Password *| captured-secret");
     expect(host.textContent).not.toContain("captured-secret");
   });
 
@@ -437,7 +439,7 @@ describe("security field actions", () => {
     ]
       .find((button) => button.textContent === "Generate")!
       .click();
-    expect(view.state.doc.toString()).toContain("Password*: AAAAAAAA");
+    expect(view.state.doc.toString()).toContain("Password *| AAAAAAAA");
     expect(host.textContent).not.toContain("AAAAAAAA");
     expect(host.querySelector('[aria-label="Generate Password"]')).toBeNull();
     expect(host.querySelector(".cm-aic-security-panel")).toBeNull();
@@ -448,8 +450,10 @@ describe("security field actions", () => {
     expect(host.querySelector('[aria-label="Paste Password"]')).toBeNull();
     expect(host.querySelector('[aria-label="Generate Password"]')).toBeNull();
     expect(
-      host.querySelector('[aria-label="Delete empty Password field"]'),
+      host.querySelector('[aria-label="Delete empty Password row"]'),
     ).toBeNull();
-    expect(host.querySelector('[aria-label="Copy Password"]')).not.toBeNull();
+    expect(
+      host.querySelector('[aria-label="Copy Password label"]'),
+    ).not.toBeNull();
   });
 });

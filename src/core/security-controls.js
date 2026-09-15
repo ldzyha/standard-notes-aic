@@ -1,12 +1,20 @@
 import { createIconButton } from "./structured-preview.js";
+import { applyUiComponent } from "./ui-system.js";
 let addReasonId = 0;
 
 /** A small disclosure, not a second editor. Global listeners live only while open. */
-export function createSecurityAddMenu(document, label, entries, text = "") {
+export function createSecurityAddMenu(
+  document,
+  label,
+  entries,
+  text = "",
+  triggerIcon = "add",
+) {
   const element = document.createElement("div");
   element.className = "cm-aic-security-add";
   const menu = document.createElement("div");
   menu.className = "cm-aic-security-add-menu";
+  applyUiComponent(menu, "menu", ["compact"]);
   menu.hidden = true;
   menu.setAttribute("role", "group");
   menu.setAttribute("aria-label", label);
@@ -151,7 +159,7 @@ export function createSecurityAddMenu(document, label, entries, text = "") {
   };
   const trigger = createIconButton(document, {
     label,
-    icon: "add",
+    icon: triggerIcon,
     disabled: entries.every((entry) => entry.disabled),
     className: "cm-aic-security-action cm-aic-security-add-trigger",
     onActivate() {
@@ -211,7 +219,14 @@ export function createSecurityAddMenu(document, label, entries, text = "") {
       control.title = entry.disabledReason;
       control.setAttribute("aria-describedby", reason.id);
     }
-    control.append(document.createTextNode(entry.text || entry.label));
+    // A labelled menu row is not a square icon-only control. Keep its shared
+    // activation owner and mask hook, but use the registered menu geometry.
+    control.classList.remove("aic-button--icon-only");
+    applyUiComponent(control, "menu", [], "item");
+    const entryLabel = document.createElement("span");
+    applyUiComponent(entryLabel, "button", [], "label");
+    entryLabel.textContent = entry.text || entry.label;
+    control.append(entryLabel);
     menu.append(control);
   }
   element.append(trigger, menu);
@@ -225,16 +240,18 @@ export function createSecurityAddMenu(document, label, entries, text = "") {
   };
 }
 
-/** Filter only names and deliberately visible values; never index secrets or OTPs. */
+/** Filter only names and deliberately visible text parts; never index secrets. */
 export function createSecurityFilter(
   document,
   { title, groups, initialQuery = "", onChange },
 ) {
   const element = document.createElement("div");
   element.className = "cm-aic-security-filter";
+  applyUiComponent(element, "field", ["compact"]);
   const input = document.createElement("input");
+  applyUiComponent(input, "field", [], "control");
   input.type = "search";
-  input.placeholder = "Filter fields and groups";
+  input.placeholder = "Filter";
   input.setAttribute("aria-label", "Filter fields and groups");
   input.autocomplete = "off";
   input.spellcheck = false;
@@ -261,14 +278,9 @@ export function createSecurityFilter(
             ({ field }) =>
               all ||
               normalize(field.label).includes(query) ||
-              normalize(field.description).includes(query) ||
-              (!field.hide &&
-                !field.recovery &&
-                normalize(
-                  field.kind === "card"
-                    ? field.value.replace(/[ -]/gu, "").slice(-4)
-                    : field.value,
-                ).includes(query)),
+              (field.visibleValues ?? []).some((value) =>
+                normalize(value).includes(query),
+              ),
           );
       const visible = all || matches.some(Boolean);
       // A fully hidden group needs no per-field writes. In particular, clearing
@@ -296,7 +308,14 @@ export function createSecurityFilter(
       input.focus();
     },
   });
-  input.addEventListener("input", () => update());
+  // This control lives in the card header, but editing its query must not
+  // activate header/source or reorder handlers. Keep native focus/selection.
+  for (const type of ["pointerdown", "click"])
+    element.addEventListener(type, (event) => event.stopPropagation());
+  input.addEventListener("input", (event) => {
+    event.stopPropagation();
+    update();
+  });
   input.addEventListener("keydown", (event) => {
     // Typing/navigation in the search field never belongs to Markdown keymaps.
     event.stopPropagation();

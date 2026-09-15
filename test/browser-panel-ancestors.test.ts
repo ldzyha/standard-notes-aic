@@ -44,7 +44,10 @@ const note = (
 const domain: BrowserDomain = {
   id: "domain:https://example.test",
   origin: "https://example.test",
-  markdown: `---\n# aic-fields: v2\nUsername: shared-user\nPassword*: ${sharedSecret}\n---\n`,
+  markdown:
+    "```aic\n# Properties\nUsername | shared-user\nPassword *| " +
+    sharedSecret +
+    "\n```\n",
   createdAt: 1,
   updatedAt: 1,
   revision: 1,
@@ -227,14 +230,28 @@ describe("saved page ancestors in the browser panel", () => {
     await vi.waitFor(() =>
       expect(pageView(root).state.doc.toString()).toBe(expectedSource),
     );
-    press(root, /^More options$/u);
-    press(root, /^Copy note$/u);
-    await vi.waitFor(() =>
-      expect(writeText).toHaveBeenCalledWith(expectedSource),
+    const blobs: Blob[] = [];
+    vi.stubGlobal(
+      "URL",
+      class extends URL {
+        static override createObjectURL(blob: Blob) {
+          blobs.push(blob);
+          return "blob:synthetic-ancestor-export";
+        }
+        static override revokeObjectURL() {}
+      },
     );
-    expect(writeText).not.toHaveBeenCalledWith(
-      expect.stringContaining("SYNTHETIC-ANCESTOR-SECRET"),
-    );
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    press(root, /^Export Markdown file$/u);
+    const exported = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.readAsText(blobs[0]!);
+    });
+    expect(exported).toBe(expectedSource);
+    expect(exported).not.toContain("SYNTHETIC-ANCESTOR-SECRET");
+    expect(exported).not.toContain(sharedSecret);
+    expect(writeText).not.toHaveBeenCalled();
   });
 
   it("refreshes removals without replacing the current editor or its selection", async () => {

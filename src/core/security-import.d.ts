@@ -12,5 +12,5 @@ export type SecurityImportResult =
     }>
   | Readonly<{ ok: false; code: SecurityImportErrorCode }>;
 
-/** Convert a bounded Standard Notes Authenticator JSON array to aic-security fences. */
+/** Convert a bounded Authenticator JSON array to canonical typed-pipe aic fences. */
 export function convertAuthenticatorJson(source: string): SecurityImportResult;

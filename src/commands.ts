@@ -2,6 +2,7 @@ import type { KeyBinding } from "@codemirror/view";
 import type { EditorView } from "@codemirror/view";
 import { planMermaidFenceInsertion } from "./mermaid-source";
 import { parseListLine } from "./core/formatting.js";
+import { AIC_EMPTY_DOCUMENT } from "./core/security-model.js";
 
 export { parseListLine, setBlockKind, toggleList } from "./core/formatting.js";
 export type { BlockKind, ListKind } from "./core/formatting.js";
@@ -173,24 +174,11 @@ export const insertTable: AicCommand = (view) => {
 };
 
 export const insertProperties: AicCommand = (view) => {
-  if (!writable(view)) return false;
-  const document = view.state.doc.toString();
-  if (document.startsWith("---\n")) {
-    const closing = document.indexOf("\n---", 4);
-    if (closing >= 0) {
-      view.dispatch({ selection: { anchor: 4 }, scrollIntoView: true });
-      view.focus();
-      return true;
-    }
-  }
-  const body = "---\nstatus: idea\ntags: \n---\n\n";
-  view.dispatch({
-    changes: { from: 0, insert: body },
-    selection: { anchor: body.indexOf("idea") },
-    userEvent: "input",
-  });
-  view.focus();
-  return true;
+  return insertBlock(
+    view,
+    AIC_EMPTY_DOCUMENT.trimEnd(),
+    "```aic\n# Properties\n".length,
+  );
 };
 
 export const insertCodeFence: AicCommand = (view) => {

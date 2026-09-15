@@ -1,6 +1,7 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it } from "vitest";
+import { parseSecurityDocument } from "../src/core/security-model.js";
 import {
   aicKeymap,
   continueList,
@@ -86,14 +87,17 @@ describe("AIC Markdown commands", () => {
     expect(aicKeymap.some(({ key }) => key === " ")).toBe(false);
   });
 
-  it("inserts one leading properties block and then reveals it", () => {
+  it("inserts an ordinary aic Properties block at the cursor with an editable empty line", () => {
     const view = editor("Body", { anchor: 4 });
     expect(insertProperties(view)).toBe(true);
     const inserted = view.state.doc.toString();
-    expect(inserted).toBe("---\nstatus: idea\ntags: \n---\n\nBody");
-    expect(insertProperties(view)).toBe(true);
-    expect(view.state.doc.toString()).toBe(inserted);
-    expect(view.state.selection.main.head).toBe(4);
+    expect(inserted).toBe("Body\n```aic\n# Properties\n\n```");
+    const cursor = view.state.selection.main.head;
+    view.dispatch({ changes: { from: cursor, insert: "Name | value" } });
+    expect(view.state.doc.toString()).toContain("Name | value\n```");
+    expect(parseSecurityDocument(view.state.doc.toString().slice(5)).ok).toBe(
+      true,
+    );
     view.destroy();
   });
 

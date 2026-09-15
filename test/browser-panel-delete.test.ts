@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EditorView } from "@codemirror/view";
 import { BrowserPanel } from "../src/browser/panel";
+import { displayPageLocation } from "../src/browser/navigation";
+import { AIC_EMPTY_DOCUMENT } from "../src/core/security-model.js";
 import type { BrowserApi, Request } from "../src/browser/api";
 import type { BrowserLibrary } from "../src/browser/library";
 
@@ -12,7 +14,7 @@ const page = {
 };
 const other = "https://example.test/other";
 const panels: BrowserPanel[] = [];
-const placeholder = "---\n# aic-fields: v2\n---\n\n";
+const placeholder = AIC_EMPTY_DOCUMENT;
 function event() {
   const listeners = new Set<(...args: unknown[]) => void>();
   return {
@@ -321,7 +323,9 @@ describe("local page deletion UI", () => {
     press(f.root, "Notes and history");
     expect(
       f.root.querySelectorAll(
-        '.browser-page-row button[title="' + page.url + '"]',
+        '.browser-page-row button[title="' +
+          displayPageLocation(page.url) +
+          '"]',
       ),
     ).toHaveLength(1);
     expect(f.root.querySelector(".browser-history")?.childElementCount).toBe(0);

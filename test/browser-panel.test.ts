@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EditorView } from "@codemirror/view";
 import { BrowserPanel } from "../src/browser/panel";
+import { AIC_EMPTY_DOCUMENT } from "../src/core/security-model.js";
 import type { ActivePage, BrowserApi, Request } from "../src/browser/api";
 import type { BrowserLibrary, BrowserNote } from "../src/browser/library";
 
@@ -181,8 +182,7 @@ function editor(root: HTMLElement) {
   )!;
 }
 function importPage(root: HTMLElement) {
-  button(root, "Add content").click();
-  button(root, "Import page").click();
+  button(root, "Import current content").click();
 }
 afterEach(() => {
   for (const panel of panels.splice(0)) panel.destroy();
@@ -198,9 +198,9 @@ describe("browser panel", () => {
     const { root, panel } = mount(fake.api);
     await panel.ready;
     const initial = editor(root);
-    const seed = "---\n# aic-fields: v2\n---\n\n";
+    const seed = AIC_EMPTY_DOCUMENT;
     expect(initial.state.doc.toString()).toBe(seed);
-    expect(root.querySelector(".cm-aic-properties")).not.toBeNull();
+    expect(root.querySelector(".cm-aic-security")).not.toBeNull();
     expect(
       root.querySelector<HTMLElement>(".aic-editor")?.dataset.saveState,
     ).toBe("placeholder");
@@ -376,7 +376,7 @@ describe("browser panel", () => {
     await vi.waitFor(() =>
       expect(root.querySelector(".cm-editor")).not.toBeNull(),
     );
-    expect(root.querySelector(".cm-aic-properties")).not.toBeNull();
+    expect(root.querySelector(".cm-aic-security")).not.toBeNull();
     expect(fake.messages.some((item) => item.type === "create")).toBe(false);
     expect(root.dataset.state).toBe("unlocked");
   });
@@ -443,12 +443,12 @@ describe("browser panel", () => {
     await vi.waitFor(() =>
       expect(root.querySelector(".cm-editor")).not.toBeNull(),
     );
-    expect(root.querySelector(".cm-aic-properties")).not.toBeNull();
+    expect(root.querySelector(".cm-aic-security")).not.toBeNull();
     expect(root.querySelector(".browser-page-title")!.textContent).toBe(
       "Second",
     );
     expect(root.querySelector<HTMLElement>(".browser-page-origin")!.title).toBe(
-      "https://example.com/b",
+      "example.com/b",
     );
   });
 

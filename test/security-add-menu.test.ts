@@ -34,6 +34,45 @@ afterEach(() => {
 });
 
 describe("shared Security/Properties add menu positioning", () => {
+  it("uses compact labelled BEM rows without square icon-only geometry", () => {
+    const { panel } = fixture();
+    expect(panel.classList.contains("aic-menu")).toBe(true);
+    expect(panel.classList.contains("aic-menu--compact")).toBe(true);
+    for (const control of panel.querySelectorAll("button")) {
+      expect(control.classList.contains("aic-menu__item")).toBe(true);
+      expect(control.classList.contains("aic-button--compact")).toBe(true);
+      expect(control.classList.contains("aic-button--icon-only")).toBe(false);
+      expect(control.classList.contains("cm-aic-icon-button")).toBe(true);
+      expect(control.querySelector(".aic-button__label")?.textContent).toBe(
+        control.getAttribute("aria-label"),
+      );
+    }
+  });
+
+  it("keeps literal labels, disabled entries and one activation owner", () => {
+    const run = vi.fn();
+    const disabledRun = vi.fn();
+    const menu = createSecurityAddMenu(document, "Add field", [
+      { label: "Add field", text: "<img src=x>", run },
+      { label: "Unavailable", disabled: true, run: disabledRun },
+    ]);
+    menus.push(menu);
+    document.body.append(menu.element);
+    const [trigger, entry, disabled] = menu.element.querySelectorAll("button");
+    expect(entry!.textContent).toBe("<img src=x>");
+    expect(entry!.querySelector("img")).toBeNull();
+    trigger!.click();
+    expect(document.activeElement).toBe(entry);
+    disabled!.click();
+    expect(disabledRun).not.toHaveBeenCalled();
+    entry!.click();
+    expect(run).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(trigger);
+    menu.dispose();
+    entry!.click();
+    expect(run).toHaveBeenCalledTimes(1);
+  });
+
   it("opens below the trigger when the clipped editor area has no room above", () => {
     const { clipRect, trigger, triggerRect, panel } = fixture();
     clipRect.mockReturnValue(rect(40, 120, 400, 380));

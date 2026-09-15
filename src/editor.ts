@@ -25,6 +25,7 @@ import {
 } from "@codemirror/view";
 import { blockViewExtensions } from "./block-views";
 import { makeCodeFenceExtension } from "./core/code-fence-extension.js";
+import { createEditorHelp } from "./core/editor-help.js";
 import { makeSecurityBlockExtension } from "./core/security-block.js";
 import { isSaveAction, wireSaveBoundary } from "./core/save-boundary.js";
 import { createSourceModeController } from "./core/source-mode.js";
@@ -135,6 +136,7 @@ export class AicEditor {
   private savePending = false;
   private readonly unwirePreviewSelection: () => void;
   private readonly unwireSaveBoundary: () => void;
+  private readonly unwireEditorHelp: () => void;
   private suppressChange = false;
   private currentReadOnly: boolean;
   private documentId: string | null = null;
@@ -197,6 +199,9 @@ export class AicEditor {
       this.toolbar.element.prepend(this.saveControls);
     }
     this.element.append(this.toolbar.element, this.editorHost);
+    this.unwireEditorHelp = options.compactToolbar
+      ? () => {}
+      : this.wireEditorHelp();
     parent.append(this.element);
 
     view = new EditorView({
@@ -450,6 +455,68 @@ export class AicEditor {
         this.saveButton.hidden && !this.saveStatus?.textContent;
   }
 
+  private wireEditorHelp(): () => void {
+    const trigger = createIconButton(this.document, {
+      label: "AIC editor guide",
+      icon: "help",
+      className: "aic-toolbar-button aic-editor-help-toggle",
+      onActivate: () => onClick(),
+    });
+    trigger.setAttribute("aria-haspopup", "dialog");
+    trigger.setAttribute("aria-expanded", "false");
+    trigger.dataset.aicReadonlyAction = "true";
+
+    const popup = createEditorHelp(this.document, { host: "standard-notes" });
+    popup.classList.add("aic-editor-help-popover");
+    popup.setAttribute("role", "dialog");
+    popup.setAttribute("popover", "auto");
+    popup.hidden = true;
+    popup.querySelector<HTMLElement>("h2")?.setAttribute("tabindex", "-1");
+    this.toolbar.element.append(trigger);
+    this.element.append(popup);
+
+    const nativeShow = Reflect.get(popup, "showPopover");
+    const nativeHide = Reflect.get(popup, "hidePopover");
+    const supportsPopover =
+      typeof nativeShow === "function" && typeof nativeHide === "function";
+    const close = () => {
+      if (supportsPopover) {
+        if (popup.matches(":popover-open")) nativeHide.call(popup);
+      } else popup.hidden = true;
+      trigger.setAttribute("aria-expanded", "false");
+    };
+    const open = () => {
+      popup.hidden = false;
+      if (supportsPopover) nativeShow.call(popup);
+      trigger.setAttribute("aria-expanded", "true");
+      popup.querySelector<HTMLElement>("h2")?.focus();
+    };
+    function onClick() {
+      if (trigger.getAttribute("aria-expanded") === "true") close();
+      else open();
+    }
+    const onToggle = () =>
+      trigger.setAttribute(
+        "aria-expanded",
+        popup.matches(":popover-open") ? "true" : "false",
+      );
+    const onKeydown = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || supportsPopover || popup.hidden) return;
+      close();
+      trigger.focus();
+    };
+    popup.addEventListener("toggle", onToggle);
+    this.document.addEventListener("keydown", onKeydown);
+    return () => {
+      popup.removeEventListener("toggle", onToggle);
+      this.document.removeEventListener("keydown", onKeydown);
+      if (supportsPopover && popup.matches(":popover-open"))
+        nativeHide.call(popup);
+      popup.remove();
+      trigger.remove();
+    };
+  }
+
   refreshTheme(): MermaidTheme {
     const theme = detectTheme(this.document);
     if (this.element.dataset.theme === theme) return theme;
@@ -465,6 +532,7 @@ export class AicEditor {
   destroy(): void {
     this.unwireSaveBoundary();
     this.unwirePreviewSelection();
+    this.unwireEditorHelp();
     this.view.destroy();
     this.element.remove();
   }

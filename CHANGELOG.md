@@ -2,6 +2,66 @@
 
 ## Unreleased
 
+## 35.3.9 — 2026-09-15
+
+Release sequence 35 · 3 feature outcomes · 9 fixed-bug outcomes. The shared editor
+core moves to 6.0.0 with one breaking AIC field grammar. Release
+source target; GitHub publication and hosted-manifest deployment require separate
+verification.
+
+### Features
+
+1. One complete fenced `aic` document replaces active colon-field and YAML
+   Properties interpretation. Existing unsupported text remains raw and accessible;
+   no automatic migration or save-time metadata stamping runs.
+2. A shared local `?` guide explains editing, copying, typed values and narrow host
+   differences. Standard Notes mounts it only in the full toolbar; compact browser
+   and VS Code surfaces reuse its content through host-owned popovers.
+3. Pipe separators type the following value independently: `|`, `*|`, `#|`, `_|`,
+   `1|`, and `0|` represent text, secret, TOTP, card, unused one-time and used
+   one-time values. Field, Row and Section insertion targets the current row, below
+   it, and after the current section; presets are combinations of these values.
+
+### Fixes
+
+1. Card and other composite field labels/values align with adjacent simple rows in
+   AIC field previews, using the same grid and label typography. Cards omit
+   the extra label colon; masked parts and independent copy targets are unchanged.
+2. Contextual **Field**, **Row**, and **Section** actions follow the relevant row;
+   an empty section keeps **Row** and **Section** inline. No separate New-block or
+   Section footer consumes permanent space.
+3. Browser navigation uses bounded, readable display labels instead of exposing a
+   page's full query or fragment in the visible history title. This is a display-only
+   projection: exact stored source URLs, navigation targets and note identities are
+   preserved.
+4. Plain Markdown previews derive link labels through the parser-backed link records
+   instead of a parenthesis-fragile regular expression, so nested-path/query suffixes
+   are not appended to the visible label. Authored Markdown and link targets remain
+   unchanged.
+5. The compact browser editor exposes five direct formatting icons—strike, link,
+   bullet list, ordered list and task—without a Format popover or Style/Insert
+   selectors. Standard Notes retains its full formatting controls and adds the
+   shared local `?` guide.
+6. Shared field-add menus use compact, left-aligned options instead of oversized
+   centered rows. Their actions, viewport bounds and keyboard behavior are unchanged.
+7. Browser import/export actions are direct and unambiguous: one content-import icon
+   captures the current selection when present and otherwise the visible page, while
+   separate up/down Markdown icons import and download files. Native paste replaces
+   the redundant general clipboard-import button, duplicate Copy actions are removed, and More is
+   limited to note/history deletion plus clearly grouped encrypted backups.
+8. The shared card filter sits inside the card header between its title and actions,
+   retaining compact left alignment on narrow Standard Notes and VS Code surfaces.
+9. Capacity feedback stays with the relevant Add action and uses fixed bounded
+   guidance without exposing field contents. Preflight uses normalized serialized
+   length, so compact source cannot enable an insertion that serialization rejects;
+   existing over-limit source remains previewable for manual repair.
+
+Compatibility: AIC Notes 44.4.7 consumes core 6.0.0. Browser 0.3.0 receives the
+same grammar and presentation changes without changing the encrypted-library format.
+Unsupported authored text remains exact; masking and local-only host boundaries are unchanged.
+This release does not include the separately proposed global Shared/encryption work.
+GitHub, hosted-manifest and store publication remain separate verified actions.
+
 ## 34.3.1 — 2026-09-15
 
 Release sequence 34 · 3 feature outcomes · 1 fixed-bug outcome. The shared editor

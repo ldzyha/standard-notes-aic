@@ -29,10 +29,10 @@ const source = [
   "```aic",
   "# Synthetic card",
   "## Accounts",
-  "Password*: secret-for-test | note",
+  "Password *| secret-for-test | note",
   "---",
   "## Other",
-  "Account: visible-account",
+  "Account | visible-account",
   "```",
   "",
   "```mermaid",
@@ -289,7 +289,7 @@ describe("per-block source Escape", () => {
     },
     {
       name: "security",
-      text: "Before\n\n```aic\n# Synthetic card\n## Accounts\nPassword*: synthetic-hidden-secret | note\n---\n## Other\nAccount: visible-account\n```\n\nAfter",
+      text: "Before\n\n```aic\n# Synthetic card\n## Accounts\nPassword *| synthetic-hidden-secret | note\n---\n## Other\nAccount | visible-account\n```\n\nAfter",
       edit: '[aria-label="Edit security block"]',
       preview: ".cm-aic-security",
     },
@@ -358,9 +358,15 @@ function securityFixture() {
       {
         label: "Accounts",
         fields: [
-          { label: "Password", value: "", hide: true },
-          { label: "Secret", value: "synthetic-hidden-secret", hide: true },
-          { label: "Account", value: "visible-account", hide: false },
+          { label: "Password", parts: [{ value: "", kind: "secret" }] },
+          {
+            label: "Secret",
+            parts: [{ value: "synthetic-hidden-secret", kind: "secret" }],
+          },
+          {
+            label: "Account",
+            parts: [{ value: "visible-account", kind: "text" }],
+          },
         ],
       },
     ],

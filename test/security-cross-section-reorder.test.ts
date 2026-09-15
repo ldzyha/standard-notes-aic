@@ -87,7 +87,7 @@ afterEach(() => {
 describe("Security cross-section field reorder", () => {
   it("moves into another populated section as one undoable save without exposing secrets", () => {
     const { source, host, view, saves } = fixture(
-      "# Accounts\n## Work\nPassword*: synthetic-private-value\n---\n## Personal\nEmail: public@example.test",
+      "# Accounts\n## Work\nPassword *| synthetic-private-value\n---\n## Personal\nEmail | public@example.test",
     );
     move(control(host, "Reorder Password"), "ArrowDown");
     expect(
@@ -95,7 +95,7 @@ describe("Security cross-section field reorder", () => {
         section.fields.map((field) => field.label),
       ),
     ).toEqual([[], ["Password", "Email"]]);
-    expect(model(view).sections[1]!.fields[0]!.value).toBe(
+    expect(model(view).sections[1]!.fields[0]!.parts[0]!.value).toBe(
       "synthetic-private-value",
     );
     expect(host.querySelector(".cm-aic-security")?.innerHTML).not.toContain(
@@ -106,14 +106,14 @@ describe("Security cross-section field reorder", () => {
     expect(view.state.doc.toString()).toBe(source);
   });
 
-  it("moves into an empty section via keyboard and its drop placeholder", () => {
+  it("moves into an empty section via keyboard without permanent drop instructions", () => {
     const { host, view, saves } = fixture(
-      "## Work\nEmail: public@example.test\n---\n## Empty",
+      "## Work\nEmail | public@example.test\n---\n## Empty",
     );
     const placeholder = host.querySelector<HTMLElement>(
       ".cm-aic-security-empty-drop",
     );
-    expect(placeholder?.textContent).toBe("Drop fields here");
+    expect(placeholder).toBeNull();
     move(control(host, "Reorder Email"), "ArrowDown");
     expect(
       model(view).sections.map((section) => section.fields.length),
@@ -124,12 +124,12 @@ describe("Security cross-section field reorder", () => {
 
   it("accepts a pointer drop on an empty section header without drag payload", () => {
     const { host, view, saves } = fixture(
-      "## Work\nEmail: public@example.test\n---\n## Empty",
+      "## Work\nEmail | public@example.test\n---\n## Empty",
     );
     const body = host.querySelector<HTMLElement>(".cm-aic-security-body")!;
     const targets = [
       ...body.querySelectorAll<HTMLElement>(
-        ".cm-aic-security-section-header, .cm-aic-security-row",
+        ".cm-aic-security-section > .cm-aic-security-section-header, .cm-aic-security-section > .cm-aic-security-card",
       ),
     ];
     targets.forEach((target, index) => {
@@ -155,7 +155,7 @@ describe("Security cross-section field reorder", () => {
 
   it("blocks moves while filtered or read-only, and never enters a full target section", () => {
     const { host, view, saves } = fixture(
-      "## Work\nEmail: public@example.test\n---\n## Empty",
+      "## Work\nEmail | public@example.test\n---\n## Empty",
     );
     const search = host.querySelector<HTMLInputElement>(
       'input[type="search"]',
@@ -168,30 +168,30 @@ describe("Security cross-section field reorder", () => {
     expect(saves).toEqual([]);
 
     const locked = fixture(
-      "## Work\nEmail: public@example.test\n---\n## Empty",
+      "## Work\nEmail | public@example.test\n---\n## Empty",
       true,
     );
     expect(
       locked.host.querySelector('[aria-label="Reorder Email"]'),
     ).toBeNull();
     const full = fixture(
-      "## Work\nEmail: public@example.test\n---\n## Full\n" +
-        Array.from({ length: 64 }, (_, index) => `Field ${index}: x`).join(
+      "## Work\nEmail | public@example.test\n---\n## Full\n" +
+        Array.from({ length: 64 }, (_, index) => `Field ${index} | x`).join(
           "\n",
         ),
     );
     expect(full.host.querySelector('[aria-label="Reorder Email"]')).toBeNull();
-    expect(full.view.state.doc.toString()).toContain("Field 63: x");
+    expect(full.view.state.doc.toString()).toContain("Field 63 | x");
   });
 
   it("abandons an in-flight pointer move after the source document changes", () => {
     const { host, view, saves } = fixture(
-      "## Work\nEmail: public@example.test\n---\n## Empty",
+      "## Work\nEmail | public@example.test\n---\n## Empty",
     );
     const body = host.querySelector<HTMLElement>(".cm-aic-security-body")!;
     const targets = [
       ...body.querySelectorAll<HTMLElement>(
-        ".cm-aic-security-section-header, .cm-aic-security-row",
+        ".cm-aic-security-section > .cm-aic-security-section-header, .cm-aic-security-section > .cm-aic-security-card",
       ),
     ];
     targets.forEach((target, index) => {
@@ -215,7 +215,7 @@ describe("Security cross-section field reorder", () => {
     expect(
       model(view).sections.map((section) => section.fields.length),
     ).toEqual([1, 0]);
-    expect(model(view).sections[0]!.fields[0]!.value).toBe(
+    expect(model(view).sections[0]!.fields[0]!.parts[0]!.value).toBe(
       "changed@example.test",
     );
     expect(saves).toEqual([false]);

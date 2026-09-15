@@ -438,10 +438,25 @@ describe("Standard Notes editor bridge", () => {
       title: "documentation.note.md",
       createdAt: "2026-08-20T10:00:00.000Z",
     });
+    const savesBeforeNote = bridge.saves.length;
     save();
-    expect(bridge.saves.at(-1)?.text).toMatch(
-      /^---\n# aic-fields: v2\nfile: documentation\.note\.md\ncreated: 2026-08-20T10:00:00\.000Z\nupdated: .+Z\n---\n\n# Note$/u,
-    );
+    expect(bridge.saves).toHaveLength(savesBeforeNote);
+    expect(view.state.doc.toString()).toBe("# Note");
+    view.dispatch({
+      changes: { from: view.state.doc.length, insert: " edited" },
+    });
+    save();
+    expect(bridge.saves.at(-1)?.text).toBe("# Note edited");
+    bridge.reply();
+    await vi.waitFor(() => expect(editor.dataset.saveState).toBe("saved"));
+
+    // Even a managed-name legacy document is never stamped or converted on save.
+    bridge.stream("old-managed-note", documentSource, { title: "old.note.md" });
+    view.dispatch({
+      changes: { from: view.state.doc.length, insert: "Only this edit" },
+    });
+    save();
+    expect(bridge.saves.at(-1)?.text).toBe(documentSource + "Only this edit");
     bridge.reply();
     await vi.waitFor(() => expect(editor.dataset.saveState).toBe("saved"));
   });

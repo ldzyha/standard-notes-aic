@@ -16,7 +16,16 @@ export const UI_COMPONENTS = Object.freeze({
   ),
   card: definition(
     ["compact", "security", "properties", "readonly", "empty"],
-    ["header", "title", "body", "actions", "section", "section-title"],
+    [
+      "header",
+      "title",
+      "body",
+      "actions",
+      "section",
+      "section-title",
+      "section-actions",
+      "footer",
+    ],
   ),
   tree: definition(
     ["compact", "ancestors"],

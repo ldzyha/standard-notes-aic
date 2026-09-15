@@ -5,7 +5,3 @@ export const SECURITY_FIELD_OPTIONS: Readonly<{
   allowEmptyLabel: true;
 }>;
 export const SECURITY_FENCE_INFO: "aic";
-export const PROPERTIES_SYNTAX_MARKER: "# aic-fields: v2";
-export function propertiesSyntax(
-  body: string,
-): Readonly<{ fieldSyntax?: "pipes"; unsupportedSyntax?: true }>;

@@ -1,14 +1,16 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { AicEditor, type SaveFeedback, type SaveState } from "../editor";
-import { makePropertiesBlockExtension } from "../core/security-block.js";
-import { propertiesSyntax } from "../core/field-syntax.js";
-import { parsePropertiesBody } from "../core/properties-model.js";
+import { makeSecurityBlockExtension } from "../core/security-block.js";
+import {
+  AIC_EMPTY_DOCUMENT,
+  parseSecurityDocument,
+} from "../core/security-model.js";
 import { aicMarkdownLanguage } from "../language";
 import { validateDomainProperties } from "./library";
 import { applyUiComponent, createUiButton } from "../core/ui-system.js";
 
-const EMPTY_PROPERTIES = "---\n# aic-fields: v2\n---\n\n";
+const EMPTY_PROPERTIES = AIC_EMPTY_DOCUMENT;
 
 export interface DomainPropertiesOptions {
   origin: string;
@@ -25,12 +27,7 @@ function safeSavedText(text: string | null): SavedText {
   if (text === null) return { kind: "empty", text: null };
   try {
     const validated = validateDomainProperties(text);
-    const lines = validated.replace(/\r\n?/gu, "\n").split("\n");
-    const closing = lines.findIndex(
-      (line, index) => index > 0 && /^(?:---|\.\.\.)[ \t]*$/u.test(line),
-    );
-    const body = lines.slice(1, closing).join("\n");
-    const parsed = parsePropertiesBody(body, propertiesSyntax(body));
+    const parsed = parseSecurityDocument(validated);
     const kind =
       parsed.ok &&
       parsed.model.sections.every((section) => section.fields.length === 0)
@@ -38,7 +35,7 @@ function safeSavedText(text: string | null): SavedText {
         : "valid";
     return { kind, text: validated };
   } catch {
-    return { kind: "invalid", text: null };
+    return { kind: "invalid", text };
   }
 }
 
@@ -114,27 +111,29 @@ export class DomainPropertiesView {
     this.preview?.destroy();
     this.preview = null;
     this.content.replaceChildren();
+    const displayed =
+      this.draftText === null ? this.saved : safeSavedText(this.draftText);
     this.element.dataset.editing = "false";
-    this.element.dataset.empty = String(this.saved.kind === "empty");
+    this.element.dataset.empty = String(displayed.kind === "empty");
     this.element.classList.toggle(
       "aic-context--empty",
-      this.saved.kind === "empty",
+      displayed.kind === "empty",
     );
     this.element.classList.remove("aic-context--editing");
-    this.action.textContent = this.saved.kind === "empty" ? "Shared" : "Edit";
+    this.action.textContent = displayed.kind === "empty" ? "Shared" : "Edit";
     this.action.setAttribute("aria-label", "Edit shared properties");
     this.action.title =
-      this.saved.kind === "empty"
+      displayed.kind === "empty"
         ? `Add shared properties for ${this.options.origin}`
         : "Edit shared properties";
     this.action.disabled = false;
     this.action.removeAttribute("aria-busy");
-    if (this.saved.kind !== "valid" || this.saved.text === null) {
-      if (this.saved.kind === "empty") return;
+    if (displayed.kind !== "valid" || displayed.text === null) {
+      if (displayed.kind === "empty") return;
       const message = this.document.createElement("p");
       message.className = "browser-domain-properties-empty";
       message.textContent =
-        "Shared properties cannot be displayed. Edit to repair them.";
+        "Use an aic block for shared fields. Edit to repair the saved text.";
       this.content.append(message);
       return;
     }
@@ -142,7 +141,7 @@ export class DomainPropertiesView {
       parent: this.content,
       root: this.document,
       state: EditorState.create({
-        doc: this.saved.text,
+        doc: displayed.text,
         extensions: [
           aicMarkdownLanguage(),
           EditorState.readOnly.of(true),
@@ -151,13 +150,70 @@ export class DomainPropertiesView {
           EditorView.contentAttributes.of({
             "aria-label": "Shared properties preview",
           }),
-          makePropertiesBlockExtension({
+          makeSecurityBlockExtension({
             document: this.document,
             previewOnly: true,
+            canPreviewChange: () =>
+              !this.disposed &&
+              !this.editor &&
+              !this.pending &&
+              !this.externalPending,
+            onPreviewChange: (before: string, after: string) =>
+              this.changePreview(before, after),
           }),
         ],
       }),
     });
+  }
+
+  /** State-only field intents use the same revisioned draft/save owner as editing. */
+  private async changePreview(before: string, after: string): Promise<boolean> {
+    const preview = this.preview;
+    if (
+      this.disposed ||
+      this.editor ||
+      this.pending ||
+      this.externalPending ||
+      !preview ||
+      preview.state.doc.toString() !== before
+    )
+      return false;
+    try {
+      validateDomainProperties(after);
+    } catch {
+      return false;
+    }
+    this.pending = true;
+    preview.dom.inert = true;
+    preview.dom.setAttribute("aria-busy", "true");
+    this.draftText = after;
+    preview.dispatch({
+      changes: { from: 0, to: preview.state.doc.length, insert: after },
+    });
+    this.options.onChange(after);
+    try {
+      const acknowledged = await this.options.onSave(after);
+      if (this.disposed) return false;
+      if (acknowledged && this.value === after) {
+        this.saved = safeSavedText(after);
+        this.draftText = null;
+        this.feedback.textContent = "";
+        return true;
+      }
+      this.feedback.textContent =
+        "Field state was not saved. Your local change is kept; edit to retry.";
+      return false;
+    } catch {
+      if (!this.disposed)
+        this.feedback.textContent =
+          "Field state was not saved. Your local change is kept; edit to retry.";
+      return false;
+    } finally {
+      this.pending = false;
+      // New widgets mounted while a save is pending are intentionally disabled.
+      // Rebuild from the acknowledged/local draft with current host availability.
+      if (!this.disposed && !this.editor) this.renderPreview();
+    }
   }
 
   startEditing(initialDraftText?: string): void {
@@ -231,7 +287,7 @@ export class DomainPropertiesView {
       validateDomainProperties(text);
     } catch {
       this.feedback.textContent =
-        "Finish a valid Properties block before saving.";
+        "Finish a valid aic block before saving. Check its highlighted error in the editor.";
       return false;
     }
     this.pending = true;
@@ -302,11 +358,14 @@ export class DomainPropertiesView {
     pending = false,
     feedback: SaveFeedback = "none",
   ): void {
+    const availabilityChanged = this.externalPending !== pending;
     this.saveState = state;
     this.saveFeedback = feedback;
     this.externalPending = pending;
     if (this.editing) this.reflectAction();
     this.editor?.setSaveState(state, pending, feedback);
+    if (availabilityChanged && !this.editing && !this.pending)
+      this.renderPreview();
   }
 
   refreshTheme(): void {

@@ -119,7 +119,12 @@ describe("shared security password generation", () => {
       sections: [
         {
           label: "Main",
-          fields: [{ label: "Password", value: password, hide: true }],
+          fields: [
+            {
+              label: "Password",
+              parts: [{ value: password, kind: "secret" as const }],
+            },
+          ],
         },
       ],
     };
@@ -203,45 +208,12 @@ describe("shared security password generation", () => {
   });
 });
 
-describe("password field recognition", () => {
-  it.each([
-    "Password",
-    " password ",
-    "PWD",
-    "WebDAV password",
-    "SMTP Password",
-    "Пароль",
-    "ПАРОЛЬ",
-    "WebDAV пароль",
-  ])("recognizes explicit hidden password label %s", (label) => {
-    expect(isPasswordField({ label, hide: true })).toBe(true);
-    expect(isPasswordField({ label, hide: false })).toBe(false);
-  });
-
-  it.each([
-    "TOTP",
-    "OTP",
-    "API key",
-    "Client secret",
-    "Recovery codes",
-    "Seed",
-    "Secret",
-    "Парольна підказка",
-    "Секретний ключ",
-    "Password hint",
-    "TOTP password",
-    "API key password",
-    "passwordless",
-    "Not a password",
-  ])("does not infer password from %s", (label) => {
-    expect(isPasswordField({ label, hide: true })).toBe(false);
-  });
-
-  it("requires explicit boolean hide and a string label", () => {
-    expect(isPasswordField({ label: "Password", hide: "true" } as never)).toBe(
-      false,
-    );
-    expect(isPasswordField({ label: 42, hide: true } as never)).toBe(false);
+describe("secret generation availability", () => {
+  it("uses only the independent part type", () => {
+    expect(isPasswordField({ kind: "secret" })).toBe(true);
+    for (const kind of ["text", "totp", "card"] as const)
+      expect(isPasswordField({ kind })).toBe(false);
+    expect(isPasswordField({ label: "Password" } as never)).toBe(false);
     expect(isPasswordField(null as never)).toBe(false);
   });
 });

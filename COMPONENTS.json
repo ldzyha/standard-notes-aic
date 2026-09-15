@@ -2,7 +2,7 @@
   "registryVersion": 1,
   "asOf": "2026-09-15",
   "status": {
-    "currentFacts": "The shared runtime registry and base geometry exist in src/core/ui-system.*. Button is adopted by shared toolbar/actions and parts of the browser; card and field are adopted by the shared Security/Properties renderer; toolbar, menu, notice, and tree are partially adopted in the browser. Most legacy selectors remain active and required.",
+    "currentFacts": "The shared runtime registry and base geometry exist in src/core/ui-system.*. Button is adopted by shared toolbar/actions and parts of the browser; card and field are adopted by the shared AIC renderer; toolbar, menu, notice, and tree are partially adopted in the browser. Most legacy selectors remain active and required.",
     "approvedDirection": "The user approved one cross-host design system using BEM elements and explicit modifiers for Standard Notes, Chromium, and VS Code. The eight current IDs are the implemented technical baseline accepted in root review, not names separately prescribed by the user.",
     "reviewPending": "The mappings below are the author's recommended migration map. Reviewers must approve or amend each mapping before removing legacy hooks."
   },
@@ -21,7 +21,7 @@
     {
       "id": "button",
       "purpose": "Named native action control with consistent geometry, focus, disabled state, variant, size, and optional icon.",
-      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "hosts": ["standard-notes", "standalone", "browser"],
       "bem": {
         "block": "aic-button",
         "elements": ["icon", "label"],
@@ -78,7 +78,6 @@
         "shared": [
           ".aic-toolbar",
           ".aic-toolbar-group",
-          ".aic-toolbar-tray",
           ".cm-md-preview-header",
           ".cm-aic-mermaid-controls",
           ".aic-db-toolbar"
@@ -148,7 +147,7 @@
     },
     {
       "id": "field",
-      "purpose": "Labelled value/control unit with validation, masking, composite parts, help, error, and accessible action relationships.",
+      "purpose": "Labelled value/control unit with validation, masking, independently typed parts, help, error, and accessible action relationships. Simple and composite AIC rows share label/value columns and label typography; unlabelled rows omit the label track.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "bem": {
         "block": "aic-field",
@@ -186,7 +185,7 @@
     },
     {
       "id": "card",
-      "purpose": "Structured content surface with header, title, body, and actions for Properties, Security, diagrams, errors, and compact read-only previews.",
+      "purpose": "Structured content surface with header, title, body, and actions for AIC fields, diagrams, errors, and compact read-only previews.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "bem": {
         "block": "aic-card",
@@ -196,7 +195,9 @@
           "body",
           "actions",
           "section",
-          "section-title"
+          "section-title",
+          "section-actions",
+          "footer"
         ],
         "modifiers": ["compact", "security", "properties", "readonly", "empty"]
       },
@@ -223,7 +224,7 @@
     {
       "id": "tree",
       "purpose": "Hierarchical or ordered navigation metadata with groups, items, rows, labels, and actions; it never owns note content.",
-      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "hosts": ["standard-notes", "standalone", "browser"],
       "bem": {
         "block": "aic-tree",
         "elements": ["group", "item", "row", "label", "actions"],
@@ -232,8 +233,7 @@
       "canonicalOwners": [
         "standard-notes-aic/src/core/ui-system.js",
         "standard-notes-aic/src/core/ui-system.css",
-        "standard-notes-aic/src/browser/navigation.ts",
-        "aic-notes/src/notes/tree.js"
+        "standard-notes-aic/src/browser/navigation.ts"
       ],
       "legacyHooks": {
         "shared": [
@@ -250,13 +250,6 @@
           ".browser-path-label",
           ".browser-history",
           ".browser-page-ancestors"
-        ],
-        "vscode": [
-          "aicNotes.tree",
-          "vscode.TreeItem",
-          "viewItem=note",
-          "viewItem=dir",
-          "viewItem=bucket"
         ]
       },
       "adoption": "partial"
@@ -302,7 +295,7 @@
   "coverageGaps": [
     "The eight IDs describe reusable primitives, not every composed feature widget. Diagram builder, table cell editor, Mermaid viewport, and CodeMirror editor remain composed patterns over these primitives plus integration-specific hooks.",
     "Legacy selectors are grouped by ownership and migration target, not enumerated as a frozen compatibility API. A selector audit must precede each removal.",
-    "VS Code native TreeItem and workbench UI cannot be restyled by webview CSS; only AIC-owned webview controls can adopt these classes.",
+    "VS Code native workbench views, editor associations, and commands cannot be restyled by webview CSS; only AIC-owned webview controls can adopt these classes. The former extension-specific TreeDataProvider is retired.",
     "Current adoption is additive. No claim is made that all hosts or all legacy selectors have been converted."
   ]
 }

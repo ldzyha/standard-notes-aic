@@ -67,7 +67,7 @@ describe("publication metadata", () => {
   it("documents the current R.F.B release and packages usage and UI contracts", () => {
     expect(changelog).toContain(`## ${manifest.version} — 2026-09-15`);
     expect(changelog).toContain(
-      "Release sequence 34 · 3 feature outcomes · 1 fixed-bug outcome",
+      "Release sequence 35 · 3 feature outcomes · 9 fixed-bug outcomes",
     );
     expect(readme).toContain("## Slash templates");
     expect(readme).toContain("`Tab` to move through");
@@ -87,7 +87,7 @@ describe("publication metadata", () => {
     for (const contract of [
       "working-note UUID",
       "Ctrl/Cmd+S",
-      "Only a title ending in `.note.md` receives managed",
+      "No save path generates, stamps or cleans up",
       "refuses saves with missing identity, unknown text, a lock or mismatched UUID",
       "Mermaid",
       "Code fences",

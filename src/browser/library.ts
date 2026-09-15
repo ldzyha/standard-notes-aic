@@ -1,5 +1,4 @@
-import { parsePropertiesBody } from "../core/properties-model.js";
-import { propertiesSyntax } from "../core/field-syntax.js";
+import { parseSecurityDocument } from "../core/security-model.js";
 
 /** Local-only browser notes. The extension's background worker must be the sole writer. */
 export interface BrowserNote {
@@ -171,21 +170,11 @@ export function normalizeDomainOrigin(input: string): string {
   return origin;
 }
 
-/** Persist only complete, supported Properties; incomplete source remains a draft. */
+/** New shared writes use only aic; unsupported legacy source remains repairable. */
 export function validateDomainProperties(markdown: string): string {
   if (typeof markdown !== "string") throw invalid();
   if (bytes(markdown) > MAX_NOTE_BYTES) throw quota();
-  const lines = markdown.replace(/\r\n?/gu, "\n").split("\n");
-  if (!/^---[ \t]*$/u.test(lines[0] ?? "")) throw invalid();
-  const closing = lines.findIndex(
-    (line, index) => index > 0 && /^(?:---|\.\.\.)[ \t]*$/u.test(line),
-  );
-  if (closing < 0 || lines.slice(closing + 1).some((line) => line.trim()))
-    throw invalid();
-  const body = lines.slice(1, closing).join("\n");
-  const syntax = propertiesSyntax(body);
-  if (syntax.unsupportedSyntax || !parsePropertiesBody(body, syntax).ok)
-    throw invalid();
+  if (!parseSecurityDocument(markdown).ok) throw invalid();
   return markdown;
 }
 
@@ -215,7 +204,9 @@ function validDomain(value: unknown): BrowserDomain {
   return {
     id: note.id,
     origin,
-    markdown: validateDomainProperties(note.markdown),
+    // Read validation checks structure/size only. An old or unfinished record
+    // must not lock the entire encrypted library; syntax is gated at write/preview.
+    markdown: note.markdown,
     createdAt: note.createdAt,
     updatedAt: note.updatedAt,
     revision: note.revision,

@@ -6,7 +6,6 @@ import {
   StandardNotesHost,
   type StandardNotesSaveTarget,
 } from "./standard-notes-host";
-import { stampFileProperties } from "./core/file-properties.js";
 import "./styles.css";
 import "./core/ui-system.css";
 import "./core/icons.css";
@@ -28,10 +27,11 @@ declare global {
 const root = document.querySelector<HTMLElement>("#app");
 if (!root) throw new Error("AIC editor root is missing");
 
-const sample = `---
-status: idea
-tags: notes, aic
----
+const sample = `\`\`\`aic
+# Properties
+Status | idea
+Tags | notes, aic
+\`\`\`
 
 # AIC Markdown
 
@@ -77,11 +77,6 @@ const editor = new AicEditor(root, {
 let unsubscribe = () => {};
 let unsubscribeBefore = () => {};
 let activeNoteId: string | null = standalone ? "standalone" : null;
-let activeFileProperties: Readonly<{
-  id: string;
-  fileName: string | null;
-  createdAt: string | null;
-}> | null = null;
 
 if (standalone) {
   const storageKey = "aic-standard-notes-standalone-document";
@@ -105,18 +100,12 @@ if (standalone) {
       const previousId = activeNoteId;
       activeNoteId = null;
       if (previousId) pruneFeedback(previousId);
-      activeFileProperties = null;
       editor.switchDocument("unavailable", snapshot.text);
       editor.setReadOnly(true);
       editor.setSaveState("unavailable");
       return;
     }
     if (snapshot.kind === "metadata" && activeNoteId === snapshot.id) {
-      activeFileProperties = {
-        id: snapshot.id,
-        fileName: snapshot.fileName,
-        createdAt: snapshot.createdAt,
-      };
       editor.setReadOnly(snapshot.locked);
       reflectSaveState();
       return;
@@ -130,11 +119,6 @@ if (standalone) {
     if (!active.dirty && previousDraft?.text !== active.text)
       saveFeedback.delete(snapshot.id);
     const previousId = activeNoteId;
-    activeFileProperties = {
-      id: snapshot.id,
-      fileName: snapshot.fileName,
-      createdAt: snapshot.createdAt,
-    };
     if (activeNoteId === snapshot.id) editor.updateDocument(active.text);
     else {
       activeNoteId = snapshot.id;
@@ -178,20 +162,6 @@ function reflectSaveState(): void {
 function pruneFeedback(id: string): void {
   if (id !== activeNoteId && !drafts.snapshot(id)?.dirty && !inFlight.has(id))
     saveFeedback.delete(id);
-}
-
-function stampActiveDraft(id: string): void {
-  const active = drafts.snapshot(id);
-  if (id !== activeNoteId || !active || activeFileProperties?.id !== id) return;
-  const stamped = stampFileProperties(active.text, {
-    fileName: activeFileProperties.fileName,
-    createdAt: activeFileProperties.createdAt,
-    updatedAt: new Date().toISOString(),
-  });
-  if (stamped !== active.text) {
-    drafts.edit(stamped);
-    editor.updateDocument(stamped);
-  }
 }
 
 async function runSaveChain(
@@ -264,8 +234,6 @@ function commitDraft(
     return Promise.resolve(false);
   if (reason === "boundary" && saveFeedback.get(id) === "failed")
     return Promise.resolve(false);
-  if (id === activeNoteId && (reason === "action" || active.dirty))
-    stampActiveDraft(id);
   const latest = drafts.snapshot(id);
   if (!latest?.dirty) return Promise.resolve(true);
   const running = inFlight.get(id);

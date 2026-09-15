@@ -1,8 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTOSAVE_DELAY_MS, BrowserDrafts } from "../src/browser/drafts";
 import type { BrowserNote, PageContext } from "../src/browser/library";
+import { AIC_EMPTY_DOCUMENT } from "../src/core/security-model.js";
 
-const placeholder = "---\n# aic-fields: v2\n---\n\n";
+const placeholder = AIC_EMPTY_DOCUMENT;
 const newPage: PageContext = {
   url: "https://example.com/new",
   title: "New",

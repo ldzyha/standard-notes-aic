@@ -101,13 +101,7 @@ export function generatePassword(options = {}, crypto = globalThis.crypto) {
   }
 }
 
-/** A hidden field is not necessarily a password (e.g. TOTP or an API key). */
+/** A secret part offers explicit generation; labels never select behavior. */
 export function isPasswordField(field) {
-  if (field?.hide !== true || typeof field.label !== "string") return false;
-  // The line format has no password type. Keep inference to explicit labels
-  // and familiar service qualifiers; never infer from arbitrary secret labels.
-  const label = field.label.trim().replace(/\s+/gu, " ");
-  return /^(?:(?:webdav|account|login|app|application|admin|master|smtp|imap|pop3|ftp|sftp|ssh|database|db|wi-?fi|vpn) )?(?:password|pwd|пароль)$/iu.test(
-    label,
-  );
+  return field?.kind === "secret";
 }

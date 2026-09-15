@@ -1,4 +1,4 @@
-export type PageCaptureMode = "page" | "selection";
+export type PageCaptureMode = "auto" | "page" | "selection";
 
 export interface PageCapture {
   html: string;
@@ -89,8 +89,8 @@ export function capturePage(mode: PageCaptureMode): PageCapture {
     "details",
     "summary",
   ]);
-  const selection = mode === "selection" ? window.getSelection() : null;
-  if (mode !== "page" && mode !== "selection") {
+  const selection = mode === "page" ? null : window.getSelection();
+  if (mode !== "auto" && mode !== "page" && mode !== "selection") {
     throw new Error("Unsupported page capture mode.");
   }
   if (
@@ -99,8 +99,11 @@ export function capturePage(mode: PageCaptureMode): PageCapture {
   ) {
     throw new Error("Select visible page content before importing.");
   }
+  let useSelection = Boolean(
+    selection && !selection.isCollapsed && selection.rangeCount > 0,
+  );
   const ranges: Range[] = [];
-  if (selection) {
+  if (useSelection && selection) {
     for (let index = 0; index < selection.rangeCount; index += 1) {
       const range = selection.getRangeAt(index);
       if (!range.collapsed) ranges.push(range);
@@ -143,8 +146,7 @@ export function capturePage(mode: PageCaptureMode): PageCapture {
     }
     return true;
   };
-  let root: Element | null = document.body;
-  if (mode === "page") {
+  const pageRoot = (): Element | null => {
     const candidates = [
       document.querySelector("main"),
       document.querySelector("[role='main']"),
@@ -186,11 +188,13 @@ export function capturePage(mode: PageCaptureMode): PageCapture {
       length: visibleTextLength(candidate),
     }));
     // Prefer substantive main content, then any readable candidate, then body.
-    root =
+    return (
       scored.find(({ length }) => length >= 80)?.candidate ??
       scored.find(({ length }) => length > 0)?.candidate ??
-      document.body;
-  }
+      document.body
+    );
+  };
+  let root: Element | null = useSelection ? document.body : pageRoot();
   if (!root) throw new Error("Page content is unavailable.");
 
   const output = document.createElement("div");
@@ -199,7 +203,7 @@ export function capturePage(mode: PageCaptureMode): PageCapture {
   let remainingHtml = MAX_HTML;
   let truncated = false;
   const intersectsSelection = (node: Node): boolean => {
-    if (mode === "page") return true;
+    if (!useSelection) return true;
     return ranges.some((range) => {
       try {
         return range.intersectsNode(node);
@@ -209,7 +213,7 @@ export function capturePage(mode: PageCaptureMode): PageCapture {
     });
   };
   const selectedText = (node: Text): string => {
-    if (mode === "page") return node.data;
+    if (!useSelection) return node.data;
     let result = "";
     for (const range of ranges) {
       if (!range.intersectsNode(node)) continue;
@@ -291,6 +295,17 @@ export function capturePage(mode: PageCaptureMode): PageCapture {
       destination.removeChild(target);
   };
   clone(root, output, 0);
+  if (mode === "auto" && useSelection && !output.textContent?.trim()) {
+    useSelection = false;
+    ranges.length = 0;
+    seen = 0;
+    remainingHtml = MAX_HTML;
+    truncated = false;
+    output.replaceChildren();
+    root = pageRoot();
+    if (!root) throw new Error("Page content is unavailable.");
+    clone(root, output, 0);
+  }
   const html = output.innerHTML;
   if (mode === "selection" && !output.textContent?.trim()) {
     throw new Error("The selection has no visible importable text.");

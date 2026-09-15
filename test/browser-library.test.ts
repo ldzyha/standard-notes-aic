@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { AIC_EMPTY_DOCUMENT } from "../src/core/security-model.js";
 import {
   buildDomainTree,
   BrowserLibrary,
@@ -40,7 +41,7 @@ const page = (url = "https://wiki.example.com/team/plan?view=1#details") => ({
 
 describe("local browser library", () => {
   const properties = (value = "synthetic-password") =>
-    `---\n# aic-fields: v2\nPassword*: ${value}\n---\n`;
+    "```aic\n# Properties\nPassword *| " + value + "\n```\n";
 
   it("deletes only the exact normalized page and all its visits in one write", async () => {
     const persistence = memory();
@@ -328,9 +329,9 @@ describe("local browser library", () => {
         code: "invalid",
         message: "Invalid browser library data.",
       });
-    expect(
-      validateDomainProperties("---\n# aic-fields: v2\n---\n\n"),
-    ).toContain("aic-fields");
+    expect(validateDomainProperties(AIC_EMPTY_DOCUMENT)).toBe(
+      AIC_EMPTY_DOCUMENT,
+    );
     expect(
       validateDomainProperties(properties().replaceAll("\n", "\r\n")),
     ).toContain("\r\n");
@@ -387,7 +388,7 @@ describe("local browser library", () => {
           domains: [
             {
               ...local,
-              origin: "https://new.example.com",
+              origin: "https://new.example.com/not-an-origin",
               markdown: "plaintext body",
             },
           ],
@@ -416,8 +417,40 @@ describe("local browser library", () => {
     ).toThrow(LibraryError);
   });
 
+  it("loads and transfers unsupported stored Shared text without parsing, changing or losing it", async () => {
+    const source = "---\n# aic-fields: v2\nPassword*: legacy-secret\n---\n";
+    const stored = {
+      version: 2,
+      notes: [],
+      history: [],
+      domains: [
+        {
+          id: "old-shared",
+          origin: "https://example.com",
+          markdown: source,
+          createdAt: 1,
+          updatedAt: 1,
+          revision: 1,
+        },
+      ],
+    };
+    const store = new LibraryStore(memory(stored));
+    expect(await store.load()).toEqual(stored);
+    const imported = new LibraryStore(memory());
+    await imported.importBackup(await store.exportBackup());
+    expect((await imported.load()).domains[0]!.markdown).toBe(source);
+    await expect(
+      store.saveDomain("old-shared", source, 1),
+    ).rejects.toMatchObject({ code: "invalid" });
+    expect(await store.load()).toEqual(stored);
+    await store.saveDomain("old-shared", properties("manually-repaired"), 1);
+    expect((await store.load()).domains[0]!.markdown).toBe(
+      properties("manually-repaired"),
+    );
+  });
+
   it("counts domain source in the shared encrypted-library quota before committing", async () => {
-    const markdown = `${properties()}${" ".repeat(500_000)}`;
+    const markdown = `${properties()}${" ".repeat(523_500)}`;
     const domains = Array.from({ length: 12 }, (_, index) => ({
       id: `quota-domain-${index}`,
       origin: `https://h${index}.example.com`,
@@ -429,7 +462,10 @@ describe("local browser library", () => {
     const persistence = memory({ version: 2, notes: [], history: [], domains });
     const store = new LibraryStore(persistence);
     await expect(
-      store.createDomain("https://extra.example.com", markdown),
+      store.createDomain(
+        "https://extra.example.com",
+        properties("v".repeat(16_000)),
+      ),
     ).rejects.toMatchObject({ code: "quota" });
     expect(persistence.writes).toBe(0);
     expect((await store.load()).domains).toHaveLength(12);

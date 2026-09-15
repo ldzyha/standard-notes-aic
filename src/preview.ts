@@ -1,8 +1,47 @@
 import { redactSecurityBlocks } from "./core/security-model.js";
+import { GFM, parser } from "@lezer/markdown";
 
 export const NOTE_PREVIEW_LIMIT = 240;
 
 const PREVIEW_INPUT_LIMIT = 50_000;
+const previewParser = parser.configure(GFM);
+
+/** Keep labels only for complete parsed links; destinations can contain parentheses. */
+function inlineLinkLabels(source: string): string {
+  const removed: { from: number; to: number }[] = [];
+  previewParser.parse(source).iterate({
+    enter(node) {
+      if (node.name !== "Link" && node.name !== "Image") return;
+      const [opening, closing, destination, end] =
+        node.node.getChildren("LinkMark");
+      if (
+        !opening ||
+        !closing ||
+        !destination ||
+        !end ||
+        source.slice(opening.from, opening.to) !==
+          (node.name === "Image" ? "![" : "[") ||
+        source.slice(closing.from, destination.to) !== "](" ||
+        source.slice(end.from, end.to) !== ")"
+      )
+        return;
+      // Removing the delimiters separately also preserves labels of linked images.
+      removed.push(
+        { from: node.from, to: opening.to },
+        { from: closing.from, to: node.to },
+      );
+    },
+  });
+  removed.sort((left, right) => left.from - right.from);
+  let cursor = 0;
+  const parts: string[] = [];
+  for (const range of removed) {
+    parts.push(source.slice(cursor, range.from));
+    cursor = range.to;
+  }
+  parts.push(source.slice(cursor));
+  return parts.join("");
+}
 
 function withoutFrontmatter(source: string): string {
   const lines = source.split("\n");
@@ -70,10 +109,7 @@ export function markdownPlainPreview(markdown: string): string {
         .replace(/^\s*\[[ xX]\]\s*/u, ""),
     );
 
-  const preview = meaningfulLines
-    .join(" ")
-    .replace(/!\[([^\]]*)\]\([^)]*\)/gu, "$1")
-    .replace(/\[([^\]]+)\]\([^)]*\)/gu, "$1")
+  const preview = inlineLinkLabels(meaningfulLines.join(" "))
     .replace(/<(https?:\/\/[^>]+)>/gu, "$1")
     .replace(/<[^>]+>/gu, " ")
     .replace(/(?:\*\*|__|~~|`)/gu, "")

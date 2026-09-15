@@ -59,33 +59,15 @@ try {
           });
           window.lifecycleWeakRefs.push(new WeakRef(editor.view.dom));
           editor.switchDocument(`cycle-${index}`, "# Other\n\n- [ ] Next\n");
-          const formatting = editor.toolbar.element.querySelector(
-            ".aic-formatting-toggle",
-          );
           if (compactToolbar) {
-            if (!formatting)
-              throw new Error("Compact formatting toggle missing");
-            const tray = document.getElementById(
-              formatting.getAttribute("aria-controls"),
+            const actions = editor.toolbar.element.querySelectorAll(
+              ".aic-toolbar-group button",
             );
-            if (!tray || !tray.hidden)
-              throw new Error("Compact formatting tray was not collapsed");
-            formatting.click();
-            if (
-              formatting.getAttribute("aria-expanded") !== "true" ||
-              tray.hidden
-            )
-              throw new Error("Compact formatting tray did not open");
-            formatting.click();
-            if (
-              formatting.getAttribute("aria-expanded") !== "false" ||
-              !tray.hidden
-            )
-              throw new Error("Compact formatting tray did not close");
-          } else if (formatting) {
-            throw new Error(
-              "Default toolbar unexpectedly has a compact toggle",
-            );
+            if (actions.length !== 5)
+              throw new Error("Compact inline actions missing");
+            if (editor.toolbar.element.querySelector("select"))
+              throw new Error("Compact toolbar has a select");
+            actions[0].click();
           }
           editor.destroy();
           mount.remove();

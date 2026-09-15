@@ -2,8 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { DomainDrafts, type DomainContext } from "../src/browser/domain-drafts";
 import { AUTOSAVE_DELAY_MS } from "../src/browser/drafts";
 import type { BrowserDomain } from "../src/browser/library";
+import { AIC_EMPTY_DOCUMENT } from "../src/core/security-model.js";
 
-const seed = "---\n# aic-fields: v2\n---\n\n";
+const seed = AIC_EMPTY_DOCUMENT;
 const first: DomainContext = {
   origin: "https://example.com",
   title: "Example",

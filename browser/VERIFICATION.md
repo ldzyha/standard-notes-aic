@@ -1,9 +1,97 @@
 # Chrome / Edge experimental build verification — 2026-09-15
 
-Status: **0.2.0 experimental component**, not a store release or an independently
+Status: **0.3.0 experimental component**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
 using one Chromium Manifest V3 package. All test passphrases, notes and clipboard
 substitutes are synthetic. No user profile or real notes are part of these tests.
+
+## 0.3.0 AIC-only fields — release-candidate verification
+
+- Shared core 6.0.0 replaces active YAML Properties interpretation with one fenced
+  `aic` document. Typed separators apply to the next value, including independent
+  ordinary, secret, authenticator, card, unused one-time and used one-time parts.
+  Field adds a typed value, Row inserts below its row, and Section inserts after
+  its section. Empty sections keep Row and Section inline. The bundled local guide
+  explains independent values and usage templates; unsupported old source remains
+  available for manual repair without automatic conversion.
+- The canonical unit suite passed **1,053 tests in 92 files**. The VS Code host
+  suite passed **217 tests**. Final type, lint, formatting, notice, build and shared
+  core parity checks are release gates, not replacements for runtime acceptance.
+- A genuine Edge 153.0.4234.32 **final 0.3.0 runtime** passed all 12 existing
+  smoke checks: actual MV3 worker and toolbar-opened sidebar, sender isolation,
+  outgoing-request CSP, encrypted page/domain saves, masked shared preview, Lock,
+  and full browser restart/unlock/reopen. A bounded scan of 230 disposable-profile
+  files found no synthetic shared value in UTF-8 or UTF-16LE. This is not a forensic
+  erasure claim. Evidence is under
+  `D:\aic\reviews\browser-extension-20260914\release-0.3.0-edge-final`.
+  Tested panel JavaScript SHA-256:
+  `d290f5c65b6497bee501279e64b9294235a4cb0133a98076a888e852f9ef07c3`;
+  panel CSS SHA-256:
+  `0a5236783aaba60c1148c647e41b8f9f6a4200f8251b6fa55e26024aed56051b`.
+  Documentation-only repackaging must preserve runtime and manifest byte parity.
+- Actual Chrome and Edge rendering passed eight light/dark, 320/600 px cases,
+  plus coarse-pointer checks. Row labels and first values share aligned columns;
+  narrow coarse-pointer layouts retain 44 px controls on a second grid line.
+  Empty cards keep one compact Row/Section action line. Keyboard copy/paste was
+  exercised with a synthetic clipboard substitute, not the OS clipboard.
+- The maintained general browser regression passed **11 groups** in Edge,
+  including retired-format opacity, typed field masking, Markdown navigation,
+  Undo, table, Mermaid, slash commands and keyboard behavior, with no page errors.
+  The VS Code production webview bundle passed **nine scenario groups in each of
+  Chrome and Edge**, including a single source toggle, a distinct linked-source
+  action, no date rows and save/navigation races. The host bridge was synthetic;
+  this is not a native VS Code workbench acceptance result.
+- A final typed-source lifecycle run completed 400 cycles, 200 with each toolbar
+  mode. It reported zero retained editor roots; nodes 7 → 7, listeners 0 → 0 and
+  documents 1 → 1. Approximate heap changed 10,121,724 → 10,410,304 bytes in the
+  default mode and 10,770,872 → 11,271,300 bytes in compact mode, with no errors.
+  This bounded run
+  is not a claim that every workload is leak-free.
+- Maintained browser runners cover general editing, panel layout, inline fields,
+  lifecycle and installed-extension smoke. Historical one-off scripts and the
+  older evidence below are not claimed as current release acceptance.
+  Chrome installed-runtime acceptance, interactive site permission behavior,
+  actual OS clipboard behavior and installed-runtime cross-panel Lock remain
+  unverified. Unit-level cross-panel behavior does not close those runtime gates.
+- Prepared release pair: Standard Notes AIC **35.3.9**, AIC Notes **44.4.7**,
+  shared core **6.0.0**. This release does not include the proposed global Shared
+  hierarchy, a central generated encryption key or automatic migration of old
+  plaintext syntax. Existing raw note source remains available for manual repair.
+
+## 0.2.1 card/action alignment and bounded navigation labels (historical)
+
+- The source candidate aligns card/composite labels and first values with adjacent
+  simple fields, omits the extra card-label colon, and separates field actions from
+  the bordered Section footer. Masking, independent copy targets and existing field
+  actions are unchanged. Core 5.4.0 exposes the supporting section-action/footer BEM
+  elements additively; compatibility hooks remain.
+- A 16-case real-renderer source matrix passed in Chrome and Edge across light/dark,
+  320/600 px and Security/Properties. It covered the corrected card alignment,
+  distinct field/Section action surfaces, masked card parts, independent copy
+  feedback and empty-field actions. This is source-renderer evidence, not an
+  installed-extension or native VS Code workbench pass.
+- Browser navigation now projects bounded readable titles without visibly exposing
+  the complete query or fragment. The exact stored URL, navigation target and note
+  identity remain unchanged; the correction does not redact an exported note or
+  alter encrypted storage.
+- Plain Markdown preview now uses parser-backed link records rather than a
+  parenthesis-fragile regular expression, preventing destination suffixes from being
+  appended to visible link labels. Final regression and package gates remain required
+  for the 0.2.1 candidate.
+- The final source candidate also replaces the compact browser's nested
+  Format/Style/Insert controls with five direct formatting icons and makes shared
+  field-add menus compact and left-aligned. These two later changes are not covered by
+  the preceding 16-case result; final renderer and package gates remain required.
+- Direct content/Markdown import/export controls, native paste, redundant Copy
+  removal and the reduced More/backup grouping were added after that matrix as well.
+  No renderer or packaged-runtime pass is claimed for those changes yet.
+- No packaged Chrome/Edge runtime has yet been built or tested as version 0.2.1.
+  The 0.2.0 installed Edge smoke and source matrices below remain historical evidence
+  and do not prove this candidate's package identity. Chrome installed-runtime,
+  interactive permission/OS clipboard and cross-panel Lock gates remain open.
+- Release pair: Standard Notes AIC **35.0.7**, AIC Notes **44.0.3**, shared core
+  **5.4.0**. This release does not include the separately proposed global
+  Shared/encryption design. Library v2 and the encryption envelope are unchanged.
 
 ## 0.2.0 compact shared UI and local deletion
 

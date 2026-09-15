@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EditorView } from "@codemirror/view";
 import { BrowserPanel } from "../src/browser/panel";
+import { displayPageLocation } from "../src/browser/navigation";
 import type { ActivePage, BrowserApi, Request } from "../src/browser/api";
 import type {
   BrowserLibrary,
@@ -18,14 +19,6 @@ function event<T extends unknown[]>() {
       for (const listener of listeners) listener(...args);
     },
   };
-}
-
-function deferred<T>() {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
-    resolve = done;
-  });
-  return { promise, resolve };
 }
 
 const firstPage: ActivePage = {
@@ -128,6 +121,7 @@ function fixture(
     api,
     messages,
     activated,
+    updated,
     changed,
     setPage(next: ActivePage | null) {
       page = next;
@@ -165,28 +159,6 @@ function view(root: HTMLElement): EditorView {
     root.querySelector<HTMLElement>(".cm-editor")!,
   )!;
 }
-function announcements(root: HTMLElement): string {
-  return [
-    ...root.querySelectorAll<HTMLElement>('[role="status"], [role="alert"]'),
-  ]
-    .map((status) => status.textContent || "")
-    .join(" ");
-}
-function clipboard(readText: () => Promise<string>) {
-  const read = vi.fn(readText);
-  vi.stubGlobal(
-    "navigator",
-    Object.assign(Object.create(navigator) as Navigator, {
-      clipboard: { readText: read },
-    }),
-  );
-  return read;
-}
-function openClipboard(root: HTMLElement) {
-  press(root, /^Add content$/iu);
-  press(root, /^Paste from clipboard$/iu);
-}
-
 afterEach(() => {
   for (const panel of panels.splice(0)) panel.destroy();
   document.body.replaceChildren();
@@ -195,24 +167,21 @@ afterEach(() => {
 });
 
 describe("browser panel compact UX", () => {
-  it("keeps import choices in a menu and Escape closes it with focus restored", async () => {
+  it("keeps page and Markdown import as direct header actions", async () => {
     const fake = fixture({ notes: [note(firstPage, "Existing")] });
     const { root, panel } = mount(fake.api);
     await panel.ready;
+    expect(namedButton(root, /^Add content$/iu)).toBeNull();
     expect(namedButton(root, /^Paste from clipboard$/iu)).toBeNull();
-    const trigger = press(root, /^Add content$/iu);
+    expect(namedButton(root, /^Import current content$/iu)).not.toBeNull();
+    expect(namedButton(root, /^Import Markdown file$/iu)).not.toBeNull();
+    expect(namedButton(root, /^Export Markdown file$/iu)).not.toBeNull();
     expect(
-      root.querySelector('[role="dialog"][aria-label="Add content"]'),
-    ).not.toBeNull();
-    expect(namedButton(root, /^Import page$/iu)).not.toBeNull();
-    expect(namedButton(root, /^Import selection$/iu)).not.toBeNull();
-    expect(namedButton(root, /^Paste from clipboard$/iu)).not.toBeNull();
-    expect(namedButton(root, /^Import Markdown$/iu)).not.toBeNull();
-    root.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
-    expect(namedButton(root, /^Paste from clipboard$/iu)).toBeNull();
-    expect(document.activeElement).toBe(trigger);
+      root
+        .querySelector('[aria-label="Import Markdown file"]')
+        ?.hasAttribute("aria-haspopup"),
+    ).toBe(false);
+    expect(root.querySelector('[role="dialog"]')).toBeNull();
   });
 
   it("keeps backup actions in More options and restores its trigger on Escape", async () => {
@@ -231,42 +200,37 @@ describe("browser panel compact UX", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
-  it("returns focus to More options after Copy note", async () => {
+  it("keeps More limited to local-note and encrypted-backup actions", async () => {
     const fake = fixture({ notes: [note(firstPage, "Existing")] });
-    const writeText = vi.fn(async () => {});
-    vi.stubGlobal(
-      "navigator",
-      Object.assign(Object.create(navigator) as Navigator, {
-        clipboard: { writeText },
-      }),
-    );
     const { root, panel } = mount(fake.api);
     await panel.ready;
-    const trigger = press(root, /^More options$/iu);
-    press(root, /^Copy note$/iu);
-    await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith("Existing"));
-    expect(
-      root.querySelector('[role="dialog"][aria-label="More options"]'),
-    ).toBeNull();
-    expect(document.activeElement).toBe(trigger);
+    press(root, /^More options$/iu);
+    expect(root.querySelector(".browser-menu-group")?.textContent).toBe(
+      "Local note",
+    );
+    const menu = root.querySelector<HTMLElement>(
+      '[role="dialog"][aria-label="More options"]',
+    )!;
+    expect(namedButton(root, /^Delete local note$/iu)).not.toBeNull();
+    expect(namedButton(root, /^Copy note$/iu)).toBeNull();
+    expect(namedButton(menu, /^Export Markdown/iu)).toBeNull();
+    expect(namedButton(root, /^Export encrypted backup$/iu)).not.toBeNull();
+    expect(namedButton(root, /^Import encrypted backup$/iu)).not.toBeNull();
   });
 
-  it("focuses Markdown import file control and returns to Add content on Escape", async () => {
+  it("opens one native Markdown picker without an intermediate dialog", async () => {
     const fake = fixture({ notes: [note(firstPage, "Existing")] });
     const { root, panel } = mount(fake.api);
     await panel.ready;
-    const trigger = press(root, /^Add content$/iu);
-    press(root, /^Import Markdown$/iu);
+    press(root, /^Import Markdown file$/iu);
     const file = root.querySelector<HTMLInputElement>(
       'input[aria-label="Markdown file"]',
     );
     expect(file).not.toBeNull();
-    expect(document.activeElement).toBe(file);
-    root.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
+    expect(file!.hidden).toBe(true);
+    expect(root.querySelector('[role="dialog"]')).toBeNull();
+    file!.dispatchEvent(new Event("cancel"));
     expect(file!.isConnected).toBe(false);
-    expect(document.activeElement).toBe(trigger);
   });
 
   it("focuses encrypted backup file control and returns to More options on Escape", async () => {
@@ -287,44 +251,59 @@ describe("browser panel compact UX", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
-  it("shows an editable Properties placeholder without creating a note", async () => {
+  it("shows an editable AIC placeholder without creating a note", async () => {
     const fake = fixture();
     const { root, panel } = mount(fake.api);
     await panel.ready;
     const initial = view(root);
-    expect(initial.state.doc.toString()).toBe("---\n# aic-fields: v2\n---\n\n");
-    expect(root.querySelector(".cm-aic-properties")).not.toBeNull();
-    expect(namedButton(root, /^Add content$/iu)).not.toBeNull();
-    expect(namedButton(root, /^Import page$/iu)).toBeNull();
+    expect(initial.state.doc.toString()).toBe(
+      "```aic\n# Properties\n\n```\n\n",
+    );
+    expect(root.querySelector(".cm-aic-properties")).toBeNull();
+    expect(namedButton(root, /^Import current content$/iu)).not.toBeNull();
+    expect(namedButton(root, /^Import Markdown file$/iu)).not.toBeNull();
     expect(namedButton(root, /^Create note$/iu)).toBeNull();
     expect(root.querySelector('[role="dialog"]')).toBeNull();
     expect(fake.messages.some((message) => message.type === "create")).toBe(
       false,
     );
-    press(root, /^Add content$/iu);
-    expect(namedButton(root, /^Import page$/iu)).not.toBeNull();
-    expect(namedButton(root, /^Paste from clipboard$/iu)).not.toBeNull();
   });
 
-  it("replaces an untouched placeholder with clipboard import in the same editor", async () => {
+  it("leaves native editor paste available without a clipboard-read action", async () => {
     const fake = fixture();
-    const read = clipboard(async () => "Fresh pasted content");
+    const readText = vi.fn(async () => "must not be read by the panel");
+    vi.stubGlobal(
+      "navigator",
+      Object.assign(Object.create(navigator) as Navigator, {
+        clipboard: { readText },
+      }),
+    );
     const { root, panel } = mount(fake.api);
     await panel.ready;
     const initial = view(root);
-    openClipboard(root);
-    expect(read).toHaveBeenCalledTimes(1);
-    await vi.waitFor(() =>
-      expect(view(root).state.doc.toString()).toBe("Fresh pasted content"),
-    );
-    expect(fake.messages).toContainEqual({
-      type: "create",
-      page: firstPage,
-      markdown: "Fresh pasted content",
-      allowPrivate: false,
-      ifAbsent: true,
+    const seed = initial.state.doc.toString();
+    const content = root.querySelector<HTMLElement>(".cm-content")!;
+    const event = new Event("paste", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "clipboardData", {
+      value: { getData: () => "Fresh pasted content" },
     });
+    content.dispatchEvent(event);
+    await vi.waitFor(() =>
+      expect(view(root).state.doc.toString()).toBe(
+        `${seed}Fresh pasted content`,
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(fake.messages).toContainEqual({
+        type: "create",
+        page: firstPage,
+        markdown: `${seed}Fresh pasted content`,
+        allowPrivate: false,
+        ifAbsent: true,
+      }),
+    );
     expect(view(root)).toBe(initial);
+    expect(readText).not.toHaveBeenCalled();
     expect(fake.api.permissions.request).not.toHaveBeenCalled();
   });
 
@@ -346,7 +325,7 @@ describe("browser panel compact UX", () => {
     expect(editor.state.doc.toString()).toBe("Existing draft");
   });
 
-  it("shows compact note titles, keeps URLs as tooltips, and opens the active domain", async () => {
+  it("shows compact note titles, safe locations as tooltips, and opens the active domain", async () => {
     const deepPage: ActivePage = {
       ...secondPage,
       title: "Deep note",
@@ -370,7 +349,7 @@ describe("browser panel compact UX", () => {
     const deepNote = [
       ...root.querySelectorAll<HTMLButtonElement>(".browser-domain button"),
     ].find((button) => button.textContent === "Deep note");
-    expect(deepNote?.title).toBe(deepPage.url);
+    expect(deepNote?.title).toBe(displayPageLocation(deepPage.url));
     expect(deepNote?.parentElement?.querySelector(".browser-url")).toBeNull();
     const history = root.querySelector(".browser-history")!;
     // Saved pages already appear in the tree, not again in recent history.
@@ -383,187 +362,89 @@ describe("browser panel compact UX", () => {
     expect(matched?.open).toBe(true);
   });
 
-  it("uses one shared editor with a collapsed formatting tray", async () => {
+  it("keeps query and fragment data out of history labels, tooltips and delete prompts without changing destinations", async () => {
+    const urls = [
+      "https://docs.example/login?login_hint=synthetic-private-user&state=synthetic-private-token#synthetic-private-fragment",
+      "https://docs.example/login?login_hint=synthetic-private-other",
+    ];
+    const fake = fixture({
+      history: urls.map((url) => ({ url, title: "Sign in", visitedAt: 1 })),
+    });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    press(root, /^Notes and history$/iu);
+    const history = root.querySelector<HTMLElement>(".browser-history")!;
+    expect(history.innerHTML).not.toContain("synthetic-private");
+    expect(history.textContent).not.toContain("login_hint");
+    const destinations = [
+      ...history.querySelectorAll<HTMLButtonElement>(
+        ".browser-page-row > button:not(.browser-page-delete)",
+      ),
+    ];
+    expect(destinations).toHaveLength(2);
+    expect(new Set(destinations.map((button) => button.textContent)).size).toBe(
+      2,
+    );
+    destinations[0]!.click();
+    await vi.waitFor(() =>
+      expect(fake.messages).toContainEqual({
+        type: "navigate",
+        url: urls[0],
+        windowId: 2,
+        allowPrivate: false,
+      }),
+    );
+    press(root, /^Notes and history$/iu);
+    press(root, /^Remove recent page: Sign in/iu);
+    expect(
+      root.querySelector(".browser-delete-confirm")?.innerHTML,
+    ).not.toContain("synthetic-private");
+    const filter = root.querySelector<HTMLInputElement>(".browser-filter");
+    expect(filter).toBeNull();
+  });
+
+  it("sanitizes URL-like page titles during initial render and tab title updates", async () => {
+    const privatePage = {
+      ...firstPage,
+      url: "https://example.com/login?state=synthetic-private-token",
+      title: "https://example.com/login?state=synthetic-private-token",
+    };
+    const fake = fixture({ page: privatePage });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    expect(root.querySelector(".browser-toolbar")?.innerHTML).not.toContain(
+      "synthetic-private",
+    );
+    fake.updated.emit(
+      privatePage.tabId,
+      { title: "Login (login?state=synthetic-private-token)" },
+      { windowId: privatePage.windowId },
+    );
+    expect(root.querySelector(".browser-toolbar")?.innerHTML).not.toContain(
+      "synthetic-private",
+    );
+  });
+
+  it("uses one shared editor with five inline formatting actions", async () => {
     const fake = fixture({ notes: [note(firstPage, "Existing")] });
     const { root, panel } = mount(fake.api);
     await panel.ready;
     const editor = view(root);
-    const trigger = namedButton(root, /^Formatting$/iu);
-    expect(trigger).not.toBeNull();
-    expect(trigger!.getAttribute("aria-expanded")).toBe("false");
-    const tray = document.getElementById(
-      trigger!.getAttribute("aria-controls")!,
-    );
-    expect(tray?.hidden).toBe(true);
-    press(root, /^Formatting$/iu);
-    expect(trigger!.getAttribute("aria-expanded")).toBe("true");
-    expect(tray?.hidden).toBe(false);
-    expect(view(root)).toBe(editor);
-    tray!.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
-    expect(tray?.hidden).toBe(true);
-    expect(document.activeElement).toBe(trigger);
+    expect(namedButton(root, /^Formatting$/iu)).toBeNull();
+    expect(root.querySelectorAll(".aic-toolbar-group button")).toHaveLength(5);
+    expect(
+      root.querySelector(".aic-toolbar select,.aic-toolbar-tray"),
+    ).toBeNull();
     expect(view(root)).toBe(editor);
   });
 
-  it("reads clipboard only after a deliberate click and appends instead of replacing", async () => {
+  it("does not expose clipboard-copy or clipboard-read panel actions", async () => {
     const fake = fixture({ notes: [note(firstPage, "Existing")] });
-    const pending = deferred<string>();
-    const read = clipboard(() => pending.promise);
     const { root, panel } = mount(fake.api);
     await panel.ready;
-    expect(read).not.toHaveBeenCalled();
-    press(root, /^Add content$/iu);
-    expect(read).not.toHaveBeenCalled();
-    press(root, /^Paste from clipboard$/iu);
-    expect(read).toHaveBeenCalledTimes(1);
-    namedButton(root, /^Add content$/iu)?.click();
-    namedButton(root, /^Paste from clipboard$/iu)?.click();
-    expect(read).toHaveBeenCalledTimes(1);
-    expect(
-      root.querySelector('[aria-busy="true"]') ||
-        root.textContent?.match(/Importing|Reading clipboard/iu),
-    ).toBeTruthy();
-    pending.resolve("Pasted content");
-    await vi.waitFor(() =>
-      expect(view(root).state.doc.toString()).toBe(
-        "Existing\n\nPasted content",
-      ),
-    );
-    expect(fake.messages).toContainEqual({
-      type: "save",
-      id: firstPage.url,
-      markdown: "Existing\n\nPasted content",
-      revision: 1,
-    });
-    expect(announcements(root)).toMatch(/Pasted|Imported|added/iu);
-  });
-
-  it("shows a clipboard read error without changing the note", async () => {
-    const fake = fixture({ notes: [note(firstPage, "Existing")] });
-    clipboard(() => Promise.reject(new Error("Clipboard access denied")));
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    openClipboard(root);
-    await vi.waitFor(() =>
-      expect(announcements(root)).toMatch(/Clipboard access (?:was )?denied/iu),
-    );
-    expect(view(root).state.doc.toString()).toBe("Existing");
-    expect(fake.messages.some((message) => message.type === "save")).toBe(
-      false,
-    );
-  });
-
-  it("does not read clipboard without a current page, private consent, or unlock", async () => {
-    const read = clipboard(async () => "Private text");
-    for (const options of [
-      { page: null },
-      { private: true },
-      { state: "locked" as const },
-    ]) {
-      const fake = fixture(options);
-      const { root, panel } = mount(fake.api);
-      await panel.ready;
-      namedButton(root, /^Add content$/iu)?.click();
-      namedButton(root, /^Paste from clipboard$/iu)?.click();
-      expect(read).not.toHaveBeenCalled();
-      expect(fake.messages.some((message) => message.type === "create")).toBe(
-        false,
-      );
-    }
-  });
-
-  it("drops a late clipboard result after a tab switch", async () => {
-    const fake = fixture({
-      notes: [note(firstPage, "First"), note(secondPage, "Second")],
-    });
-    const pending = deferred<string>();
-    clipboard(() => pending.promise);
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    openClipboard(root);
-    fake.setPage(secondPage);
-    fake.activated.emit({
-      tabId: secondPage.tabId,
-      windowId: secondPage.windowId,
-    });
-    await vi.waitFor(() =>
-      expect(view(root).state.doc.toString()).toBe("Second"),
-    );
-    pending.resolve("Stale clipboard content");
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(view(root).state.doc.toString()).toBe("Second");
-    expect(
-      fake.messages.some(
-        (message) => message.type === "save" || message.type === "create",
-      ),
-    ).toBe(false);
-    expect(root.textContent).not.toContain("Stale clipboard content");
-  });
-
-  it("lets the new tab import while an old clipboard read is pending without losing its busy state", async () => {
-    const fake = fixture({
-      notes: [note(firstPage, "First"), note(secondPage, "Second")],
-    });
-    const firstRead = deferred<string>();
-    const secondRead = deferred<string>();
-    let reads = 0;
-    const read = clipboard(() =>
-      ++reads === 1 ? firstRead.promise : secondRead.promise,
-    );
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    openClipboard(root);
-    expect(read).toHaveBeenCalledTimes(1);
-
-    fake.setPage(secondPage);
-    fake.activated.emit({
-      tabId: secondPage.tabId,
-      windowId: secondPage.windowId,
-    });
-    await vi.waitFor(() =>
-      expect(view(root).state.doc.toString()).toBe("Second"),
-    );
-    expect(namedButton(root, /^Add content$/iu)?.disabled).toBe(false);
-    openClipboard(root);
-    expect(read).toHaveBeenCalledTimes(2);
-    expect(
-      root.querySelector(".browser-content")?.getAttribute("aria-busy"),
-    ).toBe("true");
-
-    firstRead.resolve("Old tab clipboard");
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(
-      root.querySelector(".browser-content")?.getAttribute("aria-busy"),
-    ).toBe("true");
-    expect(namedButton(root, /^Add content$/iu)?.disabled).toBe(true);
-    expect(view(root).state.doc.toString()).toBe("Second");
-    expect(fake.messages.some((message) => message.type === "save")).toBe(
-      false,
-    );
-
-    secondRead.resolve("New tab clipboard");
-    await vi.waitFor(() =>
-      expect(view(root).state.doc.toString()).toBe(
-        "Second\n\nNew tab clipboard",
-      ),
-    );
-    expect(fake.messages.filter((message) => message.type === "save")).toEqual([
-      {
-        type: "save",
-        id: secondPage.url,
-        markdown: "Second\n\nNew tab clipboard",
-        revision: 1,
-      },
-    ]);
-    await vi.waitFor(() =>
-      expect(
-        root.querySelector(".browser-content")?.getAttribute("aria-busy"),
-      ).toBe("false"),
-    );
+    expect(namedButton(root, /Paste from clipboard|Copy note/iu)).toBeNull();
+    press(root, /^More options$/iu);
+    expect(namedButton(root, /Paste from clipboard|Copy note/iu)).toBeNull();
   });
 
   it("closes an old page menu on tab change and restores its draft when returning", async () => {
@@ -595,33 +476,11 @@ describe("browser panel compact UX", () => {
     );
   });
 
-  it("drops a late clipboard result after the vault locks", async () => {
-    const fake = fixture({ notes: [note(firstPage, "Existing")] });
-    const pending = deferred<string>();
-    clipboard(() => pending.promise);
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    openClipboard(root);
-    fake.changed.emit({ "aic-browser-unlock": { oldValue: {} } }, "session");
-    pending.resolve("Secret clipboard content");
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(root.dataset.state).toBe("locked");
-    expect(root.querySelector(".cm-editor")).toBeNull();
-    expect(root.textContent).not.toContain("Secret clipboard content");
-    expect(
-      fake.messages.some(
-        (message) => message.type === "save" || message.type === "create",
-      ),
-    ).toBe(false);
-  });
-
   it("cannot capture from a stale import button after the vault locks", async () => {
     const fake = fixture({ notes: [note(firstPage, "Existing")] });
     const { root, panel } = mount(fake.api);
     await panel.ready;
-    press(root, /^Add content$/iu);
-    const staleAction = namedButton(root, /^Import page$/iu)!;
+    const staleAction = namedButton(root, /^Import current content$/iu)!;
     fake.changed.emit({ "aic-browser-unlock": { oldValue: {} } }, "session");
     expect(staleAction.isConnected).toBe(false);
     staleAction.click();

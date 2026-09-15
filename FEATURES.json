@@ -39,6 +39,8 @@
       ],
       "verification": [
         "standard-notes-aic/test/editor.test.ts",
+        "standard-notes-aic/test/toolbar-compact.test.ts",
+        "standard-notes-aic/test/caret-visibility.test.ts",
         "standard-notes-aic/test/lifecycle-regression.test.ts",
         "aic-notes/test/note-transition-races.test.js"
       ]
@@ -108,6 +110,7 @@
       ],
       "verification": [
         "standard-notes-aic/test/preview.test.ts",
+        "standard-notes-aic/test/preview-links.test.ts",
         "standard-notes-aic/test/structured-preview.test.ts",
         "aic-notes/test/structured-preview.test.js"
       ]
@@ -265,20 +268,15 @@
       ]
     },
     {
-      "id": "core.properties",
+      "id": "core.aic-fields",
       "group": "structured-data",
-      "purpose": "Parse YAML frontmatter, render managed metadata and custom fields, mask marked values, reorder supported fields, and retain exact unrelated source.",
+      "purpose": "Parse and render independently typed pipe values, including explicit one-time states, inside the single bounded aic document while preserving retired YAML Properties as raw Markdown without conversion.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
-        "standard-notes-aic/src/core/properties-model.js",
-        "standard-notes-aic/src/core/properties-reorder.js",
+        "standard-notes-aic/src/core/security-model.js",
         "standard-notes-aic/src/core/security-block.js"
       ],
       "sourceFiles": [
-        "standard-notes-aic/src/core/properties-model.js",
-        "standard-notes-aic/src/core/properties-model.d.ts",
-        "standard-notes-aic/src/core/properties-reorder.js",
-        "standard-notes-aic/src/core/properties-reorder.d.ts",
         "standard-notes-aic/src/core/field-label.js",
         "standard-notes-aic/src/core/field-label.d.ts",
         "standard-notes-aic/src/core/field-parts.js",
@@ -292,10 +290,9 @@
         "aic-notes/src/webview/main.js"
       ],
       "verification": [
-        "standard-notes-aic/test/properties-model.test.ts",
+        "standard-notes-aic/test/field-parts.test.ts",
         "standard-notes-aic/test/properties-block-ui.test.ts",
-        "standard-notes-aic/test/properties-reorder.test.ts",
-        "aic-notes/test/file-properties.test.js"
+        "standard-notes-aic/test/properties-retirement.test.ts"
       ]
     },
     {
@@ -316,6 +313,8 @@
         "standard-notes-aic/src/core/security-block.css",
         "standard-notes-aic/src/core/security-controls.js",
         "standard-notes-aic/src/core/security-controls.d.ts",
+        "standard-notes-aic/src/core/security-templates.js",
+        "standard-notes-aic/src/core/security-templates.d.ts",
         "standard-notes-aic/src/core/security-card-order.js",
         "standard-notes-aic/src/core/security-card-order.d.ts",
         "standard-notes-aic/src/core/block-diagnostic.js",
@@ -329,7 +328,11 @@
         "standard-notes-aic/test/security-model.test.ts",
         "standard-notes-aic/test/security-block-ui.test.ts",
         "standard-notes-aic/test/security-field-actions.test.ts",
-        "standard-notes-aic/test/security-diagnostics.test.ts"
+        "standard-notes-aic/test/security-add-menu.test.ts",
+        "standard-notes-aic/test/security-templates.test.ts",
+        "standard-notes-aic/test/security-diagnostics.test.ts",
+        "standard-notes-aic/test/security-pipe-ui.test.ts",
+        "standard-notes-aic/scripts/browser-inline-fields-regression.mjs"
       ]
     },
     {
@@ -528,29 +531,6 @@
       ]
     },
     {
-      "id": "core.file-properties",
-      "group": "metadata",
-      "purpose": "Stamp and expose managed file, created, and updated properties while keeping generated metadata host-specific.",
-      "hosts": ["standard-notes", "vscode"],
-      "canonicalOwners": ["standard-notes-aic/src/core/file-properties.js"],
-      "sourceFiles": [
-        "standard-notes-aic/src/core/file-properties.js",
-        "standard-notes-aic/src/core/file-properties.d.ts",
-        "aic-notes/src/notes/properties.js",
-        "aic-notes/src/notes/frontmatter.js"
-      ],
-      "entrypoints": [
-        "standard-notes-aic/src/main.ts",
-        "aic-notes/src/notes/properties.js",
-        "aic-notes/src/notes/frontmatter.js"
-      ],
-      "verification": [
-        "standard-notes-aic/test/file-properties.test.ts",
-        "aic-notes/test/file-properties.test.js",
-        "aic-notes/test/frontmatter.test.js"
-      ]
-    },
-    {
       "id": "core.agentic-note-contract",
       "group": "metadata",
       "purpose": "Recognize AIC agentic note markers and shared note-contract metadata without activating external workflows itself.",
@@ -558,7 +538,8 @@
       "canonicalOwners": ["standard-notes-aic/src/core/agentic-notes.js"],
       "sourceFiles": [
         "standard-notes-aic/src/core/agentic-notes.js",
-        "standard-notes-aic/src/core/agentic-notes.d.ts"
+        "standard-notes-aic/src/core/agentic-notes.d.ts",
+        "aic-notes/src/notes/frontmatter.js"
       ],
       "entrypoints": [
         "standard-notes-aic/src/editor.ts",
@@ -566,7 +547,8 @@
       ],
       "verification": [
         "standard-notes-aic/test/agentic-notes.test.ts",
-        "aic-notes/test/agent-contract.test.js"
+        "aic-notes/test/agent-contract.test.js",
+        "aic-notes/test/frontmatter.test.js"
       ]
     },
     {
@@ -589,6 +571,30 @@
       "verification": [
         "standard-notes-aic/test/ui-system.test.ts",
         "standard-notes-aic/test/ui-registry-contract.test.ts"
+      ]
+    },
+    {
+      "id": "core.editor-help",
+      "group": "design-system",
+      "purpose": "Build one short inert local editor guide while each host owns its trigger, popover placement, focus, Escape handling, and disposal.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": ["standard-notes-aic/src/core/editor-help.js"],
+      "sourceFiles": [
+        "standard-notes-aic/src/core/editor-help.js",
+        "standard-notes-aic/src/core/editor-help.d.ts",
+        "standard-notes-aic/src/editor.ts",
+        "aic-notes/src/webview/main.js"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/editor.ts",
+        "standard-notes-aic/src/browser/panel.ts",
+        "aic-notes/src/webview/main.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/editor-help.test.ts",
+        "standard-notes-aic/test/toolbar-compact.test.ts",
+        "standard-notes-aic/test/browser-panel-actions.test.ts",
+        "aic-notes/test/release-contract.test.js"
       ]
     },
     {
@@ -677,7 +683,7 @@
     {
       "id": "browser.domain-properties",
       "group": "browser-adapter",
-      "purpose": "Store exact-origin shared Properties separately from page Markdown, render a masked preview, and expose an explicit short-lived editor with conflict-safe drafts.",
+      "purpose": "Store one exact-origin shared AIC document separately from page Markdown, render a masked preview, and expose an explicit short-lived editor with conflict-safe drafts.",
       "hosts": ["browser"],
       "canonicalOwners": [
         "standard-notes-aic/src/browser/domain-properties.ts",
@@ -713,7 +719,7 @@
     {
       "id": "browser.navigation-history",
       "group": "browser-adapter",
-      "purpose": "Record bounded recent pages, group saved notes by domain/path, filter metadata, disambiguate labels, and open only known stored destinations.",
+      "purpose": "Record bounded recent pages, group saved notes by domain/path, filter safe display metadata, show compact labels without query or fragment data, and open only known stored destinations without changing their exact URLs.",
       "hosts": ["browser"],
       "canonicalOwners": [
         "standard-notes-aic/src/browser/navigation.ts",
@@ -726,6 +732,7 @@
       ],
       "verification": [
         "standard-notes-aic/test/browser-navigation.test.ts",
+        "standard-notes-aic/test/browser-panel-ux.test.ts",
         "standard-notes-aic/test/browser-library.test.ts",
         "standard-notes-aic/test/browser-service.test.ts"
       ]
@@ -733,7 +740,7 @@
     {
       "id": "browser.capture-import",
       "group": "browser-adapter",
-      "purpose": "Capture an explicitly selected current page or selection, sanitize it into Markdown, resolve safe links, and append page, clipboard, or file content after permission and navigation-race checks.",
+      "purpose": "Capture the explicitly selected current page content or selection, sanitize it into Markdown, resolve safe links, and append page or file content after permission and navigation-race checks; native paste remains editor-owned.",
       "hosts": ["browser"],
       "canonicalOwners": [
         "standard-notes-aic/src/browser/capture-page.ts",
@@ -750,7 +757,8 @@
       "verification": [
         "standard-notes-aic/test/browser-page-import.test.ts",
         "standard-notes-aic/test/browser-service.test.ts",
-        "standard-notes-aic/test/browser-panel.test.ts"
+        "standard-notes-aic/test/browser-panel.test.ts",
+        "standard-notes-aic/test/browser-panel-actions.test.ts"
       ]
     },
     {
@@ -910,23 +918,19 @@
       ]
     },
     {
-      "id": "vscode.notes-tree-context",
+      "id": "vscode.linked-note-context",
       "group": "vscode-adapter",
-      "purpose": "Index notes and documents, project/folder/current/component/sibling relationships, labels, wiki targets, refreshes, and Explorer nesting.",
+      "purpose": "Resolve linked-note relationships and source navigation, keep the compact header free of duplicated file dates, and optionally configure ordinary Explorer nesting without an extension-specific tree.",
       "hosts": ["vscode"],
       "canonicalOwners": [
-        "aic-notes/src/notes/tree.js",
         "aic-notes/src/notes/relationships.js",
         "aic-notes/src/notes/navigation.js",
-        "aic-notes/src/notes/nesting.js",
-        "aic-notes/src/notes/header-label.js"
+        "aic-notes/src/notes/nesting.js"
       ],
       "sourceFiles": [
-        "aic-notes/src/notes/tree.js",
         "aic-notes/src/notes/relationships.js",
         "aic-notes/src/notes/navigation.js",
-        "aic-notes/src/notes/nesting.js",
-        "aic-notes/src/notes/header-label.js"
+        "aic-notes/src/notes/nesting.js"
       ],
       "entrypoints": [
         "aic-notes/src/extension.js",
@@ -935,7 +939,7 @@
       "verification": [
         "aic-notes/test/relationships.test.js",
         "aic-notes/test/note-routing.test.js",
-        "aic-notes/test/header-label.test.js"
+        "aic-notes/test/release-contract.test.js"
       ]
     },
     {

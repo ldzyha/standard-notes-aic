@@ -83,7 +83,7 @@ describe("encrypted browser vault integration", () => {
   it("round-trips shared Properties once and preserves existing origins during merge", async () => {
     const source = memory();
     await source.vault.setup(PASSWORD);
-    const markdown = `---\n# aic-fields: v2\nPassword*: ${SECRET}\n---\n`;
+    const markdown = "```aic\n# Properties\nPassword *| " + SECRET + "\n```\n";
     const shared = await source.vault.run((store) =>
       store.createDomain("https://shared.example.test", markdown),
     );

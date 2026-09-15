@@ -19,7 +19,7 @@ import {
 
 const views: EditorView[] = [];
 const merged =
-  "# Document\n\n```aic\n# First card\n## Main\nPassword*: PRIVATE_SENTINEL\n# Second card\n## Other\nEmail: synthetic@example.invalid\n```\n\nEnd";
+  "# Document\n\n```aic\n# First card\n## Main\nPassword *| PRIVATE_SENTINEL\n# Second card\n## Other\nEmail | synthetic@example.invalid\n```\n\nEnd";
 function fixture(doc: string, readOnly = false) {
   const host = document.body.appendChild(document.createElement("div"));
   const access = new Compartment();
@@ -56,10 +56,10 @@ afterEach(() => {
 });
 
 describe("safe block source locations", () => {
-  it("shows section/field/value/text limits and disables exhausted section additions", () => {
+  it("shows only near-capacity limits and disables exhausted section additions", () => {
     const body = Array.from(
       { length: SECURITY_LIMITS.maxSections },
-      () => "Email: account@example.invalid",
+      () => "Email | account@example.invalid",
     ).join("\n---\n");
     const { host, view } = fixture("```aic\n" + body + "\n```\nEnd");
     expect(host.querySelector(".cm-aic-security-error")).toBeNull();
@@ -68,15 +68,13 @@ describe("safe block source locations", () => {
     ).toContain("Sections 16/16");
     expect(
       host.querySelector(".cm-aic-security-capacity")?.textContent,
-    ).toContain("65,536");
+    ).not.toContain("65,536");
     expect(
       host.querySelector(".cm-aic-security-capacity")?.textContent,
-    ).toContain("16,384");
-    expect(
-      host.querySelector(".cm-aic-security-field-count")?.textContent,
-    ).toBe("Fields 1/64");
+    ).not.toContain("16,384");
+    expect(host.querySelector(".cm-aic-security-field-count")).toBeNull();
     const add = host.querySelector<HTMLButtonElement>(
-      '[aria-label="Add security section"]',
+      '[aria-label="Add section after section 1"]',
     )!;
     expect(add.disabled).toBe(true);
     add.click();
@@ -86,11 +84,7 @@ describe("safe block source locations", () => {
         SECURITY_FIELD_OPTIONS,
       ).ok,
     ).toBe(true);
-    expect(
-      host.querySelector<HTMLButtonElement>(
-        '[aria-label="New security block"]',
-      )!.disabled,
-    ).toBe(false);
+    expect(host.querySelector('[aria-label="New security block"]')).toBeNull();
     expect(
       host.querySelector(".cm-aic-security-capacity-advice")?.textContent,
     ).toContain("banks, web, social networks");
@@ -99,20 +93,21 @@ describe("safe block source locations", () => {
   it("disables the field menu itself at 64 fields without blocking a new section", () => {
     const body = Array.from(
       { length: 64 },
-      (_, index) => `Field ${index}: value`,
+      (_, index) => `Field ${index} | value`,
     ).join("\n");
     const { host, view } = fixture("```aic\n" + body + "\n```\nEnd");
     expect(
       host.querySelector<HTMLButtonElement>(
-        '[aria-label="Add field to group"]',
+        '[aria-label="Add row to section"]',
       )!.disabled,
     ).toBe(true);
     expect(
-      host.querySelector<HTMLButtonElement>('[aria-label="Add Password"]')!
-        .disabled,
+      host.querySelector<HTMLButtonElement>(
+        '[aria-label="Add row after Field 0"]',
+      )!.disabled,
     ).toBe(true);
     const add = host.querySelector<HTMLButtonElement>(
-      '[aria-label="Add security section"]',
+      '[aria-label="Add section after section 1"]',
     )!;
     expect(add.disabled).toBe(false);
     add.click();
@@ -126,16 +121,18 @@ describe("safe block source locations", () => {
   it("disables additions when encoded text fills the block before numeric counts do", () => {
     const fields = Array.from({ length: 4 }, (_, index) => ({
       label: `Field ${index}`,
-      hide: true,
-      value: "",
+      parts: [{ kind: "secret" as const, value: "" }],
     }));
     const model = { sections: [{ label: "", fields }] };
     let remaining =
       SECURITY_LIMITS.maxBodyLength -
       serializeSecurityBlock(model, SECURITY_FIELD_OPTIONS).length;
     for (const field of fields) {
-      const length = Math.min(SECURITY_LIMITS.maxValueLength, remaining - 1);
-      field.value = "x".repeat(length);
+      const length = Math.min(
+        SECURITY_LIMITS.maxValueLength - 3,
+        remaining - 1,
+      );
+      field.parts[0]!.value = "x".repeat(length);
       remaining -= length + 1; // serializer inserts a space for each nonempty value
     }
     const body = serializeSecurityBlock(model, SECURITY_FIELD_OPTIONS);
@@ -144,25 +141,21 @@ describe("safe block source locations", () => {
     expect(host.querySelector(".cm-aic-security-error")).toBeNull();
     expect(
       host.querySelector<HTMLButtonElement>(
-        '[aria-label="Add security section"]',
+        '[aria-label="Add section after section 1"]',
       )!.disabled,
     ).toBe(true);
     expect(
       host.querySelector<HTMLButtonElement>(
-        '[aria-label="Add field to group"]',
+        '[aria-label="Add row to section"]',
       )!.disabled,
     ).toBe(true);
-    expect(
-      host.querySelector<HTMLButtonElement>(
-        '[aria-label="New security block"]',
-      )!.disabled,
-    ).toBe(false);
+    expect(host.querySelector('[aria-label="New security block"]')).toBeNull();
   });
 
   it("keeps untitled sections reorderable and moves whole canonical blocks exactly", () => {
     const first =
-      "```aic\nEmail: first@example.invalid\n---\nEmail: second@example.invalid\n```";
-    const second = "```aic\n## Named\nPassword*: SYNTHETIC_VALUE\n```";
+      "```aic\nEmail | first@example.invalid\n---\nEmail | second@example.invalid\n```";
+    const second = "```aic\n## Named\nPassword *| SYNTHETIC_VALUE\n```";
     const { host, view } = fixture(first + "\n\n" + second + "\nEnd");
     expect(host.querySelector('[aria-label="Reorder group 1"]')).not.toBeNull();
     const blocks = securityBlocks(view.state);
@@ -176,8 +169,8 @@ describe("safe block source locations", () => {
   });
 
   it("moves one valid field between separate blocks without breaking either preview", () => {
-    const first = "```aic\n## First\nEmail: example@invalid.test\n```";
-    const moved = "Password*: SYNTHETIC_MOVED_VALUE\n";
+    const first = "```aic\n## First\nEmail | example@invalid.test\n```";
+    const moved = "Password *| SYNTHETIC_MOVED_VALUE\n";
     const doc = first + "\n\n```aic\n## Second\n" + moved + "```\nEnd";
     const { host, view } = fixture(doc);
     const firstBlock = securityBlocks(view.state)[0]!;
@@ -200,10 +193,10 @@ describe("safe block source locations", () => {
   it("explains why any added field breaks a block already at the field limit", () => {
     const body =
       "## First\n" +
-      Array.from({ length: 64 }, (_, index) => `Field ${index}: value\n`).join(
+      Array.from({ length: 64 }, (_, index) => `Field ${index} | value\n`).join(
         "",
       );
-    const moved = "Password*: SYNTHETIC_MOVED_VALUE\n";
+    const moved = "Password *| SYNTHETIC_MOVED_VALUE\n";
     const doc =
       "```aic\n" + body + "```\n\n```aic\n## Second\n" + moved + "```\nEnd";
     const { host, view } = fixture(doc);
@@ -233,7 +226,7 @@ describe("safe block source locations", () => {
     const body = Array.from(
       { length: 17 },
       (_, index) =>
-        `${index ? "---\n" : ""}## Section ${index}\nField: value\n`,
+        `${index ? "---\n" : ""}## Section ${index}\nField | value\n`,
     ).join("");
     const { host, view } = fixture("```aic\n" + body + "```\nEnd");
     expect(host.querySelector(".cm-aic-security-error")!.textContent).toContain(
@@ -252,20 +245,27 @@ describe("safe block source locations", () => {
   });
 
   it.each(["```", "````", "~~~"])(
-    "adds an independent new block after an unclosed %s fence",
+    "adds an in-place section inside an unclosed %s fence without exposing secrets",
     (fence) => {
-      const source = `${fence}aic\n##\nPassword*: PRIVATE_SENTINEL`;
+      const source = `${fence}aic\n##\nPassword *| PRIVATE_SENTINEL`;
       const { host, view } = fixture(source);
       expect(host.querySelector(".cm-aic-security-error")).toBeNull();
       host
-        .querySelector<HTMLButtonElement>('[aria-label="New security block"]')!
+        .querySelector<HTMLButtonElement>(
+          '[aria-label="Add section after section 1"]',
+        )!
         .click();
       const blocks = securityBlocks(view.state);
-      expect(blocks).toHaveLength(2);
+      expect(blocks).toHaveLength(1);
+      const parsed = parseSecurityBlock(blocks[0]!.body);
+      expect(parsed.ok && parsed.model.sections).toHaveLength(2);
       expect(
         blocks.every((block) => parseSecurityBlock(block.body, block).ok),
       ).toBe(true);
-      expect(view.state.doc.toString()).toContain(`${source}\n${fence}\n\n`);
+      expect(view.state.doc.toString()).toContain(
+        "Password *| PRIVATE_SENTINEL\n---",
+      );
+      expect(view.state.doc.toString().startsWith(fence + "aic")).toBe(true);
       expect(host.querySelector(".cm-aic-security-error")).toBeNull();
       expect(host.innerHTML).not.toContain("PRIVATE_SENTINEL");
     },
@@ -366,7 +366,8 @@ describe("safe block source locations", () => {
   });
 
   it("points unsupported fence versions at the opening line", () => {
-    const doc = "Title\n\n```aic v9\n##\nPassword*: PRIVATE_SENTINEL\n```\nEnd";
+    const doc =
+      "Title\n\n```aic v9\n##\nPassword *| PRIVATE_SENTINEL\n```\nEnd";
     const { host, view } = fixture(doc);
     expect(host.querySelector(".cm-aic-security-error")!.textContent).toContain(
       "Line 3, column 1",
@@ -378,37 +379,37 @@ describe("safe block source locations", () => {
     expect(view.state.selection.main.head).toBe(doc.indexOf("```"));
   });
 
-  it("locates duplicate Properties keys in the document without echoing either value", () => {
+  it("offers fixed legacy repair without parsing duplicate YAML keys", () => {
     const doc =
       "---\nPassword*: PRIVATE_FIRST\nPassword*: PRIVATE_SECOND\n---\nBody";
     const { host, view } = fixture(doc);
     const error = host.querySelector(".cm-aic-security-error")!;
-    expect(error.textContent).toContain("Line 3");
-    expect(error.textContent).toMatch(/duplicate/iu);
+    expect(error.textContent).toContain("Line 2");
+    expect(error.textContent).toContain("no longer supported");
     expect(host.querySelector(".cm-aic-properties")!.innerHTML).not.toContain(
       "PRIVATE_",
     );
     errorButton(host).click();
     expect(view.state.doc.lineAt(view.state.selection.main.head).number).toBe(
-      3,
+      2,
     );
   });
 
-  it("identifies an invalid card component and jumps to its authored range", () => {
+  it("identifies an invalid typed card number and jumps to its authored range", () => {
     const doc =
-      "Text\n\n```aic\n##\nCard_: 4242 4242 4242 4242 | 99/28 | 999\n```\nEnd";
+      "Text\n\n```aic\n##\nCard _| 4242 | arbitrary date *| 999\n```\nEnd";
     const { host, view } = fixture(doc);
     const error = host.querySelector(".cm-aic-security-error")!;
     expect(error.textContent).toContain("Line 5");
-    expect(error.textContent).toContain("MM/YY");
-    expect(error.textContent).not.toContain("99/28");
+    expect(error.textContent).toContain("12–19");
+    expect(error.textContent).not.toContain("4242");
     errorButton(host).click();
-    expect(view.state.selection.main.head).toBe(doc.indexOf("99/28"));
+    expect(view.state.selection.main.head).toBe(doc.indexOf("4242"));
   });
 
   it("gives an invalid TOTP field an exact source action while keeping the seed out of preview", () => {
     const doc =
-      "Text\n\n```aic\n##\nAccount: example\nTOTP#: PRIVATE_INVALID_TOTP\n```\nEnd";
+      "Text\n\n```aic\n##\nAccount | example\nTOTP #| PRIVATE_INVALID_TOTP\n```\nEnd";
     const { host, view } = fixture(doc);
     expect(host.querySelector(".cm-aic-security-error")!.textContent).toContain(
       "Line 6",

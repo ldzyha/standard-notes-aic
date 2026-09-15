@@ -6,7 +6,7 @@
 
 `AIC` is a Markdown editor component for Standard Notes. It registers under the Code note type so
 Standard Notes displays its supported `>_` icon, while `file_type: md` and interchangeability keep
-the note body as ordinary Markdown. It derives headings, lists, task checkboxes, tables, hierarchical frontmatter properties, fenced-code
+the note body as ordinary Markdown. It derives headings, lists, task checkboxes, tables, typed AIC fields, fenced-code
 highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
@@ -28,8 +28,8 @@ back to a note, including on mobile. Nothing is converted on opening or on each
 keystroke. Ctrl/Cmd+S, Save note and leaving the editing surface save a draft;
 security preview actions save immediately. Undo is a new draft until a save boundary.
 
-`service` and `account` stay visible; `secret` becomes hidden `TOTP#`, `password` becomes
-hidden `Password*`, and `notes` becomes Notes. Safe HTTP(S) service URLs, including simple
+`service`, `account`, and notes become text parts; `secret` becomes a `#|` TOTP
+part and `password` becomes a `*|` secret part. Safe HTTP(S) service URLs, including simple
 Markdown links, also get an Open-capable URL field without changing the original service.
 Extra string fields are retained and hidden. Invalid records, duplicate keys and unsupported
 values stop the entire conversion without losing part of the array. Limits: 256 records
@@ -60,8 +60,8 @@ Only if clipboard access is denied, unavailable or times out does AIC offer an i
 masked paste-only input. Direct typing is blocked and hidden values are never previewed.
 Empty clipboard text makes no change. AIC does not enumerate or store clipboard history.
 
-Empty hidden password fields (`Password*`, `PWD*`, `Пароль*`, `WebDAV Password*` and
-recognized service-qualified labels) offer **Generate password**. Default: 24 characters,
+Empty `*|` secret parts in password-oriented template rows offer **Generate password**.
+Default: 24 characters,
 uppercase, lowercase, numbers and symbols. Length: 8–128; each enabled group is represented.
 Generation never overwrites, previews or copies the value automatically. To generate again,
 clear the value through source Edit and return to preview. TOTP/API keys and arbitrary
@@ -73,13 +73,12 @@ unbiased sampling and no weak fallback. Controls are inspired by
 not its proprietary implementation. [Clipboard permissions](https://developer.mozilla.org/en-US/docs/Web/API/Clipboard_API)
 vary between browsers/embedded clients. Markdown and copied values remain plaintext.
 
-### Recovery codes and optional titles
+### One-time values and optional titles
 
-**Add Recovery codes** adds an empty hidden field. Paste a batch with one code per line;
-blank lines are ignored, but spaces inside a code and duplicate codes are preserved.
-Each code stays masked, copies independently and has a reversible **Used** checkbox.
-Copying does not claim that a service accepted a code. Whole-block Copy preserves the codes
-and their used flags when moving the block to another document. No code is deleted by marking it.
+The One-time codes template inserts `1|` unused values. A successful value Copy changes
+that part to `0|` used. Activating a used value changes it back to `1|` without copying;
+the next activation copies and marks it used again. Used values expose only their remove
+action. Both states stay visually masked and remain plaintext in Markdown source.
 
 Without an independent `#` card title, the first section title replaces the card name in
 its header. Use an optional `## Account name` at a section's start; omit the heading
@@ -88,17 +87,16 @@ Standalone `---` lines separate sections; earlier Security formats are not parse
 
 ## Compact groups, reordering and Markdown source
 
-Security and Properties share a filter, visible group separators and one **+** disclosure
+The AIC field card has a filter, visible section separators and one **+** disclosure
 after each group's fields. The filter matches names and visible values only; hidden values,
 recovery codes and generated one-time codes are never indexed. Filtering is local UI state,
-does not edit or save the note, and leaves managed Properties and related-note navigation visible.
+does not edit or save the note, and leaves host-provided relationship navigation visible.
 
 In `aic`, an optional `# Group title` names the card independently of its `---` sections.
 Untitled blocks remain readable. Drag handles move fields within or between sections (including empty sections),
 sections within their card, and standalone Security cards within the same document.
 Alt+Up/Down on a handle provides keyboard reordering. Filtered lists cannot reorder.
-Properties only move custom scalar fields or sibling YAML groups; managed metadata, sequence
-items and unrelated nesting stay fixed. Unsupported layouts and old Security YAML
+Unsupported layouts and old YAML Properties
 remain editable through source, without an implicit reorder/migration. Moves request one save
 through the host and remain undoable.
 
@@ -107,155 +105,97 @@ without opening another editor, changing source, resetting Undo or saving. The m
 for the current note and resets on a different note. It also exposes starred values in their raw
 Markdown form; this is explicit source access, not an additional secret-reveal control.
 
-New Security templates and converted Authenticator records use an `aic` fence.
-Existing blocks are not rewritten automatically. Security has one grammar with
-standalone `---` section separators and pipe-separated field parts.
-`Name*: value | description | additional secret` is a masked value, `Name#: seed | description`
-is a TOTP seed, and `Name_: number | MM/YY | CVV` is a card. The marker defines the kind,
-not the label. A field label may be empty (`*: secret`), or any valid authored label
-such as `alice@example.test`. TOTP codes derive only from `#` fields. Card number (PAN), date and CVV copy
-independently; the third slot is masked. Paste fills only an empty component, and changing a
-filled component requires source Edit. A pipe separates parts only with an ASCII space on
-each side and outside double quotes, as in `value | description`.
-All three value slots may be JSON-style double-quoted strings: `Password*: "a | b" | "description"`.
-Within quotes, every pipe is literal, even in `"a | b"`; use JSON escapes for quote, backslash and
-control characters. Bare or one-sided `|` outside quotes is also literal data. Existing
-`\|` outside quotes still parses. Quoting is optional for ordinary values, but pasted or
-imported values containing a pipe or quote are serialized with double quotes, preserving
-their actual quote characters. Labels, section titles and card titles do not acquire
-quote syntax. Spaces inside quotes are part of the value; surrounding spaces outside quotes
-are formatting. Typed cards accept 12–19 number digits, a month/year and a 3–4 digit CVV; incomplete
-parts may be empty. Invalid cards show a repair message without exposing raw contents.
-Earlier `aic-security` fences are quarantined from text summaries but are not parsed
-as Security blocks; edit their Markdown manually to the current format.
+New templates and converted Authenticator records use one bounded `aic` fence.
+Existing text is never rewritten automatically. A standalone `---` separates sections.
+Every value starts with its type separator: `|` text, `*|` secret, `#|` TOTP,
+`_|` card, `1|` unused one-time, or `0|` used one-time. For example,
+`Card _| 4111111111111111 | 12/30 *| 123` independently types all three values.
+A label is optional and appears only before the first separator. JSON double quotes
+protect a value containing a pipe, quote, boundary whitespace, or control character.
+Typed cards accept 12–19 digits; invalid values show fixed repair advice without
+echoing their contents. Colon fields, old YAML Properties, and earlier Security
+formats stay raw and require manual source editing; AIC performs no automatic migration.
 
 ### Capacity and repair locations
 
-Each Security block shows its capacity: 16 sections, 64 fields per section,
-65,536 UTF-16 text units per block and 16,384 per field's encoded text (all pipe parts
-and escape characters combined). Add actions that would
+Each AIC block shows its capacity: 16 sections, 64 rows per section, 64 typed
+values per row, 65,536 UTF-16 text units per block and 16,384 encoded text units
+per row. Add actions that would
 exceed a limit are disabled; **New block** remains available. The converter automatically
 packs overflow into more blocks, splitting oversized accounts only at field boundaries.
 It never truncates values. Existing notes are not automatically repartitioned.
 
-Invalid Security/Properties previews identify the source line and column and provide
+Invalid AIC previews identify the source line and column and provide
 an Edit action to that location. Advice never echoes a password, TOTP seed or raw parser
 exception. If an exact field position is unavailable, the block start is identified honestly.
 
 ```aic
 # Services
-Service: Example
-Account: example@example.invalid
-Password*:
+Service | Example
+Account | example@example.invalid
+Password *|
 ---
 ## Optional account title
-Service: Another example
-Password*:
+Service | Another example
+Password *|
 ```
 
-## Properties in Markdown
+## AIC fields in Markdown
 
-Properties are YAML frontmatter at the start of a note, not a new note type or a second
-stored format. New v2 Properties headers put `# aic-fields: v2` on the first body line
-after the opening `---`; the marker is a YAML comment and is hidden from preview:
+One complete top-level fenced `aic` document owns the structured field UI. The blank,
+Account, Card, and One-time codes presets are combinations of the same typed values,
+not additional field types. Add Field targets the current row, Add Row inserts below
+it, and Add Section inserts after the current section. The local `?` guide shows the
+grammar in Standard Notes, the browser panel, and both VS Code editor surfaces.
 
-```yaml
----
-# aic-fields: v2
-file: example.note.md
-created: 2026-09-12T10:00:00Z
-updated: 2026-09-12T11:00:00Z
-project: AIC
-credentials:
-  API key*: example-only-placeholder | description | additional secret
-  Password*: '"a | b" | "description"'
----
-```
+Legacy YAML Properties remain ordinary authored Markdown. They are not rendered as
+fields, interpreted as metadata, rewritten on save, or automatically migrated. Source
+mode keeps that text accessible for manual repair.
 
-The outer single quotes on `Password*` are YAML storage syntax; the inner double quotes
-survive YAML parsing and delimit the two field slots. YAML outer quotes alone do not
-protect an inner `|` from splitting. Invalid slot quotes, escapes or trailing text
-produce generic, non-secret diagnostics; Security reports the exact source position.
+## Release 35.3.9
 
-The preview uses the same row actions as security blocks. In a v2 header, custom scalar
-keys ending in `*`, `#` or `_` use the same pipe-field kinds and empty-part Paste rules
-as Security. A property whose key ends in `*` is visually masked, including inside
-nested YAML maps or lists. Copy on its label copies the label; copying the value returns
-the original value without displaying it. An empty property can be
-filled with Paste or deleted. Change a filled value or key through **Edit properties**,
-which reveals the original YAML for direct editing. The star controls visual
-masking only: Markdown source, exports, other editors and copied values remain plaintext.
-
-Existing unmarked headers stay in legacy mode; a literal pipe or `#`/`_` in a key keeps
-its previous meaning. To activate v2 in an existing header, add the first-body-line marker
-explicitly after reviewing and escaping any literal pipes or marker-like keys. There is no
-blanket automatic migration.
-
-For contextual `*.note.md` files, `created` and `updated` appear as compact read-only
-metadata before the relationship tree, without repeating the filename or a Context heading.
-Dates are formatted for reading, while Copy returns their original source values.
-Other properties follow in the shared Security-style card and remain authored YAML;
-comments, nested structure and unrelated Markdown are preserved. Related notes, when
-available from the host, appear after metadata as read-only navigation and are never
-written into frontmatter. Ordinary Markdown notes do not acquire generated metadata.
-
-## Release 34.3.1
-
-This release pairs with AIC Notes 43.0.1 and AIC Editor Core 5.3.0. This document
+This release pairs with AIC Notes 44.4.7 and AIC Editor Core 6.0.0. This document
 describes the release source and its contracts; deployment and the hosted manifest
 are verified separately by the release workflow.
 
-The 34.3.1 release gives the experimental Chrome/Edge sidebar a compact contextual
-surface, metadata-only saved-ancestor navigation, and guarded local page-note
-deletion. It also fixes card fields so their masked parts share the compact inline
-composite row without losing independent copy and empty-field actions. The browser
-archive has its own version, 0.2.0, and explicit
+The 35.3.9 release introduces the typed-pipe AIC document and shared local guide. It
+also aligns card labels/values with adjacent simple fields, separates
+field and Section calls to action into distinct section/footer surfaces, and keeps
+browser navigation titles readable without visibly exposing full query or fragment
+text. Parser-backed plain previews also keep nested URL/query suffixes out of visible
+Markdown link labels. Exact stored URLs, authored Markdown, navigation targets, note
+identities, masked parts and independent copy actions remain unchanged. It also makes
+shared field-add menus compact and left-aligned, and gives the compact browser editor
+five direct formatting icons instead of nested Format/Style/Insert controls. Browser
+content/Markdown transfer also uses direct icons, native paste replaces the clipboard
+button, and More is limited to deletion/history and grouped encrypted backups. The full
+Standard Notes exposes the guide in its full toolbar without changing the compact
+browser toolbar. The browser archive has its own version, 0.3.0, and explicit
 [verification boundaries](browser/VERIFICATION.md); use synthetic data while its
 remaining packaged-runtime gates are open. See the [browser guide](browser/README.md)
 and [marketplace HOWTO](MARKETPLACE_HOWTO.md) for installation and future submissions.
 
-Core 5.3.0 adds shared component IDs, BEM helpers and geometry tokens. Adoption is
-incremental: compatibility selectors and host placement rules remain, so this release
-does not claim that every legacy selector or duplicate style has been removed.
+Core 6.0.0 is breaking because old colon/YAML field forms are no longer active syntax.
+Old text remains accessible and is not converted. Contextual Field/Row/Section
+actions replace a permanently mounted Section footer. Existing
+compatibility selectors and host placement rules remain. This release does not include
+the separately proposed global Shared/encryption work.
+
+The prior 34.3.1 release added the compact browser surface, metadata-only saved
+ancestors and guarded local page-note deletion, plus the shared component/BEM layer
+and compact inline card row.
 
 The prior 33.2.4 release added the page notebook and exact-origin shared Properties,
 and fixed compact generic pipe fields, bounded Add menus, caret visibility and
 retained Standard Notes transport messages.
 
-The 32.1.1 release introduced quoted slots and the literal-pipe fix. The prior
-release's five feature outcomes are the single `aic` grammar with optional labels, compact masked
-cards, cross-section field moves, Properties metadata/tree separation, and labelled Add
-controls with limit explanations. Its six fixes cover Escape exits, transient ordered copy
-feedback, independent label/value copying, safe card filtering, responsive theme styling,
-and redundant rendering/filter work. Historical Security formats require manual source
-repair; no notes are automatically rewritten. The separate VS Code extension is now fully local.
-
-`/security` inserts a shared `aic` Markdown block in the Standard Notes
-editor and AIC Notes. A standalone `---` starts another section; `## Main` optionally
-titles one. `Password*: value` masks a
-field in preview, while `Password: value` is visible. **Edit** opens Markdown
-source; there is no inline manual value editor. Preview can copy individual values, a current
-one-time code from a Base32/`otpauth://totp` key, or the **entire fenced block**.
-Safe HTTP(S) URLs also have Open. Add section, quick field actions and New block
-create independent content and request a save through the same host manager.
-The ordinary code-fence preview and Standard Notes plain-text note preview
-exclude security contents.
-
-Masking follows the marker, not the field's name: `Label*: value` is hidden and
-`Label: value` is visible. `Label#: seed` identifies a TOTP field and displays
-the current code without displaying its seed; an unstarred/unmarked TOTP label is an
-ordinary visible value. Labels may be empty; older Security fence formats are not parsed.
-Sections and fields can be repeated independently.
-
-This is **visual masking, not encryption of the Markdown itself**: raw source,
-other Markdown editors, exports, copied blocks and local files can expose the
-values. The standalone browser demo uses unencrypted `localStorage`; do not
-enter real credentials there. The converter handles Authenticator JSON bodies,
-not native note-type migration. No AIC-managed cross-application synchronization, QR image
-import UI or QR-code generation is provided. Standard Notes itself owns account
-sign-in, note encryption and its synchronization service. The paired VS Code
-integration is local-only and provides no Standard Notes account connection or note
-synchronization.
+Earlier field grammars and their release history remain recorded in
+[`CHANGELOG.md`](CHANGELOG.md), but they are not accepted input for the current
+structured renderer. Use the typed separators documented above. This is **visual
+masking, not encryption of the Markdown itself**: raw source, other Markdown
+editors, exports, copied values and local files can expose the data. Standard Notes
+owns account sign-in, note encryption and synchronization; AIC Notes for VS Code is
+local-only.
 
 Task checkboxes, details parsing, code-language aliases and the bounded Mermaid render queue now
 have canonical implementations in `src/core`, consumed by both this editor and AIC Notes.
@@ -268,13 +208,13 @@ the engine slot until it actually finishes.
 `node scripts/sync-editor-core.mjs --snapshot` also generates extension provenance. Uncommitted
 canonical sources are marked as working-tree input and blocked from extension publication.
 The retired File Context sphere is not distributed. Removing it does not affect
-Markdown diagrams or the VS Code note relationship tree.
+Markdown diagrams or VS Code's contextual linked-note relationships.
 
 The host adapter clears unavailable note contexts, retains omitted same-note
 metadata without crossing UUIDs, and waits for the matching save acknowledgement.
-Security blocks are excluded from plain previews even inside quotes/lists; each
+AIC blocks are excluded from plain previews even inside quotes/lists; each
 save also clears a previous editor's stale HTML preview. Invalid drag payloads
-cannot reorder data, duplicate sibling property names are rejected, and table
+cannot reorder data, and table
 edits retain extra authored cells. Retired controls and TOTP refreshes cannot
 update a replacement document.
 
@@ -382,9 +322,9 @@ Notes uses this same catalog in both ordinary `.md` documents and contextual `.n
 AIC keeps Markdown as the source of truth without duplicating it into tooltip editors. Clicking a
 link label opens it; compact, always-visible Copy and Edit icon actions stay beside the label.
 **Table** preview shows static values and opens one focused editor popover after activation;
-it adds and reorders table rows through drag handles. **Properties** preview uses the
-security-style copy, empty-field Paste/Delete and explicit source Edit described above.
-Nested YAML maps and sequences retain their structure in the source. Dragging over
+it adds and reorders table rows through drag handles. **AIC field** preview uses the
+typed row/part actions and explicit source Edit described above. Unsupported YAML
+remains ordinary source. Dragging over
 preview text keeps a stable native selection for copying and never steals the editor cursor.
 `Ctrl+A`/`Cmd+A` selects the complete Markdown source and exits preview for the note; a CodeMirror
 selection that crosses a structure reveals that source. A collapsed cursor keeps preview, while the
@@ -471,7 +411,7 @@ It never opens a real Standard Notes account or modifies workspace documents.
 ## Data contract
 
 - The exact CodeMirror document is the only value sent to Standard Notes.
-- Rendered tables, properties, checkboxes, syntax highlighting, and Mermaid SVG are never persisted.
+- Rendered tables, AIC field cards, checkboxes, syntax highlighting, and Mermaid SVG are never persisted.
 - Switching to Plain Text exposes the same Markdown source.
 - AIC stays read-only until Standard Notes supplies the first working-note payload.
 - Saves attach a bounded plain-text preview derived from visible Markdown content, redact complete
@@ -480,10 +420,9 @@ It never opens a real Standard Notes account or modifies workspace documents.
   switching notes request persistence. Security preview mutations save immediately. No timer
   saves on every input; failed saves remain dirty with Retry. Page/process termination is not
   an acknowledged save guarantee.
-- For `*.note.md` items, explicit save keeps `file`, stable `created`, and automatically refreshed
-  `updated` metadata while preserving every authored property. Dates render in the user's locale.
-  Ordinary `*.md` items receive no generated properties or automatic cleanup. Existing authored
-  `file`, `created`, and `updated` fields, including an exact three-field header, remain intact.
+- Saves persist only the authored Markdown. Legacy YAML Properties and historical
+  `file`, `created`, or `updated` fields remain accessible as raw text; AIC does not
+  interpret, stamp, clean up, or migrate them automatically.
 - The Standard Notes host adapter binds each in-memory draft to the working-note UUID and checks
   that UUID again at save time. Switching notes cannot redirect a draft into another note, and
   returning during the same editor session restores the correct dirty draft without storing its
@@ -513,6 +452,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `34.3.1` is sequence 34 with
-three feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `35.3.9` is sequence 35 with
+three feature outcomes and nine fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

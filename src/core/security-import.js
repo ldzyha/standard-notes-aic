@@ -37,14 +37,8 @@ function securityLabel(value) {
     value.length > 0 &&
     value.length <= 256 &&
     value.trim() === value &&
-    !/[:*\\\p{C}\u2028\u2029]/u.test(value)
+    !/[\p{C}\u2028\u2029]/u.test(value)
   );
-}
-
-// Typed Security syntax reserves terminal suffixes as field types/visibility. Keep imported keys
-// recognizable without silently turning an authored name into another type.
-function importedLabel(value) {
-  return /[#_]$/u.test(value) ? `${value} (imported)` : value;
 }
 
 function unfence(source) {
@@ -78,28 +72,33 @@ function convertEntry(entry) {
     if (!Object.hasOwn(entry, key) || typeof entry[key] !== "string")
       return UNSUPPORTED;
 
+  const field = (label, value, kind = "text") => ({
+    label,
+    parts: [{ value, kind }],
+  });
   const fields = [
-    { label: "Service", value: entry.service, hide: false },
-    { label: "Account", value: entry.account, hide: false },
-    { label: "TOTP", value: entry.secret, hide: true, kind: "totp" },
+    field("Service", entry.service),
+    field("Account", entry.account),
+    field("TOTP", entry.secret, "totp"),
   ];
   const url = serviceUrl(entry.service);
-  if (url) fields.push({ label: "URL", value: url, hide: false });
+  if (url) fields.push(field("URL", url));
   if (Object.hasOwn(entry, "password"))
-    fields.push({ label: "Password", value: entry.password, hide: true });
-  if (Object.hasOwn(entry, "notes"))
-    fields.push({ label: "Notes", value: entry.notes, hide: false });
+    fields.push(field("Password", entry.password, "secret"));
+  if (Object.hasOwn(entry, "notes")) fields.push(field("Notes", entry.notes));
 
   for (const [key, value] of Object.entries(entry)) {
     if (PROTOTYPE_KEYS.has(key)) return UNSUPPORTED;
     if (!STANDARD_KEYS.has(key)) {
       if (!securityLabel(key) || typeof value !== "string") return UNSUPPORTED;
-      fields.push({ label: importedLabel(key), value, hide: true });
+      fields.push(field(key, value, "secret"));
     }
   }
   for (const field of fields) {
-    if (typeof field.value !== "string") return UNSUPPORTED;
-    if (field.value.length > SECURITY_LIMITS.maxValueLength) return TOO_LARGE;
+    for (const part of field.parts) {
+      if (typeof part.value !== "string") return UNSUPPORTED;
+      if (part.value.length > SECURITY_LIMITS.maxValueLength) return TOO_LARGE;
+    }
   }
   return { ok: true, section: { label: "", fields } };
 }
@@ -123,11 +122,12 @@ function checkedBody(sections) {
           const original = sections[sectionIndex].fields[fieldIndex];
           return (
             field.label !== original.label ||
-            field.value !== original.value ||
-            field.hide !== original.hide ||
-            field.kind !== original.kind ||
-            field.description !== original.description ||
-            field.additionalSecret !== original.additionalSecret
+            field.parts.length !== original.parts.length ||
+            field.parts.some(
+              (part, index) =>
+                part.kind !== original.parts[index].kind ||
+                part.value !== original.parts[index].value,
+            )
           );
         }),
     )

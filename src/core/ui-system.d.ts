@@ -33,7 +33,15 @@ export type UiElements = {
   notice: "message" | "actions";
   field:
     "label" | "control" | "hint" | "error" | "value" | "status" | "actions";
-  card: "header" | "title" | "body" | "actions" | "section" | "section-title";
+  card:
+    | "header"
+    | "title"
+    | "body"
+    | "actions"
+    | "section"
+    | "section-title"
+    | "section-actions"
+    | "footer";
   tree: "group" | "item" | "row" | "label" | "actions";
   context: "title" | "path" | "item" | "link" | "current";
 };

@@ -29,7 +29,7 @@ describe("focused editor caret lifecycle", () => {
     editor.destroy();
   });
 
-  it("retains the same editable view and selection across source and compact toolbar toggles", () => {
+  it("retains the same editable view and selection across source mode changes", () => {
     const host = document.createElement("div");
     document.body.append(host);
     const editor = new AicEditor(host, {
@@ -52,14 +52,10 @@ describe("focused editor caret lifecycle", () => {
 
     source!.click();
     expect(source!.getAttribute("aria-label")).toBe("Show Markdown source");
-    const formatting = editor.element.querySelector<HTMLButtonElement>(
-      ".aic-formatting-toggle",
-    );
-    expect(formatting).not.toBeNull();
-    formatting!.click();
-    expect(formatting!.getAttribute("aria-expanded")).toBe("true");
-    formatting!.click();
-    expect(formatting!.getAttribute("aria-expanded")).toBe("false");
+    expect(editor.element.querySelector(".aic-formatting-toggle")).toBeNull();
+    expect(
+      editor.toolbar.element.querySelectorAll(".aic-toolbar-group button"),
+    ).toHaveLength(5);
     expect(editor.view).toBe(view);
     expect(view.state.selection.main.head).toBe(view.state.doc.length);
     editor.destroy();

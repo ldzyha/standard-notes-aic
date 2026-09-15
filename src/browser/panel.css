@@ -82,15 +82,6 @@
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 18'%3E%3Cpath d='M4 7V5a4 4 0 0 1 8 0v2M2 7h12v9H2z' fill='none' stroke='black' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E")
     center / contain no-repeat;
 }
-.browser-add-content {
-  flex: 0 0 auto;
-  margin-left: 3px;
-  font-size: 12px;
-  font-weight: 600;
-  border-color: color-mix(in srgb, var(--aic-accent) 55%, var(--aic-border));
-  color: var(--aic-accent);
-  background: color-mix(in srgb, var(--aic-accent) 7%, var(--aic-bg));
-}
 .browser-panel :is(input, summary):focus-visible {
   outline: 2px solid var(--aic-accent);
   outline-offset: 2px;
@@ -306,40 +297,9 @@
   min-width: 0;
   min-height: 0;
 }
-.browser-panel .aic-toolbar--compact {
-  flex-wrap: nowrap;
-  gap: 2px;
-  min-height: 36px;
-  padding: 2px 6px;
-  overflow: visible;
-}
-.browser-panel .aic-toolbar--compact > .aic-formatting-toggle {
-  width: auto;
-}
 .browser-panel .aic-toolbar--compact .aic-save-controls {
   gap: 2px;
   padding-block: 0;
-}
-.browser-panel .aic-toolbar--compact .aic-toolbar-tray {
-  position: absolute;
-  z-index: 20;
-  top: calc(100% + 3px);
-  right: 4px;
-  left: 4px;
-  max-height: min(18rem, calc(100dvh - 6rem));
-  padding: 6px;
-  border: 1px solid var(--aic-border);
-  border-radius: 7px;
-  background: var(--aic-contrast);
-  box-shadow: var(--browser-shadow);
-  overscroll-behavior: contain;
-}
-.browser-panel .aic-toolbar--compact .aic-toolbar-tray[hidden] {
-  display: none;
-}
-.browser-panel .aic-toolbar--compact .aic-toolbar-tray[data-placement="above"] {
-  top: auto;
-  bottom: calc(100% + 3px);
 }
 .browser-editor-host .aic-toolbar {
   font-size: 12px;
@@ -438,6 +398,16 @@
   width: auto;
   min-width: 0;
   white-space: normal;
+  justify-content: flex-start;
+  text-align: start;
+}
+.browser-page-label {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
 }
 .browser-page-delete {
   color: var(--aic-muted);
@@ -499,6 +469,12 @@
   display: grid;
   gap: 4px;
 }
+.browser-guide pre {
+  max-width: 100%;
+  margin: 4px 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
 .browser-popover > .browser-button {
   width: 100%;
   border-color: transparent;
@@ -518,6 +494,15 @@
   font-size: 11px;
   color: var(--aic-muted);
   margin: 2px 0 8px;
+}
+.browser-menu-group {
+  margin: 5px 6px 2px;
+  color: var(--aic-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 1.25;
+  text-transform: uppercase;
 }
 .browser-overlay > .browser-button,
 .browser-import > .browser-button {

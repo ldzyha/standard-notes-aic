@@ -81,6 +81,10 @@ try {
   await load(propertiesSource, "properties-preview");
   const properties = root.locator(".cm-aic-properties");
   await properties.waitFor();
+  assert.match(
+    await properties.textContent(),
+    /YAML Properties are no longer supported/u,
+  );
   assert.equal(
     (await properties.textContent()).includes("synthetic-only-secret"),
     false,
@@ -90,13 +94,77 @@ try {
     0,
   );
   assert.equal(await properties.locator(".cm-aic-drag-handle").count(), 0);
+  assert.equal(await properties.locator(".cm-aic-security-row").count(), 0);
+  assert.equal(
+    await properties.locator(".cm-aic-properties-metadata").count(),
+    0,
+  );
+  assert.equal(await properties.locator('input[type="search"]').count(), 0);
+  assert.equal(
+    (await properties.innerHTML()).includes("example.note.md"),
+    false,
+  );
+  assert.equal(await value(), propertiesSource);
   await properties.getByRole("button", { name: "Edit properties" }).click();
   assert.equal(await root.locator(".cm-aic-properties").count(), 0);
   assert.equal(await value(), propertiesSource);
+  assert.equal(
+    (await root.locator(".cm-content").textContent()).includes(
+      "synthetic-only-secret",
+    ),
+    true,
+  );
   await load("Other note", "properties-switch");
   assert.equal(await root.locator(".cm-aic-security-panel").count(), 0);
   passed.push(
-    "Properties preview masks nested-capable fields, keeps metadata read-only, and reveals source explicitly",
+    "retired YAML remains opaque without managed fields or metadata, with exact source preserved for explicit repair",
+  );
+  const typedSource =
+    "```aic\n# Properties\nAccount | synthetic-public\nPassword *| synthetic-typed-secret\nCard _| 4242 4242 4242 1234 | 12/30 *| 019\nCodes 1| synthetic-active 0| synthetic-used\n```\n\nBody";
+  await load(typedSource, "typed-properties-preview");
+  const typed = root.locator(".cm-aic-security");
+  await typed.waitFor();
+  assert.equal(await typed.locator(".cm-aic-security-error").count(), 0);
+  assert.equal(await typed.locator("[data-aic-field-part]").count(), 7);
+  for (const secret of [
+    "synthetic-typed-secret",
+    "4242 4242 4242 1234",
+    "synthetic-active",
+    "synthetic-used",
+  ])
+    assert.equal((await typed.innerHTML()).includes(secret), false);
+  assert.equal((await typed.textContent()).includes("synthetic-public"), true);
+  assert.equal((await typed.textContent()).includes("•••• 1234"), true);
+  const filter = typed.getByRole("searchbox", {
+    name: "Filter fields and groups",
+  });
+  for (const query of [
+    "synthetic-typed-secret",
+    "1234",
+    "019",
+    "synthetic-active",
+    "synthetic-used",
+  ]) {
+    await filter.fill(query);
+    assert.equal(
+      await typed.locator(".cm-aic-security-section:not([hidden])").count(),
+      0,
+    );
+  }
+  await filter.fill("synthetic-public");
+  assert.equal(
+    await typed.locator(".cm-aic-security-section:not([hidden])").count(),
+    1,
+  );
+  await filter.fill("");
+  assert.equal(await value(), typedSource);
+  await typed
+    .getByRole("button", { name: "Edit security block", exact: true })
+    .click();
+  assert.equal(await root.locator(".cm-aic-security").count(), 0);
+  assert.equal(await value(), typedSource);
+  passed.push(
+    "typed AIC parts mask secrets/card numbers and exclude confidential values from filtering without changing source",
   );
   await load("Note A old", "A");
   await page.evaluate(() =>

@@ -51,7 +51,7 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
-  it("keeps managed metadata read-only and copies the original value", async () => {
+  it("keeps retired managed YAML opaque and copies original source only explicitly", async () => {
     const source =
       "---\nfile: example.note.md\ncreated: 2026-09-12T10:00:00Z\nupdated: 2026-09-12T11:00:00Z\nstatus: idea\n---\n\nBody";
     const writes: string[] = [];
@@ -70,14 +70,19 @@ describe("AIC editor integration", () => {
       properties.querySelector('[aria-label="Delete empty file field"]'),
     ).toBeNull();
     properties
-      .querySelector<HTMLButtonElement>('[aria-label="Copy created"]')!
+      .querySelector<HTMLButtonElement>('[aria-label="Copy properties"]')!
       .click();
-    await vi.waitFor(() => expect(writes).toContain("2026-09-12T10:00:00Z"));
+    await vi.waitFor(() =>
+      expect(writes).toContain(source.split("\n\nBody")[0]),
+    );
     expect(editor.value).toBe(source);
     expect(properties.querySelector(".cm-aic-drag-handle")).toBeNull();
     editor.destroy();
   });
-  it.each(["---\nx: y\n---\n\nbody", "---\n\nx: y\n---\n\nbody"])(
+  it.each([
+    "```aic\n# Properties\nx | y\n```\n\nbody",
+    "```aic\n# Properties\n\nx | y\n```\n\nbody",
+  ])(
     "refreshes property copy callbacks after source whitespace changes: %s",
     (initial) => {
       const writes: string[] = [];
@@ -88,14 +93,14 @@ describe("AIC editor integration", () => {
       const host = document.createElement("div");
       document.body.append(host);
       const editor = new AicEditor(host, { initialText: initial });
-      const old = editor.element.querySelector(".cm-aic-properties")!;
-      editor.updateDocument("---\nx: y\n\n---\n\nbody");
-      const current = editor.element.querySelector(".cm-aic-properties")!;
+      const old = editor.element.querySelector(".cm-aic-security")!;
+      editor.updateDocument("```aic\n# Properties\nx | y\n\n```\n\nbody");
+      const current = editor.element.querySelector(".cm-aic-security")!;
       expect(current).not.toBe(old);
       current
         .querySelector<HTMLElement>('[aria-label="Copy x value"]')!
         .click();
-      expect(editor.value).toBe("---\nx: y\n\n---\n\nbody");
+      expect(editor.value).toBe("```aic\n# Properties\nx | y\n\n```\n\nbody");
       expect(document.querySelector(".cm-aic-cell-editor")).toBeNull();
       editor.switchDocument("short", "x");
       expect(() =>
@@ -124,7 +129,7 @@ describe("AIC editor integration", () => {
     const host = document.createElement("div");
     document.body.append(host);
     const editor = new AicEditor(host, {
-      initialText: "---\nempty*: \n---\n\nOriginal",
+      initialText: "```aic\n# Properties\nempty *| \n```\n\nOriginal",
     });
     editor.element
       .querySelector<HTMLButtonElement>('[aria-label="Paste empty"]')!
@@ -134,7 +139,7 @@ describe("AIC editor integration", () => {
     resolveRead!("synthetic-only-secret");
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(editor.value).toBe("Replacement note");
-    expect(editor.element.querySelector(".cm-aic-properties")).toBeNull();
+    expect(editor.element.querySelector(".cm-aic-security")).toBeNull();
     editor.destroy();
   });
 
@@ -234,7 +239,7 @@ describe("AIC editor integration", () => {
         "Heading 6",
         "Quote",
         "Table",
-        "Properties",
+        "AIC fields",
         "Code block",
         "Mermaid",
         "Horizontal rule",
@@ -286,7 +291,8 @@ describe("AIC editor integration", () => {
   });
 
   it("keeps property clicks in preview and reveals source only for Ctrl+A or Edit", async () => {
-    const source = "---\nstatus: idea\nowner: team\n---\n\nBody";
+    const source =
+      "```aic\n# Properties\nstatus | idea\nowner | team\n```\n\nBody";
     const writes: string[] = [];
     Object.defineProperty(window.navigator, "clipboard", {
       configurable: true,
@@ -296,11 +302,11 @@ describe("AIC editor integration", () => {
     document.body.append(host);
     const editor = new AicEditor(host, { initialText: source });
     let properties =
-      editor.element.querySelector<HTMLElement>(".cm-aic-properties");
+      editor.element.querySelector<HTMLElement>(".cm-aic-security");
     expect(properties).not.toBeNull();
     properties!.click();
     properties!.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-    expect(editor.element.querySelector(".cm-aic-properties")).not.toBeNull();
+    expect(editor.element.querySelector(".cm-aic-security")).not.toBeNull();
 
     editor.view.contentDOM.dispatchEvent(
       new KeyboardEvent("keydown", {
@@ -312,26 +318,24 @@ describe("AIC editor integration", () => {
     );
     expect(editor.view.state.selection.main.from).toBe(0);
     expect(editor.view.state.selection.main.to).toBe(source.length);
-    expect(editor.element.querySelector(".cm-aic-properties")).toBeNull();
+    expect(editor.element.querySelector(".cm-aic-security")).toBeNull();
 
     editor.view.dispatch({ selection: { anchor: source.length } });
-    properties =
-      editor.element.querySelector<HTMLElement>(".cm-aic-properties");
+    properties = editor.element.querySelector<HTMLElement>(".cm-aic-security");
     expect(properties).not.toBeNull();
 
     const edit = properties!.querySelector<HTMLButtonElement>(
-      '[aria-label="Edit properties"]',
+      '[aria-label="Edit security block"]',
     );
     expect(edit).not.toBeNull();
     expect(edit!.textContent).toBe("");
     expect(edit!.dataset.aicIcon).toBe("edit");
     edit!.click();
-    expect(editor.element.querySelector(".cm-aic-properties")).toBeNull();
-    expect(editor.view.state.selection.main.head).toBe(4);
+    expect(editor.element.querySelector(".cm-aic-security")).toBeNull();
+    expect(editor.view.state.selection.main.head).toBe("```aic\n".length);
 
     editor.view.dispatch({ selection: { anchor: source.length } });
-    properties =
-      editor.element.querySelector<HTMLElement>(".cm-aic-properties");
+    properties = editor.element.querySelector<HTMLElement>(".cm-aic-security");
     expect(properties).not.toBeNull();
     const status = editor.element.querySelector<HTMLElement>(
       '[aria-label="Copy status value"]',
@@ -351,13 +355,13 @@ describe("AIC editor integration", () => {
   });
 
   it("keeps native text selection inside a preview stable", () => {
-    const source = "---\nstatus: idea\n---\n\nBody";
+    const source = "```aic\n# Properties\nstatus | idea\n```\n\nBody";
     const host = document.createElement("div");
     document.body.append(host);
     const editor = new AicEditor(host, { initialText: source });
     editor.view.dispatch({ selection: { anchor: source.length } });
     const preview =
-      editor.element.querySelector<HTMLElement>(".cm-aic-properties")!;
+      editor.element.querySelector<HTMLElement>(".cm-aic-security")!;
     const value = preview.querySelector<HTMLElement>(
       '[aria-label="Copy status value"]',
     )!;
@@ -378,7 +382,7 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
-  it("masks nested secret properties and leaves source and comments intact", async () => {
+  it("quarantines nested legacy secrets while preserving source and comments", async () => {
     const source = [
       "---",
       "# Keep this authored comment",
@@ -407,9 +411,11 @@ describe("AIC editor integration", () => {
     expect(properties!.textContent).not.toContain("synthetic-only-secret");
     expect(properties!.querySelector(".cm-aic-drag-handle")).toBeNull();
     properties!
-      .querySelector<HTMLButtonElement>('[aria-label="Copy token value"]')!
+      .querySelector<HTMLButtonElement>('[aria-label="Copy properties"]')!
       .click();
-    await vi.waitFor(() => expect(writes).toContain("synthetic-only-secret"));
+    await vi.waitFor(() =>
+      expect(writes).toContain(source.split("\n\nBody")[0]),
+    );
     expect(editor.value).toBe(source);
     expect(document.querySelector(".cm-aic-cell-editor")).toBeNull();
     editor.destroy();
@@ -661,6 +667,7 @@ describe("AIC editor integration", () => {
       [...controls].every(
         (control) =>
           control.classList.contains("aic-source-mode-toggle") ||
+          control.dataset.aicReadonlyAction === "true" ||
           control.disabled,
       ),
     ).toBe(true);

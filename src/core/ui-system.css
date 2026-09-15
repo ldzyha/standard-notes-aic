@@ -129,6 +129,13 @@
 .aic-card {
   padding: var(--aic-card-padding, 0);
 }
+.aic-card__footer {
+  border-block-start: 1px solid var(--aic-details-border, var(--aic-border));
+  background: var(--aic-bg, Canvas);
+}
+.aic-card__footer > .aic-button {
+  border-color: var(--aic-control-border, var(--aic-border));
+}
 .aic-menu--compact {
   padding: var(--aic-space-2);
 }
@@ -168,7 +175,7 @@
   display: block;
   margin-block-end: var(--aic-space-1);
 }
-.aic-field--compact > .aic-field__label {
+.aic-field--compact .aic-field__label {
   margin-block-end: 0;
 }
 .aic-field__control {

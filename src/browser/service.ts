@@ -176,7 +176,7 @@ export function createBrowserService(api: BrowserApi) {
           message.page,
           message.allowPrivate === true,
         );
-        if (!["page", "selection"].includes(message.mode))
+        if (!["auto", "page", "selection"].includes(message.mode))
           throw new BrowserActionError("Choose a page or selection to import.");
         let result;
         try {

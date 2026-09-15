@@ -1,84 +1,62 @@
-const RESERVED = new Set(["__proto__", "prototype", "constructor"]);
-const INVALID = "Invalid field label";
-
-function fail() {
-  throw new TypeError(INVALID);
-}
-
-function printable(value) {
+function valid(label) {
   return (
-    typeof value === "string" &&
-    value.length > 0 &&
-    value.length <= 256 &&
-    value.trim() === value &&
-    !/[\p{C}\u2028\u2029]/u.test(value)
+    typeof label === "string" &&
+    label.length <= 256 &&
+    label.trim() === label &&
+    !/[\p{C}\u2028\u2029]/u.test(label)
   );
 }
-
-/** Marker interpretation is selected by callers; Security alone allows empty labels. */
-export function parseFieldLabel(rawKey, options = {}) {
-  if (typeof rawKey !== "string") fail();
-  let source = rawKey;
-  const pipes = options?.fieldSyntax === "pipes";
-  if (options?.fieldSyntax !== undefined && !pipes) fail();
-  const marker = pipes ? source.at(-1) : source.endsWith("*") ? "*" : "";
-  const marked =
-    marker === "*" || (pipes && (marker === "#" || marker === "_"));
-  if (marked) {
-    source = source.slice(0, -1);
-  }
-  if (
-    !(
-      printable(source) ||
-      (options?.allowEmptyLabel === true && source === "")
-    ) ||
-    (pipes && RESERVED.has(source)) ||
-    (pipes && /[*#_]$/u.test(source))
-  )
-    fail();
-  return {
-    label: source,
-    hide: marker === "*" || marker === "#",
-    ...(marker === "#" ? { kind: "totp" } : {}),
-    ...(marker === "_" ? { kind: "card" } : {}),
-  };
+function fail() {
+  throw new TypeError("Invalid field label");
 }
-
-/** Serialize the marker without interpreting value components. */
+/** Labels never carry type; JSON quoting protects punctuation and heading syntax. */
+export function parseFieldLabel(raw, options = {}) {
+  let label = raw;
+  if (typeof raw !== "string") fail();
+  if (raw.startsWith('"')) {
+    try {
+      label = JSON.parse(raw);
+    } catch {
+      fail();
+    }
+  } else if (/[:|"\\]/u.test(raw)) fail();
+  if (!valid(label) || (!label && options.allowEmptyLabel !== true)) fail();
+  return { label };
+}
 export function serializeFieldLabel(field, options = {}) {
-  const pipes = options?.fieldSyntax === "pipes";
-  if (
-    (options?.fieldSyntax !== undefined && !pipes) ||
-    !field ||
-    typeof field !== "object" ||
-    Array.isArray(field) ||
-    !(
-      printable(field.label) ||
-      (options?.allowEmptyLabel === true && field.label === "")
-    ) ||
-    (pipes && RESERVED.has(field.label)) ||
-    typeof field.hide !== "boolean" ||
-    (!pipes && field.kind !== undefined) ||
-    (field.kind !== undefined && !["totp", "card"].includes(field.kind)) ||
-    (field.kind === "totp" && !field.hide) ||
-    (pipes ? /[*#_]$/u : /\*$/u).test(field.label)
-  )
-    fail();
-  const marker =
-    pipes && field.kind === "totp"
-      ? "#"
-      : pipes && field.kind === "card"
-        ? "_"
-        : field.hide
-          ? "*"
-          : "";
-  const raw = `${field.label}${marker}`;
-  const parsed = parseFieldLabel(raw, options);
-  if (
-    parsed.label !== field.label ||
-    (field.kind !== "card" && parsed.hide !== field.hide) ||
-    parsed.kind !== field.kind
-  )
-    fail();
-  return raw;
+  const label = field?.label;
+  if (!valid(label) || (!label && options.allowEmptyLabel !== true)) fail();
+  return /[:|"\\]/u.test(label) || /^[#\u0060~]/u.test(label) || label === "---"
+    ? JSON.stringify(label)
+    : label;
+}
+/** Locate the first separator without confusing a pipe in a quoted label. */
+export function scanFieldLabel(line, options = {}) {
+  let end;
+  if (line.trimStart().startsWith('"')) {
+    const first = line.indexOf('"');
+    let cursor = first + 1;
+    for (; cursor < line.length; cursor += 1) {
+      if (line[cursor] === "\\") cursor += 1;
+      else if (line[cursor] === '"') break;
+    }
+    if (cursor >= line.length) fail();
+    end = cursor + 1;
+    while (line[end] === " " || line[end] === "\t") end += 1;
+    const separatorFrom = end;
+    if ("*#_10".includes(line[end] ?? "") && end < line.length) end += 1;
+    if (line[end] !== "|") fail();
+    return {
+      ...parseFieldLabel(line.slice(first, cursor + 1), options),
+      separatorFrom,
+    };
+  }
+  const pipe = line.indexOf("|");
+  if (pipe < 0) return null;
+  const separatorFrom =
+    pipe > 0 && "*#_10".includes(line[pipe - 1]) ? pipe - 1 : pipe;
+  return {
+    ...parseFieldLabel(line.slice(0, separatorFrom).trim(), options),
+    separatorFrom,
+  };
 }
