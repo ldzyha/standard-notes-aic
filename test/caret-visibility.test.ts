@@ -11,7 +11,6 @@ describe("focused editor caret lifecycle", () => {
     document.body.append(host);
     const editor = new AicEditor(host, {
       initialText: SEED,
-      compactToolbar: true,
     });
     editor.setSaveState("placeholder");
     editor.view.dispatch({ selection: { anchor: SEED.length } });
@@ -34,7 +33,6 @@ describe("focused editor caret lifecycle", () => {
     document.body.append(host);
     const editor = new AicEditor(host, {
       initialText: `${SEED}Body`,
-      compactToolbar: true,
     });
     const view = editor.view;
     view.dispatch({ selection: { anchor: view.state.doc.length } });

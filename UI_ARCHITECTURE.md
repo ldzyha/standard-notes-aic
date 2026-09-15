@@ -38,11 +38,14 @@ the release-oriented `FUNCTIONAL_INDEX.md`:
    and code-preview layout that was previously duplicated between the Standard
    Notes stylesheet and VS Code theme. Compatibility selectors remain while
    producers migrate.
-5. The browser page and Shared Properties editors use five direct compact actions:
-   strike, link, bullet/ordered/task lists. No Format disclosure, Style selector or
-   Insert selector is created in this host; Markdown, slash commands and keymaps
-   remain the command owners. Standard Notes retains its full formatting controls
-   and adds the shared local `?` guide.
+5. Standard Notes and the browser page and Shared Properties editors use one
+   always-compact toolbar composition: strike, link, bullet/ordered/task lists,
+   source mode, and a local `?` guide where the host enables its trigger. No Format
+   disclosure, Style/Insert selector or Bold/Italic/Inline-code button is mounted;
+   Markdown, slash commands and keymaps remain those command owners. The shared
+   editor enables its guide by default, while the browser suppresses that trigger
+   because its panel owns the local guide entry point. The toolbar wraps rather
+   than scrolling horizontally and retains 44 px targets for coarse pointers.
    Domain identity and actions remain part of the compact shared surface.
 6. `src/core/ui-system.*` now defines the eight IDs, allowed elements and
    modifiers, additive class application, a native button factory, and common

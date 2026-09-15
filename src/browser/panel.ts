@@ -1022,7 +1022,7 @@ export class BrowserPanel {
     this.content.append(host);
     this.editor = new AicEditor(editorHost, {
       initialText: draft.text,
-      compactToolbar: true,
+      showEditorHelp: false,
       onChange: (text) => {
         if (
           this.valid(generation, context) &&

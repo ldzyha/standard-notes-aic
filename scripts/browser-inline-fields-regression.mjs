@@ -56,7 +56,7 @@ async function mount(page, initialText, readOnly = false) {
       });
       window.inlineEditor = new AicEditor(host, {
         initialText,
-        compactToolbar: true,
+        showEditorHelp: false,
         readOnly,
       });
       window.inlineEditor.view.dispatch({

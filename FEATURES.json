@@ -118,7 +118,7 @@
     {
       "id": "core.formatting-indentation",
       "group": "shared-editor",
-      "purpose": "Apply toolbar and keyboard Markdown formatting, list continuation, indentation, and one-operation undo boundaries.",
+      "purpose": "Provide one always-compact Standard Notes/browser toolbar with direct strike, link, bullet, ordered and task-list actions while keyboard, Markdown and slash commands own the omitted formatting operations; also preserve list continuation, indentation and one-operation undo boundaries.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/commands.ts",
@@ -576,7 +576,7 @@
     {
       "id": "core.editor-help",
       "group": "design-system",
-      "purpose": "Build one short inert local editor guide while each host owns its trigger, popover placement, focus, Escape handling, and disposal.",
+      "purpose": "Build one short inert local editor guide, enabled by the shared editor by default and explicitly suppressed when the browser panel owns its trigger, while each host owns popover placement, focus, Escape handling, and disposal.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": ["standard-notes-aic/src/core/editor-help.js"],
       "sourceFiles": [

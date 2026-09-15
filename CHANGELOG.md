@@ -2,6 +2,28 @@
 
 ## Unreleased
 
+## 36.0.1 — 2026-09-15
+
+Release sequence 36 · 0 feature outcomes · 1 fixed-bug outcome. AIC Editor Core
+remains 6.0.0 and AIC Notes remains 44.4.7. Release source target; GitHub
+publication and hosted-manifest deployment require separate verification.
+
+### Fix
+
+1. Standard Notes now uses the same single always-compact editor toolbar as the
+   browser: direct strike, link, bullet-list, ordered-list and task-list actions,
+   plus source mode and the bundled local guide. The retired full-toolbar path and
+   its Style/Insert selectors and Bold/Italic/Inline-code buttons are no longer
+   mounted; those operations remain available through keyboard shortcuts,
+   authored Markdown and slash commands. The toolbar wraps instead of introducing
+   horizontal scrolling, and coarse-pointer actions retain 44 px targets.
+
+Compatibility: Browser 0.3.1 includes the shared host-toolbar and CSS bundle
+change. The encrypted-library format is unchanged. This release does not change
+AIC Editor Core 6.0.0 or AIC Notes 44.4.7. Browser and Standard Notes packaged
+runtime acceptance, GitHub publication, hosted-manifest deployment and store
+publication remain separate verified actions.
+
 ## 35.3.9 — 2026-09-15
 
 Release sequence 35 · 3 feature outcomes · 9 fixed-bug outcomes. The shared editor

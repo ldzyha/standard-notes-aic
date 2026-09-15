@@ -1,20 +1,10 @@
 import type { EditorView } from "@codemirror/view";
 import { createIconButton } from "./core/structured-preview.js";
 import {
-  insertCodeFence,
-  insertHorizontalRule,
   insertLink,
-  insertMermaid,
-  insertProperties,
-  insertTable,
-  setBlockKind,
-  toggleBold,
-  toggleInlineCode,
-  toggleItalic,
   toggleList,
   toggleStrike,
   type AicCommand,
-  type BlockKind,
 } from "./commands";
 
 export type ToolbarController = Readonly<{
@@ -39,77 +29,24 @@ function actionButton(
 
 function group(label: string, document: Document) {
   const element = document.createElement("div");
-  element.className = "aic-toolbar-group";
+  element.className = "aic-toolbar__group aic-toolbar-group";
   element.setAttribute("role", "group");
   element.setAttribute("aria-label", label);
   return element;
 }
 
-function option(select: HTMLSelectElement, value: string, label: string) {
-  const element = select.ownerDocument.createElement("option");
-  element.value = value;
-  element.textContent = label;
-  select.append(element);
-}
-
 export function createToolbar(
   getView: () => EditorView,
   document: Document = globalThis.document,
-  options: { compact?: boolean } = {},
 ): ToolbarController {
   const toolbar = document.createElement("header");
-  toolbar.className = "aic-toolbar";
+  toolbar.className = "aic-toolbar aic-toolbar--compact aic-toolbar--wrap";
   toolbar.setAttribute("aria-label", "AIC formatting");
-  if (options.compact) toolbar.classList.add("aic-toolbar--compact");
-
-  if (!options.compact) {
-    const blockGroup = group("Block style", document);
-    const block = document.createElement("select");
-    block.className = "aic-toolbar-select";
-    block.setAttribute("aria-label", "Block style");
-    option(block, "", "Style");
-    option(block, "paragraph", "Paragraph");
-    for (let level = 1; level <= 6; level++)
-      option(block, String(level), `Heading ${level}`);
-    option(block, "quote", "Quote");
-    block.addEventListener("change", () => {
-      if (!block.value) return;
-      const value: BlockKind = /^\d$/u.test(block.value)
-        ? (Number(block.value) as BlockKind)
-        : (block.value as BlockKind);
-      setBlockKind(getView(), value);
-      block.value = "";
-    });
-    blockGroup.append(block);
-    toolbar.append(blockGroup);
-  }
 
   const inlineGroup = group("Inline formatting", document);
-  if (!options.compact) {
-    inlineGroup.append(
-      actionButton(
-        "bold",
-        "Bold (Ctrl/Command+B)",
-        toggleBold,
-        getView,
-        document,
-      ),
-      actionButton(
-        "italic",
-        "Italic (Ctrl/Command+I)",
-        toggleItalic,
-        getView,
-        document,
-      ),
-    );
-  }
   inlineGroup.append(
     actionButton("strike", "Strikethrough", toggleStrike, getView, document),
   );
-  if (!options.compact)
-    inlineGroup.append(
-      actionButton("code", "Inline code", toggleInlineCode, getView, document),
-    );
   inlineGroup.append(
     actionButton(
       "link",
@@ -146,38 +83,11 @@ export function createToolbar(
   );
   toolbar.append(inlineGroup, listGroup);
 
-  if (!options.compact) {
-    const insertGroup = group("Insert block", document);
-    const insert = document.createElement("select");
-    insert.className = "aic-toolbar-select";
-    insert.setAttribute("aria-label", "Insert block");
-    option(insert, "", "Insert");
-    option(insert, "table", "Table");
-    option(insert, "properties", "AIC fields");
-    option(insert, "code", "Code block");
-    option(insert, "mermaid", "Mermaid");
-    option(insert, "rule", "Horizontal rule");
-    const insertCommands: Record<string, AicCommand> = {
-      table: insertTable,
-      properties: insertProperties,
-      code: insertCodeFence,
-      mermaid: insertMermaid,
-      rule: insertHorizontalRule,
-    };
-    insert.addEventListener("change", () => {
-      insertCommands[insert.value]?.(getView());
-      insert.value = "";
-    });
-    insertGroup.append(insert);
-    toolbar.append(insertGroup);
-  }
   return Object.freeze({
     element: toolbar,
     setReadOnly(readOnly: boolean) {
       toolbar
-        .querySelectorAll<HTMLButtonElement | HTMLSelectElement>(
-          "button,select",
-        )
+        .querySelectorAll<HTMLButtonElement>("button")
         .forEach((control) => {
           if (
             control.classList.contains("aic-source-mode-toggle") ||

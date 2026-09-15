@@ -62,7 +62,7 @@
     },
     {
       "id": "toolbar",
-      "purpose": "A row or wrapping group of context title and actions; behavior and save ownership remain with the host.",
+      "purpose": "A compact wrapping group of context title and actions that avoids horizontal scrolling and retains 44 px coarse-pointer targets; behavior, optional local-guide placement, and save ownership remain with the host.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "bem": {
         "block": "aic-toolbar",

@@ -56,7 +56,8 @@ export type AicEditorOptions = {
   document?: Document;
   initialText?: string;
   readOnly?: boolean;
-  compactToolbar?: boolean;
+  /** Disable only when the host provides its own shared editor-guide action. */
+  showEditorHelp?: boolean;
   onChange?: (text: string) => void;
   onSave?: (reason?: "action" | "boundary") => boolean | Promise<boolean>;
 };
@@ -152,14 +153,10 @@ export class AicEditor {
     this.editorHost = this.document.createElement("div");
     this.editorHost.className = "aic-editor-host";
     let view: EditorView | null = null;
-    this.toolbar = createToolbar(
-      () => {
-        if (!view) throw new Error("AIC editor is not ready");
-        return view;
-      },
-      this.document,
-      { compact: options.compactToolbar ?? false },
-    );
+    this.toolbar = createToolbar(() => {
+      if (!view) throw new Error("AIC editor is not ready");
+      return view;
+    }, this.document);
     this.sourceModeButton = this.sourceMode.createButton(
       this.document,
       () => view,
@@ -199,9 +196,8 @@ export class AicEditor {
       this.toolbar.element.prepend(this.saveControls);
     }
     this.element.append(this.toolbar.element, this.editorHost);
-    this.unwireEditorHelp = options.compactToolbar
-      ? () => {}
-      : this.wireEditorHelp();
+    this.unwireEditorHelp =
+      options.showEditorHelp === false ? () => {} : this.wireEditorHelp();
     parent.append(this.element);
 
     view = new EditorView({

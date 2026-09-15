@@ -96,19 +96,18 @@ select {
   color: var(--aic-fg);
 }
 
-.aic-toolbar {
+.aic-editor > .aic-toolbar {
+  --aic-control-size-compact: 24px;
   position: relative;
   z-index: 10;
   min-width: 0;
-  min-height: 44px;
-  padding: 0.3rem 0.55rem;
-  overflow-x: auto;
-  overflow-y: hidden;
+  min-height: 32px;
+  padding: 2px max(6px, env(safe-area-inset-right)) 2px
+    max(6px, env(safe-area-inset-left));
+  gap: 2px;
   border-bottom: 1px solid var(--aic-border);
   background: var(--aic-contrast);
   color: var(--aic-contrast-fg);
-  scrollbar-width: thin;
-  overscroll-behavior-x: contain;
 }
 
 .aic-save-button[hidden],
@@ -117,14 +116,12 @@ select {
 }
 
 .aic-save-controls {
-  position: sticky;
-  left: 0;
-  z-index: 1;
   display: inline-flex;
-  flex: 0 0 auto;
+  flex: 0 1 auto;
   align-items: center;
   gap: 0.35rem;
-  max-width: min(65%, 17rem);
+  min-width: 0;
+  max-width: min(30%, 8rem);
   padding: 0.15rem 0.35rem 0.15rem 0;
   background: var(--aic-contrast);
   border-radius: 0.35rem;
@@ -139,7 +136,9 @@ select {
   color: var(--aic-surface-muted);
   font: 650 0.76rem/1.3
     var(--sn-stylekit-sans-serif-font, system-ui, sans-serif);
-  white-space: normal;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .aic-save-status:empty {
@@ -158,56 +157,22 @@ select {
   color: var(--aic-danger);
 }
 
-.aic-toolbar-group {
-  display: inline-flex;
+.aic-editor > .aic-toolbar > .aic-toolbar__group {
   flex: 0 0 auto;
-  align-items: center;
-  gap: 0.18rem;
-  padding-right: 0.35rem;
+  gap: 1px;
+  padding-right: 2px;
   border-right: 1px solid var(--aic-border);
 }
 
-.aic-toolbar-group:last-child {
+.aic-editor > .aic-toolbar > .aic-toolbar__group:last-of-type {
   padding-right: 0;
   border-right: 0;
 }
 
-/* Browser editors use five direct actions; Markdown/slash/keymaps own the rest. */
-.aic-toolbar--compact {
-  --aic-control-size-compact: 24px;
-  flex-wrap: nowrap;
-  min-height: 32px;
-  padding: 2px 6px;
-  gap: 2px;
-}
-
-.aic-toolbar--compact .aic-save-controls {
-  position: static;
-  flex: 0 1 auto;
-  max-width: min(30%, 8rem);
-}
-
-.aic-toolbar--compact .aic-toolbar-group {
-  gap: 1px;
-  padding-right: 2px;
-}
-.aic-toolbar--compact .aic-save-status {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.aic-toolbar--compact .aic-toolbar-button::before {
+/* One inline surface in every AicEditor; other commands use Markdown/keymaps. */
+.aic-editor > .aic-toolbar .aic-toolbar-button::before {
   width: 14px;
   height: 14px;
-}
-
-.aic-toolbar-select {
-  min-height: var(--aic-control-size);
-  border: 1px solid transparent;
-  border-radius: 0.4rem;
-  background: transparent;
-  color: inherit;
-  cursor: pointer;
 }
 
 .aic-toolbar-button {
@@ -232,18 +197,17 @@ select {
   box-shadow: 0 0.75rem 2rem color-mix(in srgb, var(--aic-fg) 18%, transparent);
 }
 
-.aic-toolbar-select {
-  max-width: 8.6rem;
-  padding: 0 1.65rem 0 0.55rem;
-  border-color: var(--aic-control-border);
-  background: var(--aic-contrast);
-}
+@media (pointer: coarse) {
+  .aic-editor > .aic-toolbar {
+    gap: 1px;
+    padding-inline: max(2px, env(safe-area-inset-left))
+      max(2px, env(safe-area-inset-right));
+  }
 
-.aic-toolbar-select:hover,
-.aic-toolbar-select:focus-visible {
-  border-color: color-mix(in srgb, var(--aic-accent) 60%, var(--aic-border));
-  background: color-mix(in srgb, var(--aic-accent) 10%, transparent);
-  outline: none;
+  .aic-editor > .aic-toolbar > .aic-toolbar__group {
+    gap: 0;
+    padding-right: 0;
+  }
 }
 
 .aic-editor-host {
@@ -857,15 +821,6 @@ select {
 }
 
 @media (max-width: 700px) {
-  .aic-toolbar {
-    min-height: 52px;
-    padding: 0.25rem max(0.35rem, env(safe-area-inset-left));
-  }
-
-  .aic-toolbar-select {
-    min-height: var(--aic-control-size-touch);
-  }
-
   .aic-editor-host .cm-content {
     width: 100%;
     padding: 1rem max(0.85rem, env(safe-area-inset-left)) 35vh

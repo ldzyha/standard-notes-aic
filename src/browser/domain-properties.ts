@@ -228,7 +228,7 @@ export class DomainPropertiesView {
     this.editor = new AicEditor(this.content, {
       document: this.document,
       initialText: text,
-      compactToolbar: true,
+      showEditorHelp: false,
       onChange: (next) => {
         this.draftText = next;
         this.options.onChange(next);

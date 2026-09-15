@@ -100,6 +100,14 @@ Unsupported layouts and old YAML Properties
 remain editable through source, without an implicit reorder/migration. Moves request one save
 through the host and remain undoable.
 
+Standard Notes and the browser editor use one always-compact formatting toolbar:
+strike, link, bullet list, ordered list and task list are direct actions, followed
+by source mode and the bundled local `?` guide where that host mounts it. There are
+no Style/Insert selectors or Bold/Italic/Inline-code buttons. Use their existing
+keyboard shortcuts, authored Markdown or slash commands instead. The toolbar wraps
+onto another row rather than scrolling horizontally; coarse-pointer controls keep
+44 px targets.
+
 The editor-level **Show Markdown source / Show preview** icon toggles all previews together,
 without opening another editor, changing source, resetting Undo or saving. The mode lasts only
 for the current note and resets on a different note. It also exposes starred values in their raw
@@ -152,34 +160,30 @@ Legacy YAML Properties remain ordinary authored Markdown. They are not rendered 
 fields, interpreted as metadata, rewritten on save, or automatically migrated. Source
 mode keeps that text accessible for manual repair.
 
-## Release 35.3.9
+## Release 36.0.1
 
 This release pairs with AIC Notes 44.4.7 and AIC Editor Core 6.0.0. This document
 describes the release source and its contracts; deployment and the hosted manifest
 are verified separately by the release workflow.
 
-The 35.3.9 release introduces the typed-pipe AIC document and shared local guide. It
-also aligns card labels/values with adjacent simple fields, separates
-field and Section calls to action into distinct section/footer surfaces, and keeps
-browser navigation titles readable without visibly exposing full query or fragment
-text. Parser-backed plain previews also keep nested URL/query suffixes out of visible
-Markdown link labels. Exact stored URLs, authored Markdown, navigation targets, note
-identities, masked parts and independent copy actions remain unchanged. It also makes
-shared field-add menus compact and left-aligned, and gives the compact browser editor
-five direct formatting icons instead of nested Format/Style/Insert controls. Browser
-content/Markdown transfer also uses direct icons, native paste replaces the clipboard
-button, and More is limited to deletion/history and grouped encrypted backups. The full
-Standard Notes exposes the guide in its full toolbar without changing the compact
-browser toolbar. The browser archive has its own version, 0.3.0, and explicit
+Release 36.0.1 fixes the Standard Notes editor toolbar by removing the retired full
+variant and using the same single compact action set as the browser. Source mode and
+the local guide remain directly available, while Bold, Italic, Inline code, block
+styles and inserted structures remain keyboard-, Markdown- or slash-command actions.
+Wrapping prevents narrow layouts from gaining a toolbar scrollbar, and coarse-pointer
+targets remain 44 px. Browser 0.3.1 carries the changed shared host toolbar and CSS
+bundle. AIC Notes remains 44.4.7 and shared core remains 6.0.0. The browser archive
+has explicit
 [verification boundaries](browser/VERIFICATION.md); use synthetic data while its
 remaining packaged-runtime gates are open. See the [browser guide](browser/README.md)
 and [marketplace HOWTO](MARKETPLACE_HOWTO.md) for installation and future submissions.
 
-Core 6.0.0 is breaking because old colon/YAML field forms are no longer active syntax.
-Old text remains accessible and is not converted. Contextual Field/Row/Section
-actions replace a permanently mounted Section footer. Existing
-compatibility selectors and host placement rules remain. This release does not include
-the separately proposed global Shared/encryption work.
+The prior 35.3.9 release introduced the typed-pipe AIC document and local guide,
+aligned card and field actions, bounded browser labels, parser-backed link labels,
+compact field menus and direct browser import/export actions. Core 6.0.0 remains
+breaking because old colon/YAML field forms are no longer active syntax; old text
+stays accessible and is not converted. This release does not include the separately
+proposed global Shared/encryption work.
 
 The prior 34.3.1 release added the compact browser surface, metadata-only saved
 ancestors and guarded local page-note deletion, plus the shared component/BEM layer
@@ -452,6 +456,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `35.3.9` is sequence 35 with
-three feature outcomes and nine fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `36.0.1` is sequence 36 with
+zero feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

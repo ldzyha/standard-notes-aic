@@ -1,9 +1,54 @@
 # Chrome / Edge experimental build verification — 2026-09-15
 
-Status: **0.3.0 experimental component**, not a store release or an independently
+Status: **0.3.1 experimental component**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
 using one Chromium Manifest V3 package. All test passphrases, notes and clipboard
 substitutes are synthetic. No user profile or real notes are part of these tests.
+
+## 0.3.1 compact shared editor toolbar — release verification
+
+- Scope: Standard Notes and the browser share one always-compact editor
+  toolbar with direct strike, link, bullet-list, ordered-list and task-list actions,
+  source mode, and a local guide where the host enables its trigger. The browser
+  explicitly suppresses the editor-level guide because its panel owns that entry
+  point. Style/Insert selectors and Bold/Italic/Inline-code buttons are absent;
+  keyboard shortcuts, Markdown and slash commands retain those operations.
+- Responsive contract: the toolbar wraps without horizontal scrolling and
+  coarse-pointer actions retain 44 px targets.
+- Version pair: Standard Notes AIC **36.0.1**, browser **0.3.1**, AIC Notes
+  **44.4.7**, shared core **6.0.0**. The browser version changes because its package
+  contains the changed shared host-toolbar and CSS bundle; the encrypted-library
+  format is unchanged.
+- The full canonical suite passed **1,054 tests in 92 files**. Typecheck, lint,
+  formatting, notices, shared-core parity and production builds passed. Focused
+  tests cover the default seven-button Standard Notes surface, host-owned help,
+  readonly access, keyboard formatting, source mode and save/retry states.
+- The compiled Standard Notes build passed Chrome and Edge checks in light/dark,
+  320/600 px and fine/coarse-pointer layouts. The clean toolbar is 32 px with a
+  mouse and a single 49 px row with 44 px touch targets, including at 320 px. Dirty
+  Save/retry controls remain reachable without horizontal overflow; narrow touch
+  layouts wrap only when those extra controls require it. Synthetic storage
+  failure exposes Retry and returns to saved after recovery. A compiled iframe
+  fixture verifies readonly formatting, enabled source/help and heading focus.
+  These are isolated synthetic host fixtures, not a signed-in Standard Notes PWA
+  session. Evidence: `D:\aic\reviews\standard-notes-toolbar-20260915-compiled-edge`
+  and the corresponding `-compiled-chrome` directory.
+- Final installed Edge runtime passed **12 checks** in a fresh disposable profile:
+  worker/sidebar activation, sender isolation, outgoing-request CSP, encrypted
+  page/domain saves, masked shared preview, Lock and restart/unlock. A bounded scan
+  of 229 profile files found no synthetic shared secret; this is not a forensic
+  erasure claim. Evidence: `D:\aic\reviews\browser-extension-20260914\release-0.3.1-edge-final`.
+  Panel JavaScript SHA-256:
+  `2a8cde214193c9a62ff6edf97182d16a9133052708709911111d4f864340daa2`;
+  panel CSS SHA-256:
+  `e8a258fe2a41c68da49325bff5c8a14458d89f966ac1fb7f34561bcd0260766d`.
+  Documentation-only repackaging must preserve all runtime/manifest bytes.
+- Updated lifecycle checks passed 200 cycles with embedded help and 200 with
+  host-owned help: zero retained editor roots, DOM nodes 7, listeners 0 and no
+  reported errors. This bounded result does not prove every workload leak-free.
+- Installed Chrome acceptance, interactive permission prompts, real OS clipboard
+  behavior and installed-runtime cross-panel Lock remain unverified. Historical
+  evidence below is not substituted for this version's checks.
 
 ## 0.3.0 AIC-only fields — release-candidate verification
 

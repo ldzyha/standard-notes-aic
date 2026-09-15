@@ -14,15 +14,15 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 structured AIC fields, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 35.3.9 pairs with AIC Notes 44.4.7 and AIC Editor Core 6.0.0.
+storage format. Release 36.0.1 pairs with AIC Notes 44.4.7 and AIC Editor Core 6.0.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
 ## Current host boundary — 2026-09-15
 
-The experimental browser release component 0.3.0 targets Chrome and Edge only, using one
+The experimental browser release component 0.3.1 targets Chrome and Edge only, using one
 Chromium package and this repository's `AicEditor`, with
-an opt-in compact contextual toolbar and explicit read-only
+the same always-compact editor toolbar as Standard Notes and explicit read-only
 page/selection/Markdown import. When shared AIC data are empty, their
 action remains inline in the editor toolbar; saved shared data renders as its own
 masked section. See [browser/README.md](browser/README.md) and its verification record.
@@ -67,7 +67,25 @@ zoom and a shared workspace tree are proposed, not implemented; their ownership,
 risks and dependency-ordered transition are in
 [ADAPTIVE_PREVIEW_STUDY.md](ADAPTIVE_PREVIEW_STUDY.md).
 
-## Shared-core changes in release 35.3.9
+## Host toolbar fix in release 36.0.1
+
+- Standard Notes and the browser now share one always-compact toolbar composition:
+  direct strike, link, bullet, ordered and task-list actions, source mode, and a
+  bundled local guide where the host enables its trigger. The shared editor enables
+  the guide by default; the browser disables that editor-level trigger because its
+  panel owns the local guide entry point.
+- The retired full-toolbar branch, `compactToolbar` choice, Style/Insert selectors
+  and Bold/Italic/Inline-code buttons are no longer current surfaces. Those
+  operations remain available through existing keymaps, authored Markdown and slash
+  commands.
+- The toolbar wraps instead of creating horizontal scrolling, while coarse-pointer
+  actions retain 44 px targets. Browser 0.3.1 carries the shared host-toolbar and CSS
+  bundle change. Shared core remains 6.0.0 and AIC Notes remains 44.4.7.
+- This is a release-source contract, not packaged Standard Notes or browser runtime
+  acceptance. Current candidate verification is recorded separately in
+  [browser/VERIFICATION.md](browser/VERIFICATION.md).
+
+## Prior shared-core changes in release 35.3.9
 
 - Core 6.0.0 replaces legacy colon/YAML field interpretation with one bounded
   `aic` document and typed pipe values. `|`, `*|`, `#|`, `_|`, `1|`, and `0|`
@@ -76,8 +94,9 @@ risks and dependency-ordered transition are in
   Add Section inserts after the current section. This is a breaking source grammar;
   old text remains raw and is not migrated automatically.
 - The shared local `?` guide exposes this grammar and the narrow host differences.
-  Standard Notes shows it only in the full toolbar; the compact browser host and VS
-  Code own their popover triggers without copying guide content.
+  In 35.3.9, Standard Notes mounted it with the then-existing broader controls; the
+  browser and VS Code owned their popover triggers without copying guide content.
+  Release 36.0.1 retires that broader Standard Notes toolbar.
 - Contextual Field/Row/Section actions follow the relevant row. Empty sections keep
   Row and Section inline, without a dedicated New-block or Section footer.
 - Card/composite labels and first values use the same grid, typography and alignment
@@ -91,8 +110,9 @@ risks and dependency-ordered transition are in
 - Shared field-add menus use compact left-aligned items while preserving their
   action, viewport-bound and keyboard contracts.
 - The compact browser host separately replaces its nested Format/Style/Insert menus
-  with five direct strike/link/bullet/ordered/task icons. Standard Notes retains
-  its full formatting controls and adds the shared local `?` guide.
+  with five direct strike/link/bullet/ordered/task icons. In 35.3.9, Standard Notes
+  still used its broader formatting controls and added the shared local `?` guide;
+  release 36.0.1 replaces that surface with the compact action set.
 - Browser content/Markdown transfer uses direct import-page-or-selection, Markdown
   import and Markdown download icons. Native paste replaces the dedicated clipboard
   action; redundant Copy actions are removed, and More is limited to note/history

@@ -3,6 +3,8 @@ import releaseWorkflow from "../.github/workflows/release.yml?raw";
 import readme from "../README.md?raw";
 import changelog from "../CHANGELOG.md?raw";
 import functionalIndex from "../FUNCTIONAL_INDEX.md?raw";
+import marketplaceHowto from "../MARKETPLACE_HOWTO.md?raw";
+import browserManifest from "../browser/manifest.json";
 import manifest from "../public/ext.json";
 import { parse } from "yaml";
 
@@ -65,10 +67,17 @@ describe("publication metadata", () => {
   });
 
   it("documents the current R.F.B release and packages usage and UI contracts", () => {
+    expect(manifest.version).toBe("36.0.1");
+    expect(browserManifest.version).toBe("0.3.1");
     expect(changelog).toContain(`## ${manifest.version} — 2026-09-15`);
     expect(changelog).toContain(
-      "Release sequence 35 · 3 feature outcomes · 9 fixed-bug outcomes",
+      "Release sequence 36 · 0 feature outcomes · 1 fixed-bug outcome",
     );
+    expect(changelog).toContain(
+      "Browser 0.3.1 includes the shared host-toolbar and CSS bundle",
+    );
+    expect(marketplaceHowto).toContain("aic-browser-chromium-0.3.1.zip");
+    expect(marketplaceHowto).toContain("Standard Notes AIC **36.0.1**");
     expect(readme).toContain("## Slash templates");
     expect(readme).toContain("`Tab` to move through");
     expect(readme).toContain("ordinary `.md` documents");

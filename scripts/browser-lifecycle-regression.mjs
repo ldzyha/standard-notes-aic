@@ -43,9 +43,9 @@ try {
         .value,
     };
   };
-  const cycle = (count, compactToolbar) =>
+  const cycle = (count, showEditorHelp) =>
     page.evaluate(
-      async ({ iterations, compactToolbar }) => {
+      async ({ iterations, showEditorHelp }) => {
         const { AicEditor } = await import("/src/editor.ts");
         window.lifecycleWeakRefs = [];
         for (let index = 0; index < iterations; index++) {
@@ -53,36 +53,40 @@ try {
             document.createElement("div"),
           );
           const editor = new AicEditor(mount, {
-            compactToolbar,
+            showEditorHelp,
             initialText:
               "---\nfile: test.note.md\n---\n\n- [ ] Task\n\n| A | B |\n| --- | --- |\n| x | y |\n\n>>>|open| Section\nText\n<<<\n\nEnd",
           });
           window.lifecycleWeakRefs.push(new WeakRef(editor.view.dom));
           editor.switchDocument(`cycle-${index}`, "# Other\n\n- [ ] Next\n");
-          if (compactToolbar) {
-            const actions = editor.toolbar.element.querySelectorAll(
-              ".aic-toolbar-group button",
-            );
-            if (actions.length !== 5)
-              throw new Error("Compact inline actions missing");
-            if (editor.toolbar.element.querySelector("select"))
-              throw new Error("Compact toolbar has a select");
-            actions[0].click();
-          }
+          const actions = editor.toolbar.element.querySelectorAll(
+            ".aic-toolbar-group button",
+          );
+          if (actions.length !== 5)
+            throw new Error("Compact inline actions missing");
+          if (editor.toolbar.element.querySelector("select"))
+            throw new Error("Compact toolbar has a select");
+          if (
+            Boolean(
+              editor.toolbar.element.querySelector(".aic-editor-help-toggle"),
+            ) !== showEditorHelp
+          )
+            throw new Error("Editor help ownership mismatch");
+          actions[0].click();
           editor.destroy();
           mount.remove();
         }
       },
-      { iterations: count, compactToolbar },
+      { iterations: count, showEditorHelp },
     );
   const modes = [];
-  for (const { name, compactToolbar } of [
-    { name: "default", compactToolbar: false },
-    { name: "compact", compactToolbar: true },
+  for (const { name, showEditorHelp } of [
+    { name: "embedded", showEditorHelp: true },
+    { name: "host-help", showEditorHelp: false },
   ]) {
-    await cycle(20, compactToolbar);
+    await cycle(20, showEditorHelp);
     const baseline = await sample();
-    await cycle(200, compactToolbar);
+    await cycle(200, showEditorHelp);
     const after = await sample();
     const retainedEditors = await page.evaluate(
       () => window.lifecycleWeakRefs.filter((ref) => ref.deref()).length,

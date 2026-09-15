@@ -1,6 +1,6 @@
 # AIC page notes — experimental Chrome / Edge component
 
-Status: **0.3.0 experimental component**, prepared alongside the AIC 35.3.9 GitHub release. It is not a browser-store release or an independently audited password manager. Use synthetic data until the final packaged-runtime gates in VERIFICATION.md are resolved. The shared editor changes also ship in AIC Notes 44.4.7.
+Status: **0.3.1 experimental component**, prepared alongside the AIC 36.0.1 GitHub release. It is not a browser-store release or an independently audited password manager. Use synthetic data until the final packaged-runtime gates in VERIFICATION.md are resolved. AIC Notes remains 44.4.7 and shared core remains 6.0.0.
 
 ## Supported design
 
@@ -26,7 +26,22 @@ Supported browser targets are desktop **Google Chrome and Microsoft Edge only**,
 - The compact browser toolbar keeps Save and Preview/Markdown controls visible and exposes five direct strike, link, bullet-list, numbered-list and task-list actions. Menus and navigation preserve the editor and its selection. Escape closes a panel menu and returns focus to its trigger. The local **?** guide explains AIC syntax and current actions without network access.
 - Save failures remain visible until dismissed; routine confirmations disappear after five seconds. Notifications float above the lower edge rather than pushing the editor down.
 
-## 0.3.0 AIC-only fields and compact browser actions
+## 0.3.1 compact shared editor toolbar
+
+- Standard Notes and the browser use one always-compact editor toolbar with direct
+  strike, link, bullet-list, ordered-list and task-list actions plus source mode.
+  Style/Insert selectors and Bold/Italic/Inline-code buttons are not mounted; use
+  existing keyboard shortcuts, authored Markdown or slash commands for those
+  operations. The shared editor guide is enabled by default, while this browser
+  host disables that editor-level trigger because the panel owns the local `?`
+  entry point. Wrapping avoids horizontal scrolling, and coarse-pointer controls
+  retain 44 px targets.
+- Browser 0.3.1 carries the shared host-toolbar and CSS bundle change. It does not
+  change the encrypted-library format, shared core 6.0.0 or AIC Notes 44.4.7.
+  Packaged-runtime acceptance remains pending in
+  [VERIFICATION.md](VERIFICATION.md).
+
+The AIC-only field behavior introduced with 0.3.0 remains unchanged:
 
 - Shared core 6.0.0 recognizes one fenced `aic` document rather than active YAML
   Properties blocks. Each typed separator applies to the next value, so a row can
@@ -38,8 +53,8 @@ Supported browser targets are desktop **Google Chrome and Microsoft Edge only**,
   it back to `1|` without copying; only used values expose removal. Field adds a
   typed part to the current row, Row inserts below it and Section inserts after the
   current section.
-- The shared local **?** guide is available in the compact browser and full Standard
-  Notes/VS Code hosts. It renders fixed bundled text and examples; it does not read
+- The shared local **?** guide is available in the browser panel, Standard Notes
+  compact toolbar and VS Code hosts. It renders fixed bundled text and examples; it does not read
   notes, storage or the network.
 
 ## 0.2.1 presentation corrections (historical source candidate)
@@ -56,8 +71,9 @@ Supported browser targets are desktop **Google Chrome and Microsoft Edge only**,
   parentheses or query text does not append its suffix to the visible label. Authored
   Markdown and the link destination remain unchanged.
 - The compact browser toolbar exposes five direct strike, link, bullet-list,
-  ordered-list and task icons without nested Format/Style/Insert controls. Standard
-  Notes retains its full formatting controls and adds the shared local `?` guide.
+  ordered-list and task icons without nested Format/Style/Insert controls. At this
+  historical candidate point, Standard Notes still had its broader controls; release
+  36.0.1 later replaced them with the compact action set and local `?` guide.
 - Shared field-add menus use compact, left-aligned items instead of oversized
   centered rows while retaining their actions, viewport bounds and keyboard behavior.
 - Content and Markdown transfer use direct controls: the content icon imports the
@@ -127,12 +143,12 @@ Chrome Incognito and Edge InPrivate are not supported in this build. The manifes
 
 ## Build and local testing
 
-To test a GitHub release without building, download `aic-browser-chromium-0.3.0.zip`
+To test a GitHub release without building, download `aic-browser-chromium-0.3.1.zip`
 and its `.sha256` from [AIC Releases](https://github.com/ldzyha/standard-notes-aic/releases),
 verify the checksum, and extract into a permanent folder. Use that folder for
 **Load unpacked** below. The ZIP is not a Chrome/Edge store installation package.
 
-Run `npm run build:browser` from the canonical repository. No additional runtime dependencies or external services are needed. It produces one unpacked directory, `dist-browser/chromium/`, and one archive, `dist-browser/artifacts/aic-browser-chromium-0.3.0.zip`, for both Chrome and Edge. Other browser build modes are rejected.
+Run `npm run build:browser` from the canonical repository. No additional runtime dependencies or external services are needed. It produces one unpacked directory, `dist-browser/chromium/`, and one archive, `dist-browser/artifacts/aic-browser-chromium-0.3.1.zip`, for both Chrome and Edge. Other browser build modes are rejected.
 
 The archive uses deterministic ordering and timestamps and includes the `>_` icon, worker, editor assets and privacy notices. Previously generated development files are not current targets; the build does not delete older archives or browser profiles. The command never installs into a user's profile or submits to a store.
 

@@ -226,40 +226,24 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
-  it("exposes the complete compact command surface", () => {
+  it("exposes the compact direct command surface", () => {
     const host = document.createElement("div");
     document.body.append(host);
     const editor = new AicEditor(host);
-    const options = [...editor.toolbar.element.querySelectorAll("option")]
-      .map((control) => control.textContent?.trim())
-      .filter(Boolean);
-    expect(options).toEqual(
-      expect.arrayContaining([
-        "Paragraph",
-        "Heading 6",
-        "Quote",
-        "Table",
-        "AIC fields",
-        "Code block",
-        "Mermaid",
-        "Horizontal rule",
-      ]),
-    );
+    expect(editor.toolbar.element.classList).toContain("aic-toolbar--compact");
+    expect(editor.toolbar.element.querySelector("select")).toBeNull();
     const buttons = [
       ...editor.toolbar.element.querySelectorAll<HTMLButtonElement>("button"),
     ];
-    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual(
-      expect.arrayContaining([
-        "Bold (Ctrl/Command+B)",
-        "Italic (Ctrl/Command+I)",
-        "Strikethrough",
-        "Inline code",
-        "Insert link (Ctrl/Command+K)",
-        "Bullet list",
-        "Ordered list",
-        "Task list",
-      ]),
-    );
+    expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Show Markdown source",
+      "Strikethrough",
+      "Insert link (Ctrl/Command+K)",
+      "Bullet list",
+      "Ordered list",
+      "Task list",
+      "AIC editor guide",
+    ]);
     expect(buttons.every((button) => button.textContent === "")).toBe(true);
     expect(buttons.every((button) => Boolean(button.dataset.aicIcon))).toBe(
       true,

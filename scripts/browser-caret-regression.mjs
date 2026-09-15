@@ -165,7 +165,7 @@ for (const browserSpec of browserPaths) {
             root.append(note);
             const editor = new AicEditor(host, {
               initialText,
-              compactToolbar: true,
+              showEditorHelp: false,
             });
             editor.setSaveState("placeholder");
             editor.view.dispatch({ selection: { anchor: initialText.length } });

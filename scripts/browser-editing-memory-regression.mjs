@@ -88,7 +88,6 @@ try {
       host.style.cssText = "height:100vh;display:flex";
       const editor = new window.memoryEditorType(host, {
         initialText: text + "\n\nEditing here",
-        compactToolbar: false,
       });
       window.memoryQa = editor;
       editor.view.dispatch({ selection: { anchor: editor.value.length } });
