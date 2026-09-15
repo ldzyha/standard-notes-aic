@@ -98,13 +98,24 @@ async function assertPanelInViewport(panel) {
 async function assertCompactEditor(panel) {
   const layout = await panel.evaluate((element) => {
     const editor = element.querySelector(".cm-editor");
+    const toolbar = element.querySelector(
+      ".browser-note .aic-toolbar--compact",
+    );
     if (!editor) throw Error("Editor is missing");
+    if (!toolbar) throw Error("Compact toolbar is missing");
     const panelBox = element.getBoundingClientRect();
     const editorBox = editor.getBoundingClientRect();
+    const toolbarBox = toolbar.getBoundingClientRect();
+    const toolbarStyle = getComputedStyle(toolbar);
     return {
       top: editorBox.top - panelBox.top,
       height: editorBox.height,
       panelHeight: panelBox.height,
+      toolbarHeight: toolbarBox.height,
+      toolbarClass: toolbar.className,
+      toolbarMinHeight: toolbarStyle.minHeight,
+      toolbarPadding: toolbarStyle.padding,
+      coarsePointer: matchMedia("(pointer: coarse)").matches,
     };
   });
   assert.ok(
@@ -115,6 +126,29 @@ async function assertCompactEditor(panel) {
     layout.height > layout.panelHeight * 0.6,
     `editor is too short: ${JSON.stringify(layout)}`,
   );
+  assert.ok(
+    layout.toolbarHeight >= 32 && layout.toolbarHeight <= 36,
+    `compact desktop toolbar should stay 32-36px tall: ${JSON.stringify(layout)}`,
+  );
+  const explicitTouch = await panel.evaluate(async (element) => {
+    const { createUiButton } = await import("/src/core/ui-system.js");
+    const toolbar = element.querySelector(
+      ".browser-note .aic-toolbar--compact",
+    );
+    const button = createUiButton(document, {
+      label: "Synthetic explicit touch target",
+      text: "Touch",
+      size: "touch",
+    });
+    toolbar.append(button);
+    const box = button.getBoundingClientRect();
+    button.remove();
+    return { width: box.width, height: box.height };
+  });
+  assert.ok(
+    explicitTouch.width >= 44 && explicitTouch.height >= 44,
+    `an explicit touch button must override a fine compact toolbar: ${JSON.stringify(explicitTouch)}`,
+  );
   const widths = await assertNoHorizontalOverflow(panel);
   const formatting = panel.getByRole("button", { name: "Formatting" });
   assert.equal(await formatting.getAttribute("aria-expanded"), "false");
@@ -124,7 +158,239 @@ async function assertCompactEditor(panel) {
   await formatting.click();
   assert.equal(await formatting.getAttribute("aria-expanded"), "false");
   await panel.locator(".aic-toolbar-tray").waitFor({ state: "hidden" });
-  return { ...layout, widths };
+  return { ...layout, explicitTouch, widths };
+}
+
+async function assertFormattingPopover(page, panel, theme, width, height) {
+  const toolbar = panel.locator(".browser-note .aic-toolbar--compact");
+  const trigger = toolbar.getByRole("button", { name: "Formatting" });
+  assert.equal(await trigger.innerText(), "Format");
+  assert.equal(await trigger.getAttribute("title"), "Formatting");
+  assert.equal(
+    await toolbar.getByRole("button", { name: "Show Markdown source" }).count(),
+    1,
+  );
+  assert.equal(
+    await toolbar.locator('button[aria-label="Save note"]').count(),
+    1,
+  );
+  await trigger.click();
+  const tray = toolbar.locator(".aic-toolbar-tray");
+  await tray.waitFor({ state: "visible" });
+  const layout = await tray.evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const controls = [...element.querySelectorAll("button,select")];
+    return {
+      left: box.left,
+      top: box.top,
+      right: box.right,
+      bottom: box.bottom,
+      viewportWidth: window.innerWidth,
+      viewportHeight: window.innerHeight,
+      overflowY: getComputedStyle(element).overflowY,
+      controlsNamed: controls.every(
+        (control) =>
+          !!control.getAttribute("aria-label") ||
+          !!control.getAttribute("title") ||
+          !!control.textContent?.trim(),
+      ),
+    };
+  });
+  assert.ok(
+    layout.left >= 0 &&
+      layout.top >= 0 &&
+      layout.right <= layout.viewportWidth + 1 &&
+      layout.bottom <= layout.viewportHeight + 1,
+    `formatting popover must fit the viewport: ${JSON.stringify(layout)}`,
+  );
+  assert.equal(layout.overflowY, "auto");
+  assert.equal(layout.controlsNamed, true);
+  await page.screenshot({
+    path: path.join(
+      output,
+      `formatting-popover-${theme}-${width}x${height}.png`,
+    ),
+  });
+  const controls = tray.locator("button,select");
+  const controlCount = await controls.count();
+  assert.ok(controlCount >= 10, "formatting popover should expose every group");
+  for (let index = 0; index < controlCount; index += 1) {
+    const control = controls.nth(index);
+    await control.evaluate((element) =>
+      element.scrollIntoView({ block: "nearest", inline: "nearest" }),
+    );
+    const hit = await control.evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      const target = document.elementFromPoint(
+        box.left + box.width / 2,
+        box.top + box.height / 2,
+      );
+      return {
+        reachable: target === element || element.contains(target),
+        label:
+          element.getAttribute("aria-label") || element.textContent?.trim(),
+      };
+    });
+    assert.ok(
+      hit.reachable,
+      `formatting control ${index + 1} must be reachable: ${JSON.stringify(hit)}`,
+    );
+    if ((await control.evaluate((element) => element.tagName)) === "BUTTON")
+      await control.click();
+    assert.equal(await tray.isVisible(), true);
+  }
+  await tray.locator("select").first().focus();
+  await page.keyboard.press("Escape");
+  await tray.waitFor({ state: "hidden" });
+  assert.equal(await trigger.getAttribute("aria-expanded"), "false");
+  assert.equal(
+    await trigger.evaluate((element) => element === document.activeElement),
+    true,
+  );
+  return { theme, width, height, ...layout };
+}
+
+async function assertCoarseTargets(page, panel, theme) {
+  const result = await panel.evaluate((element) => {
+    const buttons = [
+      ...element.querySelectorAll(
+        ".browser-toolbar .aic-button, .browser-note .aic-toolbar .aic-button",
+      ),
+    ]
+      .filter((button) => button.getBoundingClientRect().height > 0)
+      .map((button) => {
+        const box = button.getBoundingClientRect();
+        return {
+          label: button.getAttribute("aria-label"),
+          width: box.width,
+          height: box.height,
+        };
+      });
+    const compactField = document.createElement("input");
+    compactField.className = "aic-field__control aic-field__control--compact";
+    element.append(compactField);
+    const compactFieldBox = compactField.getBoundingClientRect();
+    compactField.remove();
+    return {
+      coarse: matchMedia("(pointer: coarse)").matches,
+      buttons,
+      compactField: {
+        width: compactFieldBox.width,
+        height: compactFieldBox.height,
+      },
+    };
+  });
+  assert.equal(result.coarse, true);
+  assert.ok(result.buttons.length >= 6);
+  assert.ok(
+    result.buttons.every((button) => button.width >= 44 && button.height >= 44),
+    `coarse buttons must retain 44px targets: ${JSON.stringify(result)}`,
+  );
+  assert.ok(
+    result.compactField.height >= 44,
+    `a compact field must retain a 44px coarse target: ${JSON.stringify(result.compactField)}`,
+  );
+  await page.screenshot({
+    path: path.join(output, `coarse-${theme}-320x480.png`),
+  });
+  return { theme, ...result };
+}
+
+async function assertPageDeletion(page, panel, theme, width) {
+  const otherDelete = (await openMenu(panel, "Notes and history")).getByRole(
+    "button",
+    {
+      name: "Delete local note: Fixture page two",
+      exact: true,
+    },
+  );
+  await otherDelete.click();
+  let confirm = panel.getByRole("dialog", {
+    name: "Delete local page",
+    exact: true,
+  });
+  await confirm.waitFor();
+  await page.screenshot({
+    path: path.join(output, `delete-other-${theme}-${width}.png`),
+  });
+  await confirm.getByRole("button", { name: "Delete note" }).click();
+  await page.waitForFunction(async (removedUrl) => {
+    const result = await window.panelQa.api.runtime.sendMessage({
+      type: "load",
+    });
+    return (
+      result.ok &&
+      !result.value.notes.some((note) => note.url === removedUrl) &&
+      !result.value.history.some((visit) => visit.url === removedUrl)
+    );
+  }, otherUrl);
+  assert.equal(
+    await panel.locator(".browser-page-origin").getAttribute("title"),
+    syntheticUrl,
+    "deleting another tree item must keep the current editor",
+  );
+  assert.match(
+    await panel.locator(".browser-note .cm-content").innerText(),
+    /Synthetic handwritten edit/u,
+  );
+
+  const more = await openMenu(panel, "More options");
+  await more
+    .getByRole("button", { name: "Delete local note", exact: true })
+    .click();
+  confirm = panel.getByRole("dialog", {
+    name: "Delete local page",
+    exact: true,
+  });
+  await confirm.waitFor();
+  await confirm.getByRole("button", { name: "Delete note" }).click();
+  await page.waitForFunction(async (removedUrl) => {
+    const panel = document.querySelector(".qa-panel");
+    const result = await window.panelQa.api.runtime.sendMessage({
+      type: "load",
+    });
+    return (
+      panel?.querySelector(".aic-editor")?.dataset.saveState ===
+        "placeholder" &&
+      result.ok &&
+      !result.value.notes.some((note) => note.url === removedUrl) &&
+      !result.value.history.some((visit) => visit.url === removedUrl)
+    );
+  }, syntheticUrl);
+  await page.waitForTimeout(350);
+  const stayedDeleted = await page.evaluate(async (removedUrl) => {
+    const result = await window.panelQa.api.runtime.sendMessage({
+      type: "load",
+    });
+    return (
+      result.ok && !result.value.notes.some((note) => note.url === removedUrl)
+    );
+  }, syntheticUrl);
+  assert.equal(
+    stayedDeleted,
+    true,
+    "mounting the placeholder must not recreate a deleted note",
+  );
+  const content = panel.locator(".browser-note .cm-content");
+  await content.click();
+  await page.keyboard.press("Control+End");
+  await page.keyboard.type("\nRecreated only after explicit edit");
+  await page.waitForFunction(async (url) => {
+    const result = await window.panelQa.api.runtime.sendMessage({
+      type: "load",
+    });
+    return (
+      result.ok &&
+      result.value.notes.some(
+        (note) =>
+          note.url === url &&
+          note.markdown.includes("Recreated only after explicit edit"),
+      )
+    );
+  }, syntheticUrl);
+  passed.push(
+    `${theme}/${width}: deleting another tree note preserves the editor; deleting current stays a placeholder until an explicit edit`,
+  );
 }
 
 async function assertFieldMenu(page, panel, selector, theme, kind) {
@@ -482,6 +748,43 @@ try {
             document.querySelector(".qa-panel")?.dataset.state === "unlocked",
         );
         await panel.locator(".browser-note .aic-editor").waitFor();
+        const emptyShared = panel.locator(
+          '.browser-domain-properties[data-empty="true"]',
+        );
+        assert.equal(
+          await emptyShared.getByRole("button").innerText(),
+          "Shared",
+        );
+        const emptySharedButton = await emptyShared
+          .getByRole("button")
+          .evaluate((button) => {
+            const box = button.getBoundingClientRect();
+            return { width: box.width, height: box.height };
+          });
+        assert.ok(
+          emptySharedButton.height >= 28 && emptySharedButton.height <= 32,
+          `empty Shared action should use the compact token: ${JSON.stringify(emptySharedButton)}`,
+        );
+        assert.equal(
+          await emptyShared.evaluate((element) =>
+            element.parentElement?.matches(
+              ".browser-note .aic-toolbar--compact",
+            ),
+          ),
+          true,
+          "an empty shared scope belongs inside the editor toolbar",
+        );
+        assert.equal(
+          await panel
+            .locator(".browser-shared-host")
+            .evaluate(
+              (element) =>
+                element.childElementCount === 0 &&
+                getComputedStyle(element).display === "none",
+            ),
+          true,
+          "an empty shared host must not reserve a header row",
+        );
         assert.equal(
           await panel.locator(".aic-editor").getAttribute("data-save-state"),
           "placeholder",
@@ -623,8 +926,7 @@ try {
         await (
           await openMenu(panel, "Notes and history")
         )
-          .locator(".browser-history")
-          .getByRole("button", { name: "Fixture page one" })
+          .getByRole("button", { name: "Fixture page one", exact: true })
           .click();
         await page.waitForFunction(
           (expected) =>
@@ -758,6 +1060,8 @@ try {
           await panel.locator(".cm-content").innerText(),
           /Synthetic handwritten edit/u,
         );
+        if (theme === "light" && width === 600)
+          await assertPageDeletion(page, panel, theme, width);
         if (theme === "light" && width === 900) {
           await page.evaluate(() => {
             window.panelQa.setPrivate(true);
@@ -861,14 +1165,98 @@ try {
       }
     }
   for (const theme of ["light", "dark"]) {
-    const context = await browser.newContext({
+    let context = await browser.newContext({
       viewport: { width: 320, height: 360 },
       colorScheme: theme,
     });
-    const page = await context.newPage();
+    let page = await context.newPage();
     page.setDefaultTimeout(10000);
     await mount(page);
-    const panel = page.locator(".qa-panel").first();
+    let panel = page.locator(".qa-panel").first();
+    await panel
+      .getByLabel("Master passphrase", { exact: true })
+      .fill(syntheticPassword);
+    await panel.getByLabel("Confirm master passphrase").fill(syntheticPassword);
+    await panel
+      .getByRole("button", { name: "Create encrypted library" })
+      .click();
+    await panel.locator(".browser-note .cm-editor").waitFor();
+    const deepUrl = await page.evaluate(
+      async ({ syntheticUrl }) => {
+        const qa = window.panelQa;
+        const origin = new URL(syntheticUrl).origin;
+        const paths = [
+          "/",
+          "/guide",
+          "/guide/one",
+          "/guide/one/two",
+          "/guide/one/two/three",
+          "/guide/one/two/three/four",
+        ];
+        const activePage = async () => {
+          const [tab] = await qa.api.tabs.query({
+            active: true,
+            windowId: 7,
+          });
+          return {
+            url: tab.url,
+            title: tab.title,
+            tabId: tab.id,
+            windowId: tab.windowId,
+          };
+        };
+        for (const [index, pathname] of paths.entries()) {
+          await qa.next(`${origin}${pathname}`, `Ancestor ${index + 1}`);
+          const result = await qa.api.runtime.sendMessage({
+            type: "create",
+            page: await activePage(),
+            markdown: `# Synthetic ancestor ${index + 1}`,
+            ifAbsent: true,
+          });
+          if (!result.ok) throw Error(result.error);
+        }
+        const current = `${origin}/guide/one/two/three/four/five`;
+        await qa.next(current, "Deep synthetic page");
+        const domain = await qa.api.runtime.sendMessage({
+          type: "create-domain",
+          page: await activePage(),
+          markdown:
+            "---\n# aic-fields: v2\nUsername: synthetic@example.test\n---\n",
+        });
+        if (!domain.ok) throw Error(domain.error);
+        return current;
+      },
+      { syntheticUrl },
+    );
+    await page.waitForFunction((expected) => {
+      const panel = document.querySelector(".qa-panel");
+      const ancestors = panel?.querySelector(".browser-page-ancestors");
+      return (
+        panel?.querySelector(".browser-page-origin")?.getAttribute("title") ===
+          expected &&
+        ancestors &&
+        !ancestors.hidden &&
+        ancestors.querySelectorAll("li").length >= 7 &&
+        panel.querySelector(
+          ".browser-shared-host > .browser-domain-properties .cm-aic-properties",
+        )
+      );
+    }, deepUrl);
+    measurements.push(
+      await assertFormattingPopover(page, panel, theme, 320, 360),
+    );
+    passed.push(
+      `${theme}/320x360: compact formatting popover fits the viewport and restores disclosure focus`,
+    );
+    await context.close();
+    context = await browser.newContext({
+      viewport: { width: 320, height: 360 },
+      colorScheme: theme,
+    });
+    page = await context.newPage();
+    page.setDefaultTimeout(10000);
+    await mount(page);
+    panel = page.locator(".qa-panel").first();
     await panel
       .getByLabel("Master passphrase", { exact: true })
       .fill(syntheticPassword);
@@ -924,6 +1312,27 @@ try {
     passed.push(
       `${theme}/320x360: Security and Properties field menus stay visible and scroll internally`,
     );
+    await context.close();
+
+    context = await browser.newContext({
+      viewport: { width: 320, height: 480 },
+      colorScheme: theme,
+      hasTouch: true,
+    });
+    page = await context.newPage();
+    page.setDefaultTimeout(10000);
+    await mount(page);
+    panel = page.locator(".qa-panel").first();
+    await panel
+      .getByLabel("Master passphrase", { exact: true })
+      .fill(syntheticPassword);
+    await panel.getByLabel("Confirm master passphrase").fill(syntheticPassword);
+    await panel
+      .getByRole("button", { name: "Create encrypted library" })
+      .click();
+    await panel.locator(".browser-note .cm-editor").waitFor();
+    measurements.push(await assertCoarseTargets(page, panel, theme));
+    passed.push(`${theme}/320x480: coarse controls retain 44px targets`);
     await context.close();
   }
   process.stdout.write(

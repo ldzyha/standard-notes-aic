@@ -1,0 +1,1032 @@
+{
+  "registryVersion": 1,
+  "scope": "AIC Markdown functionality implemented by standard-notes-aic and aic-notes",
+  "asOf": "2026-09-15",
+  "status": {
+    "currentFacts": "Entrypoints and verification paths describe the current working trees. The aic-notes/vendor copies are distribution artifacts and are not independent feature owners.",
+    "approvedDirection": "Maintain one stable registry of user-visible features, shared runtime capabilities, and host adapters.",
+    "reviewPending": "Reviewers must confirm feature boundaries and close the declared coverage gaps before treating this registry as exhaustive."
+  },
+  "hosts": {
+    "shared-core": "Canonical reusable editor behavior owned by standard-notes-aic/src/core",
+    "standard-notes": "Standard Notes component adapter",
+    "standalone": "Development/demo page using localStorage",
+    "browser": "Chromium side-panel extension",
+    "vscode": "AIC Notes VS Code extension"
+  },
+  "sourceRoots": {
+    "canonical": "standard-notes-aic/src",
+    "vscode": "aic-notes/src",
+    "vscodeMarkdownAdapter": "aic-notes/vendor/markdown"
+  },
+  "coveragePolicy": "Every canonical src .ts/.js/.css file and every aic-notes src or vendor/markdown .js/.css adapter file must appear in at least one feature sourceFiles array. Distributed aic-notes/vendor/aic-editor-core copies are excluded because their canonical owners are standard-notes-aic/src/core.",
+  "features": [
+    {
+      "id": "core.editor-session",
+      "group": "shared-editor",
+      "purpose": "Compose CodeMirror, document switching, host save callbacks, access state, theme refresh, and teardown.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": ["standard-notes-aic/src/editor.ts"],
+      "sourceFiles": [
+        "standard-notes-aic/src/editor.ts",
+        "standard-notes-aic/src/toolbar.ts",
+        "standard-notes-aic/src/styles.css"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/main.ts",
+        "standard-notes-aic/src/browser/panel.ts",
+        "aic-notes/src/webview/main.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/editor.test.ts",
+        "standard-notes-aic/test/lifecycle-regression.test.ts",
+        "aic-notes/test/note-transition-races.test.js"
+      ]
+    },
+    {
+      "id": "core.markdown-language",
+      "group": "shared-editor",
+      "purpose": "Provide Markdown parsing, nested fenced-language support, syntax highlighting, and reveal decorations.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/language.ts",
+        "standard-notes-aic/src/markdown-decorations.ts",
+        "standard-notes-aic/src/core/code-languages.js"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/language.ts",
+        "standard-notes-aic/src/markdown-decorations.ts",
+        "standard-notes-aic/src/core/code-languages.js",
+        "standard-notes-aic/src/core/code-languages.d.ts",
+        "aic-notes/src/webview/fenced-local.js",
+        "aic-notes/src/webview/highlight.js",
+        "aic-notes/vendor/markdown/language.js",
+        "aic-notes/vendor/markdown/session.js",
+        "aic-notes/vendor/markdown/styles.js",
+        "aic-notes/vendor/markdown/components-stub.js"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/editor.ts",
+        "aic-notes/src/webview/main.js",
+        "aic-notes/src/webview/fenced-local.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/language.test.ts",
+        "standard-notes-aic/test/editor.test.ts",
+        "aic-notes/test/code-preview.test.js"
+      ]
+    },
+    {
+      "id": "core.markdown-preview",
+      "group": "shared-editor",
+      "purpose": "Render headings, emphasis, inline code, quotes, horizontal rules, lists, links, code fences, and other structured Markdown previews without replacing source truth.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/block-views.ts",
+        "standard-notes-aic/src/preview.ts",
+        "standard-notes-aic/src/core/structured-preview.js",
+        "standard-notes-aic/src/core/preview-ranges.js"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/block-views.ts",
+        "standard-notes-aic/src/preview.ts",
+        "standard-notes-aic/src/core/structured-preview.js",
+        "standard-notes-aic/src/core/structured-preview.d.ts",
+        "standard-notes-aic/src/core/preview-ranges.js",
+        "standard-notes-aic/src/core/preview-ranges.d.ts",
+        "standard-notes-aic/src/core/preview-layout.css",
+        "standard-notes-aic/src/core/source-mode.js",
+        "standard-notes-aic/src/core/source-mode.d.ts",
+        "aic-notes/vendor/markdown/handlers/blocks.js",
+        "aic-notes/vendor/markdown/handlers/emphasis.js",
+        "aic-notes/vendor/markdown/handlers/heading.js",
+        "aic-notes/vendor/markdown/handlers/inline-code.js"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/editor.ts",
+        "aic-notes/src/webview/main.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/preview.test.ts",
+        "standard-notes-aic/test/structured-preview.test.ts",
+        "aic-notes/test/structured-preview.test.js"
+      ]
+    },
+    {
+      "id": "core.formatting-indentation",
+      "group": "shared-editor",
+      "purpose": "Apply toolbar and keyboard Markdown formatting, list continuation, indentation, and one-operation undo boundaries.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/commands.ts",
+        "standard-notes-aic/src/core/formatting.js",
+        "standard-notes-aic/src/core/indentation.js"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/commands.ts",
+        "standard-notes-aic/src/core/formatting.js",
+        "standard-notes-aic/src/core/formatting.d.ts",
+        "standard-notes-aic/src/core/indentation.js",
+        "standard-notes-aic/src/core/indentation.d.ts",
+        "aic-notes/vendor/markdown/handlers/list.js"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/toolbar.ts",
+        "standard-notes-aic/src/editor.ts",
+        "aic-notes/src/webview/main.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/commands.test.ts",
+        "standard-notes-aic/test/formatting.test.ts",
+        "standard-notes-aic/test/indentation.test.ts",
+        "aic-notes/test/indentation.test.js"
+      ]
+    },
+    {
+      "id": "core.task-markers",
+      "group": "shared-editor",
+      "purpose": "Render and toggle Markdown task checkboxes with keyboard, read-only, stale-control, and ARIA safeguards.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/task-marker.js",
+        "standard-notes-aic/src/markdown-decorations.ts"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/core/task-marker.js",
+        "standard-notes-aic/src/core/task-marker.d.ts"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/editor.ts",
+        "aic-notes/src/webview/main.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/editor.test.ts",
+        "aic-notes/test/list-keymap.test.js"
+      ]
+    },
+    {
+      "id": "core.link-actions",
+      "group": "shared-editor",
+      "purpose": "Open or copy safe external links and route verified local links through the owning host.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/link-actions.ts",
+        "standard-notes-aic/src/core/structured-preview.js"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/link-actions.ts",
+        "aic-notes/vendor/markdown/link-actions.js",
+        "aic-notes/vendor/markdown/handlers/link.js",
+        "aic-notes/src/notes/navigation.js"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/editor.ts",
+        "aic-notes/src/webview/host-shim.js",
+        "aic-notes/src/notes/navigation.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/link-actions.test.ts",
+        "aic-notes/test/selection-model.test.js"
+      ]
+    },
+    {
+      "id": "core.code-fences",
+      "group": "shared-editor",
+      "purpose": "Render language-aware fenced-code cards with copy/edit controls while preserving unsupported source.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/code-fence-extension.js",
+        "standard-notes-aic/src/core/code-fence-preview.js"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/core/code-fence-extension.js",
+        "standard-notes-aic/src/core/code-fence-extension.d.ts",
+        "standard-notes-aic/src/core/code-fence-preview.js",
+        "standard-notes-aic/src/core/code-fence-preview.d.ts",
+        "aic-notes/vendor/markdown/handlers/code-fence.js"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/editor.ts",
+        "aic-notes/src/webview/main.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/code-fence-core.test.ts",
+        "aic-notes/test/code-preview.test.js"
+      ]
+    },
+    {
+      "id": "core.tables",
+      "group": "shared-editor",
+      "purpose": "Render tables, copy content, insert and reorder rows or columns, and edit one cell through a bounded popover.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/block-views.ts",
+        "standard-notes-aic/src/core/preview-reorder.js"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/core/preview-reorder.js",
+        "standard-notes-aic/src/core/preview-reorder.d.ts",
+        "aic-notes/vendor/markdown/handlers/table.js"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/editor.ts",
+        "aic-notes/vendor/markdown/handlers/table.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/preview.test.ts",
+        "standard-notes-aic/test/preview-reorder.test.ts",
+        "aic-notes/test/structured-preview.test.js"
+      ]
+    },
+    {
+      "id": "core.details",
+      "group": "shared-editor",
+      "purpose": "Parse and render details accordions while retaining nested links, tasks, comments, and open state.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/details-model.js",
+        "standard-notes-aic/src/details-extension.ts"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/core/details-model.js",
+        "standard-notes-aic/src/core/details-model.d.ts",
+        "standard-notes-aic/src/details-model.ts",
+        "standard-notes-aic/src/details-extension.ts",
+        "aic-notes/src/webview/details-model.js",
+        "aic-notes/src/webview/details.js"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/editor.ts",
+        "aic-notes/src/webview/details.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/details.test.ts",
+        "aic-notes/test/details-model.test.js"
+      ]
+    },
+    {
+      "id": "core.properties",
+      "group": "structured-data",
+      "purpose": "Parse YAML frontmatter, render managed metadata and custom fields, mask marked values, reorder supported fields, and retain exact unrelated source.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/properties-model.js",
+        "standard-notes-aic/src/core/properties-reorder.js",
+        "standard-notes-aic/src/core/security-block.js"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/core/properties-model.js",
+        "standard-notes-aic/src/core/properties-model.d.ts",
+        "standard-notes-aic/src/core/properties-reorder.js",
+        "standard-notes-aic/src/core/properties-reorder.d.ts",
+        "standard-notes-aic/src/core/field-label.js",
+        "standard-notes-aic/src/core/field-label.d.ts",
+        "standard-notes-aic/src/core/field-parts.js",
+        "standard-notes-aic/src/core/field-parts.d.ts",
+        "standard-notes-aic/src/core/field-syntax.js",
+        "standard-notes-aic/src/core/field-syntax.d.ts"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/editor.ts",
+        "standard-notes-aic/src/browser/domain-properties.ts",
+        "aic-notes/src/webview/main.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/properties-model.test.ts",
+        "standard-notes-aic/test/properties-block-ui.test.ts",
+        "standard-notes-aic/test/properties-reorder.test.ts",
+        "aic-notes/test/file-properties.test.js"
+      ]
+    },
+    {
+      "id": "core.security-blocks",
+      "group": "structured-data",
+      "purpose": "Parse and render bounded AIC credential blocks with masking, copy, add, delete, filtering, diagnostics, and exact-source reordering.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/security-model.js",
+        "standard-notes-aic/src/core/security-block.js",
+        "standard-notes-aic/src/core/security-controls.js"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/core/security-model.js",
+        "standard-notes-aic/src/core/security-model.d.ts",
+        "standard-notes-aic/src/core/security-block.js",
+        "standard-notes-aic/src/core/security-block.d.ts",
+        "standard-notes-aic/src/core/security-block.css",
+        "standard-notes-aic/src/core/security-controls.js",
+        "standard-notes-aic/src/core/security-controls.d.ts",
+        "standard-notes-aic/src/core/security-card-order.js",
+        "standard-notes-aic/src/core/security-card-order.d.ts",
+        "standard-notes-aic/src/core/block-diagnostic.js",
+        "standard-notes-aic/src/core/block-diagnostic.d.ts"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/editor.ts",
+        "aic-notes/src/webview/main.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/security-model.test.ts",
+        "standard-notes-aic/test/security-block-ui.test.ts",
+        "standard-notes-aic/test/security-field-actions.test.ts",
+        "standard-notes-aic/test/security-diagnostics.test.ts"
+      ]
+    },
+    {
+      "id": "core.credential-tools",
+      "group": "structured-data",
+      "purpose": "Handle card parts, password generation, TOTP derivation, QR parsing, and recovery-code state under explicit security limits.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/security-card.js",
+        "standard-notes-aic/src/core/security-password.js",
+        "standard-notes-aic/src/core/security-otp.js",
+        "standard-notes-aic/src/core/security-qr.js",
+        "standard-notes-aic/src/core/security-recovery.js"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/core/security-card.js",
+        "standard-notes-aic/src/core/security-card.d.ts",
+        "standard-notes-aic/src/core/security-password.js",
+        "standard-notes-aic/src/core/security-password.d.ts",
+        "standard-notes-aic/src/core/security-otp.js",
+        "standard-notes-aic/src/core/security-otp.d.ts",
+        "standard-notes-aic/src/core/security-qr.js",
+        "standard-notes-aic/src/core/security-qr.d.ts",
+        "standard-notes-aic/src/core/security-recovery.js",
+        "standard-notes-aic/src/core/security-recovery.d.ts"
+      ],
+      "entrypoints": ["standard-notes-aic/src/core/security-block.js"],
+      "verification": [
+        "standard-notes-aic/test/security-card.test.ts",
+        "standard-notes-aic/test/security-password.test.ts",
+        "standard-notes-aic/test/security-otp.test.ts",
+        "standard-notes-aic/test/security-qr.test.ts",
+        "standard-notes-aic/test/security-recovery.test.ts"
+      ]
+    },
+    {
+      "id": "core.authenticator-import",
+      "group": "structured-data",
+      "purpose": "Convert recognized Authenticator JSON into bounded security blocks as an explicit undoable draft action with host save acknowledgement.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/security-import.js",
+        "standard-notes-aic/src/core/security-import-extension.js"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/core/security-import.js",
+        "standard-notes-aic/src/core/security-import.d.ts",
+        "standard-notes-aic/src/core/security-import-extension.js",
+        "standard-notes-aic/src/core/security-import-extension.d.ts",
+        "standard-notes-aic/src/core/security-import-extension.css"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/editor.ts",
+        "aic-notes/src/webview/main.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/security-import.test.ts",
+        "standard-notes-aic/test/security-import-extension.test.ts",
+        "standard-notes-aic/test/security-post-import.test.ts",
+        "aic-notes/test/security-import.test.js"
+      ]
+    },
+    {
+      "id": "core.diagrams",
+      "group": "diagrams",
+      "purpose": "Render Mermaid with zoom, pan, fit, rotation, copy, source actions, cancellation, and stale-result isolation.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/mermaid-extension.ts",
+        "standard-notes-aic/src/mermaid-render.ts",
+        "standard-notes-aic/src/core/mermaid-runtime.js",
+        "standard-notes-aic/src/core/mermaid-viewport.js",
+        "standard-notes-aic/src/core/render-queue.js"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/mermaid-extension.ts",
+        "standard-notes-aic/src/mermaid-render.ts",
+        "standard-notes-aic/src/mermaid-source.ts",
+        "standard-notes-aic/src/core/mermaid-runtime.js",
+        "standard-notes-aic/src/core/mermaid-runtime.d.ts",
+        "standard-notes-aic/src/core/mermaid-viewport.js",
+        "standard-notes-aic/src/core/mermaid-viewport.d.ts",
+        "standard-notes-aic/src/core/mermaid-viewport.css",
+        "standard-notes-aic/src/core/render-queue.js",
+        "standard-notes-aic/src/core/render-queue.d.ts",
+        "aic-notes/vendor/markdown/mermaid.js"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/editor.ts",
+        "aic-notes/src/webview/main.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/mermaid.test.ts",
+        "standard-notes-aic/test/mermaid-runtime.test.ts",
+        "standard-notes-aic/test/mermaid-viewport.test.ts",
+        "aic-notes/test/diagram-core.test.js"
+      ]
+    },
+    {
+      "id": "core.diagram-builder",
+      "group": "diagrams",
+      "purpose": "Visually edit the supported flowchart, class, and sequence subsets with palette, inspector, relationship creation, history, and exact block apply.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/diagram-model.js",
+        "standard-notes-aic/src/core/diagram-builder.js",
+        "standard-notes-aic/src/core/diagram-palette.js",
+        "standard-notes-aic/src/core/diagram-session.js",
+        "standard-notes-aic/src/core/diagram-renderer.js"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/core/diagram-model.js",
+        "standard-notes-aic/src/core/diagram-model.d.ts",
+        "standard-notes-aic/src/core/diagram-builder.js",
+        "standard-notes-aic/src/core/diagram-builder.d.ts",
+        "standard-notes-aic/src/core/diagram-builder.css",
+        "standard-notes-aic/src/core/diagram-palette.js",
+        "standard-notes-aic/src/core/diagram-palette.d.ts",
+        "standard-notes-aic/src/core/diagram-palette.css",
+        "standard-notes-aic/src/core/diagram-session.js",
+        "standard-notes-aic/src/core/diagram-session.d.ts",
+        "standard-notes-aic/src/core/diagram-session.css",
+        "standard-notes-aic/src/core/diagram-renderer.js",
+        "standard-notes-aic/src/core/diagram-renderer.d.ts"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/mermaid-extension.ts",
+        "aic-notes/src/webview/main.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/diagram-builder.test.ts",
+        "standard-notes-aic/test/diagram-session.test.ts",
+        "standard-notes-aic/test/diagram-palette.test.ts"
+      ]
+    },
+    {
+      "id": "core.slash-templates",
+      "group": "authoring",
+      "purpose": "Offer grouped slash templates and placeholder navigation for pages, sections, assurance, references, data, diagrams, and primitive content.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/slash-snippets.js",
+        "standard-notes-aic/src/core/note-template.js"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/core/slash-snippets.js",
+        "standard-notes-aic/src/core/slash-snippets.d.ts",
+        "standard-notes-aic/src/core/slash-snippets.css",
+        "standard-notes-aic/src/core/note-template.js",
+        "standard-notes-aic/src/core/note-template.d.ts"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/editor.ts",
+        "aic-notes/src/editor/slash-provider.js",
+        "aic-notes/src/webview/main.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/slash-snippets.test.ts",
+        "aic-notes/test/slash-snippets.test.js",
+        "aic-notes/test/native-slash-provider.test.js",
+        "aic-notes/test/templates.test.js"
+      ]
+    },
+    {
+      "id": "core.drafts-save-boundary",
+      "group": "lifecycle",
+      "purpose": "Track dirty drafts, isolate note identity, centralize explicit/focus/action saves, process exact acknowledgements, retain failures, and retire stale async work.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/draft-session.js",
+        "standard-notes-aic/src/core/save-boundary.js",
+        "standard-notes-aic/src/note-draft-registry.ts"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/core/draft-session.js",
+        "standard-notes-aic/src/core/draft-session.d.ts",
+        "standard-notes-aic/src/core/save-boundary.js",
+        "standard-notes-aic/src/core/save-boundary.d.ts",
+        "standard-notes-aic/src/note-draft-registry.ts",
+        "aic-notes/src/webview/primary-save.js",
+        "aic-notes/src/webview/secondary-draft.js",
+        "aic-notes/src/notes/operation.js"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/main.ts",
+        "standard-notes-aic/src/browser/draft-coordinator.ts",
+        "aic-notes/src/webview/primary-save.js",
+        "aic-notes/src/webview/secondary-draft.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/draft-session.test.ts",
+        "standard-notes-aic/test/save-boundary.test.ts",
+        "standard-notes-aic/test/note-draft-registry.test.ts",
+        "aic-notes/test/primary-save.test.js",
+        "aic-notes/test/secondary-draft.test.js"
+      ]
+    },
+    {
+      "id": "core.file-properties",
+      "group": "metadata",
+      "purpose": "Stamp and expose managed file, created, and updated properties while keeping generated metadata host-specific.",
+      "hosts": ["standard-notes", "vscode"],
+      "canonicalOwners": ["standard-notes-aic/src/core/file-properties.js"],
+      "sourceFiles": [
+        "standard-notes-aic/src/core/file-properties.js",
+        "standard-notes-aic/src/core/file-properties.d.ts",
+        "aic-notes/src/notes/properties.js",
+        "aic-notes/src/notes/frontmatter.js"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/main.ts",
+        "aic-notes/src/notes/properties.js",
+        "aic-notes/src/notes/frontmatter.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/file-properties.test.ts",
+        "aic-notes/test/file-properties.test.js",
+        "aic-notes/test/frontmatter.test.js"
+      ]
+    },
+    {
+      "id": "core.agentic-note-contract",
+      "group": "metadata",
+      "purpose": "Recognize AIC agentic note markers and shared note-contract metadata without activating external workflows itself.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": ["standard-notes-aic/src/core/agentic-notes.js"],
+      "sourceFiles": [
+        "standard-notes-aic/src/core/agentic-notes.js",
+        "standard-notes-aic/src/core/agentic-notes.d.ts"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/editor.ts",
+        "aic-notes/src/agents/contract.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/agentic-notes.test.ts",
+        "aic-notes/test/agent-contract.test.js"
+      ]
+    },
+    {
+      "id": "core.ui-system",
+      "group": "design-system",
+      "purpose": "Define the shared component IDs, BEM class application, button factory, geometry tokens, and additive migration surface used by host adapters.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/ui-system.js",
+        "standard-notes-aic/COMPONENTS.json",
+        "standard-notes-aic/UI_ARCHITECTURE.md"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/core/ui-system.js",
+        "standard-notes-aic/src/core/ui-system.d.ts",
+        "standard-notes-aic/src/core/ui-system.css",
+        "standard-notes-aic/src/core/icons.css"
+      ],
+      "entrypoints": ["standard-notes-aic/src/core/ui-system.js"],
+      "verification": [
+        "standard-notes-aic/test/ui-system.test.ts",
+        "standard-notes-aic/test/ui-registry-contract.test.ts"
+      ]
+    },
+    {
+      "id": "standard-notes.host-transport",
+      "group": "host-adapter",
+      "purpose": "Translate Standard Notes component contexts into snapshots and guarded save targets with lock, identity, timeout, and disposal checks.",
+      "hosts": ["standard-notes"],
+      "canonicalOwners": ["standard-notes-aic/src/standard-notes-host.ts"],
+      "sourceFiles": [
+        "standard-notes-aic/src/standard-notes-host.ts",
+        "standard-notes-aic/src/main.ts"
+      ],
+      "entrypoints": ["standard-notes-aic/src/main.ts"],
+      "verification": [
+        "standard-notes-aic/test/standard-notes-host.test.ts",
+        "standard-notes-aic/test/standard-notes-transport.test.ts",
+        "standard-notes-aic/test/standard-notes-transport-lifecycle.test.ts"
+      ]
+    },
+    {
+      "id": "standalone.demo-persistence",
+      "group": "host-adapter",
+      "purpose": "Run the editor as a development demo with plaintext localStorage persistence; it is not a credential-safe production host.",
+      "hosts": ["standalone"],
+      "canonicalOwners": ["standard-notes-aic/src/main.ts"],
+      "sourceFiles": ["standard-notes-aic/src/main.ts"],
+      "entrypoints": ["standard-notes-aic/index.html"],
+      "verification": [
+        "standard-notes-aic/test/main.test.ts",
+        "standard-notes-aic/test/manifest.test.ts"
+      ]
+    },
+    {
+      "id": "browser.encrypted-vault",
+      "group": "browser-adapter",
+      "purpose": "Encrypt the local browser library, keep unlock material in trusted session storage, validate bounded records, serialize writes, and lock all panels.",
+      "hosts": ["browser"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/browser/vault-crypto.ts",
+        "standard-notes-aic/src/browser/vault-store.ts",
+        "standard-notes-aic/src/browser/library.ts"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/browser/vault-crypto.ts",
+        "standard-notes-aic/src/browser/vault-store.ts",
+        "standard-notes-aic/src/browser/library.ts"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/browser/worker.ts",
+        "standard-notes-aic/src/browser/service.ts"
+      ],
+      "verification": [
+        "standard-notes-aic/test/browser-vault-crypto.test.ts",
+        "standard-notes-aic/test/browser-vault-store.test.ts",
+        "standard-notes-aic/test/browser-library.test.ts",
+        "standard-notes-aic/test/browser-service.test.ts"
+      ]
+    },
+    {
+      "id": "browser.page-notes",
+      "group": "browser-adapter",
+      "purpose": "Create on first edit, save, export, copy, and delete exact-URL page notes while retaining failed local drafts.",
+      "hosts": ["browser"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/browser/drafts.ts",
+        "standard-notes-aic/src/browser/draft-coordinator.ts",
+        "standard-notes-aic/src/browser/panel.ts",
+        "standard-notes-aic/src/browser/library.ts"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/browser/drafts.ts",
+        "standard-notes-aic/src/browser/draft-coordinator.ts",
+        "standard-notes-aic/src/browser/panel.ts"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/browser/main.ts",
+        "standard-notes-aic/src/browser/service.ts"
+      ],
+      "verification": [
+        "standard-notes-aic/test/browser-drafts.test.ts",
+        "standard-notes-aic/test/browser-panel.test.ts",
+        "standard-notes-aic/test/browser-panel-delete.test.ts",
+        "standard-notes-aic/test/browser-library.test.ts"
+      ]
+    },
+    {
+      "id": "browser.domain-properties",
+      "group": "browser-adapter",
+      "purpose": "Store exact-origin shared Properties separately from page Markdown, render a masked preview, and expose an explicit short-lived editor with conflict-safe drafts.",
+      "hosts": ["browser"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/browser/domain-properties.ts",
+        "standard-notes-aic/src/browser/domain-drafts.ts"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/browser/domain-properties.ts",
+        "standard-notes-aic/src/browser/domain-drafts.ts"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/browser/panel.ts",
+        "standard-notes-aic/src/browser/service.ts"
+      ],
+      "verification": [
+        "standard-notes-aic/test/browser-domain-properties.test.ts",
+        "standard-notes-aic/test/browser-domain-drafts.test.ts",
+        "standard-notes-aic/test/browser-domain-panel.test.ts"
+      ]
+    },
+    {
+      "id": "browser.page-ancestor-context",
+      "group": "browser-adapter",
+      "purpose": "Project saved metadata-only page ancestors from the exact origin and strict URL path into a compact root-to-current navigation chain.",
+      "hosts": ["browser"],
+      "canonicalOwners": ["standard-notes-aic/src/browser/page-ancestors.ts"],
+      "sourceFiles": ["standard-notes-aic/src/browser/page-ancestors.ts"],
+      "entrypoints": ["standard-notes-aic/src/browser/panel.ts"],
+      "verification": [
+        "standard-notes-aic/test/browser-page-ancestors.test.ts",
+        "standard-notes-aic/test/browser-panel-ancestors.test.ts"
+      ]
+    },
+    {
+      "id": "browser.navigation-history",
+      "group": "browser-adapter",
+      "purpose": "Record bounded recent pages, group saved notes by domain/path, filter metadata, disambiguate labels, and open only known stored destinations.",
+      "hosts": ["browser"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/browser/navigation.ts",
+        "standard-notes-aic/src/browser/library.ts"
+      ],
+      "sourceFiles": ["standard-notes-aic/src/browser/navigation.ts"],
+      "entrypoints": [
+        "standard-notes-aic/src/browser/panel.ts",
+        "standard-notes-aic/src/browser/service.ts"
+      ],
+      "verification": [
+        "standard-notes-aic/test/browser-navigation.test.ts",
+        "standard-notes-aic/test/browser-library.test.ts",
+        "standard-notes-aic/test/browser-service.test.ts"
+      ]
+    },
+    {
+      "id": "browser.capture-import",
+      "group": "browser-adapter",
+      "purpose": "Capture an explicitly selected current page or selection, sanitize it into Markdown, resolve safe links, and append page, clipboard, or file content after permission and navigation-race checks.",
+      "hosts": ["browser"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/browser/capture-page.ts",
+        "standard-notes-aic/src/browser/import-page.ts"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/browser/capture-page.ts",
+        "standard-notes-aic/src/browser/import-page.ts"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/browser/panel.ts",
+        "standard-notes-aic/src/browser/service.ts"
+      ],
+      "verification": [
+        "standard-notes-aic/test/browser-page-import.test.ts",
+        "standard-notes-aic/test/browser-service.test.ts",
+        "standard-notes-aic/test/browser-panel.test.ts"
+      ]
+    },
+    {
+      "id": "browser.backup",
+      "group": "browser-adapter",
+      "purpose": "Export and import encrypted browser-library backups with validated merge, identity collision handling, quotas, and explicit passphrase flow.",
+      "hosts": ["browser"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/browser/library.ts",
+        "standard-notes-aic/src/browser/vault-store.ts"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/browser/library.ts",
+        "standard-notes-aic/src/browser/vault-store.ts"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/browser/panel.ts",
+        "standard-notes-aic/src/browser/service.ts"
+      ],
+      "verification": [
+        "standard-notes-aic/test/browser-library.test.ts",
+        "standard-notes-aic/test/browser-vault-store.test.ts",
+        "standard-notes-aic/test/browser-panel.test.ts"
+      ]
+    },
+    {
+      "id": "browser.panel-security-lifecycle",
+      "group": "browser-adapter",
+      "purpose": "Own side-panel context, private-window consent, trusted message boundaries, visibility teardown, plaintext cleanup, theme refresh, and stale async cancellation.",
+      "hosts": ["browser"],
+      "canonicalOwners": [
+        "standard-notes-aic/src/browser/panel.ts",
+        "standard-notes-aic/src/browser/api.ts",
+        "standard-notes-aic/src/browser/platform.ts"
+      ],
+      "sourceFiles": [
+        "standard-notes-aic/src/browser/api.ts",
+        "standard-notes-aic/src/browser/main.ts",
+        "standard-notes-aic/src/browser/panel.ts",
+        "standard-notes-aic/src/browser/panel.css",
+        "standard-notes-aic/src/browser/platform.ts",
+        "standard-notes-aic/src/browser/service.ts",
+        "standard-notes-aic/src/browser/worker.ts"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/browser/main.ts",
+        "standard-notes-aic/src/browser/worker.ts"
+      ],
+      "verification": [
+        "standard-notes-aic/test/browser-panel-ux.test.ts",
+        "standard-notes-aic/test/browser-platform.test.ts",
+        "standard-notes-aic/test/browser-service.test.ts",
+        "standard-notes-aic/test/browser-build-config.test.ts",
+        "standard-notes-aic/scripts/browser-lifecycle-regression.mjs"
+      ]
+    },
+    {
+      "id": "vscode.extension-composition",
+      "group": "vscode-adapter",
+      "purpose": "Register commands, views, editors, nesting defaults, lifecycle ownership, and host capability boundaries.",
+      "hosts": ["vscode"],
+      "canonicalOwners": [
+        "aic-notes/src/extension.js",
+        "aic-notes/package.json",
+        "aic-notes/src/lifecycle.js"
+      ],
+      "sourceFiles": [
+        "aic-notes/src/extension.js",
+        "aic-notes/src/lifecycle.js",
+        "aic-notes/src/errors.js"
+      ],
+      "entrypoints": ["aic-notes/src/extension.js"],
+      "verification": [
+        "aic-notes/test/local-activation.test.js",
+        "aic-notes/test/release-contract.test.js",
+        "aic-notes/test/function-index.test.js"
+      ]
+    },
+    {
+      "id": "vscode.sidecar-identity",
+      "group": "vscode-adapter",
+      "purpose": "Map files, folders, and workspace roots to canonical .note.md sidecars and memory-only placeholders without note-of-note recursion.",
+      "hosts": ["vscode"],
+      "canonicalOwners": [
+        "aic-notes/src/notes/paths.js",
+        "aic-notes/src/notes/target.js",
+        "aic-notes/src/notes/create.js",
+        "aic-notes/src/notes/templates.js"
+      ],
+      "sourceFiles": [
+        "aic-notes/src/notes/paths.js",
+        "aic-notes/src/notes/target.js",
+        "aic-notes/src/notes/create.js",
+        "aic-notes/src/notes/templates.js"
+      ],
+      "entrypoints": [
+        "aic-notes/src/extension.js",
+        "aic-notes/src/secondary/provider.js"
+      ],
+      "verification": [
+        "aic-notes/test/paths.test.js",
+        "aic-notes/test/note-routing.test.js",
+        "aic-notes/test/templates.test.js"
+      ]
+    },
+    {
+      "id": "vscode.main-editor",
+      "group": "vscode-adapter",
+      "purpose": "Host Markdown in a custom editor with UTF-16 change synchronization, stale-generation reset, undo/redo delegation, source/link routing, clipboard, and edit leases.",
+      "hosts": ["vscode"],
+      "canonicalOwners": [
+        "aic-notes/src/editor/provider.js",
+        "aic-notes/src/editor/webview-html.js",
+        "aic-notes/src/webview/main.js",
+        "aic-notes/src/notes/edit-ownership.js"
+      ],
+      "sourceFiles": [
+        "aic-notes/src/editor/provider.js",
+        "aic-notes/src/editor/webview-html.js",
+        "aic-notes/src/webview/main.js",
+        "aic-notes/src/webview/host-shim.js",
+        "aic-notes/src/webview/theme.css",
+        "aic-notes/src/notes/edit-ownership.js",
+        "aic-notes/src/clipboard.js"
+      ],
+      "entrypoints": ["aic-notes/src/extension.js"],
+      "verification": [
+        "aic-notes/test/note-transition-races.test.js",
+        "aic-notes/test/edit-ownership.test.js",
+        "aic-notes/test/clipboard.test.js"
+      ]
+    },
+    {
+      "id": "vscode.secondary-pane",
+      "group": "vscode-adapter",
+      "purpose": "Follow or pin the active source's sidecar, show the nearest existing parent for an active note, preserve drafts, and provide explicit source/target navigation.",
+      "hosts": ["vscode"],
+      "canonicalOwners": [
+        "aic-notes/src/secondary/provider.js",
+        "aic-notes/src/secondary/model.js",
+        "aic-notes/src/notes/parent-context.js"
+      ],
+      "sourceFiles": [
+        "aic-notes/src/secondary/provider.js",
+        "aic-notes/src/secondary/model.js",
+        "aic-notes/src/notes/parent-context.js"
+      ],
+      "entrypoints": [
+        "aic-notes/src/extension.js",
+        "aic-notes/src/webview/main.js"
+      ],
+      "verification": [
+        "aic-notes/test/secondary-provider.test.js",
+        "aic-notes/test/secondary-model.test.js",
+        "aic-notes/test/note-routing.test.js",
+        "aic-notes/test/note-transition-races.test.js"
+      ]
+    },
+    {
+      "id": "vscode.notes-tree-context",
+      "group": "vscode-adapter",
+      "purpose": "Index notes and documents, project/folder/current/component/sibling relationships, labels, wiki targets, refreshes, and Explorer nesting.",
+      "hosts": ["vscode"],
+      "canonicalOwners": [
+        "aic-notes/src/notes/tree.js",
+        "aic-notes/src/notes/relationships.js",
+        "aic-notes/src/notes/navigation.js",
+        "aic-notes/src/notes/nesting.js",
+        "aic-notes/src/notes/header-label.js"
+      ],
+      "sourceFiles": [
+        "aic-notes/src/notes/tree.js",
+        "aic-notes/src/notes/relationships.js",
+        "aic-notes/src/notes/navigation.js",
+        "aic-notes/src/notes/nesting.js",
+        "aic-notes/src/notes/header-label.js"
+      ],
+      "entrypoints": [
+        "aic-notes/src/extension.js",
+        "aic-notes/src/secondary/provider.js"
+      ],
+      "verification": [
+        "aic-notes/test/relationships.test.js",
+        "aic-notes/test/note-routing.test.js",
+        "aic-notes/test/header-label.test.js"
+      ]
+    },
+    {
+      "id": "vscode.selection-links",
+      "group": "vscode-adapter",
+      "purpose": "Insert a deduplicated source-selection reference into the live linked-note draft and reopen verified local source ranges.",
+      "hosts": ["vscode"],
+      "canonicalOwners": [
+        "aic-notes/src/notes/selection.js",
+        "aic-notes/src/notes/selection-model.js"
+      ],
+      "sourceFiles": [
+        "aic-notes/src/notes/selection.js",
+        "aic-notes/src/notes/selection-model.js"
+      ],
+      "entrypoints": [
+        "aic-notes/src/extension.js",
+        "aic-notes/src/editor/provider.js",
+        "aic-notes/src/secondary/provider.js"
+      ],
+      "verification": [
+        "aic-notes/test/selection-model.test.js",
+        "aic-notes/test/note-routing.test.js"
+      ]
+    },
+    {
+      "id": "vscode.local-delete",
+      "group": "vscode-adapter",
+      "purpose": "Confirm and move one sidecar or a selected folder's indexed sidecars to Trash, with an explicit permanent fallback only when necessary.",
+      "hosts": ["vscode"],
+      "canonicalOwners": ["aic-notes/src/notes/delete.js"],
+      "sourceFiles": ["aic-notes/src/notes/delete.js"],
+      "entrypoints": ["aic-notes/src/extension.js"],
+      "verification": [
+        "aic-notes/test/note-routing.test.js",
+        "aic-notes/test/note-transition-races.test.js"
+      ]
+    },
+    {
+      "id": "vscode.native-slash-provider",
+      "group": "vscode-adapter",
+      "purpose": "Expose the shared slash catalog in native and untitled Markdown while disabling it in code and read-only contexts.",
+      "hosts": ["vscode"],
+      "canonicalOwners": ["aic-notes/src/editor/slash-provider.js"],
+      "sourceFiles": ["aic-notes/src/editor/slash-provider.js"],
+      "entrypoints": ["aic-notes/src/extension.js"],
+      "verification": ["aic-notes/test/native-slash-provider.test.js"]
+    },
+    {
+      "id": "vscode.agent-workflow",
+      "group": "vscode-adapter",
+      "purpose": "Enable a thin trusted workspace marker and explicitly check or sync the separately owned AIC agent-rule contract.",
+      "hosts": ["vscode"],
+      "canonicalOwners": [
+        "aic-notes/src/agents/bootstrap.js",
+        "aic-notes/src/agents/contract.js"
+      ],
+      "sourceFiles": [
+        "aic-notes/src/agents/bootstrap.js",
+        "aic-notes/src/agents/contract.js"
+      ],
+      "entrypoints": ["aic-notes/src/extension.js"],
+      "verification": [
+        "aic-notes/test/agent-bootstrap.test.js",
+        "aic-notes/test/agent-contract.test.js"
+      ]
+    },
+    {
+      "id": "vscode.cleanup-packaging",
+      "group": "vscode-adapter",
+      "purpose": "Remove retired authentication/sync state exactly once and verify shared-core integrity, packaging contents, checksums, licenses, and release boundaries.",
+      "hosts": ["vscode"],
+      "canonicalOwners": [
+        "aic-notes/src/retired-auth-cleanup.js",
+        "aic-notes/scripts/verify-core.mjs",
+        "aic-notes/scripts/verify-release.mjs",
+        "aic-notes/scripts/package.mjs"
+      ],
+      "sourceFiles": ["aic-notes/src/retired-auth-cleanup.js"],
+      "entrypoints": ["aic-notes/src/extension.js", "aic-notes/esbuild.mjs"],
+      "verification": [
+        "aic-notes/test/retired-auth-cleanup.test.js",
+        "aic-notes/test/core-integrity.test.js",
+        "aic-notes/test/release-contract.test.js"
+      ]
+    }
+  ],
+  "coverageGaps": [
+    "The registry is source- and test-derived, not runtime instrumentation; dynamically generated control variants may still need finer component entries.",
+    "Authenticated Standard Notes desktop/mobile behavior, live VS Code remote or virtual workspaces, Chromium store packaging, and cross-platform assistive-technology behavior are not exhaustively verified by the listed automated tests.",
+    "Build, release, provenance, license, and deployment mechanics are represented as adapter/release features but are not decomposed into every script flag or CI job.",
+    "Vendor copies under aic-notes/vendor are intentionally references to the canonical shared owner and are not independently enumerated."
+  ]
+}

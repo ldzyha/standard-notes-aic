@@ -2,8 +2,11 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { AicEditor, type SaveFeedback, type SaveState } from "../editor";
 import { makePropertiesBlockExtension } from "../core/security-block.js";
+import { propertiesSyntax } from "../core/field-syntax.js";
+import { parsePropertiesBody } from "../core/properties-model.js";
 import { aicMarkdownLanguage } from "../language";
 import { validateDomainProperties } from "./library";
+import { applyUiComponent, createUiButton } from "../core/ui-system.js";
 
 const EMPTY_PROPERTIES = "---\n# aic-fields: v2\n---\n\n";
 
@@ -21,7 +24,19 @@ type SavedText = { kind: "empty" | "valid" | "invalid"; text: string | null };
 function safeSavedText(text: string | null): SavedText {
   if (text === null) return { kind: "empty", text: null };
   try {
-    return { kind: "valid", text: validateDomainProperties(text) };
+    const validated = validateDomainProperties(text);
+    const lines = validated.replace(/\r\n?/gu, "\n").split("\n");
+    const closing = lines.findIndex(
+      (line, index) => index > 0 && /^(?:---|\.\.\.)[ \t]*$/u.test(line),
+    );
+    const body = lines.slice(1, closing).join("\n");
+    const parsed = parsePropertiesBody(body, propertiesSyntax(body));
+    const kind =
+      parsed.ok &&
+      parsed.model.sections.every((section) => section.fields.length === 0)
+        ? "empty"
+        : "valid";
+    return { kind, text: validated };
   } catch {
     return { kind: "invalid", text: null };
   }
@@ -53,15 +68,24 @@ export class DomainPropertiesView {
     this.saved = safeSavedText(options.initialText ?? null);
     this.element = this.document.createElement("section");
     this.element.className = "browser-domain-properties";
+    applyUiComponent(this.element, "context", ["compact"]);
     this.element.dataset.editing = "false";
     const header = this.document.createElement("header");
     header.className = "browser-domain-properties-header";
     const origin = this.document.createElement("span");
     origin.className = "browser-domain-properties-origin";
     origin.textContent = options.origin;
-    this.action = this.document.createElement("button");
-    this.action.type = "button";
-    this.action.className = "browser-button browser-domain-properties-action";
+    origin.title = options.origin;
+    this.action = createUiButton(this.document, {
+      label: "Edit shared properties",
+      text: "Shared properties",
+      variant: "ghost",
+      size: "compact",
+    });
+    this.action.classList.add(
+      "browser-button",
+      "browser-domain-properties-action",
+    );
     this.action.addEventListener("click", () => {
       if (this.editing) void this.finishEditing();
       else this.startEditing();
@@ -91,16 +115,26 @@ export class DomainPropertiesView {
     this.preview = null;
     this.content.replaceChildren();
     this.element.dataset.editing = "false";
-    this.action.textContent = "Edit shared properties";
+    this.element.dataset.empty = String(this.saved.kind === "empty");
+    this.element.classList.toggle(
+      "aic-context--empty",
+      this.saved.kind === "empty",
+    );
+    this.element.classList.remove("aic-context--editing");
+    this.action.textContent = this.saved.kind === "empty" ? "Shared" : "Edit";
+    this.action.setAttribute("aria-label", "Edit shared properties");
+    this.action.title =
+      this.saved.kind === "empty"
+        ? `Add shared properties for ${this.options.origin}`
+        : "Edit shared properties";
     this.action.disabled = false;
     this.action.removeAttribute("aria-busy");
     if (this.saved.kind !== "valid" || this.saved.text === null) {
+      if (this.saved.kind === "empty") return;
       const message = this.document.createElement("p");
       message.className = "browser-domain-properties-empty";
       message.textContent =
-        this.saved.kind === "invalid"
-          ? "Shared properties cannot be displayed. Edit to repair them."
-          : "No shared properties yet.";
+        "Shared properties cannot be displayed. Edit to repair them.";
       this.content.append(message);
       return;
     }
@@ -151,7 +185,12 @@ export class DomainPropertiesView {
       this.saveFeedback,
     );
     this.element.dataset.editing = "true";
+    this.element.classList.add("aic-context--editing");
+    this.element.classList.remove("aic-context--empty");
+    this.element.dataset.empty = "false";
     this.action.textContent = "Done";
+    this.action.setAttribute("aria-label", "Done");
+    this.action.title = "Save and finish editing shared properties";
     this.reflectAction();
     this.feedback.textContent = "";
     this.options.onEditingChange?.(true);

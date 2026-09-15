@@ -39,6 +39,11 @@ describe("optional compact toolbar", () => {
     expect(tray.hidden).toBe(true);
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(trigger.getAttribute("aria-controls")).toBe(tray.id);
+    expect(trigger.textContent).toBe("Format");
+    expect(trigger.classList.contains("aic-button--ghost")).toBe(true);
+    expect(trigger.classList.contains("aic-button--compact")).toBe(true);
+    expect(trigger.getAttribute("aria-label")).toBe("Formatting");
+    expect(trigger.title).toBe("Formatting");
     expect(tray.querySelectorAll(".aic-toolbar-group")).toHaveLength(4);
     trigger.click();
     expect(tray.hidden).toBe(false);
@@ -98,6 +103,31 @@ describe("optional compact toolbar", () => {
     expect(tray.hidden).toBe(true);
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     expect(document.activeElement).toBe(trigger);
+    editor.destroy();
+  });
+
+  it("places an open tray in the larger viewport space", () => {
+    const editor = mount({ compactToolbar: true });
+    const toolbar = editor.toolbar.element;
+    const trigger = toolbar.querySelector<HTMLButtonElement>(
+      ".aic-formatting-toggle",
+    )!;
+    const tray = toolbar.querySelector<HTMLElement>(".aic-toolbar-tray")!;
+    toolbar.getBoundingClientRect = () =>
+      ({ top: 650, bottom: 686 }) as DOMRect;
+    Object.defineProperty(tray, "scrollHeight", {
+      configurable: true,
+      value: 160,
+    });
+    trigger.click();
+    expect(tray.dataset.placement).toBe("above");
+    expect(tray.style.maxHeight).toBe("643px");
+
+    trigger.click();
+    toolbar.getBoundingClientRect = () => ({ top: 40, bottom: 76 }) as DOMRect;
+    trigger.click();
+    expect(tray.dataset.placement).toBe("below");
+    expect(tray.style.maxHeight).toBe("685px");
     editor.destroy();
   });
 

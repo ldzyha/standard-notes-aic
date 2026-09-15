@@ -199,19 +199,28 @@ comments, nested structure and unrelated Markdown are preserved. Related notes, 
 available from the host, appear after metadata as read-only navigation and are never
 written into frontmatter. Ordinary Markdown notes do not acquire generated metadata.
 
-## Release 33.2.4
+## Release 34.3.1
 
-This release pairs with AIC Notes 42.0.3 and AIC Editor Core 5.2.0. This document
+This release pairs with AIC Notes 43.0.1 and AIC Editor Core 5.3.0. This document
 describes the release source and its contracts; deployment and the hosted manifest
 are verified separately by the release workflow.
 
-The 33.2.4 release adds an experimental Chrome/Edge page notebook and shared
-exact-origin Properties. It fixes compact pipe fields and repeated parsing work,
-viewport-clipped Add menus, caret visibility, and retained Standard Notes transport
-save messages. The browser archive has its own version, 0.1.4, and explicit
+The 34.3.1 release gives the experimental Chrome/Edge sidebar a compact contextual
+surface, metadata-only saved-ancestor navigation, and guarded local page-note
+deletion. It also fixes card fields so their masked parts share the compact inline
+composite row without losing independent copy and empty-field actions. The browser
+archive has its own version, 0.2.0, and explicit
 [verification boundaries](browser/VERIFICATION.md); use synthetic data while its
 remaining packaged-runtime gates are open. See the [browser guide](browser/README.md)
 and [marketplace HOWTO](MARKETPLACE_HOWTO.md) for installation and future submissions.
+
+Core 5.3.0 adds shared component IDs, BEM helpers and geometry tokens. Adoption is
+incremental: compatibility selectors and host placement rules remain, so this release
+does not claim that every legacy selector or duplicate style has been removed.
+
+The prior 33.2.4 release added the page notebook and exact-origin shared Properties,
+and fixed compact generic pipe fields, bounded Add menus, caret visibility and
+retained Standard Notes transport messages.
 
 The 32.1.1 release introduced quoted slots and the literal-pipe fix. The prior
 release's five feature outcomes are the single `aic` grammar with optional labels, compact masked
@@ -245,7 +254,8 @@ enter real credentials there. The converter handles Authenticator JSON bodies,
 not native note-type migration. No AIC-managed cross-application synchronization, QR image
 import UI or QR-code generation is provided. Standard Notes itself owns account
 sign-in, note encryption and its synchronization service. The paired VS Code
-integration provides authentication only, with no note synchronization.
+integration is local-only and provides no Standard Notes account connection or note
+synchronization.
 
 Task checkboxes, details parsing, code-language aliases and the bounded Mermaid render queue now
 have canonical implementations in `src/core`, consumed by both this editor and AIC Notes.
@@ -492,7 +502,8 @@ It never opens a real Standard Notes account or modifies workspace documents.
 `npm run build` writes the static component to `dist/`, including the production and local
 manifests. Pushes to `main` run the complete check and deploy only `dist/` to GitHub Pages. Tags in
 the form `vX.Y.Z` run the same check, require an exact `package.json` version match, and publish a
-release archive containing root `package.json` plus `dist/`. The same release
+release archive containing root release documentation and registries, `package.json`,
+and `dist/`. The same release
 also builds and attaches the experimental Chrome/Edge ZIP, its SHA-256 checksum,
 and the [marketplace HOWTO](MARKETPLACE_HOWTO.md). No store submission is automatic.
 
@@ -502,6 +513,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `33.2.4` is sequence 33 with
-two feature outcomes and four fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `34.3.1` is sequence 34 with
+three feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

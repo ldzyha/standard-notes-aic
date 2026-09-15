@@ -34,6 +34,33 @@ describe("browser note drafts", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
+  it("forgets only idle acknowledged drafts and starts a clean placeholder after deletion", async () => {
+    const pending = deferred<BrowserNote>();
+    const drafts = new BrowserDrafts(() => pending.promise);
+    drafts.activate(note("a"));
+    expect(drafts.getForPage("https://example.com/a")?.key).toBe("a");
+    drafts.edit("a", "Edited");
+    expect(drafts.forget("a")).toBe(false);
+    const saving = drafts.flush("a");
+    expect(drafts.forget("a")).toBe(false);
+    pending.resolve(note("a", "Edited", 2));
+    await saving;
+    expect(drafts.forget("a")).toBe(true);
+    expect(drafts.getForPage("https://example.com/a")).toBeUndefined();
+    const fresh = drafts.activatePlaceholder(
+      { url: "https://example.com/a", title: "a" },
+      placeholder,
+    );
+    expect(fresh).toMatchObject({
+      text: placeholder,
+      note: null,
+      dirty: false,
+    });
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS * 2);
+    expect(drafts.hasPendingChanges()).toBe(false);
+    drafts.dispose();
+  });
+
   it("debounces autosave and returns only independent snapshots", async () => {
     const save = vi.fn(
       async (_id: string, markdown: string, revision: number) =>

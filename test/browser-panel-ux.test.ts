@@ -373,9 +373,8 @@ describe("browser panel compact UX", () => {
     expect(deepNote?.title).toBe(deepPage.url);
     expect(deepNote?.parentElement?.querySelector(".browser-url")).toBeNull();
     const history = root.querySelector(".browser-history")!;
-    expect(history.querySelector("button")?.title).toBe(deepPage.url);
-    expect(history.querySelector("small")?.textContent).toBe("docs.example");
-    expect(history.textContent).not.toContain(deepPage.url);
+    // Saved pages already appear in the tree, not again in recent history.
+    expect(history.childElementCount).toBe(0);
     const filter = root.querySelector<HTMLInputElement>(".browser-filter")!;
     filter.value = "Deep note";
     filter.dispatchEvent(new Event("input", { bubbles: true }));

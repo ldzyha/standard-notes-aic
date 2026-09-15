@@ -332,6 +332,16 @@ export class DraftCoordinator<
     return entry ? this.requestSave(entry, true) : Promise.resolve(false);
   }
 
+  /** Capture our own acknowledgement even when an inactive entry is pruned. */
+  async flushSnapshot(
+    key: string,
+  ): Promise<DraftState<RecordType, Context> | undefined> {
+    const entry = this.entries.get(key);
+    if (!entry || !(await this.requestSave(entry, true)) || this.disposed)
+      return undefined;
+    return snapshot(entry.draft);
+  }
+
   async flushAll(): Promise<boolean> {
     const pending = [...this.entries.values()]
       .filter((entry) => entry.draft.dirty || entry.inFlight)
@@ -342,6 +352,29 @@ export class DraftCoordinator<
   get(key: string): DraftState<RecordType, Context> | undefined {
     const entry = this.entries.get(key);
     return entry ? snapshot(entry.draft) : undefined;
+  }
+
+  getForContext(
+    contextKey: string,
+  ): DraftState<RecordType, Context> | undefined {
+    const entry = [...this.entries.values()].find(
+      (item) => this.adapter.contextKey(item.draft.context) === contextKey,
+    );
+    return entry ? snapshot(entry.draft) : undefined;
+  }
+
+  /** Forget only an acknowledged, idle draft after its storage record was deleted. */
+  forget(key: string): boolean {
+    const entry = this.entries.get(key);
+    if (!entry) return true;
+    if (entry.draft.dirty || entry.draft.saving || entry.inFlight) return false;
+    this.clearTimer(entry);
+    entry.draft.text = "";
+    entry.baseText = "";
+    if (entry.draft.record) entry.draft.record.markdown = "";
+    this.entries.delete(key);
+    if (this.activeKey === key) this.activeKey = null;
+    return true;
   }
 
   dirtyDrafts(): DraftState<RecordType, Context>[] {

@@ -1,0 +1,308 @@
+{
+  "registryVersion": 1,
+  "asOf": "2026-09-15",
+  "status": {
+    "currentFacts": "The shared runtime registry and base geometry exist in src/core/ui-system.*. Button is adopted by shared toolbar/actions and parts of the browser; card and field are adopted by the shared Security/Properties renderer; toolbar, menu, notice, and tree are partially adopted in the browser. Most legacy selectors remain active and required.",
+    "approvedDirection": "The user approved one cross-host design system using BEM elements and explicit modifiers for Standard Notes, Chromium, and VS Code. The eight current IDs are the implemented technical baseline accepted in root review, not names separately prescribed by the user.",
+    "reviewPending": "The mappings below are the author's recommended migration map. Reviewers must approve or amend each mapping before removing legacy hooks."
+  },
+  "runtimeOwner": "standard-notes-aic/src/core/ui-system.js",
+  "styleOwner": "standard-notes-aic/src/core/ui-system.css",
+  "typeOwner": "standard-notes-aic/src/core/ui-system.d.ts",
+  "rulesOwner": "standard-notes-aic/UI_ARCHITECTURE.md",
+  "naming": {
+    "block": "aic-{id}",
+    "element": "aic-{id}__{element}",
+    "modifier": "aic-{id}--{modifier}",
+    "elementModifier": "aic-{id}__{element}--{modifier}",
+    "policy": "New shared visual identity uses BEM classes. Host-specific classes may remain for integration layout or native platform hooks, but must not redefine the component contract."
+  },
+  "components": [
+    {
+      "id": "button",
+      "purpose": "Named native action control with consistent geometry, focus, disabled state, variant, size, and optional icon.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "bem": {
+        "block": "aic-button",
+        "elements": ["icon", "label"],
+        "modifiers": [
+          "default",
+          "ghost",
+          "danger",
+          "normal",
+          "compact",
+          "touch",
+          "icon-only"
+        ]
+      },
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/ui-system.js",
+        "standard-notes-aic/src/core/ui-system.css",
+        "standard-notes-aic/src/core/structured-preview.js",
+        "standard-notes-aic/src/toolbar.ts"
+      ],
+      "legacyHooks": {
+        "shared": [
+          ".aic-toolbar-button",
+          ".cm-aic-icon-button",
+          ".cm-aic-security-action",
+          ".cm-aic-security-panel-button",
+          ".aic-db-button"
+        ],
+        "browser": [
+          ".browser-button",
+          ".browser-icon-button",
+          ".browser-domain-properties-action",
+          ".browser-add-content",
+          ".browser-lock-button"
+        ],
+        "vscode": [".aic-save-button", ".aicn-error-fix"]
+      },
+      "adoption": "partial"
+    },
+    {
+      "id": "toolbar",
+      "purpose": "A row or wrapping group of context title and actions; behavior and save ownership remain with the host.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "bem": {
+        "block": "aic-toolbar",
+        "elements": ["group", "title", "actions"],
+        "modifiers": ["compact", "wrap"]
+      },
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/ui-system.js",
+        "standard-notes-aic/src/core/ui-system.css",
+        "standard-notes-aic/src/toolbar.ts"
+      ],
+      "legacyHooks": {
+        "shared": [
+          ".aic-toolbar",
+          ".aic-toolbar-group",
+          ".aic-toolbar-tray",
+          ".cm-md-preview-header",
+          ".cm-aic-mermaid-controls",
+          ".aic-db-toolbar"
+        ],
+        "browser": [".browser-toolbar", ".browser-page-identity"],
+        "vscode": [".aic-save-controls"]
+      },
+      "adoption": "partial"
+    },
+    {
+      "id": "menu",
+      "purpose": "Bounded contextual choice surface with title, items, separators, hints, focus entry, dismissal, and host-owned action callbacks.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "bem": {
+        "block": "aic-menu",
+        "elements": ["title", "item", "separator", "hint"],
+        "modifiers": ["compact"]
+      },
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/ui-system.js",
+        "standard-notes-aic/src/core/ui-system.css"
+      ],
+      "legacyHooks": {
+        "shared": [
+          ".cm-tooltip-autocomplete",
+          ".cm-aic-security-add-menu",
+          ".aic-db-popover"
+        ],
+        "browser": [
+          ".browser-overlay",
+          ".browser-popover",
+          ".browser-menu-hint"
+        ],
+        "vscode": [".cm-tooltip-autocomplete"]
+      },
+      "adoption": "partial"
+    },
+    {
+      "id": "notice",
+      "purpose": "Non-secret status, success, warning, progress, or actionable error feedback with optional actions and accessible live-region semantics.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "bem": {
+        "block": "aic-notice",
+        "elements": ["message", "actions"],
+        "modifiers": ["info", "success", "warning", "error"]
+      },
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/ui-system.js",
+        "standard-notes-aic/src/core/ui-system.css"
+      ],
+      "legacyHooks": {
+        "shared": [
+          ".cm-aic-security-error",
+          ".cm-aic-security-panel-message",
+          ".cm-aic-diagram-stale-notice",
+          ".aic-db-source-notice",
+          ".aic-db-status"
+        ],
+        "browser": [
+          ".browser-feedback",
+          ".browser-draft-error",
+          ".browser-domain-properties-feedback"
+        ],
+        "vscode": [".aic-save-status", ".aicn-error-card", ".aicn-error-detail"]
+      },
+      "adoption": "partial"
+    },
+    {
+      "id": "field",
+      "purpose": "Labelled value/control unit with validation, masking, composite parts, help, error, and accessible action relationships.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "bem": {
+        "block": "aic-field",
+        "elements": [
+          "label",
+          "control",
+          "hint",
+          "error",
+          "value",
+          "status",
+          "actions"
+        ],
+        "modifiers": ["compact", "invalid", "masked", "composite", "unlabelled"]
+      },
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/ui-system.js",
+        "standard-notes-aic/src/core/ui-system.css",
+        "standard-notes-aic/src/core/security-block.js"
+      ],
+      "legacyHooks": {
+        "shared": [
+          ".cm-aic-security-row",
+          ".cm-aic-security-label",
+          ".cm-aic-security-value",
+          ".cm-aic-security-field-description",
+          ".cm-aic-security-field-status",
+          ".cm-aic-security-card-parts",
+          ".aic-db-field",
+          ".aic-db-field-label"
+        ],
+        "browser": [".browser-field"],
+        "vscode": [".cm-snippetField"]
+      },
+      "adoption": "partial"
+    },
+    {
+      "id": "card",
+      "purpose": "Structured content surface with header, title, body, and actions for Properties, Security, diagrams, errors, and compact read-only previews.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "bem": {
+        "block": "aic-card",
+        "elements": [
+          "header",
+          "title",
+          "body",
+          "actions",
+          "section",
+          "section-title"
+        ],
+        "modifiers": ["compact", "security", "properties", "readonly", "empty"]
+      },
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/ui-system.js",
+        "standard-notes-aic/src/core/ui-system.css",
+        "standard-notes-aic/src/core/security-block.js"
+      ],
+      "legacyHooks": {
+        "shared": [
+          ".cm-aic-security",
+          ".cm-aic-security-card",
+          ".cm-aic-security-body",
+          ".cm-aic-properties",
+          ".cm-md-code-preview",
+          ".cm-aic-diagram-inline",
+          ".aic-diagram-builder"
+        ],
+        "browser": [".browser-domain-properties", ".browser-delete-confirm"],
+        "vscode": [".aicn-error-card"]
+      },
+      "adoption": "partial"
+    },
+    {
+      "id": "tree",
+      "purpose": "Hierarchical or ordered navigation metadata with groups, items, rows, labels, and actions; it never owns note content.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "bem": {
+        "block": "aic-tree",
+        "elements": ["group", "item", "row", "label", "actions"],
+        "modifiers": ["compact", "ancestors"]
+      },
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/ui-system.js",
+        "standard-notes-aic/src/core/ui-system.css",
+        "standard-notes-aic/src/browser/navigation.ts",
+        "aic-notes/src/notes/tree.js"
+      ],
+      "legacyHooks": {
+        "shared": [
+          ".cm-aic-note-relations",
+          ".cm-aic-note-relation-open",
+          ".cm-aic-note-relation-label",
+          ".cm-aic-note-relation-marker",
+          ".cm-aic-note-relation-kind"
+        ],
+        "browser": [
+          ".browser-navigation",
+          ".browser-library",
+          ".browser-domain",
+          ".browser-path-label",
+          ".browser-history",
+          ".browser-page-ancestors"
+        ],
+        "vscode": [
+          "aicNotes.tree",
+          "vscode.TreeItem",
+          "viewItem=note",
+          "viewItem=dir",
+          "viewItem=bucket"
+        ]
+      },
+      "adoption": "partial"
+    },
+    {
+      "id": "context",
+      "purpose": "Expose the current editing identity and its non-owning shared, ancestor, source, or path context without merging content or persistence identities.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "bem": {
+        "block": "aic-context",
+        "elements": ["title", "path", "item", "link", "current"],
+        "modifiers": ["compact", "empty", "editing"]
+      },
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/ui-system.js",
+        "standard-notes-aic/src/core/ui-system.css",
+        "standard-notes-aic/src/browser/panel.ts",
+        "aic-notes/src/notes/relationships.js"
+      ],
+      "legacyHooks": {
+        "shared": [".cm-aic-properties-metadata", ".cm-aic-note-relations"],
+        "browser": [
+          ".browser-shared-host",
+          ".browser-page-identity",
+          ".browser-page-title",
+          ".browser-page-origin",
+          ".browser-page-ancestors",
+          ".browser-ancestor-current",
+          ".browser-note",
+          ".browser-empty-context"
+        ],
+        "vscode": [
+          ".aic-main-note-surface",
+          ".aic-secondary-surface",
+          ".aic-secondary-shell",
+          ".aic-pane-empty",
+          "aicNotes.secondary"
+        ]
+      },
+      "adoption": "partial"
+    }
+  ],
+  "coverageGaps": [
+    "The eight IDs describe reusable primitives, not every composed feature widget. Diagram builder, table cell editor, Mermaid viewport, and CodeMirror editor remain composed patterns over these primitives plus integration-specific hooks.",
+    "Legacy selectors are grouped by ownership and migration target, not enumerated as a frozen compatibility API. A selector audit must precede each removal.",
+    "VS Code native TreeItem and workbench UI cannot be restyled by webview CSS; only AIC-owned webview controls can adopt these classes.",
+    "Current adoption is additive. No claim is made that all hosts or all legacy selectors have been converted."
+  ]
+}

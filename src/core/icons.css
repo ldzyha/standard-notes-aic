@@ -1,15 +1,6 @@
 /* Embedded SVG masks keep action icons independent from widget SVG rendering. */
 .cm-aic-icon-button {
   --aic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3 8h10' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round'/%3E%3C/svg%3E");
-  box-sizing: border-box;
-  width: 1.75rem;
-  min-width: 1.75rem !important;
-  height: 1.75rem;
-  min-height: 1.75rem !important;
-  padding: 0 !important;
-  display: inline-grid;
-  place-items: center;
-  flex: 0 0 auto;
   color: inherit;
   font-size: 0 !important;
   line-height: 0 !important;
@@ -127,12 +118,6 @@
   --aic-icon: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M5 2h6v2l-1 1v4l2 2H4l2-2V5L5 4Z' fill='black' stroke='black' stroke-width='1.2' stroke-linejoin='round'/%3E%3Cpath d='M8 11v3' fill='none' stroke='black' stroke-width='1.4' stroke-linecap='round'/%3E%3C/svg%3E");
 }
 
-.cm-aic-details-disclosure.cm-aic-icon-button {
-  width: 1.35rem;
-  min-width: 1.35rem !important;
-  height: 1.35rem;
-  min-height: 1.35rem !important;
-}
 .cm-aic-details-summary[data-open="true"] .cm-aic-details-disclosure::before {
   transform: rotate(90deg);
 }
@@ -146,20 +131,4 @@
     center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='m3 8 3 3 7-7' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
     center / contain no-repeat;
-}
-
-.aic-toolbar-button.cm-aic-icon-button {
-  width: 34px;
-  min-width: 34px !important;
-  height: 34px;
-  min-height: 34px !important;
-}
-
-@media (max-width: 700px) {
-  .aic-toolbar-button.cm-aic-icon-button {
-    width: 44px;
-    min-width: 44px !important;
-    height: 44px;
-    min-height: 44px !important;
-  }
 }

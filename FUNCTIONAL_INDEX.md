@@ -1,19 +1,31 @@
 # AIC Standard Notes plugin functional index
 
+## Canonical registries and UI rules
+
+This release-oriented narrative is indexed by the machine-readable
+[`FEATURES.json`](FEATURES.json). Shared component IDs, BEM vocabulary, current
+legacy hooks, and adoption status are registered in
+[`COMPONENTS.json`](COMPONENTS.json). Cross-host ownership, naming rules,
+dependency-ordered migration steps, verification criteria, and known coverage
+gaps are defined in [`UI_ARCHITECTURE.md`](UI_ARCHITECTURE.md). Runtime code
+imports the compiled shared modules; it does not load the JSON registries.
+
 This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 managed file properties, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 33.2.4 pairs with AIC Notes 42.0.3 and AIC Editor Core 5.2.0.
+storage format. Release 34.3.1 pairs with AIC Notes 43.0.1 and AIC Editor Core 5.3.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
-## Current host boundary — 2026-09-14
+## Current host boundary — 2026-09-15
 
-The experimental browser release component 0.1.4 targets Chrome and Edge only, using one
+The experimental browser release component 0.2.0 targets Chrome and Edge only, using one
 Chromium package and this repository's `AicEditor`, with
-an opt-in compact toolbar and explicit read-only page/selection/clipboard/Markdown
-import. See [browser/README.md](browser/README.md) and its verification record.
+an opt-in compact contextual toolbar and explicit read-only
+page/selection/clipboard/Markdown import. When shared Properties are empty, their
+action remains inline in the Format toolbar; saved shared data renders as its own
+masked section. See [browser/README.md](browser/README.md) and its verification record.
 It accompanies this GitHub release; browser-store publication remains a future step.
 
 New pages mount a memory-only Properties placeholder immediately. The draft
@@ -35,11 +47,16 @@ child pages display the masked canonical preview without copying shared fields
 into their Markdown. Page and domain drafts share one save coordinator. Version 1
 notes migrate unchanged, with no automatic inheritance from homepage notes.
 
-This release also compacts pipe fields into one row and
-remove repeated per-block full-tree scans. The Standard Notes adapter releases
-its own completed/failed transport save messages; the pinned transport otherwise
-retains full note snapshots. Real transport tests cover acknowledgment, timeout,
-queue cancellation and disposal without removing persistent context streams.
+Above the current editor, a compact chain exposes only metadata links for saved
+same-origin path-segment ancestors. Query-bearing lookalikes and siblings are not
+parents; ancestor Markdown and secret values are never copied into this projection.
+Confirmed local deletion is revision-guarded and removes only the selected note and
+its AIC history entry. Other notes and exact-origin shared Properties remain intact;
+deleting the active note restores an unsaved placeholder.
+
+This release also compacts card parts into the shared inline composite-field row.
+Independent masked copy feedback, empty-part Paste, deletion and ordering semantics
+remain owned by the existing field controller.
 
 The browser and Standard Notes share editor composition; VS Code constructs its
 own editor and consumes the explicitly distributed `src/core` modules. The compact
@@ -48,7 +65,18 @@ zoom and a shared workspace tree are proposed, not implemented; their ownership,
 risks and dependency-ordered transition are in
 [ADAPTIVE_PREVIEW_STUDY.md](ADAPTIVE_PREVIEW_STUDY.md).
 
-## Shared-core changes in release 33.2.4
+## Shared-core changes in release 34.3.1
+
+- Core 5.3.0 exports shared component IDs, BEM-class helpers and geometry tokens
+  through the explicit core inventory. The migration is additive and partial:
+  CodeMirror/data compatibility hooks and host placement rules remain registered.
+- Card previews use the compact inline composite-field row while preserving masking,
+  independent copy targets and existing empty-field actions.
+- Shared preview layout owns common shell, header and code-preview styling used by
+  the Standard Notes and VS Code hosts. This is a canonical ownership change, not a
+  claim that every legacy selector or host-specific rule has been removed.
+
+## Prior shared-core changes in release 33.2.4
 
 - Generic pipe fields keep label, value and description in one compact row without
   visible technical subheaders; independent copy, masking and local overflow remain.

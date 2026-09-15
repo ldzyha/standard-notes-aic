@@ -11,6 +11,7 @@ import { securityCardOrdering } from "./security-card-order.js";
 import { parseFieldLabel } from "./field-label.js";
 import { propertiesSyntax, SECURITY_FIELD_OPTIONS } from "./field-syntax.js";
 import { blockDiagnostic } from "./block-diagnostic.js";
+import { applyUiComponent } from "./ui-system.js";
 import { FIELD_PARTS_MAX_LENGTH } from "./field-parts.js";
 import {
   isCardField,
@@ -229,9 +230,15 @@ function row(
 ) {
   const element = document.createElement("div");
   element.className = "cm-aic-security-row";
+  applyUiComponent(
+    element,
+    "field",
+    label ? ["compact"] : ["compact", "unlabelled"],
+  );
   const name = document.createElement("button");
   name.type = "button";
   name.className = "cm-aic-security-label";
+  applyUiComponent(name, "field", [], "label");
   name.textContent = label;
   let descriptionTarget;
   if (description) {
@@ -250,12 +257,14 @@ function row(
   const content = document.createElement("button");
   content.type = "button";
   content.className = "cm-aic-security-value";
+  applyUiComponent(content, "field", [], "value");
   content.textContent = value || "—";
   content.setAttribute("aria-label", "Copy " + copyDescription + " value");
   if (descriptionTarget)
     content.setAttribute("aria-describedby", descriptionTarget);
   const status = document.createElement("span");
   status.className = "cm-aic-security-field-status";
+  applyUiComponent(status, "field", [], "status");
   status.setAttribute("role", "status");
   const labelStatus = status.cloneNode();
   const activate = (event, copy, feedback) => {
@@ -281,6 +290,7 @@ function row(
   }
   const trailing = document.createElement("span");
   trailing.className = "cm-aic-security-row-trailing";
+  applyUiComponent(trailing, "field", [], "actions");
   if (actions) trailing.append(actions);
   if (label) element.append(name);
   else element.classList.add("is-unlabelled");
@@ -1175,12 +1185,17 @@ class SecurityBlockWidget extends WidgetType {
     wrapper.className =
       "cm-aic-security cm-md-block-preview" +
       (isProperties ? " cm-aic-properties" : "");
+    applyUiComponent(wrapper, "card", [
+      isProperties ? "properties" : "security",
+      ...(this.readOnly ? ["readonly"] : []),
+    ]);
     wrapper.setAttribute(
       "aria-label",
       isProperties ? "Properties" : "Security block",
     );
     const header = document.createElement("div");
     header.className = "cm-md-preview-header";
+    applyUiComponent(header, "card", [], "header");
     const title = document.createElement("strong");
     const parsed = this.format.parse(this.block.body, this.block, true);
     title.textContent = isProperties
@@ -1190,6 +1205,7 @@ class SecurityBlockWidget extends WidgetType {
         : "Security";
     const actions = document.createElement("span");
     actions.className = "cm-md-preview-actions";
+    applyUiComponent(actions, "card", [], "actions");
     header.append(title, actions);
     wrapper.append(header);
     if (!isProperties) {
@@ -1317,6 +1333,7 @@ class SecurityBlockWidget extends WidgetType {
     const codes = [];
     const body = document.createElement("div");
     body.className = "cm-aic-security-body";
+    applyUiComponent(body, "card", [], "body");
     const hasCustomFields =
       isProperties &&
       parsed.model.sections.some(
@@ -1431,6 +1448,7 @@ class SecurityBlockWidget extends WidgetType {
       if (isProperties && sectionIndex === 0) return;
       const group = document.createElement("section");
       group.className = "cm-aic-security-section";
+      applyUiComponent(group, "card", [], "section");
       const groupFilter = {
         element: group,
         label: section.label,
@@ -1460,6 +1478,7 @@ class SecurityBlockWidget extends WidgetType {
         }
         const sectionHeading = document.createElement("strong");
         sectionHeading.className = "cm-aic-security-section-title";
+        applyUiComponent(sectionHeading, "card", [], "section-title");
         sectionHeading.textContent = isProperties
           ? section.label || "Group " + (sectionIndex + 1)
           : sectionIndex > 0 || parsed.model.title !== undefined
@@ -1706,13 +1725,14 @@ class SecurityBlockWidget extends WidgetType {
         if (cardField || (hasParts && !(value && isRecoveryField(field)))) {
           const composite = document.createElement("section");
           composite.className = "cm-aic-security-card";
+          applyUiComponent(composite, "field", ["composite", "compact"]);
           composite.dataset.aicCardKind = cardField ? "card" : "fields";
           const partHeader = document.createElement("div");
           partHeader.className = "cm-aic-security-section-header";
           if (field.label) {
             const partTitle = document.createElement("button");
             partTitle.className = "cm-aic-security-section-title";
-            partTitle.textContent = cardField ? label : `${label}:`;
+            partTitle.textContent = `${label}:`;
             partTitle.title = label;
             {
               const titleCopy = document.createElement("span");
@@ -1778,10 +1798,7 @@ class SecurityBlockWidget extends WidgetType {
                 "trash",
                 () => this.removeEmptyField(view, sectionIndex, fieldIndex),
               );
-              if (!cardField) composite.append(remove);
-              else if (partHeader.parentNode === composite)
-                partHeader.append(remove);
-              else composite.append(remove);
+              composite.append(remove);
             }
           }
           registerField(

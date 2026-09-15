@@ -40,6 +40,9 @@ export interface PageContext {
   title: string;
 }
 
+/** The exact note observed by the caller, or an observed history-only page. */
+export type PageNoteExpectation = { id: string; revision: number } | null;
+
 export interface LibraryPersistence {
   read(): Promise<unknown>;
   write(library: BrowserLibrary): Promise<void>;
@@ -466,6 +469,49 @@ export class LibraryStore {
 
   exportBackup(): Promise<string> {
     return this.queued(async () => JSON.stringify(await this.read(), null, 2));
+  }
+
+  deletePage(
+    url: string,
+    expectedNote: PageNoteExpectation,
+  ): Promise<BrowserLibrary> {
+    return this.queued(async () => {
+      const safeUrl = normalizePageUrl(url);
+      if (
+        expectedNote !== null &&
+        (!record(expectedNote, ["id", "revision"]) ||
+          !stringWithin(expectedNote.id, 128) ||
+          !expectedNote.id ||
+          [...expectedNote.id].some(
+            (character) =>
+              character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127,
+          ) ||
+          !Number.isSafeInteger(expectedNote.revision) ||
+          expectedNote.revision < 1)
+      )
+        throw invalid();
+      const current = await this.read();
+      const note = current.notes.find((candidate) => candidate.url === safeUrl);
+      if (
+        expectedNote === null
+          ? note !== undefined
+          : !note ||
+            note.id !== expectedNote.id ||
+            note.revision !== expectedNote.revision
+      )
+        throw new LibraryError(
+          "conflict",
+          "This page changed elsewhere. Reload it before deleting.",
+        );
+      const next: BrowserLibrary = {
+        ...current,
+        notes: current.notes.filter((candidate) => candidate.url !== safeUrl),
+        history: current.history.filter((visit) => visit.url !== safeUrl),
+      };
+      if (note || next.history.length !== current.history.length)
+        await this.write(next);
+      return snapshot(next);
+    });
   }
 
   createDomain(origin: string, markdown: string): Promise<BrowserDomain> {

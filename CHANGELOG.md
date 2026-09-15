@@ -2,6 +2,40 @@
 
 ## Unreleased
 
+## 34.3.1 — 2026-09-15
+
+Release sequence 34 · 3 feature outcomes · 1 fixed-bug outcome. The shared editor
+core moves to 5.3.0 with additive UI component exports. Release source target;
+GitHub publication and hosted-manifest deployment require separate verification.
+
+### Features
+
+1. The experimental Chrome/Edge sidebar 0.2.0 uses one compact contextual surface:
+   formatting and an empty shared-Properties action stay in the Format toolbar,
+   while existing domain data remains a distinct masked section. It does not add
+   ornamental empty-state panels or duplicate the active page identity.
+2. A compact metadata-only chain links saved ancestor pages above the current note.
+   It accepts only exact-origin, path-segment ancestors, never sibling notes or
+   ancestor Markdown/secrets, and uses the existing guarded source navigation.
+3. Local page notes can be deleted from their menu or navigation tree after
+   confirmation and revision checks. Deletion removes only the matching note and
+   AIC history entry, preserves other notes and domain-shared Properties, and resets
+   an active page to an unsaved placeholder. Tree/history projections do not render
+   the saved note twice.
+
+### Fix
+
+1. Card fields use the same compact inline row as other composite fields: optional
+   label, masked last four digits, expiry and masked CVV. Each part retains its own
+   copy feedback; empty-part Paste, empty-field deletion and reordering remain.
+
+Compatibility: AIC Notes 43.0.1 consumes core 5.3.0. Existing authored note syntax
+and browser encrypted-library formats are unchanged; masking is not encryption.
+Browser 0.2.0 remains experimental, and its packaged-runtime evidence and open gates
+are recorded separately in browser/VERIFICATION.md. The shared BEM/component layer
+is additive and partially adopted; retained legacy selectors are not claimed removed.
+No browser-store or VS Code Marketplace publication is implied.
+
 ## 33.2.4 — 2026-09-14
 
 Release sequence 33 · 2 feature outcomes · 4 fixed-bug outcomes. The shared editor

@@ -1,6 +1,6 @@
 # AIC page notes — experimental Chrome / Edge component
 
-Status: **0.1.4 experimental component**, packaged alongside the AIC 33.2.4 GitHub release. It is not a browser-store release or an independently audited password manager. Use synthetic data until the packaged-runtime gates in VERIFICATION.md are resolved. The shared editor fixes also ship in AIC Notes 42.0.3.
+Status: **0.2.0 experimental component**, packaged alongside the AIC 34.3.1 GitHub release. It is not a browser-store release or an independently audited password manager. Use synthetic data until the packaged-runtime gates in VERIFICATION.md are resolved. The shared editor fix also ships in AIC Notes 43.0.1.
 
 ## Supported design
 
@@ -34,6 +34,27 @@ Supported browser targets are desktop **Google Chrome and Microsoft Edge only**,
 - Page Markdown copying/export includes the page only. The encrypted library backup includes shared Properties once. There is no autofill, cross-site sharing or network synchronization.
 - Save failures and conflicts retain the local draft for retry or explicit plaintext export. Invalid unfinished Properties remain in the shared editor, never in a child page's readonly preview.
 
+## 0.2.0 compact context, ancestors and deletion
+
+- **Format** opens a compact toolbar popover. When shared Properties are empty, their
+  **Edit shared properties** action stays inline in that toolbar instead of adding a
+  separate empty section, leaving more space for the page editor.
+- Below domain Properties, a compact list links saved parent pages on the current
+  URL path, then identifies the current page. Parent content is not inherited or
+  copied. Only exact-origin, query/fragment-free, strict path ancestors qualify;
+  siblings and similarly named path prefixes do not. This is URL navigation, not
+  a reconstruction of Confluence or another site's internal page hierarchy.
+- Use **More options → Delete local note**, or the removal button next to a page
+  in **Notes and history**. Confirm to delete that note and its AIC history entry.
+  The source website, domain Properties and other notes remain unchanged. The
+  current page returns to a memory-only Properties placeholder; it creates a new
+  note only after an edit. Saved pages appear once, not again under Recent pages.
+- Deletion waits for this panel's pending save and checks the stored revision.
+  Save failures or concurrent changes stop deletion and keep the draft available.
+  There is no undo for a deleted note without an earlier encrypted backup. Removing
+  history does not block future tracking: visiting that page again can add a new
+  recent entry. It does not recreate its deleted note.
+
 ## Encryption and limits
 
 Before the first note, choose a unique master passphrase of at least 12 Unicode characters, at most 1,024 UTF-8 bytes. Spaces and Unicode normalization are preserved exactly. Length alone does not guarantee strength. **There is no recovery without the passphrase.**
@@ -64,12 +85,12 @@ Chrome Incognito and Edge InPrivate are not supported in this build. The manifes
 
 ## Build and local testing
 
-To test a GitHub release without building, download `aic-browser-chromium-0.1.4.zip`
+To test a GitHub release without building, download `aic-browser-chromium-0.2.0.zip`
 and its `.sha256` from [AIC Releases](https://github.com/ldzyha/standard-notes-aic/releases),
 verify the checksum, and extract into a permanent folder. Use that folder for
 **Load unpacked** below. The ZIP is not a Chrome/Edge store installation package.
 
-Run `npm run build:browser` from the canonical repository. No additional runtime dependencies or external services are needed. It produces one unpacked directory, `dist-browser/chromium/`, and one archive, `dist-browser/artifacts/aic-browser-chromium-0.1.4.zip`, for both Chrome and Edge. Other browser build modes are rejected.
+Run `npm run build:browser` from the canonical repository. No additional runtime dependencies or external services are needed. It produces one unpacked directory, `dist-browser/chromium/`, and one archive, `dist-browser/artifacts/aic-browser-chromium-0.2.0.zip`, for both Chrome and Edge. Other browser build modes are rejected.
 
 The archive uses deterministic ordering and timestamps and includes the `>_` icon, worker, editor assets and privacy notices. Previously generated development files are not current targets; the build does not delete older archives or browser profiles. The command never installs into a user's profile or submits to a store.
 
@@ -79,9 +100,9 @@ Before an update, wait for **Note saved**, export an encrypted backup from **Mor
 
 ## Ownership
 
-- `library.ts`: versioned schemas, quotas, revisions, note/history and shared-origin records; `navigation.ts`: compact display projection without changing stored URLs.
+- `library.ts`: versioned schemas, quotas, revisions, note/history and shared-origin records; `navigation.ts`: compact display projection without changing stored URLs; `page-ancestors.ts`: exact-origin path-segment ancestor metadata without note contents.
 - `vault-crypto.ts` / `vault-store.ts`: cryptography and serialized encrypted persistence/backup lifecycle.
-- `service.ts` / `worker.ts`: sole storage writer, active-page checks, capture/navigation authorization and sender isolation.
+- `service.ts` / `worker.ts`: sole storage writer, revision-guarded save/delete operations, active-page checks, capture/navigation authorization and sender isolation.
 - `api.ts` / `platform.ts`: one narrow Chromium adapter for Chrome and Edge; no shared-editor duplication.
 - `capture-page.ts` / `import-page.ts`: bounded read-only DOM capture and inert Markdown conversion. Forms, editable controls, hidden content and inaccessible frames are excluded. Visible text and URLs can contain confidential information; this is not a secret scanner or OCR tool.
 - `draft-coordinator.ts`: common acknowledged-save, conflict and recovery lifecycle; `drafts.ts` / `domain-drafts.ts`: page and origin adapters.

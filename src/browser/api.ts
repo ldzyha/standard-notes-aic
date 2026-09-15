@@ -1,4 +1,4 @@
-import type { PageContext } from "./library";
+import type { PageContext, PageNoteExpectation } from "./library";
 import type { capturePage } from "./capture-page";
 
 export type BrowserTab = {
@@ -92,6 +92,7 @@ export type Request =
       ifAbsent?: boolean;
     }
   | { type: "save"; id: string; markdown: string; revision: number }
+  | { type: "delete-page"; url: string; expectedNote: PageNoteExpectation }
   | {
       type: "create-domain";
       page: ActivePage;

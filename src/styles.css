@@ -99,9 +99,6 @@ select {
 .aic-toolbar {
   position: relative;
   z-index: 10;
-  display: flex;
-  align-items: center;
-  gap: 0.35rem;
   min-width: 0;
   min-height: 44px;
   padding: 0.3rem 0.55rem;
@@ -230,12 +227,8 @@ select {
   flex: 0 1 auto;
 }
 
-.aic-toolbar-button,
-.aic-toolbar-select,
-.cm-mermaid-edit,
-.cm-md-edit-source,
-.cm-aic-link-action {
-  min-height: 34px;
+.aic-toolbar-select {
+  min-height: var(--aic-control-size);
   border: 1px solid transparent;
   border-radius: 0.4rem;
   background: transparent;
@@ -244,8 +237,6 @@ select {
 }
 
 .aic-toolbar-button {
-  min-width: 34px;
-  padding: 0 0.48rem;
   font-weight: 650;
 }
 
@@ -256,24 +247,11 @@ select {
   background: var(--aic-contrast);
 }
 
-.aic-toolbar-button:hover,
-.aic-toolbar-button:focus-visible,
 .aic-toolbar-select:hover,
-.aic-toolbar-select:focus-visible,
-.cm-mermaid-edit:hover,
-.cm-mermaid-edit:focus-visible,
-.cm-md-edit-source:hover,
-.cm-md-edit-source:focus-visible,
-.cm-aic-link-action:hover,
-.cm-aic-link-action:focus-visible {
+.aic-toolbar-select:focus-visible {
   border-color: color-mix(in srgb, var(--aic-accent) 60%, var(--aic-border));
   background: color-mix(in srgb, var(--aic-accent) 10%, transparent);
   outline: none;
-}
-
-.aic-toolbar :disabled {
-  cursor: not-allowed;
-  opacity: 0.72;
 }
 
 .aic-editor-host {
@@ -464,40 +442,6 @@ select {
   background: color-mix(in srgb, var(--aic-fg) 4%, transparent);
 }
 
-.cm-md-block-preview {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 100%;
-  min-width: 0;
-  /* CodeMirror does not include outer margins in its block-widget height map. */
-  margin: 0;
-  overflow: hidden;
-  border: 1px solid var(--aic-details-border);
-  border-radius: 0.55rem;
-  background: var(--aic-details-surface);
-  color: var(--aic-contrast-fg);
-}
-
-.cm-md-code-preview > pre {
-  box-sizing: border-box;
-  width: 100%;
-  max-width: 100%;
-  margin: 0;
-  padding: 0.65rem 0.75rem;
-  overflow: auto;
-  background: color-mix(in srgb, var(--aic-bg) 88%, var(--aic-fg) 12%);
-  color: var(--aic-fg);
-  font: inherit;
-  line-height: 1.5;
-  tab-size: 2;
-  white-space: pre;
-  overscroll-behavior: contain;
-}
-
-.cm-md-code-preview > pre > code {
-  font: inherit;
-}
-
 .cm-md-link {
   text-decoration: underline;
   text-underline-offset: 0.15em;
@@ -554,26 +498,6 @@ select {
   width: max-content;
   min-width: 100%;
   table-layout: auto;
-}
-
-.cm-md-preview-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 2rem;
-  padding: 0.16rem 0.32rem 0.16rem 0.62rem;
-  border-bottom: 1px solid var(--aic-details-border);
-  color: var(--aic-surface-muted);
-  font: 650 0.76rem/1.2
-    var(--sn-stylekit-sans-serif-font, system-ui, sans-serif);
-  letter-spacing: 0.025em;
-  text-transform: uppercase;
-}
-
-.cm-md-edit-source {
-  min-height: 28px;
-  padding: 0 0.5rem;
-  text-transform: none;
 }
 
 .aic-md-block-scroll th,
@@ -946,13 +870,8 @@ select {
     padding: 0.25rem max(0.35rem, env(safe-area-inset-left));
   }
 
-  .aic-toolbar-button,
   .aic-toolbar-select {
-    min-height: 44px;
-  }
-
-  .aic-toolbar-button {
-    min-width: 44px;
+    min-height: var(--aic-control-size-touch);
   }
 
   .aic-editor-host .cm-content {

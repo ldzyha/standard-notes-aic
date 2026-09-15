@@ -1,0 +1,233 @@
+/* Shared geometry and semantics; host themes provide the existing --aic colors. */
+:root {
+  --aic-font-ui: var(
+    --sn-stylekit-sans-serif-font,
+    var(--vscode-font-family, system-ui, sans-serif)
+  );
+  --aic-control-size: 32px;
+  --aic-control-size-compact: 28px;
+  --aic-control-size-touch: 44px;
+  --aic-space-1: 4px;
+  --aic-space-2: 8px;
+  --aic-space-3: 12px;
+  --aic-space-4: 16px;
+  --aic-radius-control: 6px;
+  --aic-radius-surface: 8px;
+}
+
+.aic-button {
+  --aic-button-size: var(--aic-control-size);
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--aic-space-1);
+  min-width: var(--aic-button-size);
+  min-height: var(--aic-button-size);
+  padding: var(--aic-space-1) var(--aic-space-2);
+  border: 1px solid var(--aic-control-border, var(--aic-border, #d8dde5));
+  border-radius: var(--aic-radius-control);
+  background: var(--aic-bg, Canvas);
+  color: var(--aic-fg, CanvasText);
+  font: inherit;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+}
+
+.aic-button--compact {
+  --aic-button-size: var(--aic-control-size-compact);
+}
+.aic-toolbar .aic-button {
+  --aic-button-size: var(--aic-control-size);
+}
+.aic-toolbar--compact .aic-button {
+  --aic-button-size: var(--aic-control-size-compact);
+}
+.aic-button--touch,
+.aic-toolbar .aic-button--touch {
+  --aic-button-size: var(--aic-control-size-touch);
+}
+.aic-button--ghost {
+  border-color: transparent;
+  background: transparent;
+}
+.aic-button--danger {
+  color: var(--aic-danger, #b92337);
+}
+.aic-button--icon-only {
+  width: var(--aic-button-size);
+  height: var(--aic-button-size);
+  min-width: var(--aic-button-size) !important;
+  min-height: var(--aic-button-size) !important;
+  padding: 0 !important;
+  flex: 0 0 auto;
+}
+.aic-button__icon {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+  flex: 0 0 auto;
+  pointer-events: none;
+}
+.aic-button:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: color-mix(
+    in srgb,
+    var(--aic-fg, CanvasText) 8%,
+    var(--aic-bg, Canvas)
+  );
+}
+.aic-button:focus-visible,
+.aic-field__control:focus-visible {
+  outline: 2px solid var(--aic-accent, Highlight);
+  outline-offset: 2px;
+}
+.aic-button:disabled,
+.aic-button[aria-disabled="true"] {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.aic-toolbar,
+.aic-toolbar__group,
+.aic-toolbar__actions,
+.aic-card__header,
+.aic-card__actions,
+.aic-notice__actions,
+.aic-tree__row,
+.aic-tree__actions,
+.aic-context__path {
+  display: flex;
+  align-items: center;
+  gap: var(--aic-space-2);
+}
+.aic-toolbar--wrap,
+.aic-context__path {
+  flex-wrap: wrap;
+}
+.aic-toolbar--compact,
+.aic-tree--compact,
+.aic-context--compact {
+  gap: var(--aic-space-1);
+}
+.aic-toolbar__title,
+.aic-tree__label {
+  min-width: 0;
+  flex: 1;
+}
+.aic-menu,
+.aic-card {
+  box-sizing: border-box;
+  border: 1px solid var(--aic-border, #d8dde5);
+  border-radius: var(--aic-radius-surface);
+  background: var(--aic-bg, Canvas);
+  color: var(--aic-fg, CanvasText);
+}
+.aic-menu {
+  padding: var(--aic-space-3);
+}
+.aic-card {
+  padding: var(--aic-card-padding, 0);
+}
+.aic-menu--compact {
+  padding: var(--aic-space-2);
+}
+.aic-menu__item {
+  width: 100%;
+  justify-content: flex-start;
+  text-align: start;
+}
+.aic-menu__separator {
+  border: 0;
+  border-top: 1px solid var(--aic-border, #d8dde5);
+  margin-block: var(--aic-space-2);
+}
+.aic-menu__hint,
+.aic-field__hint {
+  color: var(--aic-muted, GrayText);
+}
+.aic-notice {
+  padding: var(--aic-space-2);
+  border-inline-start: 3px solid var(--aic-accent, Highlight);
+  color: var(--aic-fg, CanvasText);
+}
+.aic-notice--success {
+  border-color: var(--aic-success, #236d35);
+}
+.aic-notice--error,
+.aic-field__error {
+  color: var(--aic-danger, #b92337);
+}
+.aic-notice--error {
+  border-color: currentColor;
+}
+.aic-notice--warning {
+  border-color: var(--aic-warning, #956400);
+}
+.aic-field__label {
+  display: block;
+  margin-block-end: var(--aic-space-1);
+}
+.aic-field--compact > .aic-field__label {
+  margin-block-end: 0;
+}
+.aic-field__control {
+  box-sizing: border-box;
+  min-height: var(--aic-control-size);
+  max-width: 100%;
+  padding: var(--aic-space-1) var(--aic-space-2);
+  border: 1px solid var(--aic-control-border, var(--aic-border, #d8dde5));
+  border-radius: var(--aic-radius-control);
+  background: var(--aic-bg, Canvas);
+  color: var(--aic-fg, CanvasText);
+  font: inherit;
+}
+.aic-field--compact .aic-field__control,
+.aic-field__control--compact {
+  min-height: var(--aic-control-size-compact);
+}
+.aic-field--invalid .aic-field__control,
+.aic-field__control--invalid {
+  border-color: var(--aic-danger, #b92337);
+}
+.aic-tree__group,
+.aic-context__path {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.aic-context__current {
+  color: var(--aic-muted, GrayText);
+}
+
+@media (pointer: coarse) {
+  .aic-button,
+  .aic-toolbar .aic-button,
+  .aic-toolbar--compact .aic-button {
+    --aic-button-size: var(--aic-control-size-touch);
+  }
+  .aic-field__control,
+  .aic-field--compact .aic-field__control,
+  .aic-field__control--compact {
+    min-height: var(--aic-control-size-touch);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .aic-button {
+    transition: none;
+  }
+}
+@media (forced-colors: active) {
+  .aic-button,
+  .aic-field__control,
+  .aic-menu,
+  .aic-card {
+    border-color: ButtonText;
+  }
+  .aic-button:disabled,
+  .aic-button[aria-disabled="true"] {
+    color: GrayText;
+    opacity: 1;
+  }
+}

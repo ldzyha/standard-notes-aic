@@ -85,6 +85,150 @@ function harness() {
 }
 
 describe("browser service encrypted boundaries", () => {
+  it("deletes a local note and its history through one encrypted write without touching the website", async () => {
+    const h = harness();
+    await h.service.handle({ type: "setup", password });
+    const page = h.page();
+    const note = (await h.service.handle({
+      type: "create",
+      page,
+      markdown: "Delete local note",
+    })) as BrowserNote;
+    await h.service.handle({ type: "visit", windowId: 1 });
+    await h.service.handle({
+      type: "create-domain",
+      page,
+      markdown: "---\n# aic-fields: v2\nShared: keep\n---\n",
+    });
+    h.change({ url: "https://other.test/" });
+    await h.service.handle({
+      type: "create",
+      page: h.page(),
+      markdown: "Unrelated note",
+    });
+    await h.service.handle({ type: "visit", windowId: 1 });
+    const before = (await h.service.handle({ type: "load" })) as BrowserLibrary;
+    const writes = h.api.storage.local.set.mock.calls.length;
+    const result = await h.service.handle({
+      type: "delete-page",
+      url: page.url,
+      expectedNote: { id: note.id, revision: note.revision },
+    });
+    expect(result).toEqual({
+      ...before,
+      notes: before.notes.filter((item) => item.id !== note.id),
+      history: before.history.filter((item) => item.url !== note.url),
+    });
+    expect(h.api.storage.local.set).toHaveBeenCalledTimes(writes + 1);
+    expect(await h.service.handle({ type: "load" })).toEqual(result);
+    expect(h.disk()[LIBRARY_KEY]).toMatchObject({
+      format: "aic-browser-vault",
+    });
+    expect(JSON.stringify(h.disk())).not.toContain("Unrelated note");
+    expect(h.api.tabs.create).not.toHaveBeenCalled();
+    expect(h.api.tabs.update).not.toHaveBeenCalled();
+    expect(h.api.scripting.executeScript).not.toHaveBeenCalled();
+  });
+
+  it("protects newer edits and concurrent creation from stale deletion requests", async () => {
+    const h = harness();
+    await h.service.handle({ type: "setup", password });
+    await h.service.handle({ type: "visit", windowId: 1 });
+    const note = (await h.service.handle({
+      type: "create",
+      page: h.page(),
+      markdown: "Original",
+    })) as BrowserNote;
+    const result = await Promise.allSettled([
+      h.service.handle({
+        type: "save",
+        id: note.id,
+        markdown: "Newer",
+        revision: 1,
+      }),
+      h.service.handle({
+        type: "delete-page",
+        url: note.url,
+        expectedNote: { id: note.id, revision: 1 },
+      }),
+    ]);
+    expect(result.map((item) => item.status)).toEqual([
+      "fulfilled",
+      "rejected",
+    ]);
+    expect((result[1] as PromiseRejectedResult).reason).toMatchObject({
+      code: "conflict",
+    });
+    h.change({ url: "https://new.test/" });
+    let releaseWrite!: () => void;
+    let startedWrite!: () => void;
+    const blockedWrite = new Promise<void>((resolve) => {
+      releaseWrite = resolve;
+    });
+    const writing = new Promise<void>((resolve) => {
+      startedWrite = resolve;
+    });
+    const write = h.api.storage.local.set.getMockImplementation()!;
+    h.api.storage.local.set.mockImplementationOnce(async (value) => {
+      startedWrite();
+      await blockedWrite;
+      await write(value);
+    });
+    const creating = h.service.handle({
+      type: "create",
+      page: h.page(),
+      markdown: "New",
+    });
+    await writing;
+    const deletion = expect(
+      h.service.handle({
+        type: "delete-page",
+        url: h.page().url,
+        expectedNote: null,
+      }),
+    ).rejects.toMatchObject({ code: "conflict" });
+    releaseWrite();
+    await creating;
+    await deletion;
+    expect(await h.service.handle({ type: "load" })).toMatchObject({
+      notes: [
+        { id: note.id, markdown: "Newer", revision: 2 },
+        { markdown: "New" },
+      ],
+      history: [{ url: note.url }],
+    });
+  });
+
+  it("requires unlock and preserves encrypted data when deletion storage fails", async () => {
+    const h = harness();
+    await h.service.handle({ type: "setup", password });
+    await h.service.handle({ type: "visit", windowId: 1 });
+    const before = await h.service.handle({ type: "load" });
+    const disk = structuredClone(h.disk());
+    const deleting = {
+      type: "delete-page",
+      url: h.page().url,
+      expectedNote: null,
+    };
+    h.api.storage.local.set.mockRejectedValueOnce(new Error("Storage detail"));
+    await expect(h.service.handle(deleting)).rejects.toMatchObject({
+      code: "storage",
+    });
+    expect(h.disk()).toEqual(disk);
+    expect(await h.service.handle({ type: "load" })).toEqual(before);
+    await h.service.handle({ type: "lock" });
+    await expect(h.service.handle(deleting)).rejects.toMatchObject({
+      code: "locked",
+    });
+    expect(h.disk()).toEqual(disk);
+    await h.service.handle({ type: "unlock", password });
+    expect(await h.service.handle(deleting)).toMatchObject({
+      notes: [],
+      history: [],
+      domains: [],
+    });
+  });
+
   it("derives shared origin from the active page and saves that identity after navigation", async () => {
     const h = harness();
     await h.service.handle({ type: "setup", password });

@@ -1,3 +1,5 @@
+import { createUiButton } from "./ui-system.js";
+
 export const STRUCTURED_PREVIEW_CORE_VERSION = "2.7.0";
 
 const activeCellEditors = new WeakMap();
@@ -353,11 +355,8 @@ export function moveProperty(rows, from, to) {
 }
 
 function actionButton(document, label, className, run) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = className;
-  button.textContent = label;
-  button.setAttribute("aria-label", label);
+  const button = createUiButton(document, { label, size: "compact" });
+  if (className.trim()) button.classList.add(...className.trim().split(/\s+/u));
   button.addEventListener("pointerdown", (event) => event.preventDefault());
   button.addEventListener("click", (event) => {
     event.preventDefault();
@@ -371,11 +370,15 @@ export function createIconButton(
   document,
   { label, icon, className = "", disabled = false, onActivate } = {},
 ) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = `cm-aic-icon-button ${className}`.trim();
+  const button = createUiButton(document, {
+    label: String(label || "Action"),
+    variant: "ghost",
+    size: "compact",
+    iconOnly: true,
+  });
+  button.classList.add("cm-aic-icon-button");
+  if (className.trim()) button.classList.add(...className.trim().split(/\s+/u));
   button.dataset.aicIcon = String(icon || "action");
-  button.setAttribute("aria-label", String(label || "Action"));
   button.disabled = Boolean(disabled);
   button.addEventListener("pointerdown", (event) => event.preventDefault());
   button.addEventListener("click", (event) => {
@@ -600,9 +603,11 @@ export function showIconFeedback(
 ) {
   button.dataset.aicIcon = icon;
   button.setAttribute("aria-label", label);
+  button.title = label;
   button.ownerDocument.defaultView?.setTimeout(() => {
     button.dataset.aicIcon = restoreIcon;
     button.setAttribute("aria-label", restoreLabel);
+    button.title = restoreLabel;
   }, duration);
 }
 

@@ -2,6 +2,55 @@
    vertical spacing inside the measured box (padding, borders, or child gaps).
    Markdown blank lines remain the document's spacing between separate blocks.
    The editor/content scope intentionally wins over host preview theme rules. */
+.cm-editor .cm-content :is(.aic-card, .cm-md-block-preview) {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 1px solid var(--aic-details-border, var(--aic-border));
+  border-radius: var(--aic-radius-surface);
+  background: var(--aic-details-surface, var(--aic-contrast));
+  color: var(--aic-contrast-fg, var(--aic-fg));
+  overflow: hidden;
+}
+.cm-editor .cm-content :is(.aic-card__header, .cm-md-preview-header) {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--aic-space-1);
+  min-height: var(--aic-control-size);
+  padding: 2px var(--aic-space-2);
+  border-bottom: 1px solid var(--aic-details-border, var(--aic-border));
+  color: var(--aic-surface-muted, var(--aic-muted));
+  font: 650 0.76rem/1.2 var(--aic-font-ui);
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+}
+:is(.aic-card__actions, .cm-md-preview-actions) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--aic-space-1);
+}
+.cm-md-code-preview > pre {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: var(--aic-space-2) var(--aic-space-3);
+  overflow: auto;
+  background: color-mix(in srgb, var(--aic-bg) 88%, var(--aic-fg) 12%);
+  color: var(--aic-fg);
+  font: inherit;
+  line-height: 1.5;
+  tab-size: 2;
+  white-space: pre;
+  overscroll-behavior: contain;
+}
+.cm-md-code-preview > pre > code {
+  font: inherit;
+}
+
 .cm-editor .cm-content .cm-md-block-preview,
 .cm-editor .cm-content .aic-md-block-scroll,
 .cm-editor .cm-content .cm-mermaid-inline {

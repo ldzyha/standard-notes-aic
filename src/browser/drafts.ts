@@ -76,6 +76,11 @@ export class BrowserDrafts {
     return this.coordinator.flush(key);
   }
 
+  async flushSnapshot(key: string): Promise<Draft | undefined> {
+    const state = await this.coordinator.flushSnapshot(key);
+    return state ? browserDraft(state) : undefined;
+  }
+
   flushAll(): Promise<boolean> {
     return this.coordinator.flushAll();
   }
@@ -83,6 +88,15 @@ export class BrowserDrafts {
   get(key: string): Draft | undefined {
     const state = this.coordinator.get(key);
     return state ? browserDraft(state) : undefined;
+  }
+
+  getForPage(url: string): Draft | undefined {
+    const state = this.coordinator.getForContext(url);
+    return state ? browserDraft(state) : undefined;
+  }
+
+  forget(key: string): boolean {
+    return this.coordinator.forget(key);
   }
 
   dirtyDrafts(): Draft[] {

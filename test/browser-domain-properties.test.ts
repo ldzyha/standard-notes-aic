@@ -81,9 +81,44 @@ describe("domain Properties view", () => {
 
     const empty = fixture(null);
     expect(empty.parent.querySelector(".cm-editor")).toBeNull();
+    expect(empty.component.element.dataset.empty).toBe("true");
+    const edit = empty.parent.querySelector<HTMLButtonElement>(
+      ".browser-domain-properties-action",
+    )!;
+    expect(edit.classList.contains("aic-button--ghost")).toBe(true);
+    expect(edit.classList.contains("aic-button--compact")).toBe(true);
+    expect(edit.textContent).toBe("Shared");
+    expect(edit.getAttribute("aria-label")).toBe("Edit shared properties");
+    expect(edit.title).toBe("Add shared properties for https://example.com");
+    expect(
+      empty.parent.querySelector(".browser-domain-properties-empty"),
+    ).toBeNull();
     empty.component.startEditing();
     expect(empty.component.editing).toBe(true);
+    expect(empty.component.element.dataset.empty).toBe("false");
+    expect(edit.textContent).toBe("Done");
+    expect(edit.getAttribute("aria-label")).toBe("Done");
+    expect(edit.title).toBe("Save and finish editing shared properties");
     expect(empty.component.value).toBe("---\n# aic-fields: v2\n---\n\n");
+  });
+
+  it("collapses a valid zero-field record but keeps real empty-valued fields", () => {
+    const clearedSource =
+      "---\n# aic-fields: v2\n# intentionally cleared\n---\n";
+    const cleared = fixture(clearedSource);
+    expect(cleared.component.element.dataset.empty).toBe("true");
+    expect(cleared.parent.querySelector(".cm-editor")).toBeNull();
+    expect(
+      cleared.parent.querySelector(".browser-domain-properties-action")
+        ?.textContent,
+    ).toBe("Shared");
+    expect(cleared.component.value).toBe(clearedSource);
+    cleared.component.startEditing();
+    expect(cleared.component.value).toBe(clearedSource);
+
+    const emptyField = fixture("---\n# aic-fields: v2\nEmpty_: ' | | '\n---\n");
+    expect(emptyField.component.element.dataset.empty).toBe("false");
+    expect(emptyField.parent.querySelector(".cm-editor")).not.toBeNull();
   });
 
   it("keeps editing and its draft on failed save, then returns to preview on acknowledgement", async () => {
@@ -141,7 +176,10 @@ describe("domain Properties view", () => {
     component.startEditing();
     expect(await component.finishEditing()).toBe(true);
     expect(onSave).not.toHaveBeenCalled();
-    expect(component.element.textContent).toContain("No shared properties yet");
+    expect(component.element.textContent).toContain("Shared");
+    expect(component.element.textContent).not.toContain(
+      "No shared properties yet",
+    );
   });
 
   it.each(["mouse", "keyboard"])(

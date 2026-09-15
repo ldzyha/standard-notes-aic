@@ -57,6 +57,13 @@ function field(view: EditorView) {
   if (!result.ok) throw new Error("Invalid synthetic fixture");
   return result.model.sections[0]!.fields[0]!;
 }
+function card(host: ParentNode) {
+  const result = host.querySelector<HTMLElement>(
+    '.cm-aic-security-card[data-aic-card-kind="card"]',
+  );
+  expect(result).not.toBeNull();
+  return result!;
+}
 afterEach(() => {
   views.splice(0).forEach((view) => view.destroy());
   document.body.replaceChildren();
@@ -164,9 +171,28 @@ describe("explicit pipe-format preview", () => {
   it("uses the card marker, masks CVV and copies all three parts independently", () => {
     const doc = security("Business_: 4242 4242 4242 4242 | 09/28 | 019");
     const { host, view, onCopy, saves } = fixture(doc);
-    expect(host.innerHTML).not.toContain("019");
-    expect(host.textContent).toContain("09/28");
+    const business = card(host);
+    expect(
+      business.querySelector(".cm-aic-security-section-title")?.textContent,
+    ).toBe("Business:");
+    expect(
+      business.querySelectorAll(
+        ".cm-aic-security-card-parts > .cm-aic-security-row",
+      ),
+    ).toHaveLength(3);
+    expect(
+      business.querySelectorAll(
+        ".cm-aic-security-card-parts .cm-aic-security-label",
+      ),
+    ).toHaveLength(0);
+    expect(business.textContent).toContain("•••• 4242");
+    expect(business.textContent).toContain("09/28");
+    expect(business.textContent).toContain("•••");
+    expect(business.innerHTML).not.toContain("4242 4242 4242 4242");
+    expect(business.innerHTML).not.toContain("019");
     expect(host.querySelector('[aria-label^="Paste Business"]')).toBeNull();
+    button(business, "Copy Business label").click();
+    expect(onCopy).toHaveBeenLastCalledWith("Business", "Business label");
     button(host, "Copy Business number value").click();
     expect(onCopy).toHaveBeenLastCalledWith(
       "4242 4242 4242 4242",
@@ -229,6 +255,113 @@ describe("explicit pipe-format preview", () => {
     expect(undo(view)).toBe(true);
     expect(field(view).additionalSecret).toBe("");
   });
+
+  it.each([
+    {
+      name: "Security",
+      doc: security("Card_: 4242 4242 4242 1234 | 09/28 | 019"),
+    },
+    {
+      name: "Properties",
+      doc: "---\n# aic-fields: v2\nCard_: '4242 4242 4242 1234 | 09/28 | 019'\n---\nBody",
+    },
+  ])("keeps labelled $name card parts independent", ({ doc }) => {
+    const { host, onCopy } = fixture(doc);
+    const element = card(host);
+    expect(
+      element.querySelector(".cm-aic-security-section-title")?.textContent,
+    ).toBe("Card:");
+    expect(element.innerHTML).not.toContain("4242 4242 4242 1234");
+    expect(element.innerHTML).not.toContain("019");
+    expect(element.textContent).toContain("•••• 1234");
+    expect(element.textContent).toContain("09/28");
+    expect(element.textContent).toContain("•••");
+    for (const [part, expected, copyLabel] of [
+      ["label", "Card", "Card label"],
+      ["number value", "4242 4242 4242 1234", "Card Number"],
+      ["expiry value", "09/28", "Card Expiry"],
+      ["cvv value", "019", "Card CVV"],
+    ]) {
+      button(element, `Copy Card ${part}`).click();
+      expect(onCopy).toHaveBeenLastCalledWith(expected, copyLabel);
+    }
+  });
+
+  it.each([
+    { label: "Card", line: 'Card_: "" | "" | ""', serialized: "Card_:  |  | " },
+    { label: "Field", line: '_: "" | "" | ""', serialized: "_:  |  | " },
+  ])(
+    "keeps $label empty card paste, delete and reorder actions",
+    ({ label, line, serialized }) => {
+      const { host, view } = fixture(security(`${line}\nOther: value`));
+      const element = card(host);
+      if (label === "Field") {
+        expect(
+          element.querySelector(".cm-aic-security-section-title"),
+        ).toBeNull();
+      } else {
+        expect(
+          element.querySelector(".cm-aic-security-section-title")?.textContent,
+        ).toBe("Card:");
+      }
+      for (const part of ["number", "expiry", "cvv"])
+        expect(button(element, `Paste ${label} ${part}`)).toBeTruthy();
+      expect(button(element, `Delete empty ${label} field`)).toBeTruthy();
+      button(element, `Reorder ${label}`).dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowDown",
+          altKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      expect(view.state.doc.toString()).toContain(
+        `Other: value\n${serialized}`,
+      );
+      button(card(host), `Delete empty ${label} field`).click();
+      expect(view.state.doc.toString()).not.toContain(serialized);
+    },
+  );
+
+  it.each([
+    {
+      label: "Card",
+      line: 'Card_: "" | "09/28" | ""',
+      serialized: "Card_:  | 09/28 | ",
+    },
+    { label: "Field", line: '_: "" | "" | "019"', serialized: "_:  |  | 019" },
+  ])(
+    "keeps $label part-filled card actions without deleting data",
+    ({ label, line, serialized }) => {
+      const { host, view, onCopy } = fixture(security(`${line}\nOther: value`));
+      const element = card(host);
+      expect(button(element, `Paste ${label} number`)).toBeTruthy();
+      expect(
+        element.querySelector(`[aria-label="Delete empty ${label} field"]`),
+      ).toBeNull();
+      if (label === "Card") {
+        button(element, "Copy Card expiry value").click();
+        expect(onCopy).toHaveBeenLastCalledWith("09/28", "Card Expiry");
+        expect(button(element, "Paste Card cvv")).toBeTruthy();
+      } else {
+        button(element, "Copy Field cvv value").click();
+        expect(onCopy).toHaveBeenLastCalledWith("019", "Field CVV");
+        expect(element.innerHTML).not.toContain("019");
+        expect(button(element, "Paste Field expiry")).toBeTruthy();
+      }
+      button(element, `Reorder ${label}`).dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "ArrowDown",
+          altKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      expect(view.state.doc.toString()).toContain(
+        `Other: value\n${serialized}`,
+      );
+    },
+  );
 
   it("discards pending card clipboard data after switching to source", async () => {
     const doc = security("Business_:");

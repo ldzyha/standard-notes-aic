@@ -147,6 +147,10 @@ export function createBrowserService(api: BrowserApi) {
         return vault.run((store) =>
           store.save(message.id, message.markdown, message.revision),
         );
+      case "delete-page":
+        return vault.run((store) =>
+          store.deletePage(message.url, message.expectedNote),
+        );
       case "create-domain": {
         const page = await requireCurrent(
           message.page,

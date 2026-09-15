@@ -64,10 +64,10 @@ jobs:
           PACKAGE_VERSION="${RELEASE_TAG#v}"
           mkdir -p .release/dist
           cp package.json .release/package.json
-          cp README.md CHANGELOG.md FUNCTIONAL_INDEX.md .release/
+          cp README.md CHANGELOG.md FUNCTIONAL_INDEX.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md .release/
           cp -R dist/. .release/dist/
           cd .release
-          zip -qr "../standard-notes-aic-$PACKAGE_VERSION.zip" package.json README.md CHANGELOG.md FUNCTIONAL_INDEX.md dist
+          zip -qr "../standard-notes-aic-$PACKAGE_VERSION.zip" package.json README.md CHANGELOG.md FUNCTIONAL_INDEX.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md dist
           cd ..
           sha256sum "standard-notes-aic-$PACKAGE_VERSION.zip" > "standard-notes-aic-$PACKAGE_VERSION.zip.sha256"
 

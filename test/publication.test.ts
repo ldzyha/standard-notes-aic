@@ -64,10 +64,10 @@ describe("publication metadata", () => {
     expect(script).not.toMatch(/firefox|mullvad/iu);
   });
 
-  it("documents the 26.0.1 R.F.B release and packages usage instructions", () => {
-    expect(changelog).toContain("## 26.0.1 — 2026-09-12");
+  it("documents the current R.F.B release and packages usage and UI contracts", () => {
+    expect(changelog).toContain(`## ${manifest.version} — 2026-09-15`);
     expect(changelog).toContain(
-      "Release sequence 26 · 0 feature outcomes · 1 fixed-bug outcome",
+      "Release sequence 34 · 3 feature outcomes · 1 fixed-bug outcome",
     );
     expect(readme).toContain("## Slash templates");
     expect(readme).toContain("`Tab` to move through");
@@ -76,10 +76,10 @@ describe("publication metadata", () => {
     expect(readme).toContain(">>>|open| Title");
     expect(readme).toContain("Raw Space is");
     expect(releaseWorkflow).toContain(
-      "cp README.md CHANGELOG.md FUNCTIONAL_INDEX.md .release/",
+      "cp README.md CHANGELOG.md FUNCTIONAL_INDEX.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md .release/",
     );
     expect(releaseWorkflow).toContain(
-      "package.json README.md CHANGELOG.md FUNCTIONAL_INDEX.md dist",
+      "package.json README.md CHANGELOG.md FUNCTIONAL_INDEX.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md dist",
     );
   });
 

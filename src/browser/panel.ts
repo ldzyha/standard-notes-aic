@@ -6,6 +6,8 @@ import { request, type ActivePage, type BrowserApi } from "./api";
 import { BrowserDrafts, type Draft } from "./drafts";
 import { DomainDrafts, type DomainDraft } from "./domain-drafts";
 import { DomainPropertiesView } from "./domain-properties";
+import { savedPageAncestors } from "./page-ancestors";
+import { applyUiComponent, createUiButton } from "../core/ui-system.js";
 import {
   buildDomainTree,
   type BrowserLibrary,
@@ -44,6 +46,7 @@ export class BrowserPanel {
   private page: ActivePage | null = null;
   private library = emptyLibrary();
   private editor: AicEditor | null = null;
+  private editorGeneration = 0;
   private noteId: string | null = null;
   private drafts: BrowserDrafts | null = null;
   private domainDrafts: DomainDrafts | null = null;
@@ -54,6 +57,8 @@ export class BrowserPanel {
   private domainRefreshDeferred = false;
   private filter = "";
   private importing = false;
+  private deleting = false;
+  private libraryRefreshDeferred = false;
   private contextLoading = false;
   private overlayTrigger: HTMLButtonElement | null = null;
   private feedbackTimer: ReturnType<typeof setTimeout> | null = null;
@@ -72,11 +77,14 @@ export class BrowserPanel {
     this.document = root.ownerDocument;
     root.classList.add("browser-panel");
     this.toolbar = this.el("header", "browser-toolbar");
+    applyUiComponent(this.toolbar, "toolbar", ["compact"]);
     this.feedback = this.el("div", "browser-feedback");
+    applyUiComponent(this.feedback, "notice");
     this.feedback.setAttribute("role", "status");
     this.feedback.setAttribute("aria-live", "polite");
     this.content = this.el("main", "browser-content");
     this.overlay = this.el("div", "browser-overlay");
+    applyUiComponent(this.overlay, "menu", ["compact"]);
     root.replaceChildren(
       this.toolbar,
       this.feedback,
@@ -243,9 +251,8 @@ export class BrowserPanel {
     label: string,
     action: (button: HTMLButtonElement) => void | Promise<unknown>,
   ): HTMLButtonElement {
-    const button = this.el("button", "browser-button", label);
-    button.type = "button";
-    button.setAttribute("aria-label", label);
+    const button = createUiButton(this.document, { label, size: "compact" });
+    button.classList.add("browser-button");
     button.addEventListener("click", () => {
       const generation = this.generation;
       const context = this.contextGeneration;
@@ -292,6 +299,7 @@ export class BrowserPanel {
     action: (button: HTMLButtonElement) => void | Promise<unknown>,
   ): HTMLButtonElement {
     const button = this.button(label, action);
+    applyUiComponent(button, "button", ["ghost", "icon-only", "compact"]);
     button.classList.add("browser-icon-button");
     button.title = label;
     const icon = this.el("span", "", glyph);
@@ -448,6 +456,25 @@ export class BrowserPanel {
         this.el("hr"),
       );
     }
+    if (this.page && this.canUseLibrary()) {
+      const page = { ...this.page };
+      const draft = this.drafts?.getForPage(page.url);
+      const hasNote =
+        !!draft?.note ||
+        !!draft?.dirty ||
+        this.library.notes.some((item) => item.url === page.url);
+      if (
+        hasNote ||
+        this.library.history.some((item) => item.url === page.url)
+      ) {
+        const remove = this.button(
+          hasNote ? "Delete local note" : "Remove page from history",
+          () => this.showDeletePage(page.url, page.title, trigger),
+        );
+        remove.disabled = this.importing || this.deleting;
+        box.append(remove, this.el("hr"));
+      }
+    }
     box.append(
       this.button("Export encrypted backup", () => {
         this.closeOverlay(true);
@@ -456,6 +483,141 @@ export class BrowserPanel {
       this.button("Import encrypted backup", () => this.importBackupDialog()),
     );
     box.querySelector<HTMLButtonElement>("button")?.focus();
+  }
+
+  private showDeletePage(
+    url: string,
+    title: string,
+    trigger: HTMLButtonElement,
+  ): void {
+    if (!this.canUseLibrary() || this.importing || this.deleting) return;
+    const generation = this.generation;
+    const context = this.contextGeneration;
+    const draft = this.drafts?.getForPage(url);
+    const record =
+      draft?.note ?? this.library.notes.find((item) => item.url === url);
+    const expected = record
+      ? { id: record.id, revision: record.revision }
+      : null;
+    const hasNote = !!record || !!draft?.dirty || !!draft?.saving;
+    this.closeOverlay();
+    const box = this.showPopover("Delete local page", trigger);
+    if (!box) return;
+    box.classList.add("browser-delete-confirm");
+    box.append(
+      this.el(
+        "h2",
+        "",
+        hasNote ? "Delete this local note?" : "Remove this recent page?",
+      ),
+      this.el("p", "browser-delete-title", title || shortPath(url)),
+      this.el(
+        "p",
+        "browser-menu-hint",
+        hasNote
+          ? "Delete the local note and its history entry. This cannot be undone without a backup. The website, shared properties, and other notes stay unchanged."
+          : "Remove this page from AIC history. The website, shared properties, and other notes stay unchanged.",
+      ),
+    );
+    const cancel = this.button("Cancel", () => this.closeOverlay(true));
+    const confirm = this.button(
+      hasNote ? "Delete note" : "Remove page",
+      async () => {
+        if (!this.valid(generation, context) || this.deleting || this.importing)
+          return;
+        this.deleting = true;
+        this.content.inert = true;
+        this.toolbar.inert = true;
+        confirm.disabled = true;
+        cancel.disabled = true;
+        box.setAttribute("aria-busy", "true");
+        this.tell("Removing local page…", "progress");
+        const drafts = this.drafts;
+        let focusPlaceholder = false;
+        try {
+          const pending = drafts?.getForPage(url);
+          const acknowledged = pending
+            ? await drafts!.flushSnapshot(pending.key)
+            : null;
+          if (pending && !acknowledged) {
+            throw new Error(
+              "Nothing was deleted. Save or export the unsaved draft, then retry.",
+            );
+          }
+          if (!this.valid(generation, context)) return;
+          // Only our own acknowledged save may advance the confirmed revision.
+          const saved = acknowledged?.note;
+          if (expected && saved && saved.id !== expected.id) {
+            throw new Error(
+              "This page changed elsewhere. Reopen it before deleting.",
+            );
+          }
+          const expectedNote = saved
+            ? { id: saved.id, revision: saved.revision }
+            : expected;
+          const library = await request<BrowserLibrary>(this.api, {
+            type: "delete-page",
+            url,
+            expectedNote,
+          });
+          if (!this.valid(generation)) return;
+          const forgotten = !pending || drafts?.forget(pending.key);
+          if (!this.valid(generation, context)) {
+            // The commit succeeded, but a newer context owns the visible UI now.
+            this.refreshSharedData();
+            return;
+          }
+          this.library = library;
+          this.closeOverlay();
+          if (!forgotten) {
+            throw new Error(
+              "The stored note was deleted, but a new local edit remains. Export that draft before reopening.",
+            );
+          }
+          if (this.page?.url === url) {
+            // Destroy the old editor/undo history, not the independent shared draft.
+            this.noteId = null;
+            this.editor?.destroy();
+            this.editor = null;
+            this.content.querySelector(".browser-note")?.remove();
+            this.mountEditor(
+              drafts!.activatePlaceholder(this.page, PLACEHOLDER_TEXT),
+            );
+            focusPlaceholder = true;
+          }
+          this.renderToolbar();
+          this.renderLibrary();
+          this.renderPageAncestors();
+          this.tell(
+            hasNote
+              ? "Local note deleted. The placeholder is not saved until you edit it."
+              : "Page removed from AIC history.",
+            "success",
+          );
+        } catch (error) {
+          if (this.valid(generation)) this.fail(error);
+        } finally {
+          if (this.valid(generation)) {
+            this.deleting = false;
+            this.content.inert = false;
+            this.toolbar.inert = false;
+            if (focusPlaceholder && this.valid(generation, context))
+              this.content
+                .querySelector<HTMLElement>(".browser-note .cm-content")
+                ?.focus();
+            confirm.disabled = false;
+            cancel.disabled = false;
+            box.removeAttribute("aria-busy");
+            if (this.libraryRefreshDeferred) {
+              this.libraryRefreshDeferred = false;
+              this.refreshSharedData();
+            }
+          }
+        }
+      },
+    );
+    box.append(cancel, confirm);
+    cancel.focus();
   }
 
   private showNavigation(trigger: HTMLButtonElement): void {
@@ -652,8 +814,13 @@ export class BrowserPanel {
             const index = this.library.notes.findIndex(
               (note) => note.id === draft.note!.id,
             );
+            const metadataChanged =
+              index < 0 ||
+              this.library.notes[index]!.title !== draft.note.title ||
+              this.library.notes[index]!.url !== draft.note.url;
             if (index < 0) this.library.notes.push(draft.note);
             else this.library.notes[index] = draft.note;
+            if (metadataChanged) this.renderPageAncestors();
           }
           if (this.noteId === draft.key) this.reflectDraft(draft);
           this.renderDraftWarnings();
@@ -745,6 +912,7 @@ export class BrowserPanel {
   }
 
   private dropEditor(): void {
+    ++this.editorGeneration;
     this.noteId = null;
     this.editor?.destroy();
     this.editor = null;
@@ -803,6 +971,8 @@ export class BrowserPanel {
     }
     if (this.page) {
       this.mountSharedProperties();
+      this.content.append(this.el("nav", "browser-page-ancestors"));
+      this.renderPageAncestors();
       const note = this.library.notes.find(
         (item) => item.url === this.page!.url,
       );
@@ -832,6 +1002,7 @@ export class BrowserPanel {
   private mountEditor(draft: Draft): void {
     const generation = this.generation;
     const context = this.contextGeneration;
+    const editorGeneration = ++this.editorGeneration;
     this.noteId = draft.key;
     const host = this.el("section", "browser-note");
     const editorHost = this.el("div", "browser-editor-host");
@@ -841,15 +1012,27 @@ export class BrowserPanel {
       initialText: draft.text,
       compactToolbar: true,
       onChange: (text) => {
-        if (this.valid(generation, context)) this.drafts?.edit(draft.key, text);
+        if (
+          this.valid(generation, context) &&
+          this.editorGeneration === editorGeneration &&
+          this.noteId === draft.key &&
+          !this.deleting
+        )
+          this.drafts?.edit(draft.key, text);
       },
       onSave: () =>
-        this.valid(generation, context) ? this.drafts!.flush(draft.key) : false,
+        this.valid(generation, context) &&
+        this.editorGeneration === editorGeneration &&
+        this.noteId === draft.key &&
+        !this.deleting
+          ? this.drafts!.flush(draft.key)
+          : false,
     });
     this.editor.switchDocument(draft.key, draft.text);
     if (!draft.note && !draft.dirty && draft.text === PLACEHOLDER_TEXT)
       this.editor.view.dispatch({ selection: { anchor: draft.text.length } });
     this.reflectDraft(draft);
+    this.placeSharedProperties();
   }
 
   private reflectDraft(draft: Draft): void {
@@ -898,6 +1081,7 @@ export class BrowserPanel {
       onEditingChange: (editing) => {
         if (!this.valid(generation, context)) return;
         this.content.dataset.domainEditing = String(editing);
+        this.placeSharedProperties();
         this.renderToolbar();
         if (!editing) this.editor?.focus();
       },
@@ -908,6 +1092,51 @@ export class BrowserPanel {
       this.shared.startEditing(draft.text);
     }
     this.reflectDomainDraft(draft);
+  }
+
+  /** An empty shared scope is one toolbar action, not an extra header row. */
+  private placeSharedProperties(): void {
+    if (!this.shared) return;
+    const empty =
+      !this.shared.editing && this.shared.element.dataset.empty === "true";
+    const toolbar = this.content.querySelector(".browser-note .aic-toolbar");
+    const host = this.content.querySelector(".browser-shared-host");
+    const target = empty && toolbar ? toolbar : host;
+    if (target && this.shared.element.parentElement !== target)
+      target.append(this.shared.element);
+  }
+
+  private renderPageAncestors(): void {
+    const nav = this.content.querySelector<HTMLElement>(
+      ".browser-page-ancestors",
+    );
+    if (!nav || !this.page) return;
+    const parents = savedPageAncestors(this.page.url, this.library.notes);
+    nav.replaceChildren();
+    nav.hidden = parents.length === 0;
+    nav.setAttribute("aria-label", "Parent page notes");
+    applyUiComponent(nav, "tree", ["ancestors"]);
+    if (!parents.length) return;
+    const list = this.el("ol");
+    for (const parent of parents) {
+      const item = this.el("li");
+      const link = this.button(
+        parent.title.trim() || shortPath(parent.url),
+        () => this.navigate(parent.url),
+      );
+      link.title = parent.url;
+      item.append(link);
+      list.append(item);
+    }
+    const current = this.el(
+      "li",
+      "browser-ancestor-current",
+      this.page.title || shortPath(this.page.url),
+    );
+    current.setAttribute("aria-current", "page");
+    current.title = this.page.url;
+    list.append(current);
+    nav.append(list);
   }
 
   private reflectDomainDraft(draft: DomainDraft): void {
@@ -927,10 +1156,15 @@ export class BrowserPanel {
               ? "saved"
               : "none",
     );
+    this.placeSharedProperties();
   }
 
   private refreshSharedData(): void {
-    if (!this.canUseLibrary() || !this.page || !this.domainDrafts) return;
+    if (!this.canUseLibrary()) return;
+    if (this.deleting) {
+      this.libraryRefreshDeferred = true;
+      return;
+    }
     ++this.domainReloadRevision;
     if (this.domainReload) return;
     const generation = this.generation;
@@ -947,6 +1181,14 @@ export class BrowserPanel {
           type: "load",
         });
         if (!this.valid(generation, context)) continue;
+        if (this.deleting) {
+          this.libraryRefreshDeferred = true;
+          continue;
+        }
+        this.library.notes = library.notes;
+        this.library.history = library.history;
+        this.renderLibrary();
+        this.renderPageAncestors();
         for (const record of library.domains) {
           const index = this.library.domains.findIndex(
             (item) => item.origin === record.origin,
@@ -1043,20 +1285,47 @@ export class BrowserPanel {
       (a, b) => Number(b.host === activeHost) - Number(a.host === activeHost),
     );
     const noteLabels = navigationLabels(this.library.notes.filter(matches));
-    const noteLink = (note: BrowserNote): HTMLElement => {
+    const pageLink = (
+      page: { url: string; title: string },
+      label: string,
+      saved: boolean,
+    ): HTMLElement => {
       const item = this.el("li");
-      const button = this.button(
-        noteLabels.get(note.url) ?? (note.title.trim() || shortPath(note.url)),
-        () => this.navigate(note.url),
+      const row = this.el("div", "browser-page-row");
+      row.dataset.current = String(page.url === this.page?.url);
+      const button = this.button(label, () => this.navigate(page.url));
+      button.title = page.url;
+      if (page.url === this.page?.url)
+        button.setAttribute("aria-current", "page");
+      const remove = this.iconButton(
+        `${saved ? "Delete local note" : "Remove recent page"}: ${label}`,
+        "×",
+        () =>
+          this.showDeletePage(
+            page.url,
+            page.title,
+            this.toolbar.querySelector<HTMLButtonElement>(
+              '[aria-label="Notes and history"]',
+            ) ?? button,
+          ),
       );
-      button.title = note.url;
-      item.append(button);
+      remove.classList.add("browser-page-delete");
+      remove.disabled = this.importing || this.deleting;
+      row.append(button, remove);
+      item.append(row);
       return item;
     };
     const appendItems = (items: NavigationItem[], parent: HTMLElement) => {
       for (const entry of items) {
         if (entry.kind === "note") {
-          parent.append(noteLink(entry.note));
+          parent.append(
+            pageLink(
+              entry.note,
+              noteLabels.get(entry.note.url) ??
+                (entry.note.title.trim() || shortPath(entry.note.url)),
+              true,
+            ),
+          );
           continue;
         }
         const group = this.el("li", "browser-path");
@@ -1079,22 +1348,21 @@ export class BrowserPanel {
     }
     if (!domains.length)
       nav.append(this.el("p", "browser-empty", "No matching notes."));
-    nav.append(this.el("h2", "", "Recent pages"));
     const history = this.el("ul", "browser-history");
-    const visits = this.library.history.filter(matches);
+    const savedUrls = new Set(this.library.notes.map((note) => note.url));
+    const visits = this.library.history.filter(
+      (visit) => !savedUrls.has(visit.url) && matches(visit),
+    );
+    if (visits.length) nav.append(this.el("h2", "", "Recent pages"));
     const visitLabels = navigationLabels(visits);
     for (const visit of visits) {
-      const item = this.el("li");
-      const button = this.button(
+      const item = pageLink(
+        visit,
         visitLabels.get(visit.url) ??
           (visit.title.trim() || shortPath(visit.url)),
-        () => this.navigate(visit.url),
+        false,
       );
-      button.title = visit.url;
-      item.append(
-        button,
-        this.el("small", "browser-url", new URL(visit.url).host),
-      );
+      item.append(this.el("small", "browser-url", new URL(visit.url).host));
       history.append(item);
     }
     nav.append(history);
@@ -1518,6 +1786,10 @@ export class BrowserPanel {
   private clearPlaintext(): void {
     ++this.generation;
     ++this.contextGeneration;
+    this.deleting = false;
+    this.libraryRefreshDeferred = false;
+    this.content.inert = false;
+    this.toolbar.inert = false;
     this.dropEditor();
     this.drafts?.dispose();
     this.drafts = null;

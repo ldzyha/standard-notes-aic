@@ -1,4 +1,5 @@
 import "../styles.css";
+import "../core/ui-system.css";
 import "../core/icons.css";
 import "../core/mermaid-viewport.css";
 import "../core/slash-snippets.css";

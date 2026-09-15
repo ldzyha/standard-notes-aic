@@ -42,6 +42,187 @@ describe("local browser library", () => {
   const properties = (value = "synthetic-password") =>
     `---\n# aic-fields: v2\nPassword*: ${value}\n---\n`;
 
+  it("deletes only the exact normalized page and all its visits in one write", async () => {
+    const persistence = memory();
+    const store = new LibraryStore(persistence);
+    const target = page("https://example.com/a?q=1#one");
+    const note = await store.create(target, "Delete this local note");
+    const otherPages = [
+      page("https://example.com/a?q=2#one"),
+      page("https://example.com/a?q=1#two"),
+      page("http://example.com/a?q=1#one"),
+      page("https://other.example.com/a?q=1#one"),
+    ];
+    for (const other of otherPages) {
+      await store.create(other, "Keep");
+      await store.visit(other);
+    }
+    await store.createDomain("https://example.com", properties());
+    await store.visit(target);
+    const before = await store.load();
+    // Older backups may contain multiple visits for one page.
+    await persistence.write({
+      ...before,
+      history: [...before.history, { ...target, visitedAt: 1 }],
+    });
+    const writes = persistence.writes;
+    const result = await store.deletePage("HTTPS://EXAMPLE.COM:443/a?q=1#one", {
+      id: note.id,
+      revision: note.revision,
+    });
+    expect(persistence.writes).toBe(writes + 1);
+    expect(result).toEqual({
+      ...before,
+      notes: before.notes.filter((item) => item.id !== note.id),
+      history: before.history.filter((visit) => visit.url !== target.url),
+    });
+    expect(await new LibraryStore(persistence).load()).toEqual(result);
+    result.domains[0]!.markdown = "External mutation";
+    result.notes[0]!.markdown = "External mutation";
+    expect((await store.load()).domains).toEqual(before.domains);
+    expect((await store.load()).notes[0]!.markdown).toBe("Keep");
+  });
+
+  it("removes history-only pages and makes repeated history-only deletion a no-op", async () => {
+    const persistence = memory();
+    const store = new LibraryStore(persistence);
+    await store.visit(page());
+    await store.createDomain("https://wiki.example.com", properties());
+    const before = await store.load();
+    expect(await store.deletePage(page().url, null)).toEqual({
+      ...before,
+      history: [],
+    });
+    const writes = persistence.writes;
+    await store.deletePage(page().url, null);
+    expect(persistence.writes).toBe(writes);
+  });
+
+  it("rejects stale revisions, wrong identities and wrong URLs without deleting data", async () => {
+    const persistence = memory();
+    const store = new LibraryStore(persistence);
+    const note = await store.create(page(), "Original");
+    await store.visit(page());
+    await store.save(note.id, "Newer edit", note.revision);
+    const before = await store.load();
+    const writes = persistence.writes;
+    for (const [url, expectedNote] of [
+      [note.url, { id: note.id, revision: 1 }],
+      [note.url, { id: "another-identity", revision: 2 }],
+      ["https://other.example.com/", { id: note.id, revision: 2 }],
+      [note.url, null],
+    ] as const)
+      await expect(store.deletePage(url, expectedNote)).rejects.toMatchObject({
+        code: "conflict",
+      });
+    expect(persistence.writes).toBe(writes);
+    expect(await store.load()).toEqual(before);
+  });
+
+  it("rejects deleted or recreated note identities, preserving subsequent visits", async () => {
+    const persistence = memory();
+    const store = new LibraryStore(persistence);
+    const note = await store.create(page(), "Old");
+    const expected = { id: note.id, revision: note.revision };
+    await store.deletePage(note.url, expected);
+    await store.visit(page());
+    await expect(store.deletePage(note.url, expected)).rejects.toMatchObject({
+      code: "conflict",
+    });
+    const recreated = await store.create(page(), "Recreated");
+    await expect(store.deletePage(note.url, expected)).rejects.toMatchObject({
+      code: "conflict",
+    });
+    expect(await store.load()).toMatchObject({
+      notes: [recreated],
+      history: [{ url: note.url }],
+    });
+  });
+
+  it("serializes deletion against saves and protects a concurrently created note", async () => {
+    const store = new LibraryStore(memory());
+    await store.visit(page());
+    const created = await Promise.allSettled([
+      store.create(page(), "Concurrent create"),
+      store.deletePage(page().url, null),
+    ]);
+    expect(created.map((result) => result.status)).toEqual([
+      "fulfilled",
+      "rejected",
+    ]);
+    expect((created[1] as PromiseRejectedResult).reason).toMatchObject({
+      code: "conflict",
+    });
+    const note = (await store.load()).notes[0]!;
+    const saved = await Promise.allSettled([
+      store.save(note.id, "Concurrent save", note.revision),
+      store.deletePage(note.url, { id: note.id, revision: note.revision }),
+    ]);
+    expect(saved.map((result) => result.status)).toEqual([
+      "fulfilled",
+      "rejected",
+    ]);
+    expect((saved[1] as PromiseRejectedResult).reason).toMatchObject({
+      code: "conflict",
+    });
+    expect(await store.load()).toMatchObject({
+      notes: [
+        {
+          ...note,
+          markdown: "Concurrent save",
+          updatedAt: expect.any(Number),
+          revision: 2,
+        },
+      ],
+      history: [{ url: note.url }],
+    });
+  });
+
+  it("validates deletion input before writing and keeps the whole library on storage failure", async () => {
+    const persistence = memory();
+    const store = new LibraryStore(persistence);
+    const note = await store.create(page(), "Keep");
+    await store.visit(page());
+    await store.createDomain("https://wiki.example.com", properties());
+    const before = await store.load();
+    const expected = { id: note.id, revision: note.revision };
+    for (const url of [
+      "javascript:alert(1)",
+      "https://user:password@example.com/",
+      " https://example.com/",
+    ])
+      await expect(store.deletePage(url, expected)).rejects.toMatchObject({
+        code: "invalid",
+      });
+    for (const invalidExpected of [
+      undefined,
+      {},
+      { id: "", revision: 1 },
+      { id: "x".repeat(129), revision: 1 },
+      { id: "bad\nidentity", revision: 1 },
+      { id: note.id, revision: 0 },
+      { id: note.id, revision: 1.5 },
+      { id: note.id, revision: 1, extra: true },
+    ])
+      await expect(
+        store.deletePage(note.url, invalidExpected as typeof expected),
+      ).rejects.toMatchObject({ code: "invalid" });
+    const writes = persistence.writes;
+    persistence.setFailure(true);
+    await expect(store.deletePage(note.url, expected)).rejects.toMatchObject({
+      code: "storage",
+      message: "Browser library storage failed.",
+    });
+    expect(persistence.writes).toBe(writes);
+    expect(await store.load()).toEqual(before);
+    persistence.setFailure(false);
+    expect(await store.deletePage(note.url, expected)).toEqual({
+      ...before,
+      notes: [],
+      history: [],
+    });
+  });
+
   it("lifts legacy data without sharing or modifying root-page Properties", async () => {
     const source = new LibraryStore(memory());
     const root = await source.create(

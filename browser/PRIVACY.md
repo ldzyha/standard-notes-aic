@@ -1,14 +1,14 @@
 # AIC page notes: local data handling
 
-This describes the Chrome and Edge experimental component 0.1.4. See README.md and VERIFICATION.md for release status and testing boundaries.
+This describes the Chrome and Edge experimental component 0.2.0. See README.md and VERIFICATION.md for release status and testing boundaries.
 
 AIC has no server, account, telemetry or synchronization. All runtime resources are bundled. Its extension content policy blocks outgoing connections and remote embedded resources. It reads page content only after you request an import; it does not edit, autofill or insert into source websites. Opening a source link is ordinary browser navigation.
 
 Notes, shared site Properties, titles, URLs, dates and the navigation index are encrypted together in local extension storage. Shared Properties are displayed only for the same exact scheme, host and port, and are not copied into page Markdown. Your master passphrase is not persisted. The derived key remains only in trusted browser session memory after unlock; Lock, browser restart, extension reload or update removes it. There is no embedded key or disk fallback. Both local and session storage require explicit trusted-context access restrictions; local storage contains only encrypted data.
 
-The panel maintains its bounded recent-pages list only while active and unlocked. It does not read the browser's history database or collect browsing in the background. Notes follow the active page in the panel's own window.
+The panel maintains its bounded recent-pages list only while active and unlocked. It does not read the browser's history database or collect browsing in the background. Notes follow the active page in the panel's own window. Its ancestor chain contains only saved-note titles and source URLs for exact-origin path-segment ancestors; it does not expose ancestor Markdown or secret fields.
 
-The manifest excludes Chrome Incognito and Edge InPrivate windows. AIC does not change browser privacy settings. Notes in normal windows persist locally until removed by the user or browser; private browsing is not a way to clear them.
+The manifest excludes Chrome Incognito and Edge InPrivate windows. AIC does not change browser privacy settings. Notes in normal windows persist locally until removed by the user or browser. Confirmed deletion removes the selected local note and its AIC recent-history entry while preserving other notes and exact-origin shared Properties; restoration requires an earlier encrypted backup. Private browsing is not a way to clear notes.
 
 Whole-library exports are encrypted and need the backup's original passphrase. Markdown exports and Copy intentionally produce plaintext, including secret values. Other software, clipboard history/synchronization and destination websites after you paste may access that plaintext. AIC network restrictions do not control those systems or the browser's normal update services.
 

@@ -1,9 +1,71 @@
-# Chrome / Edge experimental build verification — 2026-09-14
+# Chrome / Edge experimental build verification — 2026-09-15
 
-Status: **0.1.4 experimental component**, not a store release or an independently
+Status: **0.2.0 experimental component**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
 using one Chromium Manifest V3 package. All test passphrases, notes and clipboard
 substitutes are synthetic. No user profile or real notes are part of these tests.
+
+## 0.2.0 compact shared UI and local deletion
+
+- Shared UI primitives now have one canonical BEM/token implementation and an
+  explicit component registry. Feature ownership covers all canonical and VS Code
+  adapter source files. Contract tests check registry/runtime parity, real paths,
+  source coverage and the absence of duplicated host preview-shell styles.
+  This is a tested migration slice, not completion of every legacy selector.
+- Empty domain Properties are a **Shared** action inside the page's Format
+  toolbar, without a separate empty-state header or panel. Populated shared data
+  remains above the saved ancestor links and current page note. Ancestors expose
+  exact-origin, strict path-prefix metadata only; sibling content and parent
+  Markdown/secrets are never copied into the current document.
+- Local page deletion requires confirmation, waits for the owning draft's save
+  acknowledgment and compares the stored identity/revision before mutation. Tests
+  cover delayed/failed saves, concurrent edits, newly created drafts, history-only
+  entries and page changes before/after acknowledgment. The active page resets to
+  a memory-only placeholder; unrelated notes and domain Properties remain intact.
+- Canonical unit/integration verification passed **1,118 tests in 91 files**;
+  VS Code passed **231 tests**. TypeScript, ESLint and locked dependency notice
+  verification passed. Final package/build evidence is recorded separately below.
+- Final real-renderer matrix passed in both Chrome and Edge, light/dark at
+  320/600/900 px: the compact toolbar is 36 px, the page editor starts at 72 px,
+  and neither panel nor document exceeds viewport width. At 320 x 360 px with
+  populated sharing and long ancestor paths, all ten Format actions are reachable;
+  Format and field menus fit the viewport and scroll internally. Escape restores
+  focus. Current/other-page deletion and the non-persisted replacement placeholder
+  also passed real-renderer flows.
+- Explicit touch buttons and coarse-pointer controls retain at least 44 px targets,
+  including compact field controls. The 16-case Chrome/Edge x light/dark x 320/600
+  x Security/Properties matrix passed for cards and generic fields: one 35.55 px
+  row, optional title, masked number/CVV, independent copying, feedback and
+  empty-field actions. Computed fonts are `system-ui, sans-serif`. The primary
+  reviewer inspected narrow light/dark empty and card screenshots.
+- Real-renderer checks use isolated synthetic APIs and clipboard substitutes;
+  they are not proof of browser permission prompts, actual OS clipboard behavior,
+  authenticated Standard Notes PWA stability or native VS Code workbench rendering.
+  Previous 0.1.4 installed-package results below remain historical evidence, not a
+  claimed 0.2.0 installed-runtime pass. Browser-store submission is not included.
+- A fresh genuine **Edge 153.0.4234.32 packaged 0.2.0 smoke passed all 12 checks**:
+  actual MV3 worker, toolbar-opened sidebar, sender isolation, outgoing-request
+  CSP, encrypted page/domain saves, masked child preview, Lock, and full browser
+  restart/unlock/reopen. A bounded scan of 230 disposable-profile files found no
+  synthetic shared secret in UTF-8/UTF-16LE; this is not a forensic erasure claim.
+  The primary reviewer inspected the restored masked preview. This package smoke
+  does not cover deletion/ancestor flows (covered separately above), cross-panel
+  Lock, OS clipboard or interactive permission prompts. Chrome installed-runtime
+  acceptance remains unverified; the renderer checks do not fill that gap.
+
+Packaged runtime identity (before/after evidence-only documentation updates):
+`panel-CtUtbYR1.js`, `panel-1NeeW91x.css`, and `worker.js`; SHA-256 values and the
+12-check report are under `release-0.2.0-edge/runtime-smoke-report.md` in the review
+directory below. No network permissions, encrypted-library schema or user profile
+were changed by these checks.
+
+Release pair: Standard Notes AIC **34.3.1**, AIC Notes **43.0.1**, shared core
+**5.3.0**. Library v2 and encryption-envelope formats are unchanged in this release.
+
+Evidence: `D:\aic\reviews\browser-extension-20260914\compact-{chrome,edge}` and
+`inline-*.png`. Bounded implementation/inventory/renderer QA used **GPT-5.6 Sol
+(high)**; storage review, integration and release verification used **GPT-6 Astra
+(high)**. The primary reviewer checked the implementation and test results.
 
 ## 0.1.4 shared Properties, navigation and caret verification
 

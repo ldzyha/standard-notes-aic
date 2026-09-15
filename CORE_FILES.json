@@ -91,5 +91,8 @@
   "structured-preview.d.ts",
   "structured-preview.js",
   "task-marker.d.ts",
-  "task-marker.js"
+  "task-marker.js",
+  "ui-system.css",
+  "ui-system.d.ts",
+  "ui-system.js"
 ]

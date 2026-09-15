@@ -1,5 +1,6 @@
 import type { EditorView } from "@codemirror/view";
 import { createIconButton } from "./core/structured-preview.js";
+import { createUiButton } from "./core/ui-system.js";
 import {
   insertCodeFence,
   insertHorizontalRule,
@@ -159,10 +160,13 @@ export function createToolbar(
 
   if (options.compact) {
     toolbar.classList.add("aic-toolbar--compact");
-    const trigger = document.createElement("button");
-    trigger.type = "button";
-    trigger.className = "aic-toolbar-button aic-formatting-toggle";
-    trigger.textContent = "Formatting";
+    const trigger = createUiButton(document, {
+      label: "Formatting",
+      text: "Format",
+      variant: "ghost",
+      size: "compact",
+    });
+    trigger.classList.add("aic-toolbar-button", "aic-formatting-toggle");
     trigger.setAttribute("aria-expanded", "false");
 
     const tray = document.createElement("div");
@@ -172,9 +176,21 @@ export function createToolbar(
     trigger.setAttribute("aria-controls", tray.id);
     tray.append(blockGroup, inlineGroup, listGroup, insertGroup);
 
+    const placeTray = () => {
+      const viewportHeight = document.defaultView?.innerHeight;
+      if (!viewportHeight) return;
+      const bounds = toolbar.getBoundingClientRect();
+      const below = Math.max(0, viewportHeight - bounds.bottom - 7);
+      const above = Math.max(0, bounds.top - 7);
+      const required = Math.min(tray.scrollHeight, 180);
+      const placement = below < required && above > below ? "above" : "below";
+      tray.dataset.placement = placement;
+      tray.style.maxHeight = `${Math.floor(placement === "above" ? above : below)}px`;
+    };
     const setOpen = (open: boolean) => {
       if (!open && tray.contains(document.activeElement)) trigger.focus();
       tray.hidden = !open;
+      if (open) placeTray();
       trigger.setAttribute("aria-expanded", String(open));
     };
     // Match the shared icon buttons: pointer activation should not steal the
