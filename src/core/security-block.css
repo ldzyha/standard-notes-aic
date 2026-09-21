@@ -1,5 +1,7 @@
 .cm-aic-security {
   display: block;
+  container: aic-security / inline-size;
+  min-width: 0;
   font: 0.88rem/1.4 var(--aic-font-ui);
 }
 .cm-aic-security-body {
@@ -354,45 +356,41 @@
 .cm-aic-security-card[data-aic-card-kind]
   > .cm-aic-security-section-header
   .cm-aic-security-section-title {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 .cm-aic-security-card[data-aic-card-kind] > .cm-aic-security-card-parts {
-  display: flex;
+  display: grid;
   flex: 1 1 auto;
-  align-items: center;
-  gap: 0.25rem;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 8rem), 1fr));
+  align-items: start;
+  gap: 0.35rem;
   min-width: 0;
   padding: 0;
-  overflow-x: auto;
-  overflow-y: hidden;
-  scrollbar-width: thin;
+  overflow: visible;
 }
 .cm-aic-security-card[data-aic-card-kind]
   > .cm-aic-security-card-parts
   > .cm-aic-security-row {
   display: flex;
-  flex: 0 0 auto;
-  flex-direction: row;
-  align-items: center;
-  gap: 0;
-  max-width: 12rem;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.12rem;
+  min-width: 0;
   min-height: 1.8rem;
 }
 .cm-aic-security-card[data-aic-card-kind] .cm-aic-security-value {
-  flex: 0 1 auto;
-  width: auto;
-  max-width: 12rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  width: 100%;
+  max-width: none;
+  overflow: visible;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
 }
 .cm-aic-security-card[data-aic-card-kind] .cm-aic-security-row-trailing,
 .cm-aic-security-card[data-aic-card-kind] .cm-aic-security-row-actions {
-  flex: 0 0 auto;
-  flex-wrap: nowrap;
-  width: auto;
+  flex-wrap: wrap;
+  width: 100%;
 }
 .cm-aic-security-card-parts
   .cm-aic-security-row[data-aic-part-kind="card"]
@@ -411,6 +409,28 @@
 .cm-aic-security-card[data-aic-card-kind] > .cm-aic-security-error {
   flex: 1 1 auto;
   min-width: 0;
+}
+@container aic-security (max-width: 40rem) {
+  .cm-aic-security-card[data-aic-card-kind] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cm-aic-security-card[data-aic-card-kind][data-aic-reorderable="true"] {
+    grid-template-columns: 1.75rem minmax(0, 1fr);
+  }
+  .cm-aic-security-card[data-aic-card-kind] > .cm-aic-security-section-header,
+  .cm-aic-security-card[data-aic-card-kind] > .cm-aic-security-card-parts,
+  .cm-aic-security-card[data-aic-card-kind] > .cm-aic-security-row-controls {
+    grid-column: 1 / -1;
+  }
+  .cm-aic-security-card[data-aic-card-kind][data-aic-reorderable="true"]
+    > .cm-aic-security-section-header {
+    grid-column: 2;
+  }
+  .cm-aic-security-card[data-aic-card-kind] > .cm-aic-security-row-controls {
+    justify-self: start;
+    min-width: 0;
+    flex-wrap: wrap;
+  }
 }
 .cm-aic-security-drop-before,
 .cm-aic-security-drop-after {
@@ -633,6 +653,12 @@
 .cm-aic-security-panel-button.is-primary {
   border-color: var(--aic-accent);
   color: var(--aic-accent);
+}
+@media (max-width: 600px) {
+  .cm-aic-security [data-aic-icon="generate"],
+  .cm-aic-security-panel[data-aic-panel="password"] {
+    display: none;
+  }
 }
 .cm-aic-security-error {
   margin: 0.5rem 0.65rem;

@@ -229,8 +229,12 @@ unreproduced Standard Notes PWA crash.
 - One bounded fenced `aic` document owns structured values. Each separator types
   the following part: `|` text, `*|` secret, `#|` authenticator seed, `_|` card,
   `1|` unused one-time and `0|` used one-time. A label before the first separator is
-  optional, and a row can combine differently typed parts. Account, Card and
-  One-time codes are canonical presets, not additional field types.
+  optional, and a row can combine differently typed parts. Blank, Card and
+  One-time codes are canonical presets, not additional field types. New blocks
+  include an unlabeled text row for an email or another identifier.
+- Credential rows keep their label and values together. Narrow editors stack the
+  label above responsive value columns; values wrap instead of scrolling in a
+  separate strip, and the browser panel wraps its toolbar at small widths.
 - Copying an unused one-time part changes its marker to `0|`; activating a used
   value restores `1|` without copying, and only used values expose removal. Other
   masked parts keep independent copy feedback. Raw Markdown remains visible in

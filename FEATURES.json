@@ -298,7 +298,7 @@
     {
       "id": "core.security-blocks",
       "group": "structured-data",
-      "purpose": "Parse and render bounded AIC credential blocks with masking, independently scoped field/section/block copy, add, delete, filtering, diagnostics, and exact-source reordering. Section copy uses canonical AIC serialization and preserves type and masking markers without copying adjacent sections.",
+      "purpose": "Parse and render bounded AIC credential blocks with masking, independently scoped field/section/block copy, add, delete, filtering, diagnostics, responsive whole-row field layout, and exact-source reordering. Section copy uses canonical AIC serialization and preserves type and masking markers without copying adjacent sections.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/core/security-model.js",
@@ -340,7 +340,7 @@
     {
       "id": "core.credential-tools",
       "group": "structured-data",
-      "purpose": "Handle card parts, password generation, TOTP derivation, QR parsing, and recovery-code state under explicit security limits.",
+      "purpose": "Handle card parts, password generation on wider layouts, TOTP derivation, QR parsing, and recovery-code state under explicit security limits.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/core/security-card.js",

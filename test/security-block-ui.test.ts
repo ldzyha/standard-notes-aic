@@ -171,7 +171,7 @@ describe("shared security block", () => {
       ].join("\n"),
     );
     control(host, "Add row after Password").click();
-    control(host, "Add account row after Password").click();
+    control(host, "Add blank row after Password").click();
     const parsed = parseSecurityBlock(securityBlocks(view.state)[0]!.body);
     expect(parsed.ok).toBe(true);
     if (parsed.ok) {

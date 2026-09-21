@@ -60,7 +60,9 @@ Only if clipboard access is denied, unavailable or times out does AIC offer an i
 masked paste-only input. Direct typing is blocked and hidden values are never previewed.
 Empty clipboard text makes no change. AIC does not enumerate or store clipboard history.
 
-Empty `*|` secret parts in password-oriented template rows offer **Generate password**.
+On wider layouts, empty `*|` secret parts in password-oriented rows offer
+**Generate password**. The control is hidden when the viewport is 600px wide
+or narrower, including mobile layouts.
 Default: 24 characters,
 uppercase, lowercase, numbers and symbols. Length: 8–128; each enabled group is represented.
 Generation never overwrites, previews or copies the value automatically. To generate again,
@@ -140,7 +142,7 @@ exception. If an exact field position is unavailable, the block start is identif
 ```aic
 # Services
 Service | Example
-Account | example@example.invalid
+| example@example.invalid
 Password *|
 ---
 ## Optional account title
@@ -151,9 +153,10 @@ Password *|
 ## AIC fields in Markdown
 
 One complete top-level fenced `aic` document owns the structured field UI. The blank,
-Account, Card, and One-time codes presets are combinations of the same typed values,
+Card, and One-time codes presets are combinations of the same typed values,
 not additional field types. Add Field targets the current row, Add Row inserts below
-it, and Add Section inserts after the current section. The local `?` guide shows the
+it, and Add Section inserts after the current section. A blank text row can hold an
+email or another identifier. The local `?` guide shows the
 grammar in Standard Notes, the browser panel, and both VS Code editor surfaces.
 
 Legacy YAML Properties remain ordinary authored Markdown. They are not rendered as

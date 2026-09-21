@@ -24,6 +24,10 @@ describe("ordinary row usage templates", () => {
     },
   );
   it("defines independent card/date/CVV types and rejects unknown presets", () => {
+    expect(SECURITY_ROW_TEMPLATES.map(({ id }) => id)).not.toContain("account");
+    expect(() => createSecurityRowTemplate("account" as "blank")).toThrow(
+      "Unknown row template",
+    );
     expect(
       createSecurityRowTemplate("card").parts.map((part) => part.kind),
     ).toEqual(["card", "text", "secret"]);

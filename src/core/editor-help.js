@@ -82,7 +82,7 @@ export function createEditorHelp(document, { host }) {
       ],
       [
         "Templates",
-        "Account, Card and One-time codes combine typed values; Email and URL remain text",
+        "Blank rows accept an email or other text; Card and One-time codes combine typed values; Email and URL remain text",
       ],
     ]),
   );

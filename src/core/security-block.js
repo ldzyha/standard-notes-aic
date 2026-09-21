@@ -1153,6 +1153,7 @@ class SecurityBlockWidget extends WidgetType {
       rowElement,
       "Generate password",
     );
+    panel.dataset.aicPanel = "password";
     const options = { ...DEFAULT_PASSWORD_OPTIONS };
     const lengthLabel = this.document.createElement("label");
     lengthLabel.textContent = "Length ";

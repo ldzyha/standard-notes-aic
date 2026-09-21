@@ -185,9 +185,9 @@ describe("shared compact Security and Properties groups", () => {
     search(host, "Email");
     expect(control(host, "Reorder Email").disabled).toBe(true);
     control(host, "Add row to Work").click();
-    control(host, "Add account row to Work").click();
+    control(host, "Add blank row to Work").click();
     expect(model(view).title).toBe("Accounts");
-    expect(model(view).sections[0]!.fields.at(-1)?.label).toBe("Account");
+    expect(model(view).sections[0]!.fields.at(-1)?.label).toBe("");
     expect(
       host.querySelector<HTMLInputElement>('input[type="search"]')?.value,
     ).toBe("Email");

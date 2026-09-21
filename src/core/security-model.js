@@ -546,7 +546,7 @@ export function securityTemplate() {
           label: "",
           fields: [
             { label: "Service", parts: [{ value: "", kind: "text" }] },
-            { label: "Account", parts: [{ value: "", kind: "text" }] },
+            { label: "", parts: [{ value: "", kind: "text" }] },
             { label: "Email", parts: [{ value: "", kind: "text" }] },
             { label: "URL", parts: [{ value: "", kind: "text" }] },
             { label: "TOTP", parts: [{ value: "", kind: "totp" }] },

@@ -158,14 +158,10 @@ describe("typed pipe preview", () => {
   it("inserts canonical row templates immediately below the current row", () => {
     const { host, view } = fixture("First | a\nSecond | b");
     control(host, "Add row after First").click();
-    control(host, "Add account row after First").click();
+    control(host, "Add blank row after First").click();
     const rows = model(view).sections[0]!.fields;
-    expect(rows.map((row) => row.label)).toEqual([
-      "First",
-      "Account",
-      "Second",
-    ]);
-    expect(rows[1]!.parts.map((part) => part.kind)).toEqual(["text", "secret"]);
+    expect(rows.map((row) => row.label)).toEqual(["First", "", "Second"]);
+    expect(rows[1]!.parts.map((part) => part.kind)).toEqual(["text"]);
   });
 
   it("uses the section footer to append a row and bootstrap an empty section", () => {

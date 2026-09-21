@@ -244,7 +244,7 @@ describe("Security typed-pipe model", () => {
   it("emits a valid canonical template and validates complete fenced documents only", () => {
     const template = securityTemplate();
     expect(template).toContain(
-      "Service |\nAccount |\nEmail |\nURL |\nTOTP #|\nPassword *|\n",
+      "Service |\n|\nEmail |\nURL |\nTOTP #|\nPassword *|\n",
     );
     expect(parseSecurityDocument(template).ok).toBe(true);
     expect(parseSecurityDocument(AIC_EMPTY_DOCUMENT).ok).toBe(true);

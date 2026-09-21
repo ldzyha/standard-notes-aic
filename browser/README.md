@@ -68,12 +68,15 @@ Supported browser targets are desktop **Google Chrome and Microsoft Edge only**,
   Packaged-runtime acceptance remains pending in
   [VERIFICATION.md](VERIFICATION.md).
 
-The AIC-only field behavior introduced with 0.3.0 remains unchanged:
+Current AIC-only field behavior builds on 0.3.0:
 
 - Shared core 6.0.0 recognizes one fenced `aic` document rather than active YAML
   Properties blocks. Each typed separator applies to the next value, so a row can
-  combine ordinary, secret, authenticator, card and one-time parts. Account, Card
+  combine ordinary, secret, authenticator, card and one-time parts. Blank, Card
   and One-time codes are presets made from those parts, not separate data formats.
+  New blocks include a blank text row for an email or another identifier.
+  Narrow panels stack labels above responsive value columns and keep the whole
+  row readable without a separate value-only horizontal scroller.
   Existing source is not automatically rewritten; unsupported old text remains in
   the note for manual repair.
 - Copying an unused `1|` value marks it used as `0|`. Activating a used value changes

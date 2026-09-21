@@ -36,6 +36,7 @@
 .browser-toolbar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   flex: 0 0 auto;
   gap: 4px;
   min-height: 48px;
@@ -43,7 +44,8 @@
   border-bottom: 1px solid var(--aic-border);
 }
 .browser-brand {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   font-weight: 750;
   font-size: 15px;
 }
