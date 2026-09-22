@@ -67,17 +67,15 @@ describe("publication metadata", () => {
   });
 
   it("documents the current R.F.B release and packages usage and UI contracts", () => {
-    expect(manifest.version).toBe("38.1.1");
-    expect(browserManifest.version).toBe("0.5.0");
+    expect(manifest.version).toBe("39.0.1");
+    expect(browserManifest.version).toBe("0.5.1");
     expect(changelog).toContain(`## ${manifest.version} — 2026-09-22`);
     expect(changelog).toContain(
-      "Release sequence 38 · 1 feature outcome · 1 fixed-bug outcome",
+      "Release sequence 39 · 0 feature outcomes · 1 fixed-bug outcome",
     );
-    expect(changelog).toContain(
-      "New AIC blocks start with an unlabeled text row",
-    );
-    expect(marketplaceHowto).toContain("aic-browser-chromium-0.5.0.zip");
-    expect(marketplaceHowto).toContain("Standard Notes AIC **38.1.1**");
+    expect(changelog).toContain("Thematic breaks appear as short centered");
+    expect(marketplaceHowto).toContain("aic-browser-chromium-0.5.1.zip");
+    expect(marketplaceHowto).toContain("Standard Notes AIC **39.0.1**");
     expect(readme).toContain("## Slash templates");
     expect(readme).toContain("`Tab` to move through");
     expect(readme).toContain("ordinary `.md` documents");

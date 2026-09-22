@@ -1,9 +1,20 @@
 # Chrome / Edge experimental build verification — 2026-09-22
 
-Status: **0.5.0 experimental component**, not a store release or an independently
+Status: **0.5.1 experimental component**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
 using one Chromium Manifest V3 package. All test passphrases, notes and clipboard
 substitutes are synthetic. No user profile or real notes are part of these tests.
+
+## 0.5.1 Markdown layout — release verification
+
+- Version pair: Standard Notes **39.0.1**, browser **0.5.1**, AIC Notes
+  **47.0.1**, shared core **6.2.1**. Browser vault format is unchanged.
+- Synthetic Markdown in headless Chromium at 320 and 560 px showed a centered
+  thematic break 53–96 px wide, 12.8 px of row padding above and below, and
+  no horizontal page overflow. Heading-to-quote and quote-to-list text gaps
+  remained at least 13 px. Clicking the break revealed raw Markdown while its
+  row height stayed constant. These checks used the standalone editor and do
+  not replace installed Chrome/Edge or store acceptance.
 
 ## 0.5.0 narrow-panel layout — release verification
 

@@ -1,14 +1,14 @@
 # Як опублікувати AIC у магазинах
 
-**Статус:** це план першого ручного подання, а не повідомлення про публікацію. Зараз канал випуску — GitHub; у VS Code Marketplace, Chrome Web Store та Microsoft Edge Add-ons подання ще не підтверджені. Браузерний випуск **0.5.0 експериментальний**. Firefox і Mullvad не входять у цей план. Рекомендація: спершу завершити перевірки та матеріали, потім подати кожен магазин окремо й перевірити встановлення після схвалення.
+**Статус:** це план першого ручного подання, а не повідомлення про публікацію. Зараз канал випуску — GitHub; у VS Code Marketplace, Chrome Web Store та Microsoft Edge Add-ons подання ще не підтверджені. Браузерний випуск **0.5.1 експериментальний**. Firefox і Mullvad не входять у цей план. Рекомендація: спершу завершити перевірки та матеріали, потім подати кожен магазин окремо й перевірити встановлення після схвалення.
 
 | Куди                   | Файл для подання                                        | Цільова версія         |
 | ---------------------- | ------------------------------------------------------- | ---------------------- |
-| VS Code Marketplace    | `aic-notes-46.1.1.vsix`                                 | AIC Notes 46.1.1       |
-| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.5.0.zip` | AIC — Page notes 0.5.0 |
-| Microsoft Edge Add-ons | **той самий** Chromium ZIP                              | AIC — Page notes 0.5.0 |
+| VS Code Marketplace    | `aic-notes-47.0.1.vsix`                                 | AIC Notes 47.0.1       |
+| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.5.1.zip` | AIC — Page notes 0.5.1 |
+| Microsoft Edge Add-ons | **той самий** Chromium ZIP                              | AIC — Page notes 0.5.1 |
 
-Це **очікувані назви**, не доказ готовності файлів. Standard Notes AIC **38.1.1** і спільне ядро **6.2.0** координуються з цим випуском, але Standard Notes не подається до цих магазинів. AIC Notes **46.1.1** та браузер **0.5.0** отримують порожній текстовий рядок замість шаблону Account і читабельне перенесення полів у вузьких панелях. Попередній випуск браузера 0.4.0 додав Global Shared у зашифрованому сховищі поточного профілю. Це не синхронізація між застосунками й не реалізація майбутньої архітектури ключів або VS Code `global.aic`.
+Це **очікувані назви**, не доказ готовності файлів. Standard Notes AIC **39.0.1** і спільне ядро **6.2.1** координуються з цим випуском, але Standard Notes не подається до цих магазинів. AIC Notes **47.0.1** та браузер **0.5.1** виправляють відступи між блоками Markdown і показують коротку центровану горизонтальну лінію. Порожній текстовий рядок замість шаблону Account та перенесення полів з’явилися у попередніх версіях. Попередній випуск браузера 0.4.0 додав Global Shared у зашифрованому сховищі поточного профілю. Це не синхронізація між застосунками й не реалізація майбутньої архітектури ключів або VS Code `global.aic`.
 
 ## Перед початком
 
@@ -20,24 +20,24 @@
 
 ### VS Code Marketplace
 
-1. Візьміть **перевірений** `aic-notes-46.1.1.vsix` і його контрольну суму з [AIC Notes Releases](https://github.com/ldzyha/aic-notes/releases).
+1. Візьміть **перевірений** `aic-notes-47.0.1.vsix` і його контрольну суму з [AIC Notes Releases](https://github.com/ldzyha/aic-notes/releases).
 2. На [сторінці видавців Marketplace](https://marketplace.visualstudio.com/manage/publishers/) виберіть `ldzyha` та завантажте VSIX вручну.
 3. Перегляньте опис і посилання, завершіть подання за підказками порталу.
-4. Після публікації перевірте версію **46.1.1** на сторінці `ldzyha.aic-notes` та встановіть її з розділу Extensions у чистому профілі VS Code. Файл VSIX на GitHub дає ручне встановлення, але **не** публікує розширення в Marketplace. [Офіційна інструкція](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
+4. Після публікації перевірте версію **47.0.1** на сторінці `ldzyha.aic-notes` та встановіть її з розділу Extensions у чистому профілі VS Code. Файл VSIX на GitHub дає ручне встановлення, але **не** публікує розширення в Marketplace. [Офіційна інструкція](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
 
 ### Chrome Web Store
 
 1. Візьміть фінальний Chromium ZIP після перевірки в Chrome; **Load unpacked** із `dist-browser/chromium/` — лише спосіб розробницького тестування.
 2. У [Developer Dashboard](https://chrome.google.com/webstore/devconsole) виберіть **Add new item** і завантажте ZIP.
 3. Заповніть **Store listing**, **Privacy practices**, **Distribution**; обґрунтуйте дозволи маніфесту та вставте тільки перевірений URL політики.
-4. Натисніть **Submit for Review**. Після схвалення звірте версію **0.5.0** і встановіть із магазину в чистому профілі Chrome. Завантаження файлу саме по собі ще не означає публікації. [Офіційна інструкція](https://developer.chrome.com/docs/webstore/publish/).
+4. Натисніть **Submit for Review**. Після схвалення звірте версію **0.5.1** і встановіть із магазину в чистому профілі Chrome. Завантаження файлу саме по собі ще не означає публікації. [Офіційна інструкція](https://developer.chrome.com/docs/webstore/publish/).
 
 ### Microsoft Edge Add-ons
 
 1. Використайте **той самий** фінальний ZIP після окремої перевірки в Edge.
 2. У [Partner Center](https://partner.microsoft.com/dashboard) відкрийте Edge → **Create new extension** і завантажте ZIP.
 3. Заповніть **Availability**, **Properties**, **Privacy**, **Store listings** та нотатки для сертифікації; перевірте ринки, видимість, дозволи й URL політики.
-4. Надішліть на перевірку. Коли статус стане **In the store**, звірте версію **0.5.0** і встановіть із Edge Add-ons у чистому профілі. Подання до Chrome **не** публікує продукт в Edge. [Офіційна інструкція](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
+4. Надішліть на перевірку. Коли статус стане **In the store**, звірте версію **0.5.1** і встановіть із Edge Add-ons у чистому профілі. Подання до Chrome **не** публікує продукт в Edge. [Офіційна інструкція](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
 
 ## Після подання й наступні оновлення
 

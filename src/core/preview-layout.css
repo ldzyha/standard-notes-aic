@@ -1,7 +1,40 @@
 /* CodeMirror measures block widgets without their external margins. Keep all
    vertical spacing inside the measured box (padding, borders, or child gaps).
-   Markdown blank lines remain the document's spacing between separate blocks.
+   Markdown blank lines retain authored spacing; measured line padding also
+   separates adjacent headings, quotes, lists and thematic breaks.
    The editor/content scope intentionally wins over host preview theme rules. */
+.cm-editor .cm-content > .cm-line:has(.cm-md-h) {
+  padding-block: 0.35em 0.3em;
+}
+.cm-editor
+  .cm-content
+  > .cm-line:not(:has(.cm-md-quote))
+  + .cm-line:has(.cm-md-quote),
+.cm-editor
+  .cm-content
+  > .cm-line:not(:has(.cm-md-listmark))
+  + .cm-line:has(.cm-md-listmark) {
+  padding-block-start: 0.45em;
+}
+.cm-editor .cm-content > .cm-line.cm-md-hr-line {
+  position: relative;
+  padding-block: 0.8rem;
+}
+.cm-editor .cm-content .cm-md-hr,
+.cm-editor .cm-content .cm-md-hr * {
+  color: transparent;
+}
+.cm-editor .cm-content > .cm-line.cm-md-hr-line:has(.cm-md-hr)::after {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: clamp(50px, 18%, 100px);
+  border-block-start: 2px solid
+    color-mix(in srgb, var(--aic-fg) 42%, var(--aic-bg));
+  content: "";
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
 .cm-editor .cm-content :is(.aic-card, .cm-md-block-preview) {
   box-sizing: border-box;
   width: 100%;

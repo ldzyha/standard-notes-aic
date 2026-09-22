@@ -1,7 +1,7 @@
 {
   "registryVersion": 1,
   "scope": "AIC Markdown functionality implemented by standard-notes-aic and aic-notes",
-  "asOf": "2026-09-15",
+  "asOf": "2026-09-22",
   "status": {
     "currentFacts": "Entrypoints and verification paths describe the current working trees. The aic-notes/vendor copies are distribution artifacts and are not independent feature owners.",
     "approvedDirection": "Maintain one stable registry of user-visible features, shared runtime capabilities, and host adapters.",
@@ -81,7 +81,7 @@
     {
       "id": "core.markdown-preview",
       "group": "shared-editor",
-      "purpose": "Render headings, emphasis, inline code, quotes, horizontal rules, lists, links, code fences, and other structured Markdown previews without replacing source truth.",
+      "purpose": "Render headings, emphasis, inline code, quotes, short centered horizontal rules, lists, links, code fences, and other structured Markdown previews with readable spacing without replacing source truth.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/block-views.ts",

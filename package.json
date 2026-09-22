@@ -1,7 +1,7 @@
 {
   "name": "standard-notes-aic-editor",
-  "version": "38.1.1",
-  "aicEditorCore": "6.2.0",
+  "version": "39.0.1",
+  "aicEditorCore": "6.2.1",
   "private": true,
   "type": "module",
   "license": "UNLICENSED",

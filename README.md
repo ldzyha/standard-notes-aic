@@ -163,6 +163,14 @@ Legacy YAML Properties remain ordinary authored Markdown. They are not rendered 
 fields, interpreted as metadata, rewritten on save, or automatically migrated. Source
 mode keeps that text accessible for manual repair.
 
+## Release 39.0.1
+
+This display fix pairs with AIC Notes 47.0.1, shared editor core 6.2.1 and the
+experimental browser component 0.5.1. Headings, quotes and lists have more
+space between them. A thematic break is a centered 50–100 px line with space
+above and below, and its row keeps the same height when the caret reveals the
+raw Markdown. The underlying note text is unchanged.
+
 ## Release 38.1.1
 
 This release pairs with AIC Notes 46.1.1, shared editor core 6.2.0 and the
@@ -487,6 +495,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `38.1.1` is sequence 38 with
-one feature outcome and one fixed-bug outcome; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `39.0.1` is sequence 39 with
+zero feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

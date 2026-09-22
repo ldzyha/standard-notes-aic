@@ -386,14 +386,6 @@ select {
   text-decoration: line-through;
 }
 
-.cm-md-hr {
-  color: transparent;
-}
-
-.cm-md-hr-line {
-  border-bottom: 1px solid var(--aic-border);
-}
-
 .cm-md-codeblock {
   background: color-mix(in srgb, var(--aic-fg) 4%, transparent);
 }

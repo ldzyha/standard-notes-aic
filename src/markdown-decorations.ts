@@ -243,6 +243,7 @@ function decorateNode(node: NodeRef, view: EditorView): StyledRange[] {
     const line = state.doc.lineAt(node.from);
     if (lineRevealed(state, node.from) || revealed(state, line.from, line.to)) {
       return [
+        { from: line.from, decoration: horizontalRuleLine, line: true },
         { from: node.from, to: node.to, decoration: horizontalRuleRevealed },
       ];
     }

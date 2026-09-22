@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 39.0.1 — 2026-09-22
+
+Release sequence 39 · 0 feature outcomes · 1 fixed-bug outcome. Shared editor
+core moves to 6.2.1; AIC Notes 47.0.1 uses the same layout, and experimental
+browser 0.5.1 is packaged with this release.
+
+### Fix
+
+1. Markdown headings, quotes and lists have readable separation, including
+   when authored without blank lines. Thematic breaks appear as short centered
+   50–100 px lines with vertical space. Revealing the raw `---` under the caret
+   keeps the same measured line height and leaves the Markdown unchanged.
+
 ## 38.1.1 — 2026-09-22
 
 Release sequence 38 · 1 feature outcome · 1 fixed-bug outcome. Shared editor core
