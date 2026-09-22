@@ -163,6 +163,17 @@ Legacy YAML Properties remain ordinary authored Markdown. They are not rendered 
 fields, interpreted as metadata, rewritten on save, or automatically migrated. Source
 mode keeps that text accessible for manual repair.
 
+## Release 40.0.1
+
+This coordinated update pairs with AIC Notes 48.0.1, shared editor core 6.2.2
+and experimental browser 0.5.2. Information (`>`), warning (`!>`) and error
+(`!>>`) quotes use subtle backgrounds and distinct side accents. Quoted and
+italic text is smaller, and neighboring Markdown blocks have more space.
+`>>> … <<<` remains the details syntax. An opening three-backtick code fence stays
+editable while its language is typed; a completed code block previews only
+after the caret leaves its delimiters. See the [one-page installation guide](RELEASE_INSTALL.md)
+for all three products.
+
 ## Release 39.0.1
 
 This display fix pairs with AIC Notes 47.0.1, shared editor core 6.2.1 and the
@@ -326,6 +337,9 @@ are also included in this release. A host acknowledgment confirms its local pre-
 not completion of Standard Notes cloud synchronization.
 
 ## Install
+
+For the coordinated VS Code, Standard Notes and Chrome/Edge release, use the
+[single installation guide](RELEASE_INSTALL.md).
 
 In Standard Notes, open **Preferences → Plugins**, find **Install Custom Plugin**, and paste:
 
@@ -495,6 +509,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `39.0.1` is sequence 39 with
+release-local feature outcomes, and release-local fixed-bug outcomes. `40.0.1` is sequence 40 with
 zero feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

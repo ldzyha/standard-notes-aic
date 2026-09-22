@@ -68,6 +68,16 @@ export function createEditorHelp(document, { host }) {
         "Field adds a typed value to this row; Row inserts below; Section inserts after the current section",
       ],
     ]),
+    section(document, "Markdown blocks", [
+      ["> text", "information quote"],
+      ["!> text", "warning quote"],
+      ["!>> text", "error quote"],
+      [">>> title … <<<", "collapsible details block"],
+      [
+        "```language … ```",
+        "code block; finish the opening language before closing the fence",
+      ],
+    ]),
     section(document, "AIC field syntax", [
       ["Label | value", "add a plain-text value"],
       ["Label *| value", "mark the next value as secret"],

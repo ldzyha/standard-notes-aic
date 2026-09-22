@@ -14,13 +14,13 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 structured AIC fields, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 39.0.1 pairs with AIC Notes 47.0.1 and AIC Editor Core 6.2.1.
+storage format. Release 40.0.1 pairs with AIC Notes 48.0.1 and AIC Editor Core 6.2.2.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
 ## Current host boundary — 2026-09-15
 
-The experimental browser release component 0.5.1 targets Chrome and Edge only, using one
+The experimental browser release component 0.5.2 targets Chrome and Edge only, using one
 Chromium package and this repository's `AicEditor`, with
 the same always-compact editor toolbar as Standard Notes and explicit read-only
 page/selection/Markdown import. When shared AIC data are empty, their
@@ -82,6 +82,14 @@ browser shell is not automatically a VS Code feature. Adaptive activity, semanti
 zoom and a shared workspace tree are proposed, not implemented; their ownership,
 risks and dependency-ordered transition are in
 [ADAPTIVE_PREVIEW_STUDY.md](ADAPTIVE_PREVIEW_STUDY.md).
+
+## Quote accents and editable fences in release 40.0.1
+
+Information (`>`), warning (`!>`) and error (`!>>`) quotes share the compact
+quote shape with distinct accents and space between neighboring blocks. Italic
+and quoted text are smaller. `>>> … <<<` retains its details/accordion meaning.
+Unclosed fenced code remains source, and the caret on a fence delimiter keeps
+completed code in source until the selection leaves. Note bytes are unchanged.
 
 ## Markdown layout fix in release 39.0.1
 

@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 40.0.1 — 2026-09-22
+
+Release sequence 40 · 0 feature outcomes · 1 fixed-bug outcome. Shared editor
+core moves to 6.2.2; AIC Notes 48.0.1 mirrors it, and experimental browser
+0.5.2 is packaged with this release.
+
+### Fix
+
+1. Quotes and italic text use smaller type. Information (`>`), warning (`!>`)
+   and error (`!>>`) quotes have distinct subtle backgrounds and side rules;
+   neighboring Markdown blocks have larger measured gaps. `>>> … <<<`
+   remains the details syntax. An unfinished fenced code block stays editable,
+   and a completed block does not turn into a preview while its caret is on
+   either fence delimiter.
+
 ## 39.0.1 — 2026-09-22
 
 Release sequence 39 · 0 feature outcomes · 1 fixed-bug outcome. Shared editor

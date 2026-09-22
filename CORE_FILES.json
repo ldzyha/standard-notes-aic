@@ -3,6 +3,8 @@
   "agentic-notes.js",
   "block-diagnostic.d.ts",
   "block-diagnostic.js",
+  "callout-decorations.d.ts",
+  "callout-decorations.js",
   "code-fence-extension.d.ts",
   "code-fence-extension.js",
   "code-fence-preview.d.ts",

@@ -1,6 +1,11 @@
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { StateEffect, StateField } from "@codemirror/state";
-import { Decoration, ViewPlugin, WidgetType } from "@codemirror/view";
+import {
+  Decoration,
+  EditorView,
+  ViewPlugin,
+  WidgetType,
+} from "@codemirror/view";
 import { createCodeFencePreview } from "./code-fence-preview.js";
 import { providePreviewRanges } from "./preview-ranges.js";
 import {
@@ -15,6 +20,7 @@ export const CODE_FENCE_EXTENSION_CORE_VERSION = "1.1.0";
 const editCodeFenceSource = StateEffect.define({
   map: (value, mapping) => mapping.mapPos(value, -1),
 });
+const blurCodeFenceSource = StateEffect.define();
 
 export function fenceInfo(state, node) {
   const info = node.node.getChild("CodeInfo");
@@ -28,6 +34,9 @@ export function codeFences(state) {
   tree.iterate({
     enter(node) {
       if (node.name !== "FencedCode") return;
+      // An opening ``` is still being authored. Keep it editable until a
+      // closing fence exists, even when focus leaves the line.
+      if (node.node.getChildren("CodeMark").length < 2) return;
       const language = fenceInfo(state, node).split(/\s+/u)[0] ?? "";
       if (["mermaid", "aic", "aic-security"].includes(language)) return;
       const text = node.node.getChild("CodeText");
@@ -64,6 +73,16 @@ const codeFenceSource = StateField.define({
     for (const effect of transaction.effects) {
       if (effect.is(editCodeFenceSource)) next = effect.value;
       if (effect.is(sourcePreviewExit)) next = null;
+      if (effect.is(blurCodeFenceSource)) next = null;
+    }
+    if (transaction.docChanged && next == null) {
+      const cursor = transaction.state.selection.main;
+      if (cursor.empty) {
+        const edited = codeFences(transaction.state).find(
+          (block) => cursor.from > block.from && cursor.from <= block.to,
+        );
+        if (edited) next = edited.from;
+      }
     }
     if (next == null) return null;
     const block = codeFences(transaction.state).find(
@@ -189,7 +208,9 @@ export function makeCodeFenceExtension({
         transaction.startState.readOnly === transaction.state.readOnly &&
         !transaction.effects.some(
           (effect) =>
-            effect.is(refreshCodeFences) || effect.is(sourcePreviewExit),
+            effect.is(refreshCodeFences) ||
+            effect.is(sourcePreviewExit) ||
+            effect.is(blurCodeFenceSource),
         )
       )
         return value;
@@ -230,6 +251,12 @@ export function makeCodeFenceExtension({
 
   return [
     codeFenceSource,
+    EditorView.domEventHandlers({
+      blur(_event, view) {
+        if (view.state.field(codeFenceSource) != null)
+          view.dispatch({ effects: blurCodeFenceSource.of() });
+      },
+    }),
     sourcePreviewExitHandlers.of((state) => {
       const from = state.field(codeFenceSource);
       return from == null

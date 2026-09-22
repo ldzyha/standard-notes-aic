@@ -4,7 +4,7 @@
    separates adjacent headings, quotes, lists and thematic breaks.
    The editor/content scope intentionally wins over host preview theme rules. */
 .cm-editor .cm-content > .cm-line:has(.cm-md-h) {
-  padding-block: 0.35em 0.3em;
+  padding-block: 0.55em 0.45em;
 }
 .cm-editor
   .cm-content
@@ -14,7 +14,77 @@
   .cm-content
   > .cm-line:not(:has(.cm-md-listmark))
   + .cm-line:has(.cm-md-listmark) {
-  padding-block-start: 0.45em;
+  padding-block-start: 0.85em;
+}
+.cm-editor
+  .cm-content
+  > .cm-line:not(:has(.cm-md-quote))
+  + .cm-line:has(.cm-md-quote),
+.cm-editor
+  .cm-content
+  > .cm-line:not(.cm-md-callout-line):has(.cm-md-quote)
+  + .cm-line.cm-md-callout-line,
+.cm-editor
+  .cm-content
+  > .cm-line.cm-md-callout-warning
+  + .cm-line:has(.cm-md-quote):not(.cm-md-callout-warning),
+.cm-editor
+  .cm-content
+  > .cm-line.cm-md-callout-error
+  + .cm-line:has(.cm-md-quote):not(.cm-md-callout-error) {
+  --aic-callout-gap: 0.85em;
+
+  padding-block-start: var(--aic-callout-gap);
+}
+.cm-editor .cm-content .cm-md-quote {
+  font-size: 0.9em;
+}
+.cm-editor
+  .cm-content
+  > .cm-line:where(:has(.cm-md-quote), .cm-md-callout-line) {
+  --aic-callout-accent: var(--aic-accent);
+  --aic-callout-gap: 0px;
+
+  box-sizing: border-box;
+  position: relative;
+  padding-inline-start: calc(0.55rem + 2px);
+  background: linear-gradient(
+    to bottom,
+    transparent var(--aic-callout-gap),
+    color-mix(in srgb, var(--aic-callout-accent) 8%, var(--aic-bg))
+      var(--aic-callout-gap)
+  );
+}
+.cm-editor
+  .cm-content
+  > .cm-line:where(:has(.cm-md-quote), .cm-md-callout-line)::before {
+  position: absolute;
+  inset-block: var(--aic-callout-gap) 0;
+  inset-inline-start: 0;
+  width: 2px;
+  background: color-mix(
+    in srgb,
+    var(--aic-callout-accent) 65%,
+    var(--aic-muted)
+  );
+  content: "";
+  pointer-events: none;
+}
+.cm-editor .cm-content > .cm-line.cm-md-callout-warning {
+  --aic-callout-accent: var(--aic-warning, #b7791f);
+}
+.cm-editor .cm-content > .cm-line.cm-md-callout-error {
+  --aic-callout-accent: var(--aic-danger, #b92337);
+}
+.cm-editor .cm-content .cm-md-callout-marker {
+  color: var(--aic-callout-accent);
+  font-weight: 700;
+}
+.cm-editor .cm-content .cm-md-italic {
+  font-size: 0.94em;
+}
+.cm-editor .cm-content .cm-md-quote .cm-md-italic {
+  font-size: 1em;
 }
 .cm-editor .cm-content > .cm-line.cm-md-hr-line {
   position: relative;

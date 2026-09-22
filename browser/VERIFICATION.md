@@ -1,9 +1,20 @@
 # Chrome / Edge experimental build verification — 2026-09-22
 
-Status: **0.5.1 experimental component**, not a store release or an independently
+Status: **0.5.2 experimental component**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
 using one Chromium Manifest V3 package. All test passphrases, notes and clipboard
 substitutes are synthetic. No user profile or real notes are part of these tests.
+
+## 0.5.2 quote accents and editable fences — release verification
+
+- Version pair: Standard Notes **40.0.1**, browser **0.5.2**, AIC Notes
+  **48.0.1**, shared core **6.2.2**. Browser vault format is unchanged.
+- Headless Chromium at 320 and 560 px showed distinct quote, warning and error
+  accents with gaps between the blocks and no page overflow. An unfinished
+  ```language line stayed in source. Focused parser tests distinguish the
+  three quote markers from `>>> … <<<` details and ignore callout-like text
+  inside fenced code. Installed Chrome/Edge acceptance remains separate.
+  ```
 
 ## 0.5.1 Markdown layout — release verification
 

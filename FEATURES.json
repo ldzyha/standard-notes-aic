@@ -81,7 +81,7 @@
     {
       "id": "core.markdown-preview",
       "group": "shared-editor",
-      "purpose": "Render headings, emphasis, inline code, quotes, short centered horizontal rules, lists, links, code fences, and other structured Markdown previews with readable spacing without replacing source truth.",
+      "purpose": "Render headings, smaller italic and quote text, softly shaded quote blocks with a side rule, short centered horizontal rules, lists, links, code fences, and other structured Markdown previews with readable spacing without replacing source truth.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/block-views.ts",
@@ -97,6 +97,8 @@
         "standard-notes-aic/src/core/preview-ranges.js",
         "standard-notes-aic/src/core/preview-ranges.d.ts",
         "standard-notes-aic/src/core/preview-layout.css",
+        "standard-notes-aic/src/core/callout-decorations.js",
+        "standard-notes-aic/src/core/callout-decorations.d.ts",
         "standard-notes-aic/src/core/source-mode.js",
         "standard-notes-aic/src/core/source-mode.d.ts",
         "aic-notes/vendor/markdown/handlers/blocks.js",

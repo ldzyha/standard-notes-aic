@@ -24,6 +24,7 @@ import {
   rectangularSelection,
 } from "@codemirror/view";
 import { blockViewExtensions } from "./block-views";
+import { makeCalloutExtension } from "./core/callout-decorations.js";
 import { makeCodeFenceExtension } from "./core/code-fence-extension.js";
 import { createEditorHelp } from "./core/editor-help.js";
 import { makeSecurityBlockExtension } from "./core/security-block.js";
@@ -262,6 +263,7 @@ export class AicEditor {
       ]),
       this.sourceMode.extension([
         markdownDecorations,
+        makeCalloutExtension(),
         makeCodeFenceExtension({ document: this.document }),
         makeSecurityBlockExtension({
           document: this.document,

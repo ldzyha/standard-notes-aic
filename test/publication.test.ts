@@ -4,6 +4,7 @@ import readme from "../README.md?raw";
 import changelog from "../CHANGELOG.md?raw";
 import functionalIndex from "../FUNCTIONAL_INDEX.md?raw";
 import marketplaceHowto from "../MARKETPLACE_HOWTO.md?raw";
+import releaseInstall from "../RELEASE_INSTALL.md?raw";
 import browserManifest from "../browser/manifest.json";
 import manifest from "../public/ext.json";
 import { parse } from "yaml";
@@ -22,11 +23,11 @@ describe("publication metadata", () => {
     expect(readme).toContain('<img src="./public/aic-logo.svg"');
   });
 
-  it("uses dzyha.com only as the release-notes website link", () => {
-    expect(releaseWorkflow.match(/https:\/\/dzyha\.com\//gu)).toHaveLength(1);
-    expect(releaseWorkflow).toMatch(
-      /--notes "[^"\n]*Website: https:\/\/dzyha\.com\/"/u,
-    );
+  it("uses the unified installation guide as the public release notes", () => {
+    expect(releaseInstall).toContain("https://dzyha.com/");
+    expect(releaseInstall).toContain("aic-notes-48.0.1.vsix");
+    expect(releaseInstall).toContain("aic-browser-chromium-0.5.2.zip");
+    expect(releaseWorkflow).toContain("--notes-file RELEASE_INSTALL.md");
   });
 
   it("serializes duplicate tag deliveries and republishes idempotently", () => {
@@ -35,7 +36,7 @@ describe("publication metadata", () => {
       'gh release view "$RELEASE_TAG" >/dev/null 2>&1',
     );
     expect(releaseWorkflow).toMatch(
-      /gh release upload "\$RELEASE_TAG" "\$ASSET" "\$ASSET.sha256" \\\n\s+"\$BROWSER_ASSET" "\$BROWSER_ASSET.sha256" MARKETPLACE_HOWTO.md --clobber/u,
+      /gh release upload "\$RELEASE_TAG" "\$ASSET" "\$ASSET.sha256" \\\n\s+"\$BROWSER_ASSET" "\$BROWSER_ASSET.sha256" RELEASE_INSTALL.md MARKETPLACE_HOWTO.md --clobber/u,
     );
   });
 
@@ -59,23 +60,25 @@ describe("publication metadata", () => {
     );
     expect(
       script.match(
-        /"\$BROWSER_ASSET" "\$BROWSER_ASSET.sha256" MARKETPLACE_HOWTO.md/gu,
+        /"\$BROWSER_ASSET" "\$BROWSER_ASSET.sha256" RELEASE_INSTALL.md MARKETPLACE_HOWTO.md/gu,
       ),
     ).toHaveLength(2);
-    expect(script).toContain("experimental Chrome/Edge");
+    expect(releaseInstall).toContain("експериментальне розширення Chrome/Edge");
     expect(script).not.toMatch(/firefox|mullvad/iu);
   });
 
   it("documents the current R.F.B release and packages usage and UI contracts", () => {
-    expect(manifest.version).toBe("39.0.1");
-    expect(browserManifest.version).toBe("0.5.1");
+    expect(manifest.version).toBe("40.0.1");
+    expect(browserManifest.version).toBe("0.5.2");
     expect(changelog).toContain(`## ${manifest.version} — 2026-09-22`);
     expect(changelog).toContain(
-      "Release sequence 39 · 0 feature outcomes · 1 fixed-bug outcome",
+      "Release sequence 40 · 0 feature outcomes · 1 fixed-bug outcome",
     );
-    expect(changelog).toContain("Thematic breaks appear as short centered");
-    expect(marketplaceHowto).toContain("aic-browser-chromium-0.5.1.zip");
-    expect(marketplaceHowto).toContain("Standard Notes AIC **39.0.1**");
+    expect(changelog).toContain(
+      "An unfinished fenced code block stays editable",
+    );
+    expect(marketplaceHowto).toContain("aic-browser-chromium-0.5.2.zip");
+    expect(marketplaceHowto).toContain("Standard Notes AIC **40.0.1**");
     expect(readme).toContain("## Slash templates");
     expect(readme).toContain("`Tab` to move through");
     expect(readme).toContain("ordinary `.md` documents");
@@ -83,10 +86,10 @@ describe("publication metadata", () => {
     expect(readme).toContain(">>>|open| Title");
     expect(readme).toContain("Raw Space is");
     expect(releaseWorkflow).toContain(
-      "cp README.md CHANGELOG.md FUNCTIONAL_INDEX.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md .release/",
+      "cp README.md RELEASE_INSTALL.md CHANGELOG.md FUNCTIONAL_INDEX.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md .release/",
     );
     expect(releaseWorkflow).toContain(
-      "package.json README.md CHANGELOG.md FUNCTIONAL_INDEX.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md dist",
+      "package.json README.md RELEASE_INSTALL.md CHANGELOG.md FUNCTIONAL_INDEX.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md dist",
     );
   });
 

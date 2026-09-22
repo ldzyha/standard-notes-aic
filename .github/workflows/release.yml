@@ -64,10 +64,10 @@ jobs:
           PACKAGE_VERSION="${RELEASE_TAG#v}"
           mkdir -p .release/dist
           cp package.json .release/package.json
-          cp README.md CHANGELOG.md FUNCTIONAL_INDEX.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md .release/
+          cp README.md RELEASE_INSTALL.md CHANGELOG.md FUNCTIONAL_INDEX.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md .release/
           cp -R dist/. .release/dist/
           cd .release
-          zip -qr "../standard-notes-aic-$PACKAGE_VERSION.zip" package.json README.md CHANGELOG.md FUNCTIONAL_INDEX.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md dist
+          zip -qr "../standard-notes-aic-$PACKAGE_VERSION.zip" package.json README.md RELEASE_INSTALL.md CHANGELOG.md FUNCTIONAL_INDEX.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md dist
           cd ..
           sha256sum "standard-notes-aic-$PACKAGE_VERSION.zip" > "standard-notes-aic-$PACKAGE_VERSION.zip.sha256"
 
@@ -82,13 +82,12 @@ jobs:
           BROWSER_ASSET="dist-browser/artifacts/aic-browser-chromium-$BROWSER_VERSION.zip"
           if gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
             gh release upload "$RELEASE_TAG" "$ASSET" "$ASSET.sha256" \
-              "$BROWSER_ASSET" "$BROWSER_ASSET.sha256" MARKETPLACE_HOWTO.md --clobber
+              "$BROWSER_ASSET" "$BROWSER_ASSET.sha256" RELEASE_INSTALL.md MARKETPLACE_HOWTO.md --clobber
           else
             gh release create "$RELEASE_TAG" \
               "$ASSET" "$ASSET.sha256" \
-              "$BROWSER_ASSET" "$BROWSER_ASSET.sha256" MARKETPLACE_HOWTO.md \
+              "$BROWSER_ASSET" "$BROWSER_ASSET.sha256" RELEASE_INSTALL.md MARKETPLACE_HOWTO.md \
               --verify-tag \
               --title "AIC $PACKAGE_VERSION" \
-              --notes "Includes the experimental Chrome/Edge component $BROWSER_VERSION. Use synthetic data until browser/VERIFICATION.md acceptance gates are resolved. Marketplace submissions are not included. See CHANGELOG.md and MARKETPLACE_HOWTO.md. Website: https://dzyha.com/" \
-              --generate-notes
+              --notes-file RELEASE_INSTALL.md
           fi
