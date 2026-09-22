@@ -202,7 +202,7 @@ describe("Mermaid rendering boundary", () => {
     const edit =
       preview.element.querySelector<HTMLButtonElement>(".cm-mermaid-edit")!;
     expect(edit.textContent).toBe("");
-    expect(edit.dataset.aicIcon).toBe("source");
+    expect(edit.dataset.aicIcon).toBe("edit");
     edit.click();
     expect(onEdit).toHaveBeenCalledOnce();
     const canvas =

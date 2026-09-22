@@ -4,7 +4,6 @@ export const MERMAID_VIEW = Object.freeze({
   minZoom: 50,
   maxZoom: 400,
   zoomStep: 25,
-  quarterTurn: 90,
 });
 
 function positive(value, fallback) {
@@ -49,7 +48,7 @@ function pixels(value) {
 
 // Dependency-free viewport behavior shared byte-for-byte by the VS Code and
 // Standard Notes adapters. The stage owns the transformed diagram's real
-// layout bounds, so browser scrolling remains correct after zoom or rotation.
+// layout bounds, so browser scrolling remains correct after zoom.
 export function createMermaidViewport(document, options = {}) {
   if (!document?.createElement)
     throw new TypeError("createMermaidViewport requires a document");
@@ -71,7 +70,6 @@ export function createMermaidViewport(document, options = {}) {
   controls.className = "cm-aic-mermaid-controls";
 
   let zoom = 100;
-  let rotation = 0;
   let destroyed = false;
   let frame = 0;
   const win = document.defaultView;
@@ -80,35 +78,23 @@ export function createMermaidViewport(document, options = {}) {
     if (destroyed) return false;
     const svg = stage.querySelector("svg");
     stage.dataset.zoom = String(zoom);
-    stage.dataset.rotation = String(rotation);
     if (!svg) {
       stage.style.width = "100%";
       stage.style.height = "auto";
       stage.style.removeProperty("--aic-mermaid-source-width");
       stage.style.removeProperty("--aic-mermaid-source-height");
-      stage.style.setProperty("--aic-mermaid-rotation", `${rotation}deg`);
       return false;
     }
 
     const ratio = positive(svgAspectRatio(svg), 1);
     const fitted = viewportWidth(viewport, document) * (zoom / 100);
-    const sideways = rotation % 180 !== 0;
-    // Fit and zoom the source in its original direction exactly once. A
-    // quarter-turn only swaps the resulting layout bounds; fitting the
-    // rotated width again would multiply a wide diagram by its aspect ratio
-    // and make repeated zoom/rotation grow exponentially.
-    const sourceWidth = fitted;
-    const sourceHeight = fitted / ratio;
-    const boundsWidth = sideways ? sourceHeight : sourceWidth;
-    const boundsHeight = sideways ? sourceWidth : sourceHeight;
-    stage.style.width = pixels(boundsWidth);
-    stage.style.height = pixels(boundsHeight);
-    stage.style.setProperty("--aic-mermaid-source-width", pixels(sourceWidth));
+    stage.style.width = pixels(fitted);
+    stage.style.height = pixels(fitted / ratio);
+    stage.style.setProperty("--aic-mermaid-source-width", pixels(fitted));
     stage.style.setProperty(
       "--aic-mermaid-source-height",
-      pixels(sourceHeight),
+      pixels(fitted / ratio),
     );
-    stage.style.setProperty("--aic-mermaid-rotation", `${rotation}deg`);
     return true;
   };
 
@@ -131,19 +117,13 @@ export function createMermaidViewport(document, options = {}) {
   let zoomOut;
   let zoomIn;
   let reset;
-  let rotate;
   const reflectControls = () => {
     zoomOut.disabled = zoom <= minZoom;
     zoomIn.disabled = zoom >= maxZoom;
-    reset.disabled = zoom === 100 && rotation === 0;
-    rotate.setAttribute(
-      "aria-label",
-      `Rotate diagram 90° clockwise (currently ${rotation}°)`,
-    );
+    reset.disabled = zoom === 100;
   };
-  const apply = (nextZoom, nextRotation) => {
+  const apply = (nextZoom) => {
     zoom = Math.min(maxZoom, Math.max(minZoom, nextZoom));
-    rotation = ((nextRotation % 360) + 360) % 360;
     reflectControls();
     layout();
     scheduleLayout();
@@ -155,15 +135,10 @@ export function createMermaidViewport(document, options = {}) {
       className: "cm-aic-mermaid-control cm-md-edit-source",
       onActivate,
     });
-  zoomOut = button("Zoom out", "zoom-out", () =>
-    apply(zoom - zoomStep, rotation),
-  );
-  zoomIn = button("Zoom in", "zoom-in", () => apply(zoom + zoomStep, rotation));
-  reset = button("Reset diagram view", "reset", () => apply(100, 0));
-  rotate = button("Rotate diagram 90° clockwise", "rotate", () =>
-    apply(zoom, rotation + MERMAID_VIEW.quarterTurn),
-  );
-  controls.append(zoomOut, zoomIn, reset, rotate);
+  zoomOut = button("Zoom out", "zoom-out", () => apply(zoom - zoomStep));
+  zoomIn = button("Zoom in", "zoom-in", () => apply(zoom + zoomStep));
+  reset = button("Reset diagram view", "reset", () => apply(100));
+  controls.append(zoomOut, zoomIn, reset);
   reflectControls();
 
   const ResizeObserver = win?.ResizeObserver;
@@ -183,7 +158,7 @@ export function createMermaidViewport(document, options = {}) {
     },
     refresh: layout,
     get state() {
-      return Object.freeze({ zoom, rotation });
+      return Object.freeze({ zoom });
     },
     destroy() {
       if (destroyed) return false;

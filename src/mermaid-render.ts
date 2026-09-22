@@ -77,7 +77,7 @@ export function createMermaidPreview({
 }: {
   source: string;
   theme: MermaidTheme;
-  onEdit: () => void;
+  onEdit?: () => void;
   render?: typeof renderMermaidSvg;
   queue?: ReturnType<typeof makeMermaidRenderQueue>;
   document?: Document;
@@ -100,14 +100,16 @@ export function createMermaidPreview({
       showIconFeedback(button, { restoreLabel: "Copy Mermaid source" });
     },
   });
-  const edit = createIconButton(document, {
-    label: "Edit Mermaid source",
-    icon: "source",
-    className: "cm-mermaid-edit cm-md-edit-source",
-    onActivate: () => onEdit(),
-  });
+  const edit = onEdit
+    ? createIconButton(document, {
+        label: "Edit Mermaid source",
+        icon: "edit",
+        className: "cm-mermaid-edit cm-md-edit-source",
+        onActivate: onEdit,
+      })
+    : null;
   const viewportController = createMermaidViewport(document);
-  actions.append(copy, edit, viewportController.controls);
+  actions.append(copy, ...(edit ? [edit] : []), viewportController.controls);
   caption.append(label, actions);
   const canvas = viewportController.viewport;
   canvas.classList.add("cm-mermaid-canvas");
@@ -133,7 +135,8 @@ export function createMermaidPreview({
     const loading = document.createElement("span");
     loading.className = "cm-mermaid-loading";
     loading.textContent = "Rendering diagram…";
-    viewportController.replaceContent(loading);
+    if (!viewportController.stage.querySelector("svg"))
+      viewportController.replaceContent(loading);
     try {
       const task = () =>
         render({

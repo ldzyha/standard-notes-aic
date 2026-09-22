@@ -212,9 +212,7 @@
           ".cm-aic-security-card",
           ".cm-aic-security-body",
           ".cm-aic-properties",
-          ".cm-md-code-preview",
-          ".cm-aic-diagram-inline",
-          ".aic-diagram-builder"
+          ".cm-md-code-preview"
         ],
         "browser": [".browser-domain-properties", ".browser-delete-confirm"],
         "vscode": [".aicn-error-card"]

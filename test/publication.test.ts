@@ -25,8 +25,8 @@ describe("publication metadata", () => {
 
   it("uses the unified installation guide as the public release notes", () => {
     expect(releaseInstall).toContain("https://dzyha.com/");
-    expect(releaseInstall).toContain("aic-notes-48.0.1.vsix");
-    expect(releaseInstall).toContain("aic-browser-chromium-0.5.2.zip");
+    expect(releaseInstall).toContain("aic-notes-49.1.1.vsix");
+    expect(releaseInstall).toContain("aic-browser-chromium-0.6.0.zip");
     expect(releaseWorkflow).toContain("--notes-file RELEASE_INSTALL.md");
   });
 
@@ -68,8 +68,8 @@ describe("publication metadata", () => {
   });
 
   it("documents the current R.F.B release and packages usage and UI contracts", () => {
-    expect(manifest.version).toBe("40.0.1");
-    expect(browserManifest.version).toBe("0.5.2");
+    expect(manifest.version).toBe("41.1.1");
+    expect(browserManifest.version).toBe("0.6.0");
     expect(changelog).toContain(`## ${manifest.version} — 2026-09-22`);
     expect(changelog).toContain(
       "Release sequence 40 · 0 feature outcomes · 1 fixed-bug outcome",
@@ -77,8 +77,8 @@ describe("publication metadata", () => {
     expect(changelog).toContain(
       "An unfinished fenced code block stays editable",
     );
-    expect(marketplaceHowto).toContain("aic-browser-chromium-0.5.2.zip");
-    expect(marketplaceHowto).toContain("Standard Notes AIC **40.0.1**");
+    expect(marketplaceHowto).toContain("aic-browser-chromium-0.6.0.zip");
+    expect(marketplaceHowto).toContain("Standard Notes AIC **41.1.1**");
     expect(readme).toContain("## Slash templates");
     expect(readme).toContain("`Tab` to move through");
     expect(readme).toContain("ordinary `.md` documents");

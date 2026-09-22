@@ -310,9 +310,20 @@ describe("per-block source Escape", () => {
       const editButton = editor.element.querySelector<HTMLButtonElement>(edit);
       expect(editButton).not.toBeNull();
       editButton!.click();
-      expect(editor.element.querySelector(preview)).toBeNull();
+      if (name === "Mermaid") {
+        expect(
+          editor.element.querySelector(".cm-mermaid-editing"),
+        ).not.toBeNull();
+        expect(
+          editor.element.querySelector(
+            ".cm-mermaid-inline:not(.cm-mermaid-editing)",
+          ),
+        ).toBeNull();
+      } else expect(editor.element.querySelector(preview)).toBeNull();
       expect(escape(editor.view).defaultPrevented).toBe(true);
       expect(editor.element.querySelector(preview)).not.toBeNull();
+      if (name === "Mermaid")
+        expect(editor.element.querySelector(".cm-mermaid-editing")).toBeNull();
       expect(editor.view.state.selection.main.head).toBeGreaterThan(0);
       expect(editor.value).toBe(text);
       expect(onChange).not.toHaveBeenCalled();

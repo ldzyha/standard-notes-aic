@@ -1,9 +1,18 @@
 # Chrome / Edge experimental build verification — 2026-09-22
 
-Status: **0.5.2 experimental component**, not a store release or an independently
+Status: **0.6.0 experimental component**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
 using one Chromium Manifest V3 package. All test passphrases, notes and clipboard
 substitutes are synthetic. No user profile or real notes are part of these tests.
+
+## 0.6.0 Mermaid source and preview — release verification
+
+- Version pair: Standard Notes **41.1.1**, browser **0.6.0**, AIC Notes
+  **49.1.1**, shared core **7.0.0**. Browser vault format is unchanged.
+- Canonical editor tests and synthetic Chromium regressions cover source
+  editing with a live flowchart preview, one Edit icon, Copy, preview zoom,
+  and the absence of the visual builder and rotation. Installed Chrome/Edge
+  acceptance remains separate.
 
 ## 0.5.2 quote accents and editable fences — release verification
 

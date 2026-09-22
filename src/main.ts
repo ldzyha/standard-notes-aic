@@ -12,9 +12,6 @@ import "./core/icons.css";
 import "./core/mermaid-viewport.css";
 import "./core/slash-snippets.css";
 import "./core/preview-layout.css";
-import "./core/diagram-builder.css";
-import "./core/diagram-palette.css";
-import "./core/diagram-session.css";
 import "./core/security-block.css";
 import "./core/security-import-extension.css";
 

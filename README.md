@@ -163,6 +163,14 @@ Legacy YAML Properties remain ordinary authored Markdown. They are not rendered 
 fields, interpreted as metadata, rewritten on save, or automatically migrated. Source
 mode keeps that text accessible for manual repair.
 
+## Release 41.1.1
+
+This coordinated update pairs with AIC Notes 49.1.1, shared editor core 7.0.0
+and experimental browser 0.6.0. Mermaid has direct code editing and a live
+preview. Copy and the shared Edit icon are shown in the preview; zoom is
+preview-only. The visual builder, drag-and-drop and rotation controls are gone.
+See the [one-page installation guide](RELEASE_INSTALL.md) for all three products.
+
 ## Release 40.0.1
 
 This coordinated update pairs with AIC Notes 48.0.1, shared editor core 6.2.2
@@ -281,8 +289,7 @@ sign-in and Linux runtime behavior have not been verified.
 
 ## Editor features
 
-The shared editor features below are included in the release source; the visual
-Mermaid builder remains experimental. Automated suites and synthetic browser
+The shared editor features below are included in the release source. Automated suites and synthetic browser
 checks cover the implementation. They do not certify authenticated Standard Notes
 clients or a live Linux session.
 
@@ -296,29 +303,12 @@ clients or a live Linux session.
   and `/table` (a simple table). `/checkbox` and `/tasklist` also find `/checklist`.
   Each list item holds one idea; no heading or metadata is imposed. Specialized `/mapping-table`,
   `/comparison` and `/tasks` remain separate choices in Tables & lists.
-- Insert `/flowchart`, `/class-diagram`, `/sequence` or `/entity-map`, then use **Edit diagram visually**
-  in the Mermaid preview. Controls open inline in that same block, without a dialog. Drag an element
-  from the palette onto the preview, then select the node to
-  edit its label/type in the compact context bar. Drag a connection handle onto another node for
-  a solid arrow; click the line itself to edit its label/type/direction. Mermaid computes positions
-  from the source and direction; palette drop positions are not saved as coordinates. Sequence
-  ordering remains semantic. Undo/Redo, deletion, zoom, scroll and fit
-  are available. The separate source-edit action remains available.
-- Diagram controls use a compact bar independent of document font size. Endpoints, entity
-  members and related connections open only on demand. Palette and selectors share semantic
-  names; Mermaid geometry stays internal. The entity-map profile uses Entity and
-  Association/Dependency rather than lifecycle terminology.
-- The visual-editor button also appears above active Mermaid source, including immediately after
-  `/sequence` or `/class-diagram`. It does not replace source text or require leaving the selected
-  snippet field. `/class` filters to `/class-diagram`; there is no duplicate command.
-- **Apply diagram changes** updates this Markdown block; **Ctrl/Cmd+S** saves the note. Pressing
-  Ctrl/Cmd+S inside the builder applies first and then requests the same explicit host save. Cancel
-  discards the builder draft. Changes outside the block preserve it; conflicting block edits disable
-  Apply and retain a copyable draft. Switching notes retires the old session.
-- Visual editing supports a bounded flow/class/sequence grammar. Unsupported syntax opens in source
-  mode with the original text intact. Inline editing and read preview share the same Mermaid
-  renderer and layout configuration. Legacy `%% aic-builder-layout` coordinates are ignored and
-  removed only when a supported visual edit rewrites the source, not on opening or unchanged Apply.
+- Insert `/flowchart`, `/class-diagram`, `/sequence` or `/entity-map`. **Edit** reveals the
+  Markdown source and a live preview below it. **Copy** copies the Mermaid source. Zoom and
+  scrolling affect only the preview; there is no visual builder or drag-and-drop editing.
+- Mermaid supports its normal flowchart, class and sequence syntax in the source. The preview
+  reports syntax errors without changing the authored text. **Ctrl/Cmd+S** saves through the host.
+  `/class` filters to `/class-diagram`; there is no duplicate command.
 - Enter preserves indentation; Tab/Shift+Tab indent/outdent except while navigating snippet fields.
   The Mermaid source textarea shares this behavior and retains native Undo in supported browsers.
 - Ctrl/Cmd+Alt+1…6 toggles headings; Ctrl/Cmd+Alt+0 restores a paragraph.
@@ -397,10 +387,9 @@ and focuses the Markdown source, and native selection inside the card remains st
 `Ctrl+A`/`Cmd+A` reveals the full source without changing it. Unknown languages remain readable and
 copyable.
 
-Mermaid previews keep Zoom out, Zoom in, Reset, and Rotate actions permanently visible. Rotate
-turns the diagram clockwise by 90° per activation; Reset restores both 100% scale and the original
-direction. The diagram viewport scrolls on both axes after zoom or rotation and can receive keyboard
-focus without exposing the Mermaid source.
+Mermaid previews keep Copy, Edit, Zoom out, Zoom in and Reset visible. Reset restores 100% scale.
+The diagram viewport scrolls on both axes after zoom and can receive keyboard focus without
+exposing the Mermaid source.
 
 AIC details use this exact non-nested grammar:
 
@@ -509,6 +498,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `40.0.1` is sequence 40 with
+release-local feature outcomes, and release-local fixed-bug outcomes. `41.1.1` is sequence 41 with
 zero feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

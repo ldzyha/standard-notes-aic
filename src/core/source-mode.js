@@ -2,7 +2,6 @@ import { Compartment, Facet, Prec, StateEffect } from "@codemirror/state";
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { keymap } from "@codemirror/view";
 import { createIconButton } from "./structured-preview.js";
-import { suspendDiagramEditor } from "./diagram-session.js";
 import { detailsForDocument } from "./details-model.js";
 
 export const SOURCE_MODE_CORE_VERSION = "1.1.0";
@@ -101,11 +100,9 @@ export function createSourceModeController() {
     const fraction = oldRange ? top / oldRange : 0;
     const revision = ++scrollRevision;
     mode = mode === "preview" ? "source" : "preview";
-    if (mode === "source") suspendDiagramEditor(view, true);
     view.dispatch({
       effects: compartment.reconfigure(mode === "preview" ? previews : []),
     });
-    if (mode === "preview") suspendDiagramEditor(view, false);
     const newRange = Math.max(0, scroll.scrollHeight - scroll.clientHeight);
     scroll.scrollTop = oldRange ? fraction * newRange : Math.min(top, newRange);
     scroll.scrollLeft = left;

@@ -234,37 +234,19 @@ try {
   const flow =
     '# Diagram\n\n```mermaid\nflowchart LR\n  A["Start"] --> B["Finish"]\n```\n\nLast';
   await load(flow);
-  await root
-    .getByRole("button", { name: "Edit diagram visually", exact: true })
-    .click();
-  await page.getByRole("button", { name: "Add state", exact: true }).click();
-  await page
-    .getByRole("textbox", { name: "Label", exact: true })
-    .fill("Inspect");
-  await page
-    .getByRole("button", { name: "Connect Finish", exact: true })
-    .click();
-  await page
-    .getByRole("button", { name: "Connect Inspect", exact: true })
-    .click();
-  await page.locator('.aic-db-viewport [data-node-id="N1"]').waitFor();
-  assert.equal(await page.locator("dialog").count(), 0);
-  assert.equal(await root.locator(".cm-aic-diagram-inline").count(), 1);
-  await page
-    .getByRole("button", { name: "Apply diagram changes", exact: true })
-    .click();
-  const edited = await value();
-  assert.match(edited, /N1\["Inspect"\]/u);
-  assert.match(edited, /B --> N1/u);
-  assert.doesNotMatch(edited, /%% aic-builder-layout/u);
-  assert.ok(
-    edited.startsWith("# Diagram\n\n```mermaid\n") &&
-      edited.endsWith("```\n\nLast"),
+  await root.locator(".cm-mermaid-inline svg").waitFor();
+  assert.equal(await root.locator(".aic-diagram-builder").count(), 0);
+  assert.equal(
+    await root.locator(".cm-mermaid-inline .cm-mermaid-edit").count(),
+    1,
   );
-  await page.keyboard.press("Control+z");
+  await root
+    .getByRole("button", { name: "Edit Mermaid source", exact: true })
+    .click();
+  await root.locator(".cm-mermaid-editing svg").waitFor();
   assert.equal(await value(), flow);
   passed.push(
-    "inline Mermaid add/connect/Apply with one document Undo and no manual layout metadata",
+    "Mermaid source and live preview stay available without a visual builder",
   );
 
   for (const source of [
@@ -274,18 +256,11 @@ try {
   ]) {
     const note = `\`\`\`mermaid\n${source}\n\`\`\`\n\nLast`;
     await load(note);
-    await root
-      .getByRole("button", { name: "Edit diagram visually", exact: true })
-      .click();
-    const unsupported = source.includes("subgraph");
-    assert.equal(await page.locator(".aic-db-source").isVisible(), unsupported);
-    await page
-      .getByRole("button", { name: "Apply diagram changes", exact: true })
-      .click();
+    await root.locator(".cm-mermaid-inline svg").waitFor();
     assert.equal(await value(), note);
   }
   passed.push(
-    "class/sequence visual open and unsupported syntax lossless source fallback",
+    "class, sequence and nested flowchart previews keep source intact",
   );
   for (const command of [
     "list",
@@ -332,24 +307,10 @@ try {
       assert.match(inserted, /\n- \[ \] What needs to be done\?/u);
     if (command === "table") assert.match(inserted, /\| Item \| Detail \|/u);
     if (!["sequence", "class-diagram"].includes(command)) continue;
-    const action = root.getByRole("toolbar", {
-      name: "Mermaid source actions",
-      exact: true,
-    });
-    assert.equal(
-      await action.isVisible(),
-      true,
-      `${command}: builder available while snippet selection is in source`,
-    );
+    await root.locator(".cm-mermaid-editing svg").waitFor();
     const selection = await page.evaluate(() =>
       regressionEditor.view.state.selection.main.toJSON(),
     );
-    await action
-      .getByRole("button", { name: "Edit diagram visually", exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: "Cancel diagram changes", exact: true })
-      .click();
     assert.equal(await value(), inserted);
     assert.deepEqual(
       await page.evaluate(() =>
@@ -357,7 +318,7 @@ try {
       ),
       selection,
     );
-    // Real coordinates, not jsdom: the source action row must not disturb ArrowUp.
+    // Real coordinates, not jsdom: the live preview must not disturb ArrowUp.
     await page.evaluate(() => {
       const view = regressionEditor.view;
       const at = view.state.doc.toString().indexOf("```mermaid");
@@ -389,7 +350,7 @@ try {
     );
   }
   passed.push(
-    "basic slash blocks and immediate class/sequence builder access preserve source selection and ArrowUp",
+    "basic slash blocks and live class/sequence previews preserve source selection and ArrowUp",
   );
   await load("Point", "formatting-keys");
   for (const [key, expected] of [

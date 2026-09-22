@@ -14,13 +14,13 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 structured AIC fields, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 40.0.1 pairs with AIC Notes 48.0.1 and AIC Editor Core 6.2.2.
+storage format. Release 41.1.1 pairs with AIC Notes 49.1.1 and AIC Editor Core 7.0.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
 ## Current host boundary — 2026-09-15
 
-The experimental browser release component 0.5.2 targets Chrome and Edge only, using one
+The experimental browser release component 0.6.0 targets Chrome and Edge only, using one
 Chromium package and this repository's `AicEditor`, with
 the same always-compact editor toolbar as Standard Notes and explicit read-only
 page/selection/Markdown import. When shared AIC data are empty, their
@@ -82,6 +82,14 @@ browser shell is not automatically a VS Code feature. Adaptive activity, semanti
 zoom and a shared workspace tree are proposed, not implemented; their ownership,
 risks and dependency-ordered transition are in
 [ADAPTIVE_PREVIEW_STUDY.md](ADAPTIVE_PREVIEW_STUDY.md).
+
+## Mermaid source and live preview in release 41.1.1
+
+Mermaid flowchart, class and sequence diagrams are edited as Markdown source.
+A live preview updates while the source is active; Copy and a single Edit icon
+appear on the inactive preview. Zoom affects the preview alone. The visual
+builder and its drag-and-drop and rotation actions are removed. Source remains
+unchanged until the user edits it.
 
 ## Quote accents and editable fences in release 40.0.1
 
@@ -346,24 +354,20 @@ unreproduced Standard Notes PWA crash.
 
 ## Shared editor capabilities
 
-The release includes these shared contracts. Visual Mermaid editing remains experimental within
-the grammar limits below. Verification covers automated tests, production builds and synthetic
+The release includes these shared contracts. Mermaid source editing keeps a live preview. Verification covers automated tests, production builds and synthetic
 Windows browser checks; authenticated Standard Notes clients and live Linux sessions remain
 unverified environments.
 
-| Area / owner                                        | Implemented contract                                                                                                                                                                      | Explicit limitation                                                                                              |
-| --------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Core templates (`slash-snippets`, `note-template`)  | Questions, early answers, contextual section levels; `/noise`, `/wave`, `/implementation`, `/context`, `/entity-map`; no compulsory Purpose/Proposal or new metadata                      | Prompts do not classify tasks, group notes or create cross-scale navigation                                      |
-| Shared builder (`diagram-model`, `diagram-builder`) | Actual Mermaid SVG supports palette insertion, connection dragging, typed relationships, compact semantic controls, draft Copy, history/deletion; sequence ordering stays within branches | Bounded flowchart/classDiagram/sequenceDiagram subset; no multiselect, subgraph authoring or visual timeline     |
-| Diagram session (`diagram-session`)                 | Inline Apply replaces the exact block; outside edits preserve the draft; conflicting edits/read-only retain a Copy-only draft; Ctrl/Cmd+S saves                                           | Cancel explicitly discards the draft; note identity changes retire the session; unsupported syntax stays source  |
-| Layout                                              | Inline editing and read preview share one Mermaid renderer and auto-layout; sequence uses participant/message order                                                                       | No arbitrary coordinates; legacy `%% aic-builder-layout` is ignored and removed only after an actual visual edit |
-| Shared formatting (`formatting`)                    | Heading/paragraph and numbered/bullet/checkbox-list commands preserve selection and protected structures; one operation is one Undo                                                       | Applies inside AIC editors; not a new native-editor or operating-system shortcut                                 |
-| Stability                                           | Geometry-safe preview spacing; identity-bound history/popovers; exact host save acknowledgement and metadata-aware locking                                                                | Host acknowledgement means local pre-sync acceptance, not confirmed cloud synchronization                        |
+| Area / owner                                       | Implemented contract                                                                                                                                                 | Explicit limitation                                                                       |
+| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Core templates (`slash-snippets`, `note-template`) | Questions, early answers, contextual section levels; `/noise`, `/wave`, `/implementation`, `/context`, `/entity-map`; no compulsory Purpose/Proposal or new metadata | Prompts do not classify tasks, group notes or create cross-scale navigation               |
+| Mermaid source and preview                         | The Markdown fence is editable directly; an adjacent live preview renders flowchart, class and sequence syntax. Preview offers Copy, Edit and zoom.                  | Mermaid syntax errors remain visible in the preview; source stays intact.                 |
+| Shared formatting (`formatting`)                   | Heading/paragraph and numbered/bullet/checkbox-list commands preserve selection and protected structures; one operation is one Undo                                  | Applies inside AIC editors; not a new native-editor or operating-system shortcut          |
+| Stability                                          | Geometry-safe preview spacing; identity-bound history/popovers; exact host save acknowledgement and metadata-aware locking                                           | Host acknowledgement means local pre-sync acceptance, not confirmed cloud synchronization |
 
-Usage: `/` inserts a template; Mermaid **Edit diagram visually** opens the builder. Apply updates
-the local note draft, then Ctrl/Cmd+S saves. Ctrl/Cmd+S inside the builder applies first and forwards
-the host save shortcut. Zoom/scroll do not save or rewrite content. Native source Edit and Copy remain
-available. Entity-map links are ordinary Markdown references, not implemented drill-down.
+Usage: `/` inserts a template; Mermaid **Edit** reveals its Markdown source and a live preview.
+Ctrl/Cmd+S saves through the host. Preview zoom and scrolling do not rewrite content.
+Entity-map links are ordinary Markdown references, not implemented drill-down.
 
 ## Global invariants
 
@@ -426,12 +430,9 @@ navigation and lifecycle checks. They are separate from authenticated host verif
 | `formatting`, `indentation`                                    | Heading/list transactions and Enter/Tab behavior preserve protected source, selection, snippet navigation and Undo                       | formatting, indentation, commands                                            |
 | `task-marker`                                                  | Exact checkbox mutation, read-only checks, keyboard activation and ARIA; detached controls are inert                                     | shared-controls-regression, editor                                           |
 | `details-model`                                                | One-pass non-nested details grammar, fence exclusion and immutable-document cache                                                        | details, shared-controls-regression                                          |
-| `diagram-model`, `diagram-builder`                             | Bounded flow/class/sequence parsing, semantic mutations, source preservation on unsupported grammar                                      | diagram-builder, diagram-builder-guidance, diagram-flow-links                |
-| `diagram-palette`, `diagram-renderer`                          | Semantic palette actions and interaction over the actual Mermaid SVG                                                                     | diagram-palette, diagram-native-renderer, diagram-canvas-interaction         |
-| `diagram-session`                                              | Inline draft Apply/Cancel, exact block replacement, conflict/read-only protection, explicit host save                                    | diagram-session, diagram-source-actions, lifecycle-regression                |
 | `mermaid-runtime`                                              | One strict bundled renderer and SVG sanitization; source cannot override protected security configuration                                | mermaid-runtime, mermaid-runtime-directives, mermaid                         |
 | `render-queue`                                                 | Bounded engine work; pending cancellation releases payload while active work retains its slot until completion                           | mermaid, lifecycle-regression                                                |
-| `mermaid-viewport`                                             | Zoom/rotation, bidirectional overflow and disposable event ownership                                                                     | mermaid-viewport, mermaid, lifecycle-regression                              |
+| `mermaid-viewport`                                             | Preview-only zoom, bidirectional overflow and disposable event ownership                                                                 | mermaid-viewport, mermaid, mermaid-edit-preview                              |
 | `security-model`, `security-templates`                         | One bounded `aic` document, typed next-value separators, masking, one-time states, stable serialization, safe URLs and canonical presets | security-model, security-templates, preview, properties-retirement           |
 | `security-block`, `properties-block-ui`                        | Shared AIC rows and typed parts, local mutations, value feedback and Field/Row/Section insertion                                         | security-block-ui, properties-block-ui, lifecycle-regression                 |
 | `security-otp`                                                 | In-memory Base32/otpauth parsing and WebCrypto TOTP; fixed non-secret diagnostics                                                        | security-otp: RFC 6238 SHA-1/SHA-256/SHA-512 vectors and rejected inputs     |

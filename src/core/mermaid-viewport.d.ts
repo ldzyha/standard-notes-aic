@@ -1,6 +1,5 @@
 export type MermaidViewportState = Readonly<{
   zoom: number;
-  rotation: number;
 }>;
 
 export type MermaidViewportController = Readonly<{
@@ -17,7 +16,6 @@ export const MERMAID_VIEW: Readonly<{
   minZoom: number;
   maxZoom: number;
   zoomStep: number;
-  quarterTurn: number;
 }>;
 
 export function createMermaidViewport(

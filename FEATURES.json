@@ -402,7 +402,7 @@
     {
       "id": "core.diagrams",
       "group": "diagrams",
-      "purpose": "Render Mermaid with zoom, pan, fit, rotation, copy, source actions, cancellation, and stale-result isolation.",
+      "purpose": "Edit Mermaid as source with a live preview, copy, preview-only zoom, cancellation, and stale-result isolation.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/mermaid-extension.ts",
@@ -430,46 +430,10 @@
       ],
       "verification": [
         "standard-notes-aic/test/mermaid.test.ts",
+        "standard-notes-aic/test/mermaid-edit-preview.test.ts",
         "standard-notes-aic/test/mermaid-runtime.test.ts",
         "standard-notes-aic/test/mermaid-viewport.test.ts",
         "aic-notes/test/diagram-core.test.js"
-      ]
-    },
-    {
-      "id": "core.diagram-builder",
-      "group": "diagrams",
-      "purpose": "Visually edit the supported flowchart, class, and sequence subsets with palette, inspector, relationship creation, history, and exact block apply.",
-      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
-      "canonicalOwners": [
-        "standard-notes-aic/src/core/diagram-model.js",
-        "standard-notes-aic/src/core/diagram-builder.js",
-        "standard-notes-aic/src/core/diagram-palette.js",
-        "standard-notes-aic/src/core/diagram-session.js",
-        "standard-notes-aic/src/core/diagram-renderer.js"
-      ],
-      "sourceFiles": [
-        "standard-notes-aic/src/core/diagram-model.js",
-        "standard-notes-aic/src/core/diagram-model.d.ts",
-        "standard-notes-aic/src/core/diagram-builder.js",
-        "standard-notes-aic/src/core/diagram-builder.d.ts",
-        "standard-notes-aic/src/core/diagram-builder.css",
-        "standard-notes-aic/src/core/diagram-palette.js",
-        "standard-notes-aic/src/core/diagram-palette.d.ts",
-        "standard-notes-aic/src/core/diagram-palette.css",
-        "standard-notes-aic/src/core/diagram-session.js",
-        "standard-notes-aic/src/core/diagram-session.d.ts",
-        "standard-notes-aic/src/core/diagram-session.css",
-        "standard-notes-aic/src/core/diagram-renderer.js",
-        "standard-notes-aic/src/core/diagram-renderer.d.ts"
-      ],
-      "entrypoints": [
-        "standard-notes-aic/src/mermaid-extension.ts",
-        "aic-notes/src/webview/main.js"
-      ],
-      "verification": [
-        "standard-notes-aic/test/diagram-builder.test.ts",
-        "standard-notes-aic/test/diagram-session.test.ts",
-        "standard-notes-aic/test/diagram-palette.test.ts"
       ]
     },
     {
