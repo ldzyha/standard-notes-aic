@@ -1,9 +1,24 @@
-# Chrome / Edge experimental build verification — 2026-09-15
+# Chrome / Edge experimental build verification — 2026-09-22
 
-Status: **0.4.0 experimental component**, not a store release or an independently
+Status: **0.5.0 experimental component**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
 using one Chromium Manifest V3 package. All test passphrases, notes and clipboard
 substitutes are synthetic. No user profile or real notes are part of these tests.
+
+## 0.5.0 narrow-panel layout — release verification
+
+- Version pair: Standard Notes **38.1.1**, browser **0.5.0**, AIC Notes
+  **46.1.1**, shared core **6.2.0**. No browser vault format change is made.
+- The canonical suite passed 1,069 tests across 94 files, TypeScript, lint,
+  notices and both production builds. The VS Code mirror passed its 30 tests,
+  byte-parity check and build.
+- A headless Chromium layout check used synthetic fields at widths from 160 to
+  720 px. It found no page or panel horizontal overflow, clipped labels or
+  values-only scrolling. Labels and values wrapped together; password generation
+  was hidden at 600 px and below and present at 720 px.
+- This check does not replace installation in a clean Chrome or Edge profile,
+  interactive permission tests or browser-store review. Prior 0.4.0 packaged
+  runtime evidence below applies to that prior version only.
 
 ## 0.4.0 Global Shared and section copy — release verification
 

@@ -14,13 +14,13 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 structured AIC fields, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 37.2.0 pairs with AIC Notes 45.1.0 and AIC Editor Core 6.1.0.
+storage format. Release 38.1.1 pairs with AIC Notes 46.1.1 and AIC Editor Core 6.2.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
 ## Current host boundary — 2026-09-15
 
-The experimental browser release component 0.4.0 targets Chrome and Edge only, using one
+The experimental browser release component 0.5.0 targets Chrome and Edge only, using one
 Chromium package and this repository's `AicEditor`, with
 the same always-compact editor toolbar as Standard Notes and explicit read-only
 page/selection/Markdown import. When shared AIC data are empty, their
@@ -82,6 +82,15 @@ browser shell is not automatically a VS Code feature. Adaptive activity, semanti
 zoom and a shared workspace tree are proposed, not implemented; their ownership,
 risks and dependency-ordered transition are in
 [ADAPTIVE_PREVIEW_STUDY.md](ADAPTIVE_PREVIEW_STUDY.md).
+
+## Blank rows and narrow fields in release 38.1.1
+
+New AIC blocks use an unlabeled text row; Account is no longer a row preset.
+Password and TOTP remain separate optional fields. Narrow field rows wrap their
+labels and values together into readable columns, and password generation is
+hidden at viewport widths of 600 px or less. Browser toolbar and panel geometry
+can shrink without a values-only horizontal scroller. Existing authored text is
+not rewritten. The same core rules reach Standard Notes, browser and VS Code.
 
 ## Section copy and profile Global in release 37.2.0
 

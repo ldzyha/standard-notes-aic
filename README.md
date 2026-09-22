@@ -163,6 +163,17 @@ Legacy YAML Properties remain ordinary authored Markdown. They are not rendered 
 fields, interpreted as metadata, rewritten on save, or automatically migrated. Source
 mode keeps that text accessible for manual repair.
 
+## Release 38.1.1
+
+This release pairs with AIC Notes 46.1.1, shared editor core 6.2.0 and the
+experimental browser component 0.5.0. New AIC blocks offer a blank text row for
+an email or username instead of the Account preset. Password and TOTP are optional
+separate fields. At narrow widths, field labels and their values wrap together in
+readable columns, and the browser panel can shrink without values-only scrolling.
+Password generation is hidden at viewport widths of 600 px or less. Existing note
+content is preserved. The browser package remains experimental; see its
+[verification record](browser/VERIFICATION.md) before using real secrets.
+
 ## Release 37.2.0
 
 This release pairs with AIC Notes 45.1.0 and AIC Editor Core 6.1.0. This document
@@ -476,6 +487,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `37.2.0` is sequence 37 with
-two feature outcomes and zero fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `38.1.1` is sequence 38 with
+one feature outcome and one fixed-bug outcome; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

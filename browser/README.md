@@ -1,6 +1,6 @@
 # AIC page notes — experimental Chrome / Edge component
 
-Status: **0.4.0 experimental component**, prepared alongside the AIC 37.2.0 GitHub release, AIC Notes 45.1.0 and shared core 6.1.0. It is not a browser-store release or an independently audited password manager. Use synthetic data until the final packaged-runtime gates in VERIFICATION.md are resolved. Publication and hosted deployment require separate verification.
+Status: **0.5.0 experimental component**, paired with AIC 38.1.1, AIC Notes 46.1.1 and shared core 6.2.0. It is not a browser-store release or an independently audited password manager. Use synthetic data until the final packaged-runtime gates in VERIFICATION.md are resolved.
 
 ## Supported design
 
@@ -18,13 +18,24 @@ Supported browser targets are desktop **Google Chrome and Microsoft Edge only**,
 - The direct content control imports the current readable selection when one exists and otherwise the readable page. The separate **↑ Markdown** control imports a plaintext Markdown file; **↓ Markdown** downloads the current note. An untouched placeholder is replaced by the exact imported Markdown; imports otherwise append and save. They never replace authored note text or write to the website. Failed saves remain editable/exportable drafts.
 - AIC field menus stay inside the visible editor, choose space above or below the button, and scroll internally when space is limited.
 - The writing cursor uses the active text color and a 2 px stroke in both preview and source mode. It follows focus and light/dark theme changes; reduced-motion mode disables blinking.
-- Typed AIC fields use compact rows. Each separator types the next value: `|` text, `*|` secret, `#|` authenticator seed, `_|` card value, `1|` unused one-time value and `0|` used one-time value. Parts keep separate actions and accessible hints; overflow stays inside the row.
+- Typed AIC fields use compact rows. Each separator types the next value: `|` text, `*|` secret, `#|` authenticator seed, `_|` card value, `1|` unused one-time value and `0|` used one-time value. Parts keep separate actions and accessible hints; labels and values wrap together at narrow widths.
 - For selection import, select readable text on the source page first. Page/selection import requests access to that site only after your click. Browser-protected pages, forms, editable controls, hidden content and inaccessible frames are not imported. If a site prevents capture, copy its text and paste natively into the editor.
 - An explicit Paste action may fill an empty typed field from the current clipboard after a user click. It does not monitor or enumerate clipboard history; ordinary editor paste remains native.
 - **Notes and history** opens navigation without rebuilding the editor. **More options** is limited to local note/history deletion and clearly separated encrypted-library backup import/export. Plaintext Markdown transfer stays on the direct ↑/↓ controls.
 - Navigation shows bounded page titles under their domain. It omits single-page path ladders and shows a common path only where it groups several pages. Visible labels and tooltips omit query/fragment details; the exact stored URL, note identity and navigation target remain unchanged.
 - The compact browser toolbar keeps Save and Preview/Markdown controls visible and exposes five direct strike, link, bullet-list, numbered-list and task-list actions. Menus and navigation preserve the editor and its selection. Escape closes a panel menu and returns focus to its trigger. The local **?** guide explains AIC syntax and current actions without network access.
 - Save failures remain visible until dismissed; routine confirmations disappear after five seconds. Notifications float above the lower edge rather than pushing the editor down.
+
+## 0.5.0 narrow panels and blank rows
+
+- The panel and toolbar can shrink without a fixed minimum width. Field labels
+  remain connected to their values as rows wrap into readable columns; a separate
+  values-only horizontal scroller is no longer used.
+- New AIC blocks begin with an unlabeled text row for an email or username.
+  Account is no longer a row preset; Password and TOTP are separate optional
+  fields. Existing authored notes are unchanged.
+- Password generation controls are hidden at viewport widths of 600 px or less.
+  Existing secret values and copy actions remain available.
 
 ## 0.4.0 Global Shared and section copying
 
@@ -173,12 +184,12 @@ Chrome Incognito and Edge InPrivate are not supported in this build. The manifes
 
 ## Build and local testing
 
-To test a GitHub release without building, download `aic-browser-chromium-0.4.0.zip`
+To test a GitHub release without building, download `aic-browser-chromium-0.5.0.zip`
 and its `.sha256` from [AIC Releases](https://github.com/ldzyha/standard-notes-aic/releases),
 verify the checksum, and extract into a permanent folder. Use that folder for
 **Load unpacked** below. The ZIP is not a Chrome/Edge store installation package.
 
-Run `npm run build:browser` from the canonical repository. No additional runtime dependencies or external services are needed. It produces one unpacked directory, `dist-browser/chromium/`, and one archive, `dist-browser/artifacts/aic-browser-chromium-0.4.0.zip`, for both Chrome and Edge. Other browser build modes are rejected.
+Run `npm run build:browser` from the canonical repository. No additional runtime dependencies or external services are needed. It produces one unpacked directory, `dist-browser/chromium/`, and one archive, `dist-browser/artifacts/aic-browser-chromium-0.5.0.zip`, for both Chrome and Edge. Other browser build modes are rejected.
 
 The archive uses deterministic ordering and timestamps and includes the `>_` icon, worker, editor assets and privacy notices. Previously generated development files are not current targets; the build does not delete older archives or browser profiles. The command never installs into a user's profile or submits to a store.
 

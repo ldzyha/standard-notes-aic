@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## 38.1.1 — 2026-09-22
+
+Release sequence 38 · 1 feature outcome · 1 fixed-bug outcome. Shared editor core
+moves to 6.2.0; AIC Notes 46.1.1 uses the same core. Browser 0.5.0 is included as
+an experimental Chrome/Edge package. Store submissions remain separate.
+
+### Feature
+
+1. New AIC blocks start with an unlabeled text row for an email or username.
+   The confusing Account row preset is removed; Password and TOTP remain separate,
+   optional fields. Existing authored notes are not rewritten.
+
+### Fix
+
+1. Narrow panels keep each field label and its value parts together as the whole
+   row wraps into readable columns. The browser panel and toolbar can shrink
+   without a minimum-width horizontal scroller. Password generation controls are
+   hidden at viewport widths of 600 px or less, while saved secrets and their
+   independent copy controls remain available.
+
 ## 37.2.0 — 2026-09-15
 
 Release sequence 37 · 2 feature outcomes · 0 fixed-bug outcomes. Shared editor core
