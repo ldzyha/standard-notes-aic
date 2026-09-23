@@ -1777,72 +1777,68 @@ class SecurityBlockWidget extends WidgetType {
           applyUiComponent(fieldActions, "card", [], "section-actions");
           const add = createSecurityAddMenu(
             document,
-            "Add field to " + label,
-            fieldKinds.map(([text, kind]) => {
-              const enabled = canAddPart(fieldIndex, kind);
-              return {
-                label: `Add ${text.toLowerCase()} field to ${label}`,
-                text,
-                run: () => this.addPart(view, sectionIndex, fieldIndex, kind),
-                disabled: !enabled,
+            "Add after " + label,
+            [
+              ...fieldKinds.map(([text, kind]) => {
+                const enabled = canAddPart(fieldIndex, kind);
+                return {
+                  label: `Add ${text.toLowerCase()} field to ${label}`,
+                  text: `${text} field`,
+                  icon: "add-property",
+                  run: () => this.addPart(view, sectionIndex, fieldIndex, kind),
+                  disabled: !enabled,
+                  disabledReason:
+                    field.parts.length >= SECURITY_LIMITS.maxParts
+                      ? `This row has ${SECURITY_LIMITS.maxParts} fields. Add a row instead.`
+                      : "This block has reached its text limit. Add a new block.",
+                };
+              }),
+              ...SECURITY_ROW_TEMPLATES.map(({ id, label: templateLabel }) => {
+                const template = createSecurityRowTemplate(id);
+                const enabled = canAdd(sectionIndex, template);
+                const rowName =
+                  id === "blank"
+                    ? templateLabel.toLowerCase()
+                    : templateLabel.toLowerCase() + " row";
+                return {
+                  label: `Add ${rowName} after ${label}`,
+                  text: `${templateLabel} row`,
+                  icon: "add-row",
+                  run: () => this.addRow(view, sectionIndex, fieldIndex, id),
+                  disabled: !enabled,
+                  disabledReason:
+                    section.fields.length >= SECURITY_LIMITS.maxFields
+                      ? `This section has ${SECURITY_LIMITS.maxFields} rows. Add a section instead.`
+                      : "This block has reached its text limit. Add a new block.",
+                };
+              }),
+              {
+                label:
+                  "Add section after " +
+                  (section.label || `section ${sectionIndex + 1}`),
+                text: "Section",
+                icon: "add-section",
+                run: () => this.addSection(view, sectionIndex),
+                disabled:
+                  parsed.model.sections.length >= SECURITY_LIMITS.maxSections ||
+                  !canAdd(null),
                 disabledReason:
-                  field.parts.length >= SECURITY_LIMITS.maxParts
-                    ? `This row has ${SECURITY_LIMITS.maxParts} fields. Add a row instead.`
-                    : "This block has reached its text limit. Add a new block.",
-              };
-            }),
+                  parsed.model.sections.length >= SECURITY_LIMITS.maxSections
+                    ? `This block has ${SECURITY_LIMITS.maxSections} sections. Add a new block instead.`
+                    : "This block has reached its text limit. Add a new block instead.",
+              },
+            ],
             "",
-            "add-property",
+            "add",
           );
           this.cleanups.push(add.dispose);
           fieldActions.append(add.element);
-          const addRow = createSecurityAddMenu(
-            document,
-            "Add row after " + label,
-            SECURITY_ROW_TEMPLATES.map(({ id, label: templateLabel }) => {
-              const template = createSecurityRowTemplate(id);
-              const enabled = canAdd(sectionIndex, template);
-              const rowName =
-                id === "blank"
-                  ? templateLabel.toLowerCase()
-                  : templateLabel.toLowerCase() + " row";
-              return {
-                label: `Add ${rowName} after ${label}`,
-                text: templateLabel,
-                icon: "add-row",
-                run: () => this.addRow(view, sectionIndex, fieldIndex, id),
-                disabled: !enabled,
-                disabledReason:
-                  section.fields.length >= SECURITY_LIMITS.maxFields
-                    ? `This section has ${SECURITY_LIMITS.maxFields} rows. Add a section instead.`
-                    : "This block has reached its text limit. Add a new block.",
-              };
-            }),
-            "",
-            "add-row",
-          );
-          this.cleanups.push(addRow.dispose);
-          fieldActions.append(addRow.element);
-          const addSection = button(
-            document,
-            "Add section after " +
-              (section.label || `section ${sectionIndex + 1}`),
-            "add-section",
-            () => this.addSection(view, sectionIndex),
-            parsed.model.sections.length >= SECURITY_LIMITS.maxSections ||
-              !canAdd(null),
-          );
-          if (addSection.disabled)
-            addSection.title =
-              parsed.model.sections.length >= SECURITY_LIMITS.maxSections
-                ? `This block has ${SECURITY_LIMITS.maxSections} sections. Add a new block instead.`
-                : "This block has reached its text limit. Add a new block instead.";
-          fieldActions.append(addSection);
         }
         if (partHeader.childNodes.length) composite.append(partHeader);
         const parts = document.createElement("div");
         parts.className = "cm-aic-security-card-parts";
         const visibleValues = [];
+        let lastPartActions = null;
         field.parts.forEach((part, partIndex) => {
           const stored = part.value;
           const ordinal = partIndex + 1;
@@ -1860,6 +1856,7 @@ class SecurityBlockWidget extends WidgetType {
           if (part.kind === "text" && stored) visibleValues.push(stored);
           const partActions = document.createElement("span");
           partActions.className = "cm-aic-security-row-actions";
+          lastPartActions = partActions;
           const stateful = part.kind === "one-time" || part.kind === "used";
           const concise =
             field.parts.length === 1 && !stateful
@@ -1874,7 +1871,7 @@ class SecurityBlockWidget extends WidgetType {
           if (part.kind === "totp" && stored) display = "••••••";
           else if (part.kind === "card" && stored)
             display = "•••• " + stored.replace(/[ -]/gu, "").slice(-4);
-          else if (isSecretPart(part) && stored) display = "••••••••";
+          else if (isSecretPart(part) && stored) display = "••••••";
           const output = row(
             document,
             "",
@@ -1972,6 +1969,10 @@ class SecurityBlockWidget extends WidgetType {
           );
           output.element.dataset.aicFieldPart = String(partIndex);
           output.element.dataset.aicPartKind = part.kind;
+          if (stored && ["secret", "one-time", "used"].includes(part.kind)) {
+            output.content.dataset.aicProtected = "true";
+            output.content.dataset.aicIcon = "lock";
+          }
           output.content.title = stateful
             ? part.kind === "used"
               ? "Reactivate without copying"
@@ -2105,7 +2106,10 @@ class SecurityBlockWidget extends WidgetType {
                 this.removeEmptyField(view, sectionIndex, fieldIndex),
               ),
             );
-          composite.append(fieldActions);
+          // Row creation continues the final value instead of consuming a
+          // separate visual row. Menus remain independently positioned.
+          if (lastPartActions) lastPartActions.append(fieldActions);
+          else composite.append(fieldActions);
         }
         registerField(composite, field, fieldIndex, {
           label: field.label,

@@ -4,6 +4,11 @@
 
 Status: **0.7.0 experimental component**, paired with AIC 42.1.0, AIC Notes 50.1.0 and shared core 7.1.0. It is not a browser-store release or an independently audited password manager. Use synthetic data until the final packaged-runtime gates in VERIFICATION.md are resolved.
 
+The shared core 7.2.0 development target keeps AIC rows compact in a narrow side
+panel: intrinsic bounded labels stay beside flexible values, protected copy uses
+a lock and six dots, creation controls continue the last value, and subtle lines
+separate records.
+
 All three installation paths are in the [unified release guide](../RELEASE_INSTALL.md).
 
 ## Supported design

@@ -300,7 +300,7 @@
     {
       "id": "core.security-blocks",
       "group": "structured-data",
-      "purpose": "Parse and render bounded AIC credential blocks with masking, independently scoped field/section/block copy, whole-block cut, add, delete, filtering, diagnostics, responsive whole-row field layout, and exact-source reordering. Section copy uses canonical AIC serialization and preserves type and masking markers without copying adjacent sections. Cut removes source only after clipboard success.",
+      "purpose": "Parse and render bounded AIC credential blocks with masking, independently scoped field/section/block copy, whole-block cut, add, delete, filtering, diagnostics, compact responsive whole-row layout, and exact-source reordering. Labels use only their bounded text width, protected values use a lock-and-six-dot copy target, value parts share the remaining width, and creation controls continue the final value instead of adding a footer row. Subtle separators distinguish records without alternating backgrounds. Section copy uses canonical AIC serialization and preserves type and masking markers without copying adjacent sections. Cut removes source only after clipboard success.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/core/security-model.js",
@@ -329,6 +329,7 @@
       "verification": [
         "standard-notes-aic/test/security-model.test.ts",
         "standard-notes-aic/test/security-block-ui.test.ts",
+        "standard-notes-aic/test/security-card-preview.test.ts",
         "standard-notes-aic/test/security-section-copy.test.ts",
         "standard-notes-aic/scripts/browser-section-copy-regression.mjs",
         "standard-notes-aic/test/security-field-actions.test.ts",

@@ -20,6 +20,12 @@ storage format. Release 42.1.0 pairs with AIC Notes 50.1.0 and AIC Editor Core 7
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
+The shared core 7.2.0 development target makes dense AIC rows readable on narrow
+screens. Labels use only their bounded text width, protected values become compact
+lock-and-six-dot copy buttons, flexible text values keep the remaining width, and
+Field/Row/Section creation continues the final value rather than taking a separate
+footer row. One subtle line separates records without alternating background noise.
+
 ## Current host boundary — 2026-09-15
 
 The experimental browser release component 0.7.0 targets Chrome and Edge only, using one
@@ -282,9 +288,10 @@ unreproduced Standard Notes PWA crash.
   optional, and a row can combine differently typed parts. Blank, Card and
   One-time codes are canonical presets, not additional field types. New blocks
   include an unlabeled text row for an email or another identifier.
-- Credential rows keep their label and values together. Narrow editors stack the
-  label above responsive value columns; values wrap instead of scrolling in a
-  separate strip, and the browser panel wraps its toolbar at small widths.
+- Credential rows keep their label, responsive value parts and creation actions in
+  one connected layout. Labels take only their bounded content width; text values
+  flex and wrap, while protected values use a compact lock-and-six-dot copy target.
+  The browser panel wraps its toolbar at small widths without a values-only scroller.
 - Copying an unused one-time part changes its marker to `0|`; activating a used
   value restores `1|` without copying, and only used values expose removal. Other
   masked parts keep independent copy feedback. Raw Markdown remains visible in

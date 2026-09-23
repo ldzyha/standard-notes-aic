@@ -206,7 +206,7 @@ it("disables contextual Section actions at the limit without blocking row insert
   expect(section.title).toContain("16 sections");
   expect(
     view.dom.querySelector<HTMLButtonElement>(
-      '[aria-label="Add row after Password"]',
+      '[aria-label="Add blank row after Password"]',
     )!.disabled,
   ).toBe(false);
   expect(view.dom.textContent).toContain("When you reach a limit");
@@ -246,12 +246,17 @@ it("keeps read-only typed previews masked and label/value copying independent", 
   expect(view.dom.innerHTML).not.toContain("SYNTHETIC-READONLY-SECRET");
 });
 
-it("disables the Field trigger at capacity with an accessible visible reason", () => {
+it("disables field entries at capacity while keeping the combined add menu", () => {
   const { view } = fixture(
     "Row " + Array.from({ length: 64 }, () => "*| value").join(" "),
   );
+  const trigger = view.dom.querySelector<HTMLButtonElement>(
+    '[aria-label="Add after Row"]',
+  )!;
+  expect(trigger.disabled).toBe(false);
+  trigger.click();
   const add = view.dom.querySelector<HTMLButtonElement>(
-    '[aria-label="Add field to Row"]',
+    '[aria-label="Add text field to Row"]',
   )!;
   expect(add.disabled).toBe(true);
   expect(

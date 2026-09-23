@@ -147,7 +147,7 @@
     },
     {
       "id": "field",
-      "purpose": "Labelled value/control unit with validation, masking, independently typed parts, help, error, and accessible action relationships. Simple and composite AIC rows share label/value columns and label typography; unlabelled rows omit the label track.",
+      "purpose": "Labelled value/control unit with validation, masking, independently typed parts, help, error, and accessible action relationships. Composite AIC rows keep an intrinsic bounded label beside flexible value parts, use compact lock copy targets for protected values, and attach creation controls to the final part; unlabelled rows omit the label track.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "bem": {
         "block": "aic-field",

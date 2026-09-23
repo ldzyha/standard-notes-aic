@@ -148,7 +148,7 @@ describe("typed pipe preview", () => {
       ["Text", "text"],
     ] as const;
     for (const [text, kind] of additions) {
-      control(host, "Add field to Login").click();
+      control(host, "Add after Login").click();
       control(host, `Add ${text.toLowerCase()} field to Login`).click();
       expect(model(view).sections[0]!.fields[0]!.parts.at(-1)?.kind).toBe(kind);
     }
@@ -157,7 +157,7 @@ describe("typed pipe preview", () => {
 
   it("inserts canonical row templates immediately below the current row", () => {
     const { host, view } = fixture("First | a\nSecond | b");
-    control(host, "Add row after First").click();
+    control(host, "Add after First").click();
     control(host, "Add blank row after First").click();
     const rows = model(view).sections[0]!.fields;
     expect(rows.map((row) => row.label)).toEqual(["First", "", "Second"]);
@@ -180,6 +180,7 @@ describe("typed pipe preview", () => {
 
   it("inserts a section immediately after its owning section", () => {
     const { host, view } = fixture("## First\nA | a\n---\n## Last\nB | b");
+    control(host, "Add after A").click();
     control(host, "Add section after First").click();
     expect(model(view).sections.map((section) => section.label)).toEqual([
       "First",
@@ -213,7 +214,7 @@ describe("typed pipe preview", () => {
     const { host } = fixture("Row | visible *| hidden #| JBSWY3DPEHPK3PXP", {
       readOnly: true,
     });
-    expect(host.querySelector('[aria-label="Add field to Row"]')).toBeNull();
+    expect(host.querySelector('[aria-label="Add after Row"]')).toBeNull();
     expect(host.querySelector('[aria-label^="Paste "]')).toBeNull();
     expect(host.querySelector('[aria-label^="Generate "]')).toBeNull();
     expect(host.querySelector('[aria-label^="Reorder "]')).toBeNull();
@@ -227,7 +228,7 @@ describe("typed pipe preview", () => {
     const { host, view } = fixture(compactRows);
     expect(model(view).sections[0]!.fields).toHaveLength(64);
     expect(host.querySelector(".cm-aic-security-error")).toBeNull();
-    control(host, "Add field to R").click();
+    control(host, "Add after R").click();
     expect(control(host, "Add text field to R").disabled).toBe(true);
     expect(view.state.doc.toString()).toBe(security(compactRows));
   });

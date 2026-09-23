@@ -119,4 +119,38 @@ describe("compact card preview", () => {
     numberButton.click();
     expect(onCopy).toHaveBeenLastCalledWith(number, "Row card number 1");
   });
+
+  it("keeps protected copy and creation controls in one compact field row", () => {
+    const { host } = fixture(
+      "Password *| synthetic-secret | person@example.invalid",
+    );
+    const card = host.querySelector<HTMLElement>(
+      '.cm-aic-security-card[data-aic-card-kind="fields"]',
+    )!;
+    const protectedCopy = card.querySelector<HTMLButtonElement>(
+      '.cm-aic-security-value[data-aic-protected="true"]',
+    )!;
+    expect(protectedCopy.textContent).toBe("••••••");
+    expect(protectedCopy.dataset.aicIcon).toBe("lock");
+    expect(protectedCopy.getAttribute("aria-label")).toBe(
+      "Copy Password secret 1",
+    );
+    const parts = card.querySelectorAll<HTMLElement>(
+      ".cm-aic-security-card-parts > .cm-aic-security-row",
+    );
+    expect(parts).toHaveLength(2);
+    const create = parts[1]!.querySelector(".cm-aic-security-row-controls");
+    expect(create).not.toBeNull();
+    expect(
+      create!.querySelectorAll(":scope > .cm-aic-security-add"),
+    ).toHaveLength(1);
+    expect(
+      create!.querySelector(
+        ':scope > .cm-aic-security-add > [aria-label="Add after Password"]',
+      ),
+    ).not.toBeNull();
+    expect(
+      card.querySelector(":scope > .cm-aic-security-row-controls"),
+    ).toBeNull();
+  });
 });

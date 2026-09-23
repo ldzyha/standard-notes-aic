@@ -130,7 +130,7 @@ describe("Properties share the AIC renderer", () => {
     expect(actions.at(-1)).toBe(true);
     expect(host.innerHTML).not.toContain("SYNTHETIC-ONLY-SECRET");
     expect(host.querySelector('[aria-label="Paste Password"]')).toBeNull();
-    control(host, "Add field to Email").click();
+    control(host, "Add after Email").click();
     control(host, "Add text field to Email").click();
     expect(view.state.doc.toString()).toContain("Email | |");
     expect(actions.at(-1)).toBe(true);
@@ -167,7 +167,7 @@ describe("Properties share the AIC renderer", () => {
     );
     expect(host.innerHTML).not.toContain("SYNTHETIC-ONLY-SECRET");
     expect(host.textContent).toContain("public@example.test");
-    control(host, "Add field to Password").click();
+    control(host, "Add after Password").click();
     control(host, "Add secret field to Password").click();
     expect(view.state.doc.toString()).toContain(
       "Password *| SYNTHETIC-ONLY-SECRET *|\n",

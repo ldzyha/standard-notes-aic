@@ -18,6 +18,11 @@ fence, Mermaid, AIC/Properties and details—has one shared **Cut** scissors
 action. It copies the complete Markdown block before removing it in one
 undoable edit. A failed clipboard write leaves the document unchanged.
 
+The shared core 7.2.0 development target keeps dense AIC rows compact on narrow
+screens: labels use only their bounded text width, protected values use a
+lock-and-six-dot copy button, creation controls follow the final value, and a
+single subtle line separates records.
+
 ## Security field actions
 
 ### Authenticator JSON conversion

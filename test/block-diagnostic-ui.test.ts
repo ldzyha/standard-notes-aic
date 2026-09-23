@@ -103,7 +103,7 @@ describe("safe block source locations", () => {
     ).toBe(true);
     expect(
       host.querySelector<HTMLButtonElement>(
-        '[aria-label="Add row after Field 0"]',
+        '[aria-label="Add blank row after Field 0"]',
       )!.disabled,
     ).toBe(true);
     const add = host.querySelector<HTMLButtonElement>(

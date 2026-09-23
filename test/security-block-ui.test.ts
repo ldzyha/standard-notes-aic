@@ -106,7 +106,7 @@ describe("shared security block", () => {
     expect(securityBlocks(view.state)).toHaveLength(1);
     expect(codeFences(view.state)).toHaveLength(0);
     expect(host.textContent).not.toContain(secret);
-    expect(host.textContent).toContain("••••••••");
+    expect(host.textContent).toContain("••••••");
     expect(markdownPlainPreview("Before\n" + source + "\nAfter")).toBe(
       "Before After",
     );
@@ -137,6 +137,7 @@ describe("shared security block", () => {
 
   it("adds a section in place and leaves whole-block creation to slash", () => {
     const first = fixture();
+    control(first.host, "Add after Password").click();
     control(first.host, "Add section after Main").click();
     expect(first.view.state.doc.toString()).toContain("\n---\n");
     const parsed = parseSecurityBlock(
@@ -151,7 +152,7 @@ describe("shared security block", () => {
 
   it("adds an explicitly hidden field while retaining masked preview", () => {
     const { host, view } = fixture();
-    control(host, "Add field to Password").click();
+    control(host, "Add after Password").click();
     control(host, "Add secret field to Password").click();
     expect(view.state.doc.toString()).toContain(`Password *| ${secret} *|`);
     expect(host.querySelector(".cm-aic-security")).not.toBeNull();
@@ -170,7 +171,7 @@ describe("shared security block", () => {
         "```",
       ].join("\n"),
     );
-    control(host, "Add row after Password").click();
+    control(host, "Add after Password").click();
     control(host, "Add blank row after Password").click();
     const parsed = parseSecurityBlock(securityBlocks(view.state)[0]!.body);
     expect(parsed.ok).toBe(true);

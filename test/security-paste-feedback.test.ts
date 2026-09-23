@@ -72,5 +72,5 @@ it("shows paste feedback and emits the edit after a converted widget remounts", 
   expect(host.querySelector('[aria-label="Paste Password"]')).toBeNull();
   expect(
     host.querySelector('[aria-label="Copy Password value"]')!.textContent,
-  ).toBe("••••••••");
+  ).toBe("••••••");
 });

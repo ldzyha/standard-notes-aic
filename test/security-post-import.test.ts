@@ -116,11 +116,11 @@ describe("security preview after import", () => {
 
   it("does not revive detached controls when the decoration mounts again", () => {
     const { host, view } = fixture();
-    const detached = button(host, "Add row after Account");
+    const detached = button(host, "Add after Account");
     view.setState(view.state);
     detached.click();
     expect(view.state.doc.toString()).toBe(source);
-    button(host, "Add row after Account").click();
+    button(host, "Add after Account").click();
     button(host, "Add blank row after Account").click();
     expect(view.state.doc.toString()).toContain("\n|\n");
   });
@@ -171,7 +171,7 @@ describe("security preview after import", () => {
     const { host, view } = fixture(source + "\n\n" + source + "\n\nAfter");
     view.dispatch({ changes: { from: 0, insert: "First prefix\n\n" } });
     view.dispatch({ changes: { from: 0, insert: "Second prefix\n\n" } });
-    button(host, "Add row after Account").click();
+    button(host, "Add after Account").click();
     button(host, "Add blank row after Account").click();
     const blocks = securityBlocks(view.state);
     expect(blocks[0]!.body).toContain("\n|\n");
