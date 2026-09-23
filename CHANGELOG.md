@@ -4,6 +4,19 @@
 
 ## Unreleased
 
+## 43.1.0 — 2026-09-23
+
+Release sequence 43 · 1 feature outcome · 0 fixed-bug outcomes. This release
+pairs with AIC Notes 51.1.0, experimental browser 0.8.0 and shared editor core
+7.2.0.
+
+### Feature
+
+- Made dense credential records readable on mobile and narrow side panels.
+  Labels use only their bounded text width, protected values use a compact
+  lock-and-six-dot copy button, one trailing `+` menu continues the final value,
+  and a single subtle line separates records without alternating visual noise.
+
 ## 42.1.0 — 2026-09-23
 
 Release sequence 42 · 1 feature outcome · 0 fixed-bug outcomes. This release

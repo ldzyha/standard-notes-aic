@@ -16,11 +16,11 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 structured AIC fields, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 42.1.0 pairs with AIC Notes 50.1.0 and AIC Editor Core 7.1.0.
+storage format. Release 43.1.0 pairs with AIC Notes 51.1.0 and AIC Editor Core 7.2.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
-The shared core 7.2.0 development target makes dense AIC rows readable on narrow
+Shared core 7.2.0 makes dense AIC rows readable on narrow
 screens. Labels use only their bounded text width, protected values become compact
 lock-and-six-dot copy buttons, flexible text values keep the remaining width, and
 Field/Row/Section creation continues the final value rather than taking a separate
@@ -28,7 +28,7 @@ footer row. One subtle line separates records without alternating background noi
 
 ## Current host boundary — 2026-09-15
 
-The experimental browser release component 0.7.0 targets Chrome and Edge only, using one
+The experimental browser release component 0.8.0 targets Chrome and Edge only, using one
 Chromium package and this repository's `AicEditor`, with
 the same always-compact editor toolbar as Standard Notes and explicit read-only
 page/selection/Markdown import. When shared AIC data are empty, their
@@ -97,6 +97,13 @@ Primary product, privacy, verification, functional-index, architecture,
 provenance and changelog documents have direct English/Ukrainian navigation.
 Localized files are included in the Standard Notes, Chromium and VS Code release
 package contracts. Generated third-party notices retain exact upstream wording.
+
+## Compact credential rows in release 43.1.0
+
+Credential records use one connected responsive layout. Labels take their
+bounded intrinsic width, values share the remaining space, protected values
+render as lock-and-six-dot copy buttons, and one trailing `+` menu adds a Field,
+Row or Section. One quiet divider separates adjacent records.
 
 ## Whole-block Cut in release 42.1.0
 

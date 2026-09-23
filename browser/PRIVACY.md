@@ -2,7 +2,7 @@
 
 [English](PRIVACY.md) · [Українська](PRIVACY.uk.md)
 
-This describes the Chrome and Edge experimental component 0.7.0. See README.md and VERIFICATION.md for release status and testing boundaries.
+This describes the Chrome and Edge experimental component 0.8.0. See README.md and VERIFICATION.md for release status and testing boundaries.
 
 AIC has no server, account, telemetry or synchronization. All runtime resources are bundled. Its extension content policy blocks outgoing connections and remote embedded resources. It reads page content only after you request an import; it does not edit, autofill or insert into source websites. Opening a source link is ordinary browser navigation.
 

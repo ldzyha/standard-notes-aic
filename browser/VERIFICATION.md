@@ -2,10 +2,19 @@
 
 [English](VERIFICATION.md) · [Українська](VERIFICATION.uk.md)
 
-Status: **0.7.0 experimental component**, not a store release or an independently
+Status: **0.8.0 experimental component**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
 using one Chromium Manifest V3 package. All test passphrases, notes and clipboard
 substitutes are synthetic. No user profile or real notes are part of these tests.
+
+## 0.8.0 compact credential rows — release verification
+
+- Version pair: Standard Notes **43.1.0**, browser **0.8.0**, AIC Notes
+  **51.1.0**, shared core **7.2.0**. Browser vault format is unchanged.
+- Canonical DOM tests verify the compact lock-and-six-dot protected copy target,
+  one trailing creation menu in the final value, and no detached footer row.
+- The shared core gate covers narrow responsive CSS; packaged Chrome/Edge
+  acceptance remains a separate manual check.
 
 ## 0.7.0 whole-block Cut — release verification
 

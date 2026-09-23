@@ -13,15 +13,11 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
-In release 42.1.0, every managed block preview—table, code
-fence, Mermaid, AIC/Properties and details—has one shared **Cut** scissors
-action. It copies the complete Markdown block before removing it in one
-undoable edit. A failed clipboard write leaves the document unchanged.
-
-The shared core 7.2.0 development target keeps dense AIC rows compact on narrow
-screens: labels use only their bounded text width, protected values use a
-lock-and-six-dot copy button, creation controls follow the final value, and a
-single subtle line separates records.
+Release 43.1.0 uses shared core 7.2.0 to keep dense AIC rows compact on narrow
+screens. Labels use only their bounded text width, protected values use a
+lock-and-six-dot copy button, one trailing `+` menu follows the final value, and
+a single subtle line separates records. The same layout ships in AIC Notes
+51.1.0 and experimental browser 0.8.0.
 
 ## Security field actions
 
@@ -175,14 +171,15 @@ Legacy YAML Properties remain ordinary authored Markdown. They are not rendered 
 fields, interpreted as metadata, rewritten on save, or automatically migrated. Source
 mode keeps that text accessible for manual repair.
 
-## Release 42.1.0
+## Release 43.1.0
 
-This coordinated update pairs with AIC Notes 50.1.0, experimental browser
-0.7.0 and shared editor core 7.1.0. Tables, code fences, Mermaid,
-AIC/Properties cards and details have the same **Cut** scissors action. Cut
-copies the complete Markdown block before removing its exact source range as
-one undoable operation. Clipboard failure or stale source leaves the document
-unchanged. See the bilingual [one-page installation guide](RELEASE_INSTALL.md).
+This coordinated update pairs with AIC Notes 51.1.0, experimental browser
+0.8.0 and shared editor core 7.2.0. Credential rows stay connected and readable
+in narrow layouts: labels size to their text, flexible values receive the
+remaining width, protected copy is a small lock-and-six-dot target, and one
+trailing `+` menu contains Field, Row and Section creation. A quiet divider
+separates neighboring records. See the bilingual
+[one-page installation guide](RELEASE_INSTALL.md).
 
 ## Release 41.1.2
 
@@ -527,6 +524,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `42.1.0` is sequence 42 with
+release-local feature outcomes, and release-local fixed-bug outcomes. `43.1.0` is sequence 43 with
 one feature outcome and zero fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).
