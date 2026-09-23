@@ -1,6 +1,22 @@
 # Changelog
 
+[English](CHANGELOG.md) · [Українська](CHANGELOG.uk.md)
+
 ## Unreleased
+
+## 41.1.2 — 2026-09-23
+
+This patch pairs with AIC Notes 49.1.2, experimental browser 0.6.1 and shared
+editor core 7.0.0. Release and primary product documentation are available in
+English and Ukrainian; generated third-party notices retain their exact
+upstream wording.
+
+### Documentation
+
+- Added Ukrainian product, browser, privacy, verification, architecture,
+  functional-index and changelog documents with direct language links.
+- Made the unified install/release document and store-submission guide fully
+  bilingual, and included localized documents in release packages.
 
 ## 41.1.1 — 2026-09-22
 

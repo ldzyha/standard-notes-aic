@@ -1,5 +1,7 @@
 # AIC Standard Notes plugin functional index
 
+[English](FUNCTIONAL_INDEX.md) · [Українська](FUNCTIONAL_INDEX.uk.md)
+
 ## Canonical registries and UI rules
 
 This release-oriented narrative is indexed by the machine-readable
@@ -14,13 +16,13 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 structured AIC fields, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 41.1.1 pairs with AIC Notes 49.1.1 and AIC Editor Core 7.0.0.
+storage format. Release 41.1.2 pairs with AIC Notes 49.1.2 and AIC Editor Core 7.0.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
 ## Current host boundary — 2026-09-15
 
-The experimental browser release component 0.6.0 targets Chrome and Edge only, using one
+The experimental browser release component 0.6.1 targets Chrome and Edge only, using one
 Chromium package and this repository's `AicEditor`, with
 the same always-compact editor toolbar as Standard Notes and explicit read-only
 page/selection/Markdown import. When shared AIC data are empty, their
@@ -82,6 +84,13 @@ browser shell is not automatically a VS Code feature. Adaptive activity, semanti
 zoom and a shared workspace tree are proposed, not implemented; their ownership,
 risks and dependency-ordered transition are in
 [ADAPTIVE_PREVIEW_STUDY.md](ADAPTIVE_PREVIEW_STUDY.md).
+
+## Bilingual documentation in release 41.1.2
+
+Primary product, privacy, verification, functional-index, architecture,
+provenance and changelog documents have direct English/Ukrainian navigation.
+Localized files are included in the Standard Notes, Chromium and VS Code release
+package contracts. Generated third-party notices retain exact upstream wording.
 
 ## Mermaid source and live preview in release 41.1.1
 

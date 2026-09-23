@@ -36,8 +36,11 @@ export default defineConfig(({ mode }) => {
           for (const [fileName, source] of [
             ["manifest.json", "browser/manifest.json"],
             ["PRIVACY.md", "browser/PRIVACY.md"],
+            ["PRIVACY.uk.md", "browser/PRIVACY.uk.md"],
             ["README.md", "browser/README.md"],
+            ["README.uk.md", "browser/README.uk.md"],
             ["VERIFICATION.md", "browser/VERIFICATION.md"],
+            ["VERIFICATION.uk.md", "browser/VERIFICATION.uk.md"],
             ["THIRD_PARTY_NOTICES.md", "public/THIRD_PARTY_NOTICES.md"],
           ]) {
             this.emitFile({

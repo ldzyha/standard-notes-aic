@@ -64,10 +64,10 @@ jobs:
           PACKAGE_VERSION="${RELEASE_TAG#v}"
           mkdir -p .release/dist
           cp package.json .release/package.json
-          cp README.md RELEASE_INSTALL.md CHANGELOG.md FUNCTIONAL_INDEX.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md .release/
+          cp README.md README.uk.md RELEASE_INSTALL.md MARKETPLACE_HOWTO.md DOCUMENTATION.md CHANGELOG.md CHANGELOG.uk.md FUNCTIONAL_INDEX.md FUNCTIONAL_INDEX.uk.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md UI_ARCHITECTURE.uk.md ADAPTIVE_PREVIEW_STUDY.md ADAPTIVE_PREVIEW_STUDY.uk.md .release/
           cp -R dist/. .release/dist/
           cd .release
-          zip -qr "../standard-notes-aic-$PACKAGE_VERSION.zip" package.json README.md RELEASE_INSTALL.md CHANGELOG.md FUNCTIONAL_INDEX.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md dist
+          zip -qr "../standard-notes-aic-$PACKAGE_VERSION.zip" package.json README.md README.uk.md RELEASE_INSTALL.md MARKETPLACE_HOWTO.md DOCUMENTATION.md CHANGELOG.md CHANGELOG.uk.md FUNCTIONAL_INDEX.md FUNCTIONAL_INDEX.uk.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md UI_ARCHITECTURE.uk.md ADAPTIVE_PREVIEW_STUDY.md ADAPTIVE_PREVIEW_STUDY.uk.md dist
           cd ..
           sha256sum "standard-notes-aic-$PACKAGE_VERSION.zip" > "standard-notes-aic-$PACKAGE_VERSION.zip.sha256"
 

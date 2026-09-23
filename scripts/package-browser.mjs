@@ -32,7 +32,10 @@ export async function verifyBuild(entries) {
     "worker.js",
     "icon-128.png",
     "PRIVACY.md",
+    "PRIVACY.uk.md",
+    "README.uk.md",
     "VERIFICATION.md",
+    "VERIFICATION.uk.md",
     "THIRD_PARTY_NOTICES.md",
   ]) {
     if (!files.has(required))

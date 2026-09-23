@@ -1,5 +1,7 @@
 # Adaptive preview workspace — architectural review
 
+[English](ADAPTIVE_PREVIEW_STUDY.md) · [Українська](ADAPTIVE_PREVIEW_STUDY.uk.md)
+
 Date: 2026-09-14.
 
 Browser target scope is approved by the user: **Chrome and Edge only**. Both use

@@ -1,5 +1,7 @@
 # AIC UI architecture and registry rules
 
+[English](UI_ARCHITECTURE.md) · [Українська](UI_ARCHITECTURE.uk.md)
+
 This document is the human contract for shared UI ownership across the Standard
 Notes component, Chromium side panel, and AIC Notes for VS Code. It complements
 the release-oriented `FUNCTIONAL_INDEX.md`:

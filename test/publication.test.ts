@@ -25,8 +25,10 @@ describe("publication metadata", () => {
 
   it("uses the unified installation guide as the public release notes", () => {
     expect(releaseInstall).toContain("https://dzyha.com/");
-    expect(releaseInstall).toContain("aic-notes-49.1.1.vsix");
-    expect(releaseInstall).toContain("aic-browser-chromium-0.6.0.zip");
+    expect(releaseInstall).toContain("aic-notes-49.1.2.vsix");
+    expect(releaseInstall).toContain("aic-browser-chromium-0.6.1.zip");
+    expect(releaseInstall).toContain("## English");
+    expect(releaseInstall).toContain("## Українська");
     expect(releaseWorkflow).toContain("--notes-file RELEASE_INSTALL.md");
   });
 
@@ -68,17 +70,19 @@ describe("publication metadata", () => {
   });
 
   it("documents the current R.F.B release and packages usage and UI contracts", () => {
-    expect(manifest.version).toBe("41.1.1");
-    expect(browserManifest.version).toBe("0.6.0");
-    expect(changelog).toContain(`## ${manifest.version} — 2026-09-22`);
+    expect(manifest.version).toBe("41.1.2");
+    expect(browserManifest.version).toBe("0.6.1");
+    expect(changelog).toContain(`## ${manifest.version} — 2026-09-23`);
     expect(changelog).toContain(
       "Release sequence 40 · 0 feature outcomes · 1 fixed-bug outcome",
     );
     expect(changelog).toContain(
       "An unfinished fenced code block stays editable",
     );
-    expect(marketplaceHowto).toContain("aic-browser-chromium-0.6.0.zip");
-    expect(marketplaceHowto).toContain("Standard Notes AIC **41.1.1**");
+    expect(marketplaceHowto).toContain("aic-browser-chromium-0.6.1.zip");
+    expect(marketplaceHowto).toContain("Standard Notes AIC **41.1.2**");
+    expect(marketplaceHowto).toContain("## English");
+    expect(marketplaceHowto).toContain("## Українська");
     expect(readme).toContain("## Slash templates");
     expect(readme).toContain("`Tab` to move through");
     expect(readme).toContain("ordinary `.md` documents");
@@ -86,10 +90,10 @@ describe("publication metadata", () => {
     expect(readme).toContain(">>>|open| Title");
     expect(readme).toContain("Raw Space is");
     expect(releaseWorkflow).toContain(
-      "cp README.md RELEASE_INSTALL.md CHANGELOG.md FUNCTIONAL_INDEX.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md .release/",
+      "README.uk.md RELEASE_INSTALL.md MARKETPLACE_HOWTO.md DOCUMENTATION.md",
     );
     expect(releaseWorkflow).toContain(
-      "package.json README.md RELEASE_INSTALL.md CHANGELOG.md FUNCTIONAL_INDEX.md FEATURES.json COMPONENTS.json UI_ARCHITECTURE.md dist",
+      "README.md README.uk.md RELEASE_INSTALL.md MARKETPLACE_HOWTO.md DOCUMENTATION.md",
     );
   });
 

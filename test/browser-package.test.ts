@@ -68,7 +68,10 @@ describe("browser package assets", () => {
         { name: "worker.js", data: Buffer.from("// worker") },
         { name: "icon-128.png", data: createIconPng() },
         { name: "PRIVACY.md", data: Buffer.from("privacy") },
+        { name: "PRIVACY.uk.md", data: Buffer.from("privacy uk") },
+        { name: "README.uk.md", data: Buffer.from("readme uk") },
         { name: "VERIFICATION.md", data: Buffer.from("verification") },
+        { name: "VERIFICATION.uk.md", data: Buffer.from("verification uk") },
         { name: "THIRD_PARTY_NOTICES.md", data: Buffer.from("notices") },
       ];
       const version = await verifyBuild(entries);

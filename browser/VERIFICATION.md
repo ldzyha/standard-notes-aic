@@ -1,9 +1,17 @@
-# Chrome / Edge experimental build verification — 2026-09-22
+# Chrome / Edge experimental build verification — 2026-09-23
 
-Status: **0.6.0 experimental component**, not a store release or an independently
+[English](VERIFICATION.md) · [Українська](VERIFICATION.uk.md)
+
+Status: **0.6.1 experimental component**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
 using one Chromium Manifest V3 package. All test passphrases, notes and clipboard
 substitutes are synthetic. No user profile or real notes are part of these tests.
+
+## 0.6.1 bilingual documentation — release verification
+
+- English and Ukrainian product, privacy and verification documents are emitted
+  into the Chromium build and enforced by the package verifier.
+- The runtime and encrypted library format are unchanged from 0.6.0.
 
 ## 0.6.0 Mermaid source and preview — release verification
 

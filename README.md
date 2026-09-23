@@ -1,5 +1,7 @@
 # AIC for Standard Notes
 
+[English](README.md) · [Українська](README.uk.md)
+
 <p align="center">
   <img src="./public/aic-logo.svg" alt="AIC logo" width="96" height="96">
 </p>
@@ -162,6 +164,14 @@ grammar in Standard Notes, the browser panel, and both VS Code editor surfaces.
 Legacy YAML Properties remain ordinary authored Markdown. They are not rendered as
 fields, interpreted as metadata, rewritten on save, or automatically migrated. Source
 mode keeps that text accessible for manual repair.
+
+## Release 41.1.2
+
+This documentation patch pairs with AIC Notes 49.1.2, experimental browser
+0.6.1 and shared editor core 7.0.0. Primary product, release, privacy,
+verification and architecture documents are available in English and Ukrainian.
+The bilingual [one-page installation guide](RELEASE_INSTALL.md) covers all three
+products. Generated third-party notices retain their exact upstream wording.
 
 ## Release 41.1.1
 
@@ -498,6 +508,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `41.1.1` is sequence 41 with
-zero feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `41.1.2` is sequence 41 with
+one feature outcome and two fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).
