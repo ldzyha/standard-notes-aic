@@ -7,26 +7,30 @@
 **Status:** this is a plan for the first manual submissions, not a publication
 announcement. GitHub is the current release channel. Submission to VS Code
 Marketplace, Chrome Web Store, and Microsoft Edge Add-ons has not been confirmed.
-Browser release **0.6.1 is experimental**. Firefox and Mullvad are outside this
+Browser release **0.7.0 is experimental**. Firefox and Mullvad are outside this
 plan. Complete verification and store materials first, submit to each store
 separately, and verify installation after approval.
 
 | Destination            | Submission file                                         | Target version         |
 | ---------------------- | ------------------------------------------------------- | ---------------------- |
-| VS Code Marketplace    | `aic-notes-49.1.2.vsix`                                 | AIC Notes 49.1.2       |
-| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.6.1.zip` | AIC — Page notes 0.6.1 |
-| Microsoft Edge Add-ons | **the same** Chromium ZIP                               | AIC — Page notes 0.6.1 |
+| VS Code Marketplace    | `aic-notes-50.1.0.vsix`                                 | AIC Notes 50.1.0       |
+| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.7.0.zip` | AIC — Page notes 0.7.0 |
+| Microsoft Edge Add-ons | **the same** Chromium ZIP                               | AIC — Page notes 0.7.0 |
 
 These are **expected names**, not proof that a file is ready. Standard Notes AIC
-**41.1.2** and shared core **7.0.0** are coordinated with this release, but
-Standard Notes is not submitted to these stores. AIC Notes **49.1.2** and browser
-**0.6.1** use direct Mermaid Markdown editing with a live preview, one shared Edit
+**42.1.0** and shared core **7.1.0** are coordinated with this release, but
+Standard Notes is not submitted to these stores. AIC Notes **50.1.0** and browser
+**0.7.0** use direct Mermaid Markdown editing with a live preview, one shared Edit
 button, and preview-only zoom. The visual builder, drag-and-drop, and rotation are
 removed. Quote accents, the short centered thematic break, and the blank text row
 that replaced the Account preset arrived in earlier versions. Browser 0.4.0 added
 Global Shared inside the current profile's encrypted vault. It does not synchronize
 applications and does not implement the future key architecture or VS Code
 `global.aic`.
+
+Every managed preview block also has the shared **Cut** scissors action. It
+copies the complete Markdown block before removing it; a failed clipboard write
+leaves the source unchanged.
 
 ### Before starting
 
@@ -63,12 +67,12 @@ applications and does not implement the future key architecture or VS Code
 
 #### VS Code Marketplace
 
-1. Take the **verified** `aic-notes-49.1.2.vsix` and checksum from
+1. Take the **verified** `aic-notes-50.1.0.vsix` and checksum from
    [AIC Notes Releases](https://github.com/ldzyha/aic-notes/releases).
 2. On the [Marketplace publisher page](https://marketplace.visualstudio.com/manage/publishers/),
    select `ldzyha` and upload the VSIX manually.
 3. Review the description and links, then complete the portal workflow.
-4. After publication, verify version **49.1.2** on `ldzyha.aic-notes` and install
+4. After publication, verify version **50.1.0** on `ldzyha.aic-notes` and install
    it from Extensions in a clean VS Code profile. A VSIX on GitHub supports manual
    installation but does **not** publish the extension to Marketplace.
    [Official guide](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
@@ -81,7 +85,7 @@ applications and does not implement the future key architecture or VS Code
    select **Add new item** and upload the ZIP.
 3. Complete **Store listing**, **Privacy practices**, and **Distribution**. Explain
    manifest permissions and provide only the verified privacy-policy URL.
-4. Select **Submit for Review**. After approval, verify **0.6.1** and install it
+4. Select **Submit for Review**. After approval, verify **0.7.0** and install it
    from the store in a clean Chrome profile. Upload alone is not publication.
    [Official guide](https://developer.chrome.com/docs/webstore/publish/).
 
@@ -92,7 +96,7 @@ applications and does not implement the future key architecture or VS Code
    **Create new extension** and upload the ZIP.
 3. Complete **Availability**, **Properties**, **Privacy**, **Store listings**, and
    certification notes. Verify markets, visibility, permissions, and policy URL.
-4. Submit for review. When the status becomes **In the store**, verify **0.6.1**
+4. Submit for review. When the status becomes **In the store**, verify **0.7.0**
    and install it from Edge Add-ons in a clean profile. Chrome submission does
    **not** publish to Edge.
    [Official guide](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
@@ -123,15 +127,19 @@ See [Local data](browser/README.md).
 
 ## Українська
 
-**Статус:** це план першого ручного подання, а не повідомлення про публікацію. Зараз канал випуску — GitHub; у VS Code Marketplace, Chrome Web Store та Microsoft Edge Add-ons подання ще не підтверджені. Браузерний випуск **0.6.1 експериментальний**. Firefox і Mullvad не входять у цей план. Рекомендація: спершу завершити перевірки та матеріали, потім подати кожен магазин окремо й перевірити встановлення після схвалення.
+**Статус:** це план першого ручного подання, а не повідомлення про публікацію. Зараз канал випуску — GitHub; у VS Code Marketplace, Chrome Web Store та Microsoft Edge Add-ons подання ще не підтверджені. Браузерний випуск **0.7.0 експериментальний**. Firefox і Mullvad не входять у цей план. Рекомендація: спершу завершити перевірки та матеріали, потім подати кожен магазин окремо й перевірити встановлення після схвалення.
 
 | Куди                   | Файл для подання                                        | Цільова версія         |
 | ---------------------- | ------------------------------------------------------- | ---------------------- |
-| VS Code Marketplace    | `aic-notes-49.1.2.vsix`                                 | AIC Notes 49.1.2       |
-| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.6.1.zip` | AIC — Page notes 0.6.1 |
-| Microsoft Edge Add-ons | **той самий** Chromium ZIP                              | AIC — Page notes 0.6.1 |
+| VS Code Marketplace    | `aic-notes-50.1.0.vsix`                                 | AIC Notes 50.1.0       |
+| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.7.0.zip` | AIC — Page notes 0.7.0 |
+| Microsoft Edge Add-ons | **той самий** Chromium ZIP                              | AIC — Page notes 0.7.0 |
 
-Це **очікувані назви**, не доказ готовності файлів. Standard Notes AIC **41.1.2** і спільне ядро **7.0.0** координуються з цим випуском, але Standard Notes не подається до цих магазинів. AIC Notes **49.1.2** та браузер **0.6.1** мають просте редагування Mermaid як Markdown-коду з живим прев’ю, однаковою кнопкою Edit і масштабуванням лише у прев’ю. Візуальний конструктор, drag-and-drop і поворот прибрані. Акценти цитат, коротка центрована горизонтальна лінія та порожній текстовий рядок замість шаблону Account з’явилися у попередніх версіях. Попередній випуск браузера 0.4.0 додав Global Shared у зашифрованому сховищі поточного профілю. Це не синхронізація між застосунками й не реалізація майбутньої архітектури ключів або VS Code `global.aic`.
+Це **очікувані назви**, не доказ готовності файлів. Standard Notes AIC **42.1.0** і спільне ядро **7.1.0** координуються з цим випуском, але Standard Notes не подається до цих магазинів. AIC Notes **50.1.0** та браузер **0.7.0** мають просте редагування Mermaid як Markdown-коду з живим прев’ю, однаковою кнопкою Edit і масштабуванням лише у прев’ю. Візуальний конструктор, drag-and-drop і поворот прибрані. Акценти цитат, коротка центрована горизонтальна лінія та порожній текстовий рядок замість шаблону Account з’явилися у попередніх версіях. Попередній випуск браузера 0.4.0 додав Global Shared у зашифрованому сховищі поточного профілю. Це не синхронізація між застосунками й не реалізація майбутньої архітектури ключів або VS Code `global.aic`.
+
+Усі керовані preview-блоки також мають спільну кнопку **Вирізати** з іконкою
+ножиць. Вона копіює повний Markdown-блок перед видаленням; помилка запису в
+clipboard лишає source без змін.
 
 ## Перед початком
 
@@ -143,24 +151,24 @@ See [Local data](browser/README.md).
 
 ### VS Code Marketplace
 
-1. Візьміть **перевірений** `aic-notes-49.1.2.vsix` і його контрольну суму з [AIC Notes Releases](https://github.com/ldzyha/aic-notes/releases).
+1. Візьміть **перевірений** `aic-notes-50.1.0.vsix` і його контрольну суму з [AIC Notes Releases](https://github.com/ldzyha/aic-notes/releases).
 2. На [сторінці видавців Marketplace](https://marketplace.visualstudio.com/manage/publishers/) виберіть `ldzyha` та завантажте VSIX вручну.
 3. Перегляньте опис і посилання, завершіть подання за підказками порталу.
-4. Після публікації перевірте версію **49.1.2** на сторінці `ldzyha.aic-notes` та встановіть її з розділу Extensions у чистому профілі VS Code. Файл VSIX на GitHub дає ручне встановлення, але **не** публікує розширення в Marketplace. [Офіційна інструкція](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
+4. Після публікації перевірте версію **50.1.0** на сторінці `ldzyha.aic-notes` та встановіть її з розділу Extensions у чистому профілі VS Code. Файл VSIX на GitHub дає ручне встановлення, але **не** публікує розширення в Marketplace. [Офіційна інструкція](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
 
 ### Chrome Web Store
 
 1. Візьміть фінальний Chromium ZIP після перевірки в Chrome; **Load unpacked** із `dist-browser/chromium/` — лише спосіб розробницького тестування.
 2. У [Developer Dashboard](https://chrome.google.com/webstore/devconsole) виберіть **Add new item** і завантажте ZIP.
 3. Заповніть **Store listing**, **Privacy practices**, **Distribution**; обґрунтуйте дозволи маніфесту та вставте тільки перевірений URL політики.
-4. Натисніть **Submit for Review**. Після схвалення звірте версію **0.6.1** і встановіть із магазину в чистому профілі Chrome. Завантаження файлу саме по собі ще не означає публікації. [Офіційна інструкція](https://developer.chrome.com/docs/webstore/publish/).
+4. Натисніть **Submit for Review**. Після схвалення звірте версію **0.7.0** і встановіть із магазину в чистому профілі Chrome. Завантаження файлу саме по собі ще не означає публікації. [Офіційна інструкція](https://developer.chrome.com/docs/webstore/publish/).
 
 ### Microsoft Edge Add-ons
 
 1. Використайте **той самий** фінальний ZIP після окремої перевірки в Edge.
 2. У [Partner Center](https://partner.microsoft.com/dashboard) відкрийте Edge → **Create new extension** і завантажте ZIP.
 3. Заповніть **Availability**, **Properties**, **Privacy**, **Store listings** та нотатки для сертифікації; перевірте ринки, видимість, дозволи й URL політики.
-4. Надішліть на перевірку. Коли статус стане **In the store**, звірте версію **0.6.1** і встановіть із Edge Add-ons у чистому профілі. Подання до Chrome **не** публікує продукт в Edge. [Офіційна інструкція](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
+4. Надішліть на перевірку. Коли статус стане **In the store**, звірте версію **0.7.0** і встановіть із Edge Add-ons у чистому профілі. Подання до Chrome **не** публікує продукт в Edge. [Офіційна інструкція](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
 
 ## Після подання й наступні оновлення
 

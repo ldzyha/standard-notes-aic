@@ -4,13 +4,19 @@
 
 ## Unreleased
 
+## 42.1.0 — 2026-09-23
+
+Release sequence 42 · 1 feature outcome · 0 fixed-bug outcomes. This release
+pairs with AIC Notes 50.1.0, experimental browser 0.7.0 and shared editor core
+7.1.0.
+
 ### Feature
 
 - Added one shared scissors action to table, code-fence, Mermaid,
   AIC/Properties and details previews. Cut writes the complete Markdown block
   to the clipboard before removing its exact source range as one editor
   operation; clipboard failure, stale source and read-only mode cannot delete
-  the block. Shared editor core moves to 7.1.0.
+  the block.
 
 ## 41.1.2 — 2026-09-23
 

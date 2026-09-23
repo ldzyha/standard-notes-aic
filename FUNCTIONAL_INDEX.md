@@ -16,13 +16,13 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 structured AIC fields, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 41.1.2 pairs with AIC Notes 49.1.2 and AIC Editor Core 7.0.0.
+storage format. Release 42.1.0 pairs with AIC Notes 50.1.0 and AIC Editor Core 7.1.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
 ## Current host boundary — 2026-09-15
 
-The experimental browser release component 0.6.1 targets Chrome and Edge only, using one
+The experimental browser release component 0.7.0 targets Chrome and Edge only, using one
 Chromium package and this repository's `AicEditor`, with
 the same always-compact editor toolbar as Standard Notes and explicit read-only
 page/selection/Markdown import. When shared AIC data are empty, their
@@ -92,7 +92,7 @@ provenance and changelog documents have direct English/Ukrainian navigation.
 Localized files are included in the Standard Notes, Chromium and VS Code release
 package contracts. Generated third-party notices retain exact upstream wording.
 
-## Unreleased: whole-block Cut
+## Whole-block Cut in release 42.1.0
 
 Every managed block preview now exposes the same scissors action in editable
 notes. Cut first copies the complete Markdown block, including its delimiters,

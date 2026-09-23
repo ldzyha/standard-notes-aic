@@ -17,13 +17,14 @@ note, тому Standard Notes показує підтримувану іконк
 VS Code, Standard Notes і браузера — у
 [`RELEASE_INSTALL.md`](RELEASE_INSTALL.md).
 
-Поточний координований випуск: Standard Notes AIC **41.1.2**, AIC Notes для
-VS Code **49.1.2**, експериментальний browser **0.6.1**, shared core **7.0.0**.
-У VS Code Unpin одразу відновлює follow за активним main file. First-party
+Поточний координований випуск: Standard Notes AIC **42.1.0**, AIC Notes для
+VS Code **50.1.0**, експериментальний browser **0.7.0**, shared core **7.1.0**.
+Таблиці, code fences, Mermaid, AIC/Properties і details мають спільну кнопку
+**Вирізати**, яка копіює весь Markdown-блок перед видаленням. First-party
 product і release docs доступні англійською та українською.
 
-У поточній development-версії всі керовані preview-блоки — таблиці, code
-fences, Mermaid, AIC/Properties і details — мають спільну кнопку **Вирізати** з
+У випуску 42.1.0 всі керовані preview-блоки — таблиці, code fences, Mermaid,
+AIC/Properties і details — мають спільну кнопку **Вирізати** з
 іконкою ножиць. Вона спочатку копіює повний Markdown-блок, а потім прибирає його
 однією undoable operation. Якщо запис у clipboard не вдався, документ не
 змінюється.

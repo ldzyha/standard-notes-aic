@@ -13,7 +13,7 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
-In the current development build, every managed block preview—table, code
+In release 42.1.0, every managed block preview—table, code
 fence, Mermaid, AIC/Properties and details—has one shared **Cut** scissors
 action. It copies the complete Markdown block before removing it in one
 undoable edit. A failed clipboard write leaves the document unchanged.
@@ -169,6 +169,15 @@ grammar in Standard Notes, the browser panel, and both VS Code editor surfaces.
 Legacy YAML Properties remain ordinary authored Markdown. They are not rendered as
 fields, interpreted as metadata, rewritten on save, or automatically migrated. Source
 mode keeps that text accessible for manual repair.
+
+## Release 42.1.0
+
+This coordinated update pairs with AIC Notes 50.1.0, experimental browser
+0.7.0 and shared editor core 7.1.0. Tables, code fences, Mermaid,
+AIC/Properties cards and details have the same **Cut** scissors action. Cut
+copies the complete Markdown block before removing its exact source range as
+one undoable operation. Clipboard failure or stale source leaves the document
+unchanged. See the bilingual [one-page installation guide](RELEASE_INSTALL.md).
 
 ## Release 41.1.2
 
@@ -513,6 +522,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `41.1.2` is sequence 41 with
-one feature outcome and two fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `42.1.0` is sequence 42 with
+one feature outcome and zero fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

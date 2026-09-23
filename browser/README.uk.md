@@ -2,8 +2,8 @@
 
 [English](README.md) · [Українська](README.uk.md)
 
-**Статус:** експериментальний компонент **0.6.1**, узгоджений з AIC 41.1.2,
-AIC Notes 49.1.2 і спільним ядром 7.0.0. Це ще не випуск у магазині браузера і
+**Статус:** експериментальний компонент **0.7.0**, узгоджений з AIC 42.1.0,
+AIC Notes 50.1.0 і спільним ядром 7.1.0. Це ще не випуск у магазині браузера і
 не незалежно аудитований менеджер паролів. До завершення перевірок у
 [VERIFICATION](VERIFICATION.uk.md) використовуйте синтетичні дані.
 
@@ -57,6 +57,13 @@ Account більше не є окремим preset; Password і TOTP додаю�
 `1|` без копіювання. Edit відкриває сирий Markdown. Явна Paste-дія може заповнити
 порожнє поле з поточного буфера після натискання; моніторингу й історії немає.
 Генерація пароля прихована на ширині 600 px або менше.
+
+## 0.7.0 — вирізання всього блоку
+
+- Таблиці, code fences, Mermaid, AIC/Properties і details використовують одну
+  кнопку **Вирізати** з іконкою ножиць. Вона копіює повний Markdown-блок перед
+  видаленням exact source range. Помилка чи stale clipboard request не змінює
+  source; у read-only режимі кнопка відсутня.
 
 ## Двомовна документація 0.6.1
 
@@ -135,7 +142,7 @@ npm run build:browser
 ```
 
 Команда створює `dist-browser/chromium/` і
-`dist-browser/artifacts/aic-browser-chromium-0.6.1.zip`. Відкрийте
+`dist-browser/artifacts/aic-browser-chromium-0.7.0.zip`. Відкрийте
 `chrome://extensions` або `edge://extensions`, увімкніть Developer mode,
 натисніть **Load unpacked** і виберіть папку з `manifest.json`, не ZIP.
 

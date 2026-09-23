@@ -2,10 +2,17 @@
 
 [English](VERIFICATION.md) · [Українська](VERIFICATION.uk.md)
 
-Status: **0.6.1 experimental component**, not a store release or an independently
+Status: **0.7.0 experimental component**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
 using one Chromium Manifest V3 package. All test passphrases, notes and clipboard
 substitutes are synthetic. No user profile or real notes are part of these tests.
+
+## 0.7.0 whole-block Cut — release verification
+
+- Version pair: Standard Notes **42.1.0**, browser **0.7.0**, AIC Notes
+  **50.1.0**, shared core **7.1.0**. Browser vault format is unchanged.
+- Canonical editor tests cover clipboard-first exact-range Cut for every managed
+  block preview, read-only omission and preservation after clipboard failure.
 
 ## 0.6.1 bilingual documentation — release verification
 

@@ -2,7 +2,7 @@
 
 [English](README.md) · [Українська](README.uk.md)
 
-Status: **0.6.1 experimental component**, paired with AIC 41.1.2, AIC Notes 49.1.2 and shared core 7.0.0. It is not a browser-store release or an independently audited password manager. Use synthetic data until the final packaged-runtime gates in VERIFICATION.md are resolved.
+Status: **0.7.0 experimental component**, paired with AIC 42.1.0, AIC Notes 50.1.0 and shared core 7.1.0. It is not a browser-store release or an independently audited password manager. Use synthetic data until the final packaged-runtime gates in VERIFICATION.md are resolved.
 
 All three installation paths are in the [unified release guide](../RELEASE_INSTALL.md).
 
@@ -29,6 +29,13 @@ Supported browser targets are desktop **Google Chrome and Microsoft Edge only**,
 - Navigation shows bounded page titles under their domain. It omits single-page path ladders and shows a common path only where it groups several pages. Visible labels and tooltips omit query/fragment details; the exact stored URL, note identity and navigation target remain unchanged.
 - The compact browser toolbar keeps Save and Preview/Markdown controls visible and exposes five direct strike, link, bullet-list, numbered-list and task-list actions. Menus and navigation preserve the editor and its selection. Escape closes a panel menu and returns focus to its trigger. The local **?** guide explains AIC syntax and current actions without network access.
 - Save failures remain visible until dismissed; routine confirmations disappear after five seconds. Notifications float above the lower edge rather than pushing the editor down.
+
+## 0.7.0 whole-block Cut
+
+- Tables, code fences, Mermaid, AIC/Properties and details use one shared Cut
+  scissors action. It copies the complete Markdown block before removing the
+  exact source range. Failed or stale clipboard work leaves source unchanged;
+  read-only previews omit Cut.
 
 ## 0.6.1 bilingual documentation
 
@@ -214,12 +221,12 @@ Chrome Incognito and Edge InPrivate are not supported in this build. The manifes
 
 ## Build and local testing
 
-To test a GitHub release without building, download `aic-browser-chromium-0.6.1.zip`
+To test a GitHub release without building, download `aic-browser-chromium-0.7.0.zip`
 and its `.sha256` from [AIC Releases](https://github.com/ldzyha/standard-notes-aic/releases),
 verify the checksum, and extract into a permanent folder. Use that folder for
 **Load unpacked** below. The ZIP is not a Chrome/Edge store installation package.
 
-Run `npm run build:browser` from the canonical repository. No additional runtime dependencies or external services are needed. It produces one unpacked directory, `dist-browser/chromium/`, and one archive, `dist-browser/artifacts/aic-browser-chromium-0.6.1.zip`, for both Chrome and Edge. Other browser build modes are rejected.
+Run `npm run build:browser` from the canonical repository. No additional runtime dependencies or external services are needed. It produces one unpacked directory, `dist-browser/chromium/`, and one archive, `dist-browser/artifacts/aic-browser-chromium-0.7.0.zip`, for both Chrome and Edge. Other browser build modes are rejected.
 
 The archive uses deterministic ordering and timestamps and includes the `>_` icon, worker, editor assets and privacy notices. Previously generated development files are not current targets; the build does not delete older archives or browser profiles. The command never installs into a user's profile or submits to a store.
 

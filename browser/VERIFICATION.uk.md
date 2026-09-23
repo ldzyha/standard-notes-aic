@@ -6,6 +6,14 @@
 історичні результати збережені в канонічному [англійському журналі](VERIFICATION.md).
 Статус не можна підвищувати лише на підставі цієї коротшої локалізації.
 
+## 0.7.0 — вирізання всього блоку
+
+- Узгоджені версії: Standard Notes **42.1.0**, browser **0.7.0**, AIC Notes
+  **50.1.0**, shared core **7.1.0**. Формат browser vault не змінено.
+- Canonical editor tests перевіряють clipboard-first Cut exact source range для
+  всіх керованих preview-блоків, відсутність кнопки у read-only та збереження
+  source після помилки clipboard.
+
 ## 0.6.1 — двомовна документація
 
 - English і Ukrainian product, privacy та verification documents входять до
