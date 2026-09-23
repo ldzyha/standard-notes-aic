@@ -1,6 +1,6 @@
 import type { EditorState, Extension } from "@codemirror/state";
 
-export const CODE_FENCE_EXTENSION_CORE_VERSION: "1.1.0";
+export const CODE_FENCE_EXTENSION_CORE_VERSION: "1.2.0";
 
 export type CodeFenceBlock = Readonly<{
   from: number;

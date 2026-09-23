@@ -5,7 +5,10 @@ import {
   type Extension,
 } from "@codemirror/state";
 import { Decoration, EditorView, WidgetType } from "@codemirror/view";
-import { selectionRevealsPreview } from "./core/structured-preview.js";
+import {
+  selectionRevealsPreview,
+  writeTextToClipboard,
+} from "./core/structured-preview.js";
 import { providePreviewRanges } from "./core/preview-ranges.js";
 import { sourcePreviewExitHandlers } from "./core/source-mode.js";
 import {
@@ -95,6 +98,36 @@ export function makeMermaidExtension({
           view.dispatch({ selection: { anchor }, scrollIntoView: true });
           view.focus();
         },
+        onCut: this.readOnly
+          ? undefined
+          : async () => {
+              const current = scan(view.state).candidates.find(
+                (candidate) =>
+                  candidate.from === this.candidate.from &&
+                  candidate.decorationTo === this.candidate.decorationTo &&
+                  candidate.source === this.candidate.source,
+              );
+              if (!current || view.state.readOnly) return false;
+              const markdown = view.state.sliceDoc(
+                current.from,
+                current.decorationTo,
+              );
+              if (!(await writeTextToClipboard(markdown, document)))
+                return false;
+              const latest = scan(view.state).candidates.find(
+                (candidate) =>
+                  candidate.from === current.from &&
+                  candidate.decorationTo === current.decorationTo &&
+                  candidate.source === current.source,
+              );
+              if (!latest || view.state.readOnly) return false;
+              view.dispatch({
+                changes: { from: latest.from, to: latest.decorationTo },
+                userEvent: "input.cut",
+              });
+              view.focus();
+              return true;
+            },
       });
       controller.element.dataset.aicSourceFrom = String(this.candidate.from);
       controller.element.dataset.aicSourceTo = String(

@@ -165,6 +165,7 @@ describe("Mermaid rendering boundary", () => {
     const first = deferred<string>();
     const second = deferred<string>();
     const onEdit = vi.fn();
+    const onCut = vi.fn().mockResolvedValue(true);
     const render = vi.fn(({ source }: { source: string }) =>
       source === "first" ? first.promise : second.promise,
     );
@@ -172,6 +173,7 @@ describe("Mermaid rendering boundary", () => {
       source: "first",
       theme: "default",
       onEdit,
+      onCut,
       render,
       queue: makeMermaidRenderQueue({ concurrency: 2 }),
     });
@@ -205,6 +207,12 @@ describe("Mermaid rendering boundary", () => {
     expect(edit.dataset.aicIcon).toBe("edit");
     edit.click();
     expect(onEdit).toHaveBeenCalledOnce();
+    const cut =
+      preview.element.querySelector<HTMLButtonElement>(".cm-mermaid-cut")!;
+    expect(cut.textContent).toBe("");
+    expect(cut.dataset.aicIcon).toBe("cut");
+    cut.click();
+    expect(onCut).toHaveBeenCalledOnce();
     const canvas =
       preview.element.querySelector<HTMLElement>(".cm-mermaid-canvas")!;
     expect(canvas.getAttribute("role")).toBe("region");

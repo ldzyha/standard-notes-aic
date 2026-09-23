@@ -71,6 +71,7 @@ export function createMermaidPreview({
   source,
   theme,
   onEdit,
+  onCut,
   render = renderMermaidSvg,
   queue,
   document = globalThis.document,
@@ -78,6 +79,7 @@ export function createMermaidPreview({
   source: string;
   theme: MermaidTheme;
   onEdit?: () => void;
+  onCut?: () => boolean | void | Promise<boolean | void>;
   render?: typeof renderMermaidSvg;
   queue?: ReturnType<typeof makeMermaidRenderQueue>;
   document?: Document;
@@ -108,8 +110,21 @@ export function createMermaidPreview({
         onActivate: onEdit,
       })
     : null;
+  const cut = onCut
+    ? createIconButton(document, {
+        label: "Cut Mermaid block",
+        icon: "cut",
+        className: "cm-mermaid-cut cm-md-edit-source",
+        onActivate: onCut,
+      })
+    : null;
   const viewportController = createMermaidViewport(document);
-  actions.append(copy, ...(edit ? [edit] : []), viewportController.controls);
+  actions.append(
+    copy,
+    ...(edit ? [edit] : []),
+    ...(cut ? [cut] : []),
+    viewportController.controls,
+  );
   caption.append(label, actions);
   const canvas = viewportController.viewport;
   canvas.classList.add("cm-mermaid-canvas");

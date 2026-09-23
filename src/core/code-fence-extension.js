@@ -15,7 +15,7 @@ import {
 } from "./structured-preview.js";
 import { sourcePreviewExit, sourcePreviewExitHandlers } from "./source-mode.js";
 
-export const CODE_FENCE_EXTENSION_CORE_VERSION = "1.1.0";
+export const CODE_FENCE_EXTENSION_CORE_VERSION = "1.2.0";
 
 const editCodeFenceSource = StateEffect.define({
   map: (value, mapping) => mapping.mapPos(value, -1),
@@ -162,6 +162,31 @@ class CodeFenceWidget extends WidgetType {
         });
         view.focus();
       },
+      onCut: this.readOnly
+        ? undefined
+        : async () => {
+            if (!current() || view.state.readOnly) return false;
+            const markdown = view.state.sliceDoc(
+              this.block.from,
+              this.block.to,
+            );
+            let copied;
+            try {
+              copied = this.onCopy
+                ? await this.onCopy(markdown, this.block.language)
+                : await writeTextToClipboard(markdown, this.document);
+            } catch {
+              copied = false;
+            }
+            if (copied === false || !current() || view.state.readOnly)
+              return false;
+            view.dispatch({
+              changes: { from: this.block.from, to: this.block.to },
+              userEvent: "input.cut",
+            });
+            view.focus();
+            return true;
+          },
     });
     liveCodePreviews.add(wrapper);
     return wrapper;

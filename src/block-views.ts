@@ -281,6 +281,16 @@ class TableWidget extends WidgetType {
       if (!(await writeTextToClipboard(this.source, document))) return;
       showIconFeedback(button, { restoreLabel: "Copy table" });
     };
+    const cut = async () => {
+      if (this.readOnly || view.state.readOnly || !isCurrent()) return;
+      if (!(await writeTextToClipboard(this.source, document))) return;
+      if (view.state.readOnly || !isCurrent()) return;
+      view.dispatch({
+        changes: { from: this.from, to: this.from + this.source.length },
+        userEvent: "input.cut",
+      });
+      view.focus();
+    };
     if (!parsed) {
       const fallback = document.createElement("pre");
       fallback.textContent = this.source;
@@ -288,6 +298,9 @@ class TableWidget extends WidgetType {
         previewHeader(document, "Table", [
           action(document, "Copy table", "copy", copy),
           action(document, "Edit table source", "edit", reveal),
+          ...(!this.readOnly
+            ? [action(document, "Cut table", "cut", cut)]
+            : []),
         ]),
         fallback,
       );
@@ -316,6 +329,7 @@ class TableWidget extends WidgetType {
           this.readOnly ? "source" : "edit",
           reveal,
         ),
+        ...(!this.readOnly ? [action(document, "Cut table", "cut", cut)] : []),
       ]),
     );
     const table = document.createElement("table");

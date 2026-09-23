@@ -197,7 +197,7 @@
     {
       "id": "core.code-fences",
       "group": "shared-editor",
-      "purpose": "Render language-aware fenced-code cards with copy/edit controls while preserving unsupported source.",
+      "purpose": "Render language-aware fenced-code cards with copy/edit/cut controls while preserving unsupported source. Cut copies the complete Markdown block before removing it.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/core/code-fence-extension.js",
@@ -222,7 +222,7 @@
     {
       "id": "core.tables",
       "group": "shared-editor",
-      "purpose": "Render tables, copy content, insert and reorder rows or columns, and edit one cell through a bounded popover.",
+      "purpose": "Render tables, copy or cut the complete Markdown block, insert and reorder rows or columns, and edit one cell through a bounded popover.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/block-views.ts",
@@ -246,7 +246,7 @@
     {
       "id": "core.details",
       "group": "shared-editor",
-      "purpose": "Parse and render details accordions while retaining nested links, tasks, comments, and open state.",
+      "purpose": "Parse and render details accordions with whole-block cut while retaining nested links, tasks, comments, and open state.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/core/details-model.js",
@@ -300,7 +300,7 @@
     {
       "id": "core.security-blocks",
       "group": "structured-data",
-      "purpose": "Parse and render bounded AIC credential blocks with masking, independently scoped field/section/block copy, add, delete, filtering, diagnostics, responsive whole-row field layout, and exact-source reordering. Section copy uses canonical AIC serialization and preserves type and masking markers without copying adjacent sections.",
+      "purpose": "Parse and render bounded AIC credential blocks with masking, independently scoped field/section/block copy, whole-block cut, add, delete, filtering, diagnostics, responsive whole-row field layout, and exact-source reordering. Section copy uses canonical AIC serialization and preserves type and masking markers without copying adjacent sections. Cut removes source only after clipboard success.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/core/security-model.js",
@@ -402,7 +402,7 @@
     {
       "id": "core.diagrams",
       "group": "diagrams",
-      "purpose": "Edit Mermaid as source with a live preview, copy, preview-only zoom, cancellation, and stale-result isolation.",
+      "purpose": "Edit Mermaid as source with a live preview, copy or cut the complete fence, preview-only zoom, cancellation, and stale-result isolation.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/mermaid-extension.ts",

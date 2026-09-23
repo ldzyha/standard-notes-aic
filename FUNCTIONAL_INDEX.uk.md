@@ -29,6 +29,15 @@
 
 ## Актуальні випуски
 
+### Наступний випуск / core 7.1.0
+
+Усі керовані preview-блоки мають однакову кнопку **Вирізати** з іконкою ножиць.
+Вона спочатку копіює повний Markdown блоку разом із delimiters, а потім прибирає
+саме цей source range як одну undoable operation. Це працює для таблиць, code
+fences, Mermaid, AIC/Properties і details `>>> … <<<`. Якщо clipboard недоступний
+або source змінився під час запиту, документ не змінюється. У read-only режимі
+кнопка Вирізати відсутня.
+
 ### 41.1.2 / core 7.0.0
 
 Основні product, privacy, verification, architecture, provenance, functional

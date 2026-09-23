@@ -1,6 +1,6 @@
 import { createIconButton, showIconFeedback } from "./structured-preview.js";
 
-export const CODE_FENCE_PREVIEW_CORE_VERSION = "1.0.0";
+export const CODE_FENCE_PREVIEW_CORE_VERSION = "1.1.0";
 
 export function createCodeFencePreview(
   document,
@@ -12,6 +12,7 @@ export function createCodeFencePreview(
     readOnly = false,
     onCopy,
     onEdit,
+    onCut,
   } = {},
 ) {
   if (!document?.createElement)
@@ -50,7 +51,16 @@ export function createCodeFencePreview(
     className: "cm-md-edit-code cm-md-edit-source",
     onActivate: () => onEdit?.(),
   });
-  actions.append(copy, edit);
+  const cut =
+    !readOnly && onCut
+      ? createIconButton(document, {
+          label: `Cut ${titleText} block`,
+          icon: "cut",
+          className: "cm-md-cut-code cm-md-edit-source",
+          onActivate: () => onCut(),
+        })
+      : null;
+  actions.append(copy, edit, ...(cut ? [cut] : []));
   header.append(title, actions);
 
   const pre = document.createElement("pre");

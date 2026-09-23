@@ -52,6 +52,10 @@ export function createEditorHelp(document, { host }) {
       ["Edit", "open the authored Markdown source"],
       ["Copy", "copy the named value or block; Ctrl/Cmd+C copies a selection"],
       [
+        "Cut",
+        "copy a complete preview block, then remove it as one undoable edit",
+      ],
+      [
         "Paste",
         "use native Ctrl/Cmd+V; preview Paste appears only for supported empty fields",
       ],

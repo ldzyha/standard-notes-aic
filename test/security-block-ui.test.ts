@@ -200,6 +200,7 @@ describe("shared security block", () => {
     expect(
       host.querySelector('[aria-label="Copy security block"]'),
     ).not.toBeNull();
+    expect(host.querySelector('[aria-label="Cut security block"]')).toBeNull();
   });
 
   it("keeps an unstarred TOTP field visible like every other unstarred field", () => {

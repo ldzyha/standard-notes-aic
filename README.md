@@ -13,6 +13,11 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
+In the current development build, every managed block preview—table, code
+fence, Mermaid, AIC/Properties and details—has one shared **Cut** scissors
+action. It copies the complete Markdown block before removing it in one
+undoable edit. A failed clipboard write leaves the document unchanged.
+
 ## Security field actions
 
 ### Authenticator JSON conversion

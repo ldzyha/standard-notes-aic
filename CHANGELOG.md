@@ -4,6 +4,14 @@
 
 ## Unreleased
 
+### Feature
+
+- Added one shared scissors action to table, code-fence, Mermaid,
+  AIC/Properties and details previews. Cut writes the complete Markdown block
+  to the clipboard before removing its exact source range as one editor
+  operation; clipboard failure, stale source and read-only mode cannot delete
+  the block. Shared editor core moves to 7.1.0.
+
 ## 41.1.2 — 2026-09-23
 
 This patch pairs with AIC Notes 49.1.2, experimental browser 0.6.1 and shared

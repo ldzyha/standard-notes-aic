@@ -22,6 +22,12 @@ VS Code **49.1.2**, експериментальний browser **0.6.1**, shared
 У VS Code Unpin одразу відновлює follow за активним main file. First-party
 product і release docs доступні англійською та українською.
 
+У поточній development-версії всі керовані preview-блоки — таблиці, code
+fences, Mermaid, AIC/Properties і details — мають спільну кнопку **Вирізати** з
+іконкою ножиць. Вона спочатку копіює повний Markdown-блок, а потім прибирає його
+однією undoable operation. Якщо запис у clipboard не вдався, документ не
+змінюється.
+
 ## Поля безпеки
 
 ### Перетворення Authenticator JSON

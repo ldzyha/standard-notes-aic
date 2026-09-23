@@ -517,6 +517,86 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
+  it.each([
+    {
+      name: "code",
+      block: "```ts\nconst answer = 42;\n```",
+      action: "Cut ts block",
+    },
+    {
+      name: "table",
+      block: "| A | B |\n| --- | --- |\n| x | y |",
+      action: "Cut table",
+    },
+    {
+      name: "details",
+      block: ">>> Detail\nbody\n<<<",
+      action: "Cut details block",
+    },
+    {
+      name: "Mermaid",
+      block: "```mermaid\nflowchart LR\n  A --> B\n```",
+      action: "Cut Mermaid block",
+    },
+    {
+      name: "security",
+      block: "```aic\n## Main\nPassword *| synthetic-secret\n```",
+      action: "Cut security block",
+    },
+    {
+      name: "properties",
+      block: "---\nfile: example.note.md\nstatus: idea\n---",
+      action: "Cut properties",
+    },
+  ])(
+    "cuts the complete $name Markdown block in one operation",
+    async ({ block, action }) => {
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      Object.defineProperty(window.navigator, "clipboard", {
+        configurable: true,
+        value: { writeText },
+      });
+      const initial = `${block}\n\nAfter`;
+      const host = document.createElement("div");
+      document.body.append(host);
+      const editor = new AicEditor(host, { initialText: initial });
+      editor.view.dispatch({ selection: { anchor: initial.length } });
+      const cut = await vi.waitFor(() => {
+        const button = editor.element.querySelector<HTMLButtonElement>(
+          `button[aria-label="${action}"]`,
+        );
+        expect(button).not.toBeNull();
+        return button!;
+      });
+      expect(cut.dataset.aicIcon).toBe("cut");
+      expect(cut.textContent).toBe("");
+      cut.click();
+      await vi.waitFor(() => expect(writeText).toHaveBeenCalledOnce());
+      expect(String(writeText.mock.calls[0]![0]).trimEnd()).toBe(block);
+      await vi.waitFor(() => expect(editor.value.trim()).toBe("After"));
+      editor.destroy();
+    },
+  );
+
+  it("keeps a block when its Markdown cannot be copied", async () => {
+    const block = "| A |\n| --- |\n| value |";
+    Object.defineProperty(window.navigator, "clipboard", {
+      configurable: true,
+      value: { writeText: vi.fn().mockRejectedValue(new Error("denied")) },
+    });
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host, { initialText: `${block}\n\nAfter` });
+    editor.view.dispatch({ selection: { anchor: editor.value.length } });
+    editor.element
+      .querySelector<HTMLButtonElement>('[aria-label="Cut table"]')!
+      .click();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(editor.value).toContain(block);
+    editor.destroy();
+  });
+
   it("mirrors the VS Code code-fence preview with permanent Copy and Edit actions", async () => {
     const source = [
       "Before",

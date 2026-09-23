@@ -9,6 +9,13 @@
 
 ## Не випущено
 
+### Можливість
+
+- Таблиці, code fences, Mermaid, AIC/Properties і details отримали одну спільну
+  кнопку **Вирізати** з іконкою ножиць. Вона копіює весь Markdown-блок перед
+  видаленням точного source range як однієї operation. Помилка clipboard,
+  застарілий source або read-only режим не видаляють блок. Shared core — 7.1.0.
+
 ## 41.1.2 — 2026-09-23
 
 - Основна, браузерна, privacy, verification, architecture, functional index і

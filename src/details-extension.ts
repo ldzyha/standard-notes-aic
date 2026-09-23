@@ -17,6 +17,7 @@ import {
   createIconButton,
   selectionRevealsPreview,
   selectionStaysInSource,
+  writeTextToClipboard,
 } from "./core/structured-preview.js";
 import { providePreviewRanges } from "./core/preview-ranges.js";
 import {
@@ -233,6 +234,30 @@ class DetailsSummaryWidget extends WidgetType {
       },
     });
     row.append(edit);
+    if (!this.readOnly) {
+      const cut = createIconButton(document, {
+        label: "Cut details block",
+        icon: "cut",
+        className: "cm-md-edit-source cm-aic-details-cut",
+        onActivate: async () => {
+          if (view.state.readOnly || !isCurrent()) return;
+          const source = view.state.sliceDoc(this.block.from, this.block.end);
+          if (!(await writeTextToClipboard(source, document))) return;
+          if (
+            view.state.readOnly ||
+            !isCurrent() ||
+            view.state.sliceDoc(this.block.from, this.block.end) !== source
+          )
+            return;
+          view.dispatch({
+            changes: { from: this.block.from, to: this.block.end },
+            userEvent: "input.cut",
+          });
+          view.focus();
+        },
+      });
+      row.append(cut);
+    }
     return row;
   }
 }

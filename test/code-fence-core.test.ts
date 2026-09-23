@@ -19,7 +19,7 @@ describe("shared code-fence preview core", () => {
       doc: "```ts\nconst value = 1\n```\n\n```mermaid\nA-->B\n```",
       extensions: [aicMarkdownLanguage()],
     });
-    expect(CODE_FENCE_EXTENSION_CORE_VERSION).toBe("1.1.0");
+    expect(CODE_FENCE_EXTENSION_CORE_VERSION).toBe("1.2.0");
     expect(PREVIEW_RANGES_CORE_VERSION).toBe("1.0.0");
     expect(codeFences(state)).toMatchObject([
       { language: "ts", source: "const value = 1" },
@@ -66,6 +66,7 @@ describe("shared code-fence preview core", () => {
   it("creates a source-bound, text-safe preview with icon-only actions", async () => {
     const onCopy = vi.fn().mockResolvedValue(true);
     const onEdit = vi.fn();
+    const onCut = vi.fn().mockResolvedValue(true);
     const preview = createCodeFencePreview(document, {
       source: '<script>alert("safe text")</script>',
       language: "html",
@@ -73,8 +74,9 @@ describe("shared code-fence preview core", () => {
       to: 51,
       onCopy,
       onEdit,
+      onCut,
     });
-    expect(CODE_FENCE_PREVIEW_CORE_VERSION).toBe("1.0.0");
+    expect(CODE_FENCE_PREVIEW_CORE_VERSION).toBe("1.1.0");
     expect(preview.dataset.aicSourceFrom).toBe("7");
     expect(preview.dataset.aicSourceTo).toBe("51");
     expect(preview.querySelector("script")).toBeNull();
@@ -83,6 +85,7 @@ describe("shared code-fence preview core", () => {
     expect(buttons.map((button) => button.getAttribute("aria-label"))).toEqual([
       "Copy code",
       "Edit code source",
+      "Cut html block",
     ]);
     expect(buttons.every((button) => button.textContent === "")).toBe(true);
     buttons[0]!.click();
@@ -93,5 +96,7 @@ describe("shared code-fence preview core", () => {
     );
     buttons[1]!.click();
     expect(onEdit).toHaveBeenCalledOnce();
+    buttons[2]!.click();
+    expect(onCut).toHaveBeenCalledOnce();
   });
 });

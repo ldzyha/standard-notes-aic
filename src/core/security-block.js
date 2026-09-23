@@ -42,7 +42,7 @@ import {
   writeTextToClipboard,
 } from "./structured-preview.js";
 
-export const SECURITY_BLOCK_CORE_VERSION = "2.0.0";
+export const SECURITY_BLOCK_CORE_VERSION = "2.1.0";
 const CLIPBOARD_READ_TIMEOUT_MS = 3000;
 const EMPTY_RELATIONSHIPS = Object.freeze([]);
 const fieldEmpty = (field) => field.parts.every((part) => !part.value);
@@ -1416,6 +1416,42 @@ class SecurityBlockWidget extends WidgetType {
               parsed.ok ? null : parsed.diagnostic,
               !isProperties && this.block.unsupportedSyntax,
             ),
+        ),
+      );
+      actions.append(
+        button(
+          document,
+          isProperties ? "Cut properties" : "Cut security block",
+          "cut",
+          async () => {
+            if (view.state.readOnly || !wrapper.isConnected) return;
+            const block = this.currentBlock(view);
+            if (!block) return;
+            const source = view.state.sliceDoc(block.from, block.to);
+            if (
+              !(await copyValue(
+                source,
+                isProperties ? "properties" : "security block",
+                headerStatus,
+              ))
+            )
+              return;
+            const current = this.currentBlock(view);
+            if (
+              view.state.readOnly ||
+              !wrapper.isConnected ||
+              !current ||
+              current.from !== block.from ||
+              current.to !== block.to ||
+              view.state.sliceDoc(current.from, current.to) !== source
+            )
+              return;
+            view.dispatch({
+              changes: { from: current.from, to: current.to },
+              userEvent: "input.cut",
+            });
+            view.focus();
+          },
         ),
       );
     }

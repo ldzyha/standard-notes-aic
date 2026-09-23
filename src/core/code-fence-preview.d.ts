@@ -1,4 +1,4 @@
-export const CODE_FENCE_PREVIEW_CORE_VERSION: "1.0.0";
+export const CODE_FENCE_PREVIEW_CORE_VERSION: "1.1.0";
 
 export function createCodeFencePreview(
   document: Document,
@@ -10,5 +10,6 @@ export function createCodeFencePreview(
     readOnly?: boolean;
     onCopy?: (source: string) => boolean | void | Promise<boolean | void>;
     onEdit?: () => void | Promise<void>;
+    onCut?: () => boolean | void | Promise<boolean | void>;
   }>,
 ): HTMLDivElement;
