@@ -87,6 +87,11 @@ export function parseSecurityBlock(
     diagnostics?: boolean;
   },
 ): SecurityParseResult | SecurityDiagnosticParseResult;
+/** Natural, stable label ordering inside each section; invalid bodies are unchanged. */
+export function sortSecurityRecords(
+  body: string,
+  options?: { fieldSyntax?: "pipes"; sectionSyntax?: "separators" },
+): string;
 /** Stable line body without fences; invalid models throw a fixed TypeError. */
 export function serializeSecurityBlock(
   model: SecurityModel,

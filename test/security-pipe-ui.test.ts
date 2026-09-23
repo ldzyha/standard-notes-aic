@@ -176,6 +176,10 @@ describe("typed pipe preview", () => {
         { value: "", kind: "secret" },
       ],
     });
+    expect(
+      host.querySelector(".cm-aic-security-section > .cm-aic-security-add"),
+    ).toBeNull();
+    expect(control(host, "Add after Card")).toBeTruthy();
   });
 
   it("inserts a section immediately after its owning section", () => {

@@ -369,14 +369,16 @@ function securityFixture() {
       {
         label: "Accounts",
         fields: [
+          // Keep this lifecycle fixture sorted so toggling only exercises
+          // disposal; source-exit ordering has its own regression suite.
+          {
+            label: "Account",
+            parts: [{ value: "visible-account", kind: "text" }],
+          },
           { label: "Password", parts: [{ value: "", kind: "secret" }] },
           {
             label: "Secret",
             parts: [{ value: "synthetic-hidden-secret", kind: "secret" }],
-          },
-          {
-            label: "Account",
-            parts: [{ value: "visible-account", kind: "text" }],
           },
         ],
       },

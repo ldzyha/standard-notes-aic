@@ -4,6 +4,23 @@
 
 ## Unreleased
 
+## 44.1.0 — 2026-09-23
+
+Release sequence 44 · 1 feature outcome · 0 fixed-bug outcomes. This release
+pairs with AIC Notes 52.1.0, experimental browser 0.9.0 and shared editor core
+7.3.0.
+
+### Feature
+
+- Reworked AIC record reading and ordering: labels and values use natural width,
+  whole values wrap before text breaks, passwords use lock-only copy buttons,
+  and the trailing `+` stays with the final value. Subtle separators and 44 px
+  touch targets preserve readability in narrow panels.
+- Leaving block source edit or whole-note source mode sorts rows naturally by
+  label within each section. Unlabelled rows stay stable at the end; sections,
+  typed-part order and exact values are preserved. Opening a preview, copying
+  and manual reordering do not sort the document.
+
 ## 43.1.0 — 2026-09-23
 
 Release sequence 43 · 1 feature outcome · 0 fixed-bug outcomes. This release

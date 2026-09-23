@@ -13,11 +13,22 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
-Release 43.1.0 uses shared core 7.2.0 to keep dense AIC rows compact on narrow
-screens. Labels use only their bounded text width, protected values use a
-lock-and-six-dot copy button, one trailing `+` menu follows the final value, and
-a single subtle line separates records. The same layout ships in AIC Notes
-51.1.0 and experimental browser 0.8.0.
+Release 44.1.0 uses shared core 7.3.0 for readable wrapping and automatic
+ordering of AIC rows. The same behavior ships in AIC Notes 52.1.0 and experimental
+browser 0.9.0.
+
+Labels, email addresses and logins use their natural width. A complete value moves
+to the next line before its text wraps; only text wider than the full available
+line breaks internally. Passwords use compact lock-only copy buttons, while
+short card values and TOTP codes remain readable. The `+` menu follows the last
+value, and subtle separators distinguish records. Touch controls retain 44 px
+targets.
+
+Leaving an AIC block's source edit, or switching the whole note from source to
+preview, sorts rows by label within each section using natural, case-insensitive
+order. Unlabelled rows remain in their original order at the end. Section order,
+value order and exact authored values are preserved. Opening a preview, copying
+and manual reordering do not trigger sorting.
 
 ## Security field actions
 
@@ -119,12 +130,13 @@ onto another row rather than scrolling horizontally; coarse-pointer controls kee
 44 px targets.
 
 The editor-level **Show Markdown source / Show preview** icon toggles all previews together,
-without opening another editor, changing source, resetting Undo or saving. The mode lasts only
+without opening another editor or resetting Undo. Returning to preview applies the
+AIC row sorting described above through the normal document-change lifecycle. The mode lasts only
 for the current note and resets on a different note. It also exposes starred values in their raw
 Markdown form; this is explicit source access, not an additional secret-reveal control.
 
 New templates and converted Authenticator records use one bounded `aic` fence.
-Existing text is never rewritten automatically. A standalone `---` separates sections.
+Existing formats are not migrated. A standalone `---` separates sections.
 Every value starts with its type separator: `|` text, `*|` secret, `#|` TOTP,
 `_|` card, `1|` unused one-time, or `0|` used one-time. For example,
 `Card _| 4111111111111111 | 12/30 *| 123` independently types all three values.
@@ -170,6 +182,14 @@ grammar in Standard Notes, the browser panel, and both VS Code editor surfaces.
 Legacy YAML Properties remain ordinary authored Markdown. They are not rendered as
 fields, interpreted as metadata, rewritten on save, or automatically migrated. Source
 mode keeps that text accessible for manual repair.
+
+## Release 44.1.0
+
+This coordinated update pairs with AIC Notes 52.1.0, experimental browser 0.9.0
+and shared core 7.3.0. AIC rows wrap whole labels and values at their natural
+width; passwords have a compact lock-only copy target. Leaving source edit sorts
+rows by label within each section while preserving section and value order.
+See the bilingual [one-page installation guide](RELEASE_INSTALL.md).
 
 ## Release 43.1.0
 
@@ -524,6 +544,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `43.1.0` is sequence 43 with
+release-local feature outcomes, and release-local fixed-bug outcomes. `44.1.0` is sequence 44 with
 one feature outcome and zero fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

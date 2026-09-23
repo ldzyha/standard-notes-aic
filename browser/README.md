@@ -2,12 +2,20 @@
 
 [English](README.md) · [Українська](README.uk.md)
 
-Status: **0.8.0 experimental component**, paired with AIC 43.1.0, AIC Notes 51.1.0 and shared core 7.2.0. It is not a browser-store release or an independently audited password manager. Use synthetic data until the final packaged-runtime gates in VERIFICATION.md are resolved.
+Status: **0.9.0 experimental component**, paired with AIC 44.1.0, AIC Notes 52.1.0 and shared core 7.3.0. It is not a browser-store release or an independently audited password manager. Use synthetic data until the final packaged-runtime gates in VERIFICATION.md are resolved.
 
-Shared core 7.2.0 keeps AIC rows compact in a narrow side
-panel: intrinsic bounded labels stay beside flexible values, protected copy uses
-a lock and six dots, creation controls continue the last value, and subtle lines
-separate records.
+Labels, email addresses and logins use their natural width. A complete value moves
+to the next line before its text wraps; only text wider than the full available
+line breaks internally. Passwords use compact lock-only copy buttons, while
+short card values and TOTP codes remain readable. The `+` menu follows the last
+value, and subtle separators distinguish records. Touch controls retain 44 px
+targets.
+
+Leaving an AIC block's source edit, or switching the whole note from source to
+preview, sorts rows by label within each section using natural, case-insensitive
+order. Unlabelled rows remain in their original order at the end. Section order,
+value order and exact authored values are preserved. Opening a preview, copying
+and manual reordering do not trigger sorting.
 
 All three installation paths are in the [unified release guide](../RELEASE_INSTALL.md).
 
@@ -34,6 +42,13 @@ Supported browser targets are desktop **Google Chrome and Microsoft Edge only**,
 - Navigation shows bounded page titles under their domain. It omits single-page path ladders and shows a common path only where it groups several pages. Visible labels and tooltips omit query/fragment details; the exact stored URL, note identity and navigation target remain unchanged.
 - The compact browser toolbar keeps Save and Preview/Markdown controls visible and exposes five direct strike, link, bullet-list, numbered-list and task-list actions. Menus and navigation preserve the editor and its selection. Escape closes a panel menu and returns focus to its trigger. The local **?** guide explains AIC syntax and current actions without network access.
 - Save failures remain visible until dismissed; routine confirmations disappear after five seconds. Notifications float above the lower edge rather than pushing the editor down.
+
+## 0.9.0 responsive records and automatic ordering
+
+AIC labels and values wrap as complete items at their natural width. Password
+copy uses one compact lock button; the final value keeps the `+` menu. Leaving
+source edit sorts rows by label within each section and preserves section order,
+value order and exact authored values.
 
 ## 0.8.0 compact credential rows
 
@@ -233,12 +248,12 @@ Chrome Incognito and Edge InPrivate are not supported in this build. The manifes
 
 ## Build and local testing
 
-To test a GitHub release without building, download `aic-browser-chromium-0.8.0.zip`
+To test a GitHub release without building, download `aic-browser-chromium-0.9.0.zip`
 and its `.sha256` from [AIC Releases](https://github.com/ldzyha/standard-notes-aic/releases),
 verify the checksum, and extract into a permanent folder. Use that folder for
 **Load unpacked** below. The ZIP is not a Chrome/Edge store installation package.
 
-Run `npm run build:browser` from the canonical repository. No additional runtime dependencies or external services are needed. It produces one unpacked directory, `dist-browser/chromium/`, and one archive, `dist-browser/artifacts/aic-browser-chromium-0.8.0.zip`, for both Chrome and Edge. Other browser build modes are rejected.
+Run `npm run build:browser` from the canonical repository. No additional runtime dependencies or external services are needed. It produces one unpacked directory, `dist-browser/chromium/`, and one archive, `dist-browser/artifacts/aic-browser-chromium-0.9.0.zip`, for both Chrome and Edge. Other browser build modes are rejected.
 
 The archive uses deterministic ordering and timestamps and includes the `>_` icon, worker, editor assets and privacy notices. Previously generated development files are not current targets; the build does not delete older archives or browser profiles. The command never installs into a user's profile or submits to a store.
 

@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AIC credential layout / Компонування записів</title>
+  <div id="app"></div>
+  <script type="module">
+    import { AicEditor } from "/src/editor.ts";
+    import "/src/styles.css";
+    import "/src/core/ui-system.css";
+    import "/src/core/icons.css";
+    import "/src/core/preview-layout.css";
+    import "/src/core/security-block.css";
+    const params = new URLSearchParams(location.search);
+    // Exercise the shipped coarse-pointer rules when the desktop QA browser
+    // cannot emulate a touch device. This does not emulate touch input itself.
+    if (params.has("touch")) {
+      const touch = document.createElement("style");
+      touch.textContent = [...document.styleSheets]
+        .flatMap((sheet) => [...sheet.cssRules])
+        .filter((rule) => rule.conditionText?.includes("pointer: coarse"))
+        .flatMap((rule) => [...rule.cssRules].map((child) => child.cssText))
+        .join("\n");
+      document.head.append(touch);
+    }
+    if (params.has("dark")) {
+      document.documentElement.style.cssText =
+        "color-scheme:dark;--aic-bg:#181a1c;--aic-fg:#e4e7eb;--aic-border:#42464c";
+    }
+    // Public synthetic fixtures only; never load a user's note or persist edits.
+    new AicEditor(document.querySelector("#app"), {
+      readOnly: params.has("readonly"),
+      initialText: [
+        "```aic",
+        "# Accounts",
+        "## Workspace",
+        "Google 10 *| synthetic-password | account123@example.test",
+        "Google 6 *| synthetic-password | longer.address1907@example.test",
+        "integration-team@example-company.test *| synthetic-password",
+        "staging-007.example.commercecloud.test *| synthetic-password",
+        "code-version | revamp",
+        "storefront *| synthetic-password",
+        "PIDs | Y0356009 | Y0000100 | Y0000090",
+        "---",
+        "## Personal",
+        "Card _| 4242424242421234 | 06/29 *| synthetic-cvv",
+        "Login *| synthetic-password | person@example.test",
+        "OTP #| JBSWY3DPEHPK3PXP",
+        'Empty | "" *| ""',
+        "Website | https://example.test/a/long/path",
+        "Broken OTP #| !",
+        "_| 4242424242421234 | 09/28",
+        "```",
+        "",
+        "End / Кінець",
+      ].join("\n"),
+    });
+  </script>
+</html>

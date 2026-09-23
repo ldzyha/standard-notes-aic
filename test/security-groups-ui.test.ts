@@ -131,7 +131,10 @@ describe("shared compact Security and Properties groups", () => {
       ].map((e) => e.textContent),
     ).toEqual(["Work", "Personal"]);
     expect(host.querySelector(".cm-aic-security-quick-add")).toBeNull();
-    const add = control(host, "Add row to Work");
+    expect(
+      host.querySelector(".cm-aic-security-section > .cm-aic-security-add"),
+    ).toBeNull();
+    const add = control(host, "Add after Email");
     const menu = add.parentElement!.querySelector<HTMLElement>(
       ".cm-aic-security-add-menu",
     )!;
@@ -184,10 +187,10 @@ describe("shared compact Security and Properties groups", () => {
     const { host, view, saves } = fixture();
     search(host, "Email");
     expect(control(host, "Reorder Email").disabled).toBe(true);
-    control(host, "Add row to Work").click();
-    control(host, "Add blank row to Work").click();
+    control(host, "Add after Email").click();
+    control(host, "Add blank row after Email").click();
     expect(model(view).title).toBe("Accounts");
-    expect(model(view).sections[0]!.fields.at(-1)?.label).toBe("");
+    expect(model(view).sections[0]!.fields[1]?.label).toBe("");
     expect(
       host.querySelector<HTMLInputElement>('input[type="search"]')?.value,
     ).toBe("Email");
@@ -202,6 +205,23 @@ describe("shared compact Security and Properties groups", () => {
     expect(
       host.querySelector<HTMLInputElement>('input[type="search"]')?.value,
     ).toBe("");
+  });
+
+  it("restores row creation after clearing a no-match filter", () => {
+    const { host, view, saves } = fixture();
+    search(host, "no matching public value");
+    expect(
+      host.querySelectorAll(".cm-aic-security-section:not([hidden])"),
+    ).toHaveLength(0);
+    control(host, "Clear filter").click();
+    const add = control(host, "Add after Email");
+    expect(add.closest("[hidden]")).toBeNull();
+    add.click();
+    control(host, "Add blank row after Email").click();
+    expect(model(view).sections[0]!.fields.map((field) => field.label)).toEqual(
+      ["Email", "", "Password"],
+    );
+    expect(saves).toEqual([true]);
   });
 
   it("reorders fields and groups as one undoable saved action with title and secrets preserved", () => {

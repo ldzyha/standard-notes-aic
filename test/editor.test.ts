@@ -276,7 +276,7 @@ describe("AIC editor integration", () => {
 
   it("keeps property clicks in preview and reveals source only for Ctrl+A or Edit", async () => {
     const source =
-      "```aic\n# Properties\nstatus | idea\nowner | team\n```\n\nBody";
+      "```aic\n# Properties\nowner | team\nstatus | idea\n```\n\nBody";
     const writes: string[] = [];
     Object.defineProperty(window.navigator, "clipboard", {
       configurable: true,

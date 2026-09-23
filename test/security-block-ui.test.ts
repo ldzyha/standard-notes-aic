@@ -106,7 +106,9 @@ describe("shared security block", () => {
     expect(securityBlocks(view.state)).toHaveLength(1);
     expect(codeFences(view.state)).toHaveLength(0);
     expect(host.textContent).not.toContain(secret);
-    expect(host.textContent).toContain("••••••");
+    expect(
+      host.querySelector('[data-aic-protected="true"][data-aic-icon="lock"]'),
+    ).not.toBeNull();
     expect(markdownPlainPreview("Before\n" + source + "\nAfter")).toBe(
       "Before After",
     );

@@ -505,6 +505,38 @@ export function parseSecurityBlock(body, options = {}) {
   }
 }
 
+const labelOrder = new Intl.Collator("uk", {
+  numeric: true,
+  sensitivity: "base",
+});
+
+/** Sort record lines, retaining section boundaries and every authored field byte. */
+export function sortSecurityRecords(body, options = {}) {
+  const parsed = parseSecurityBlock(body, { ...options, diagnostics: true });
+  if (!parsed.ok) return body;
+  const replacements = [];
+  parsed.model.sections.forEach((section, sectionIndex) => {
+    const ranges = parsed.fieldRanges[sectionIndex];
+    const records = section.fields.map((field, index) => ({
+      label: field.label,
+      source: body.slice(ranges[index].from, ranges[index].to),
+    }));
+    const sorted = [...records].sort((left, right) => {
+      if (!left.label || !right.label)
+        return Number(!left.label) - Number(!right.label);
+      return labelOrder.compare(left.label, right.label);
+    });
+    sorted.forEach((record, index) => {
+      if (record.source !== records[index].source)
+        replacements.push({ ...ranges[index], insert: record.source });
+    });
+  });
+  // Work backwards so the original body-relative ranges remain valid.
+  for (const { from, to, insert } of replacements.reverse())
+    body = body.slice(0, from) + insert + body.slice(to);
+  return body;
+}
+
 /** Stable line body. The caller owns the surrounding Markdown fence. */
 export function serializeSecurityBlock(model, options = {}) {
   if (

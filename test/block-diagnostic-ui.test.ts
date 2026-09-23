@@ -90,17 +90,16 @@ describe("safe block source locations", () => {
     ).toContain("banks, web, social networks");
   });
 
-  it("disables the field menu itself at 64 fields without blocking a new section", () => {
+  it("disables row insertion at 64 rows without blocking parts or a new section", () => {
     const body = Array.from(
       { length: 64 },
       (_, index) => `Field ${index} | value`,
     ).join("\n");
     const { host, view } = fixture("```aic\n" + body + "\n```\nEnd");
     expect(
-      host.querySelector<HTMLButtonElement>(
-        '[aria-label="Add row to section"]',
-      )!.disabled,
-    ).toBe(true);
+      host.querySelector<HTMLButtonElement>('[aria-label="Add after Field 0"]')!
+        .disabled,
+    ).toBe(false);
     expect(
       host.querySelector<HTMLButtonElement>(
         '[aria-label="Add blank row after Field 0"]',
@@ -145,9 +144,8 @@ describe("safe block source locations", () => {
       )!.disabled,
     ).toBe(true);
     expect(
-      host.querySelector<HTMLButtonElement>(
-        '[aria-label="Add row to section"]',
-      )!.disabled,
+      host.querySelector<HTMLButtonElement>('[aria-label="Add after Field 0"]')!
+        .disabled,
     ).toBe(true);
     expect(host.querySelector('[aria-label="New security block"]')).toBeNull();
   });

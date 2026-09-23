@@ -2,10 +2,29 @@
 
 [English](VERIFICATION.md) · [Українська](VERIFICATION.uk.md)
 
-Status: **0.8.0 experimental component**, not a store release or an independently
+Status: **0.9.0 experimental component**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
 using one Chromium Manifest V3 package. All test passphrases, notes and clipboard
 substitutes are synthetic. No user profile or real notes are part of these tests.
+
+## 0.9.0 responsive records and edit-exit ordering — verification scope
+
+- Version pair: Standard Notes **44.1.0**, browser **0.9.0**, AIC Notes
+  **52.1.0**, shared core **7.3.0**. Browser vault format is unchanged.
+- The regression contract covers natural-width field wrapping, lock-only
+  password copy, stable row sorting at source-edit exit and preserved values.
+- In-app Chromium checks of the real editor at 320, 360, 393 and 768 px found
+  no record or page overflow in light/dark and read-only cases. The shipped
+  coarse-pointer CSS was exercised synthetically: labels and lock buttons
+  measured 44 px. This is CSS verification, not physical touch-device testing.
+- Built VS Code primary and Linked Note bundles were checked with a synthetic
+  host at narrow widths in both themes. Copy feedback, edit-exit sorting and
+  immediate secret masking passed without visible errors. No real note or OS
+  clipboard was used. `test/fixtures/security-layout.html` retains the canonical
+  synthetic fixture for repeatable visual checks.
+- Narrow-width browser checks use synthetic data. Physical mobile devices and
+  authenticated installed Standard Notes/Chrome/Edge hosts require separate
+  acceptance; this entry does not claim those checks have run.
 
 ## 0.8.0 compact credential rows — release verification
 

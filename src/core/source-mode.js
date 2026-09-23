@@ -1,16 +1,25 @@
 import { Compartment, Facet, Prec, StateEffect } from "@codemirror/state";
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { keymap } from "@codemirror/view";
+import { isolateHistory } from "@codemirror/commands";
 import { createIconButton } from "./structured-preview.js";
 import { detailsForDocument } from "./details-model.js";
+import { saveAction } from "./save-boundary.js";
 
 export const SOURCE_MODE_CORE_VERSION = "1.1.0";
 
-/** Preview extensions use this effect to release an explicit source edit. */
+/** Preview extensions use this effect to release an explicit source edit.
+ * Its null payload survives document mapping; undefined would delete the effect.
+ */
 export const sourcePreviewExit = StateEffect.define();
 
 /** Each preview extension may report its current source-edit range. */
 export const sourcePreviewExitHandlers = Facet.define({
+  combine: (handlers) => handlers,
+});
+
+/** Shared block owners may finalize authored source when whole-note editing ends. */
+export const sourceModeExitChanges = Facet.define({
   combine: (handlers) => handlers,
 });
 
@@ -76,6 +85,7 @@ export function createSourceModeController() {
   let previews = [];
   let mode = "preview";
   let scrollRevision = 0;
+  let exitChanges = [];
 
   const reflect = () => {
     for (const button of buttons) {
@@ -99,8 +109,20 @@ export function createSourceModeController() {
     const oldRange = Math.max(0, scroll.scrollHeight - scroll.clientHeight);
     const fraction = oldRange ? top / oldRange : 0;
     const revision = ++scrollRevision;
+    if (mode === "preview")
+      exitChanges = view.state.facet(sourceModeExitChanges);
+    const changes =
+      mode === "source" && !view.state.readOnly
+        ? exitChanges.flatMap((handler) => handler(view.state))
+        : [];
     mode = mode === "preview" ? "source" : "preview";
     view.dispatch({
+      ...(changes.length
+        ? {
+            changes,
+            annotations: [saveAction.of(true), isolateHistory.of("full")],
+          }
+        : {}),
       effects: compartment.reconfigure(mode === "preview" ? previews : []),
     });
     const newRange = Math.max(0, scroll.scrollHeight - scroll.clientHeight);
@@ -157,7 +179,7 @@ export function createSourceModeController() {
                   selection: {
                     anchor: Math.min(range.to, view.state.doc.length),
                   },
-                  effects: sourcePreviewExit.of(),
+                  effects: sourcePreviewExit.of(null),
                   scrollIntoView: true,
                 });
                 return true;
@@ -172,6 +194,7 @@ export function createSourceModeController() {
     reset() {
       scrollRevision += 1;
       mode = "preview";
+      exitChanges = [];
       reflect();
     },
     createButton(document, getView, className = "") {

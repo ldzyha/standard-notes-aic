@@ -16,19 +16,28 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 structured AIC fields, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 43.1.0 pairs with AIC Notes 51.1.0 and AIC Editor Core 7.2.0.
+storage format. Release 44.1.0 pairs with AIC Notes 52.1.0 and AIC Editor Core 7.3.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
-Shared core 7.2.0 makes dense AIC rows readable on narrow
-screens. Labels use only their bounded text width, protected values become compact
-lock-and-six-dot copy buttons, flexible text values keep the remaining width, and
-Field/Row/Section creation continues the final value rather than taking a separate
-footer row. One subtle line separates records without alternating background noise.
+Shared core 7.3.0 owns the responsive AIC row layout and edit-exit ordering.
+
+Labels, email addresses and logins use their natural width. A complete value moves
+to the next line before its text wraps; only text wider than the full available
+line breaks internally. Passwords use compact lock-only copy buttons, while
+short card values and TOTP codes remain readable. The `+` menu follows the last
+value, and subtle separators distinguish records. Touch controls retain 44 px
+targets.
+
+Leaving an AIC block's source edit, or switching the whole note from source to
+preview, sorts rows by label within each section using natural, case-insensitive
+order. Unlabelled rows remain in their original order at the end. Section order,
+value order and exact authored values are preserved. Opening a preview, copying
+and manual reordering do not trigger sorting.
 
 ## Current host boundary — 2026-09-15
 
-The experimental browser release component 0.8.0 targets Chrome and Edge only, using one
+The experimental browser release component 0.9.0 targets Chrome and Edge only, using one
 Chromium package and this repository's `AicEditor`, with
 the same always-compact editor toolbar as Standard Notes and explicit read-only
 page/selection/Markdown import. When shared AIC data are empty, their
@@ -97,6 +106,15 @@ Primary product, privacy, verification, functional-index, architecture,
 provenance and changelog documents have direct English/Ukrainian navigation.
 Localized files are included in the Standard Notes, Chromium and VS Code release
 package contracts. Generated third-party notices retain exact upstream wording.
+
+## Responsive rows and edit-exit sorting in release 44.1.0
+
+The shared security renderer owns whole-item wrapping, lock-only password copy
+and trailing creation controls. The shared source-mode and security-model
+contracts own stable natural row ordering on edit exit. Invalid blocks stay
+unchanged; sorting preserves exact source values and uses normal editor Undo.
+The regression contract is `test/security-source-sort.test.ts`, alongside the
+security-card preview and field-action tests.
 
 ## Compact credential rows in release 43.1.0
 

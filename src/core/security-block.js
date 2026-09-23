@@ -1,10 +1,20 @@
 import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { isolateHistory } from "@codemirror/commands";
-import { Facet, StateEffect, StateField } from "@codemirror/state";
+import {
+  EditorState,
+  Facet,
+  StateEffect,
+  StateField,
+  Transaction,
+} from "@codemirror/state";
 import { Decoration, WidgetType } from "@codemirror/view";
 import { fenceInfo } from "./code-fence-extension.js";
 import { providePreviewRanges } from "./preview-ranges.js";
-import { sourcePreviewExit, sourcePreviewExitHandlers } from "./source-mode.js";
+import {
+  sourceModeExitChanges,
+  sourcePreviewExit,
+  sourcePreviewExitHandlers,
+} from "./source-mode.js";
 import { saveAction } from "./save-boundary.js";
 import { wirePreviewReorder } from "./preview-reorder.js";
 import { securityCardOrdering } from "./security-card-order.js";
@@ -22,6 +32,7 @@ import {
   parseSecurityBlock,
   safeSecurityUrl,
   serializeSecurityBlock,
+  sortSecurityRecords,
   SECURITY_LIMITS,
 } from "./security-model.js";
 import {
@@ -228,6 +239,17 @@ const securitySource = StateField.define({
       : null;
   },
 });
+
+// Prefer address/path boundaries before splitting a long identifier mid-word.
+// WBR changes only wrapping; textContent and clipboard values stay byte-exact.
+function setWrappingText(element, text) {
+  const chunks = text.split(/(?<=[@./_-])/u);
+  element.replaceChildren();
+  chunks.forEach((chunk, index) => {
+    if (index) element.append(element.ownerDocument.createElement("wbr"));
+    element.append(element.ownerDocument.createTextNode(chunk));
+  });
+}
 
 function row(
   document,
@@ -1701,6 +1723,7 @@ class SecurityBlockWidget extends WidgetType {
           canonicalBody.length + extra <= SECURITY_LIMITS.maxBodyLength
         );
       };
+      let hasRowCreationMenu = false;
       section.fields.forEach((field, fieldIndex) => {
         const label = field.label || "Row";
         const fieldReadOnly = this.readOnly;
@@ -1744,7 +1767,7 @@ class SecurityBlockWidget extends WidgetType {
           partTitle.type = "button";
           partTitle.className = "cm-aic-security-section-title";
           applyUiComponent(partTitle, "field", [], "label");
-          partTitle.textContent = field.label;
+          setWrappingText(partTitle, field.label);
           partTitle.title = field.label;
           partTitle.setAttribute("aria-label", "Copy " + label + " label");
           const titleStatus = document.createElement("span");
@@ -1802,7 +1825,7 @@ class SecurityBlockWidget extends WidgetType {
                     : templateLabel.toLowerCase() + " row";
                 return {
                   label: `Add ${rowName} after ${label}`,
-                  text: `${templateLabel} row`,
+                  text: id === "blank" ? templateLabel : `${templateLabel} row`,
                   icon: "add-row",
                   run: () => this.addRow(view, sectionIndex, fieldIndex, id),
                   disabled: !enabled,
@@ -1969,9 +1992,12 @@ class SecurityBlockWidget extends WidgetType {
           );
           output.element.dataset.aicFieldPart = String(partIndex);
           output.element.dataset.aicPartKind = part.kind;
+          if (part.kind === "text" && stored)
+            setWrappingText(output.content, display);
           if (stored && ["secret", "one-time", "used"].includes(part.kind)) {
             output.content.dataset.aicProtected = "true";
             output.content.dataset.aicIcon = "lock";
+            if (part.kind === "secret") output.content.textContent = "";
           }
           output.content.title = stateful
             ? part.kind === "used"
@@ -2110,6 +2136,7 @@ class SecurityBlockWidget extends WidgetType {
           // separate visual row. Menus remain independently positioned.
           if (lastPartActions) lastPartActions.append(fieldActions);
           else composite.append(fieldActions);
+          hasRowCreationMenu ||= !section.readOnly && !field.readOnly;
         }
         registerField(composite, field, fieldIndex, {
           label: field.label,
@@ -2117,7 +2144,9 @@ class SecurityBlockWidget extends WidgetType {
         });
         group.append(composite);
       });
-      if (!this.readOnly) {
+      // A populated row already offers both Row and Section in its trailing +.
+      // Keep the footer only where there is no editable row to continue from.
+      if (!this.readOnly && (isProperties || !hasRowCreationMenu)) {
         const rowMenu = createSecurityAddMenu(
           document,
           "Add row to " + (section.label || "section"),
@@ -2410,6 +2439,46 @@ function makeBlockExtension(
     const from = state.field(securitySource);
     return format.blocks(state).find((block) => block.from === from) ?? null;
   });
+  const sortChanges = (state, from = null) => {
+    if (state.readOnly) return [];
+    return securityBlocks(state).flatMap((block) => {
+      if (
+        (from != null && block.from !== from) ||
+        !block.closed ||
+        block.unsupportedSyntax
+      )
+        return [];
+      const insert = sortSecurityRecords(block.body, block);
+      return insert === block.body
+        ? []
+        : [{ from: block.bodyFrom, to: block.bodyTo, insert }];
+    });
+  };
+  const sortOnSourceExit = EditorState.transactionFilter.of((transaction) => {
+    const from = transaction.startState.field(securitySource, false);
+    if (
+      from == null ||
+      transaction.startState.readOnly ||
+      transaction.annotation(Transaction.addToHistory) === false ||
+      (!transaction.selection &&
+        !transaction.effects.some((effect) => effect.is(sourcePreviewExit)))
+    )
+      return transaction;
+    const next = transaction.state.field(securitySource, false);
+    const mappedFrom = transaction.changes.mapPos(from, -1);
+    if (next === undefined || next === mappedFrom) return transaction;
+    const changes = sortChanges(transaction.state, mappedFrom);
+    return changes.length
+      ? [
+          transaction,
+          {
+            changes,
+            sequential: true,
+            annotations: [saveAction.of(true), isolateHistory.of("full")],
+          },
+        ]
+      : transaction;
+  });
   return [
     securitySource,
     securityFilters,
@@ -2420,6 +2489,9 @@ function makeBlockExtension(
     field,
     ...(cardOrdering ? [cardOrdering.extension] : []),
     exitHandler,
+    ...(format === securityFormat
+      ? [sortOnSourceExit, sourceModeExitChanges.of(sortChanges)]
+      : []),
   ];
 }
 

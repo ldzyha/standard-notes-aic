@@ -310,7 +310,7 @@ describe("domain Properties view", () => {
     expect(onChange).not.toHaveBeenCalled();
     expect(await component.finishEditing()).toBe(true);
     expect(onSave).not.toHaveBeenCalled();
-    expect(parent.querySelector(".cm-aic-security")?.outerHTML).toContain(
+    expect(parent.querySelector(".cm-aic-security")?.textContent).toContain(
       "new@example.com",
     );
   });
@@ -342,7 +342,7 @@ describe("domain Properties view", () => {
     );
     expect(await component.finishEditing()).toBe(true);
     expect(component.editing).toBe(false);
-    expect(parent.querySelector(".cm-aic-security")?.outerHTML).toContain(
+    expect(parent.querySelector(".cm-aic-security")?.textContent).toContain(
       "latest@example.com",
     );
     expect(onSave.mock.calls.map(([text]) => text)).toEqual([first, latest]);

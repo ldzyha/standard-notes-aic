@@ -147,7 +147,7 @@
     },
     {
       "id": "field",
-      "purpose": "Labelled value/control unit with validation, masking, independently typed parts, help, error, and accessible action relationships. Composite AIC rows keep an intrinsic bounded label beside flexible value parts, use compact lock copy targets for protected values, and attach creation controls to the final part; unlabelled rows omit the label track.",
+      "purpose": "Labelled value/control unit with validation, masking, independently typed parts, help, error, and accessible action relationships. Composite AIC rows give labels and typed values natural width, wrap whole items before breaking long text, use compact lock-only password copy targets, and attach creation controls to the final part. Short card/TOTP values stay intact; unlabelled rows omit the label and coarse-pointer controls retain 44 px targets.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "bem": {
         "block": "aic-field",

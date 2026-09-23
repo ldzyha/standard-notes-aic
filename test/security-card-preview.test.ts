@@ -41,6 +41,22 @@ afterEach(() => {
 });
 
 describe("compact card preview", () => {
+  it("wraps identifiers at readable boundaries without changing copied text", () => {
+    const label = "staging-007.example.commercecloud.test";
+    const value = "longer.address1907@example.test";
+    const { host, onCopy } = fixture(`${label} | ${value}`);
+    const title = control(host, `Copy ${label} label`);
+    const content = control(host, `Copy ${label} value`);
+    expect(title.textContent).toBe(label);
+    expect(content.textContent).toBe(value);
+    expect(title.querySelector("wbr")).not.toBeNull();
+    expect(content.querySelector("wbr")).not.toBeNull();
+    title.click();
+    expect(onCopy).toHaveBeenLastCalledWith(label, `${label} label`);
+    content.click();
+    expect(onCopy).toHaveBeenLastCalledWith(value, label);
+  });
+
   it("renders a masked card number, independent text and secret parts with separate copy actions", () => {
     const { host, onCopy } = fixture(
       `person@example.invalid _| ${number} | 09/28 *| ${cvv}`,
@@ -55,7 +71,11 @@ describe("compact card preview", () => {
     expect(parts).toHaveLength(3);
     expect(card!.textContent).toContain("•••• 1234");
     expect(card!.textContent).toContain("09/28");
-    expect(card!.textContent).toContain("•••");
+    expect(
+      card!.querySelector(
+        '[data-aic-part-kind="secret"] [data-aic-icon="lock"]',
+      ),
+    ).not.toBeNull();
     expect(card!.innerHTML).not.toContain(number);
     expect(card!.innerHTML).not.toContain("4242");
     expect(card!.innerHTML).not.toContain(cvv);
@@ -130,7 +150,7 @@ describe("compact card preview", () => {
     const protectedCopy = card.querySelector<HTMLButtonElement>(
       '.cm-aic-security-value[data-aic-protected="true"]',
     )!;
-    expect(protectedCopy.textContent).toBe("••••••");
+    expect(protectedCopy.textContent).toBe("");
     expect(protectedCopy.dataset.aicIcon).toBe("lock");
     expect(protectedCopy.getAttribute("aria-label")).toBe(
       "Copy Password secret 1",
