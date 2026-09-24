@@ -1,19 +1,19 @@
-# Chrome Web Store listing draft / Чернетка сторінки Chrome Web Store
+# Chrome Web Store listing / Сторінка Chrome Web Store
 
 [English](#english) · [Українська](#українська)
 
 ## English
 
-### Saved dashboard status — September 24, 2026
+### Submission status — September 24, 2026
 
-[Chrome Web Store draft](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/listing)
-ID: `mokndlkbkhnemhhcahddhdgihgdckbhp`. **Not submitted for review.**
+[Chrome Web Store status](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/status)
+ID: `mokndlkbkhnemhhcahddhdgihgdckbhp`. **Pending review; not published.**
 
 - Developer registration is complete; the one-time **US$5** fee was paid.
   Public publisher: **AIC**. The owner declared **Non-trader**.
 - Contact: **leonid@dzyha.com**, **verified** in the reloaded publisher dashboard.
   Saved homepage: [GitHub browser project](https://github.com/ldzyha/standard-notes-aic/tree/main/browser); support: the repository's Issues page below.
-- Package UI confirms **Draft 0.9.3**, six permissions and no `activeTab`; the
+- Before submission, the package UI confirmed **Draft 0.9.3**, six permissions and no `activeTab`; the
   extension is not published. The **0.9.3 ZIP** was uploaded. A combined English/Ukrainian description of
   **3,026 characters** was saved. Category: **Workflow & Planning**; interface
   language: **English**. The icon and promo tile were uploaded and saved.
@@ -24,13 +24,17 @@ ID: `mokndlkbkhnemhhcahddhdgihgdckbhp`. **Not submitted for review.**
 - Distribution is **free**, **public** and available in **all regions**; the
   dashboard defaults were confirmed. English/Ukrainian reviewer steps were saved.
 
-Both screenshots were uploaded and saved. The dashboard shows **Item saved**,
-and **Submit for review** is enabled. **No review submission has been made.**
+Both screenshots were uploaded and saved. On September 24, 2026 at **14:38 UTC**,
+Chrome Web Store confirmed submission with **Your extension was submitted for
+review** and **Item submitted**. The status page shows **Pending review**.
+**Publish automatically after passed review** remained enabled when submitted.
+Publication awaits Google's approval; submission is not approval.
 
-Installed-Chrome acceptance remains a separate internal check. The current
-automation environment blocks `chrome://extensions` by URL policy; native
-installation and acceptance checks require an ordinary user-controlled Chrome
-session. The synthetic-host listing captures do not verify those native checks.
+The owner reported that the manual Chrome 0.9.3 checklist works, explicitly
+confirming Lock across two panels and import/export. The exact Chrome version,
+OS and export type were not supplied; [verification scope](VERIFICATION.md)
+records these limits. This owner report is separate from the synthetic-host
+listing captures and does not establish independent or automated acceptance.
 The GitHub browser-project homepage is saved in Chrome Web Store and confirmed
 after reloading the dashboard. Its rendered README links directly to the English
 and Ukrainian privacy policies, providing access within one click.
@@ -38,11 +42,12 @@ No website deployment is needed. Existing 0.9.2 release assets remain unchanged.
 
 ### Release and links
 
-Draft for candidate **AIC — Page notes 0.9.3**. The published baseline is
+Submitted candidate **AIC — Page notes 0.9.3**, pending review. The published baseline is
 0.9.2 in the [46.0.2 release](https://github.com/ldzyha/standard-notes-aic/releases/tag/v46.0.2).
 The uploaded 0.9.3 candidate removes redundant `activeTab` permission. Its ZIP
-checksum, manifest and bundled files were checked locally; installed-Chrome
-acceptance remains outstanding. This document does not confirm store approval.
+checksum, manifest and bundled files were checked locally. The manual Chrome
+owner report is recorded above. Store approval and store installation/update
+checks remain separate.
 
 - Candidate package: `aic-browser-chromium-0.9.3.zip` and its matching `.sha256`.
 - [Public privacy policy](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/PRIVACY.md).
@@ -140,9 +145,9 @@ unlock it to check persistence. Try Import on a public text page, granting acces
 only to that site; try explicit Copy/Paste and Lock. No reviewer account or server
 credentials are needed.
 
-Record installed-Chrome acceptance in [VERIFICATION.md](VERIFICATION.md). Existing
-renderer checks do not establish real permission-prompt, clipboard, worker,
-restart and Lock behavior in an installed Chrome package.
+The manual Chrome owner report and its limits are recorded in
+[VERIFICATION.md](VERIFICATION.md). Earlier renderer checks do not independently
+establish real permission-prompt, clipboard, worker, restart and Lock behavior.
 
 The [440 × 280 promo tile](store-assets/small-promo-440x280.png) and extension
 icon are uploaded and saved; an [editable SVG](store-assets/small-promo-440x280.svg)
@@ -162,17 +167,17 @@ one description without claiming a Ukrainian interface.
 
 ## Українська
 
-### Збережений стан панелі — 24 вересня 2026
+### Стан подання — 24 вересня 2026
 
-[Чернетка Chrome Web Store](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/listing)
-ID: `mokndlkbkhnemhhcahddhdgihgdckbhp`. **На перевірку не подано.**
+[Стан Chrome Web Store](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/status)
+ID: `mokndlkbkhnemhhcahddhdgihgdckbhp`. **Pending review — очікує перевірки; не опубліковано.**
 
 - Реєстрацію розробника завершено; одноразовий внесок **5 доларів США** сплачено.
   Публічне ім’я видавця: **AIC**. Власник заявив статус **Non-trader**.
 - Контакт: **leonid@dzyha.com**, **підтверджений** у перезавантаженій панелі
   видавця. Збережена домашня сторінка: [браузерний проєкт на GitHub](https://github.com/ldzyha/standard-notes-aic/tree/main/browser); підтримка — Issues
   репозиторію за посиланням нижче.
-- Панель пакета підтверджує **Draft 0.9.3**, шість дозволів і відсутність
+- До подання панель пакета підтвердила **Draft 0.9.3**, шість дозволів і відсутність
   `activeTab`; розширення не опубліковано. **ZIP 0.9.3** завантажено. Збережено спільний англійський/український опис на
   **3 026 символів**. Категорія: **Workflow & Planning**; мова інтерфейсу:
   **English**. Іконку та промоплитку завантажено й збережено.
@@ -183,14 +188,17 @@ ID: `mokndlkbkhnemhhcahddhdgihgdckbhp`. **На перевірку не пода�
 - Розповсюдження **безкоштовне**, **публічне**, в **усіх регіонах**; типові
   налаштування панелі підтверджено. Двомовні кроки для рецензента збережено.
 
-Обидва скриншоти завантажено й збережено. Панель показує **Item saved**,
-кнопка **Submit for review** доступна. **На перевірку ще не подано.**
+Обидва скриншоти завантажено й збережено. **24 вересня 2026 року о 14:38 UTC**
+Chrome Web Store підтвердив подання повідомленнями **Your extension was submitted
+for review** та **Item submitted**. Сторінка стану показує **Pending review —
+очікує перевірки**. Під час подання залишено ввімкненою опцію **Publish automatically
+after passed review**. Публікація очікує схвалення Google; подання не є схваленням.
 
-Приймання встановленого Chrome-пакета залишається окремою внутрішньою перевіркою.
-Поточне середовище автоматизації блокує `chrome://extensions` політикою URL;
-встановлення та приймання потрібно виконати у звичайній сесії Chrome під
-керуванням користувача. Зображення для магазину із синтетичним хостом не
-підтверджують ці перевірки встановленого розширення.
+Власник повідомив про успішну ручну перевірку Chrome 0.9.3, явно підтвердивши
+Lock двох панелей та імпорт/експорт. Точну версію Chrome, ОС і тип експорту
+не зазначено; ці межі зафіксовано в [журналі перевірок](VERIFICATION.uk.md).
+Повідомлення власника відокремлене від зображень із синтетичним хостом і не є
+незалежним чи автоматизованим прийманням.
 GitHub-сторінку браузерного проєкту збережено в Chrome Web Store й перевірено
 після перезавантаження панелі. Її відображений README має прямі посилання на
 англійську й українську політики приватності — доступ за один перехід.
@@ -198,11 +206,12 @@ GitHub-сторінку браузерного проєкту збережено
 
 ### Випуск і посилання
 
-Чернетка для кандидата **AIC — Page notes 0.9.3**. Опублікована базова версія —
+Подано кандидата **AIC — Page notes 0.9.3**; він очікує перевірки. Опублікована базова версія —
 0.9.2 у [випуску 46.0.2](https://github.com/ldzyha/standard-notes-aic/releases/tag/v46.0.2).
 Завантажений кандидат 0.9.3 прибирає зайвий дозвіл `activeTab`. Контрольну суму,
-маніфест і файли ZIP перевірено локально; приймання встановленого Chrome-пакета
-ще не завершено. Це не підтвердження схвалення.
+маніфест і файли ZIP перевірено локально. Вище записано ручну перевірку Chrome
+зі слів власника. Схвалення магазину й перевірки магазинного встановлення та
+оновлення залишаються окремими етапами.
 
 - Пакет кандидата: `aic-browser-chromium-0.9.3.zip` та відповідний `.sha256`.
 - [Публічна політика приватності](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/PRIVACY.md).
@@ -300,9 +309,10 @@ AIC обробляє дані локально. Не вибирайте «нем
 спробуйте Import, надаючи доступ лише цьому сайту; перевірте явні Copy/Paste і
 Lock. Тестового акаунта чи серверного пароля не потрібно.
 
-Запишіть приймання встановленого Chrome-пакета у [VERIFICATION.md](VERIFICATION.md).
-Перевірки редактора не доводять роботу справжніх запитів дозволу, буфера, worker,
-перезапуску та Lock у встановленому розширенні.
+Ручну перевірку Chrome зі слів власника та її межі записано у
+[VERIFICATION.uk.md](VERIFICATION.uk.md). Попередні перевірки редактора не
+підтверджують незалежно роботу справжніх запитів дозволу, буфера, worker,
+перезапуску та Lock.
 
 [Промоплитку 440 × 280](store-assets/small-promo-440x280.png) та іконку розширення
 завантажено й збережено; [редагований SVG](store-assets/small-promo-440x280.svg)

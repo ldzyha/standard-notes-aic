@@ -11,11 +11,12 @@ awaits CAPTCHA completion and is not confirmed published. Automatic publishing
 is prepared, but `VSCE_PAT` is absent. The attempted Azure DevOps credential setup
 is blocked because no Azure subscription is accessible for a new organization. See
 [the bilingual automation guide](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md).
-Chrome Web Store **0.9.3** is a saved draft: the ZIP, listing and screenshots are
-saved, the contact email is verified, and **Submit for review** is enabled.
-It has **not been submitted or published**. Installed-Chrome acceptance remains
-pending; see the
-[current draft record](browser/STORE_LISTING.md). Edge submission is unconfirmed.
+Chrome Web Store **0.9.3** was submitted on **September 24, 2026 at 14:38 UTC**;
+its [status is Pending review](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/status).
+Automatic publication after approval is enabled. It is **not published**.
+The owner reported a manual Chrome checklist pass, explicitly confirming
+Lock across two panels and import/export; see the [record and limits](browser/VERIFICATION.md).
+Edge submission is unconfirmed.
 The experimental public GitHub baseline remains **0.9.2**
 (`aic-browser-chromium-0.9.2.zip` in release **46.0.2**); those assets are unchanged.
 Firefox and Mullvad are outside this plan.
@@ -43,10 +44,10 @@ leaves the source unchanged.
   and [`browser/manifest.json`](browser/manifest.json), verify SHA-256 values, and
   inspect the final archives. `manifest.json` must be at the ZIP root, and
   `THIRD_PARTY_NOTICES.md` must contain all required dependency notices. A stale
-  ZIP is not automatically the final package. The existing Edge packaged smoke
-  does not replace the outstanding **installed Chrome package** verification. Do
-  not submit the browser extension until that verification and the release gates
-  are complete. [Chrome package preparation](https://developer.chrome.com/docs/webstore/prepare),
+  ZIP is not automatically the final package. The owner-reported Chrome 0.9.3
+  manual check and its limits are recorded in [VERIFICATION](browser/VERIFICATION.md).
+  Earlier Edge smoke does not establish current Edge acceptance; each target
+  and future package still requires its own release gates. [Chrome package preparation](https://developer.chrome.com/docs/webstore/prepare),
   [Edge ZIP package](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
 - **Prepare public policy and store pages.** Update
   [`browser/PRIVACY.md`](browser/PRIVACY.md) and
@@ -94,15 +95,14 @@ this organization setup.
 
 #### Chrome Web Store
 
-1. Use the final Chromium ZIP after Chrome verification. **Load unpacked** from
-   `dist-browser/chromium/` is only a development test method.
-2. Open the [existing 0.9.3 draft](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/listing).
-   Its ZIP is uploaded; do not create a duplicate item.
-3. Review the saved **Store listing**, **Privacy practices**, and **Distribution**.
-   Complete installed-Chrome acceptance before submission.
-4. Select **Submit for Review** only after the gates above pass. After approval,
-   verify **0.9.3** and install it
-   from the store in a clean Chrome profile. Upload alone is not publication.
+1. The final **0.9.3** ZIP is uploaded; the manual Chrome owner report is recorded
+   in [VERIFICATION](browser/VERIFICATION.md).
+2. Follow the [existing item's status](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/status);
+   do not create a duplicate item or repeat the pending submission.
+3. The submission is **Pending review**. Automatic publication after approval is
+   enabled; no approval or publication is confirmed yet.
+4. After approval, verify **0.9.3** and install it from the store in a clean Chrome
+   profile. Verify updates separately. Submission alone is not publication.
    [Official guide](https://developer.chrome.com/docs/webstore/publish/).
 
 #### Microsoft Edge Add-ons
@@ -150,11 +150,11 @@ See [Local data](browser/README.md).
 підготовлено, але `VSCE_PAT` відсутній. Налаштування доступу через Azure DevOps
 зупинилося: акаунт не має доступної Azure subscription для нової організації. Дивіться
 [двомовну інструкцію](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md#українська).
-У Chrome Web Store збережено чернетку **0.9.3**: ZIP, опис і скриншоти збережені,
-контактний email підтверджений, кнопка **Submit for review** доступна.
-Її **не подано на перевірку й не опубліковано**. Приймання встановленого Chrome-пакета
-ще не завершено;
-дивіться [актуальний стан чернетки](browser/STORE_LISTING.md#українська).
+До Chrome Web Store подано **0.9.3** **24 вересня 2026 року о 14:38 UTC**;
+[стан — Pending review, очікує перевірки](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/status).
+Автоматичну публікацію після схвалення ввімкнено. Розширення **не опубліковано**.
+Власник повідомив про успішну ручну перевірку Chrome, явно підтвердивши Lock
+двох панелей та імпорт/експорт; [запис і межі перевірки](browser/VERIFICATION.uk.md).
 Подання до Edge не підтверджено. Публічна експериментальна версія GitHub лишається
 **0.9.2** (`aic-browser-chromium-0.9.2.zip` у випуску **46.0.2**); ці файли не змінено.
 Firefox і Mullvad не входять у цей план.
@@ -178,7 +178,7 @@ clipboard лишає source без змін.
 
 ## Перед початком
 
-- **Завершіть випускні перевірки.** Звірте версії у `../aic-notes/package.json` і [`browser/manifest.json`](browser/manifest.json), SHA-256 та вміст фінальних архівів. У ZIP `manifest.json` має лежати в корені; `THIRD_PARTY_NOTICES.md` має містити всі потрібні повідомлення про залежності. Старий ZIP, що залишився в папці, не є фінальним автоматично. Наявний Edge packaged smoke не замінює ще не підтверджену перевірку **встановленого Chrome-пакета**. Не подавайте браузерне розширення, доки ця перевірка й релізні умови не виконані. [Chrome: підготовка пакета](https://developer.chrome.com/docs/webstore/prepare), [Edge: пакет ZIP](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
+- **Завершіть випускні перевірки.** Звірте версії у `../aic-notes/package.json` і [`browser/manifest.json`](browser/manifest.json), SHA-256 та вміст фінальних архівів. У ZIP `manifest.json` має лежати в корені; `THIRD_PARTY_NOTICES.md` має містити всі потрібні повідомлення про залежності. Старий ZIP, що залишився в папці, не є фінальним автоматично. Ручну перевірку Chrome 0.9.3 зі слів власника та її межі записано у [VERIFICATION](browser/VERIFICATION.uk.md). Попередній Edge smoke не підтверджує приймання поточної версії Edge; кожен браузер і майбутній пакет потребують власних релізних перевірок. [Chrome: підготовка пакета](https://developer.chrome.com/docs/webstore/prepare), [Edge: пакет ZIP](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
 - **Підготуйте публічну політику й сторінки.** Оновіть [`browser/PRIVACY.md`](browser/PRIVACY.md) та [`browser/README.md`](browser/README.md): вони мають описувати випущену версію, а не лише development build. [Публічну політику](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/PRIVACY.md) перевірено без входу в акаунт 24 вересня 2026 року; адресу збережено в чернетці Chrome. [GitHub-сторінка продукту](https://github.com/ldzyha/standard-notes-aic/tree/main/browser) має прямі посилання на обидві мовні версії політики в README. Скриншоти, опис, контакт підтримки та інструкції рецензентам збережені; [межі цих матеріалів](browser/STORE_LISTING.md#українська) описано окремо. Пояснення доступу до вкладки, ручного імпорту, буфера обміну, локального шифрування й відсутності синхронізації мають збігатися з поведінкою продукту. [Chrome: privacy practices](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy), [Edge: privacy](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
 - **Підготуйте три облікові записи.** Для VS Code перевірте право керувати видавцем `ldzyha` через Microsoft/Azure DevOps; не створюйте іншого ID для того самого розширення. Chrome Web Store вимагає одноразову реєстраційну плату та двоетапну перевірку; суму перевірте перед оплатою. Для Edge потрібен акаунт програми в Partner Center; Microsoft вказує, що реєстрація безкоштовна. Не записуйте паролі, токени чи коди відновлення в репозиторій. [VS Code](https://code.visualstudio.com/api/working-with-extensions/publishing-extension), [Chrome](https://developer.chrome.com/docs/webstore/register), [Edge](https://learn.microsoft.com/en-us/microsoft-edge/extensions-chromium/publish/create-dev-account).
 
@@ -199,10 +199,10 @@ clipboard лишає source без змін.
 
 ### Chrome Web Store
 
-1. Візьміть фінальний Chromium ZIP після перевірки в Chrome; **Load unpacked** із `dist-browser/chromium/` — лише спосіб розробницького тестування.
-2. Відкрийте [наявну чернетку 0.9.3](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/listing). ZIP уже завантажено; не створюйте дублікат.
-3. Перегляньте збережені **Store listing**, **Privacy practices**, **Distribution**. До подання завершіть приймання встановленого Chrome-пакета.
-4. Натисніть **Submit for Review** лише після виконання умов вище. Після схвалення звірте версію **0.9.3** і встановіть із магазину в чистому профілі Chrome. Завантаження файлу саме по собі ще не означає публікації. [Офіційна інструкція](https://developer.chrome.com/docs/webstore/publish/).
+1. Фінальний ZIP **0.9.3** завантажено; ручну перевірку Chrome зі слів власника записано у [VERIFICATION](browser/VERIFICATION.uk.md).
+2. Стежте за [станом наявного запису](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/status); не створюйте дублікат і не повторюйте подання, що очікує перевірки.
+3. Стан подання — **Pending review, очікує перевірки**. Автоматичну публікацію після схвалення ввімкнено; схвалення й публікацію ще не підтверджено.
+4. Після схвалення звірте версію **0.9.3** і встановіть із магазину в чистому профілі Chrome. Оновлення перевірте окремо. Саме подання не означає публікації. [Офіційна інструкція](https://developer.chrome.com/docs/webstore/publish/).
 
 ### Microsoft Edge Add-ons
 

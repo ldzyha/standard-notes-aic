@@ -4,8 +4,21 @@
 
 Status: **0.9.3 experimental submission candidate**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
-using one Chromium Manifest V3 package. All test passphrases, notes and clipboard
-substitutes are synthetic. No user profile or real notes are part of these tests.
+using one Chromium Manifest V3 package. Agent-run automated and renderer checks
+use synthetic passphrases, notes and clipboard substitutes; they do not use the
+owner's profile or notes. The owner's manual report is recorded separately below.
+
+## 0.9.3 — owner-reported Chrome check
+
+On September 24, 2026, after the manual Chrome checklist, the owner reported
+that everything works and explicitly confirmed that **Lock blocks both panels**
+and **import/export work**. This is a manual owner-reported pass for the installed
+0.9.3 candidate, not an independently observed or automated result.
+
+The exact Chrome version, operating system and export type were not provided.
+The general confirmation is not a separate recorded result for every acceptance
+matrix row. Current Edge acceptance and store installation/update checks remain
+separate; this report does not establish those outcomes.
 
 ## 0.9.3 — Chrome Web Store preparation
 
@@ -556,10 +569,10 @@ the changes and independently ran the complete suite, builds and Edge smoke.
 
 ## Current packaged-runtime acceptance matrix
 
-| Target | Existing evidence                                                                                                                                                                                               | Remaining acceptance checks                                                                                                                                                |
-| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Edge   | 0.1.4 genuine worker/sidebar: 12 packaged smoke checks passed, including page/domain encrypted save, immediate Done, restart/unlock/reopen, sender isolation and CSP. Renderer layout/menu/caret checks passed. | Actual user-driven site-access prompt/import, clipboard and cross-panel Lock.                                                                                              |
-| Chrome | 0.1.4 real-renderer layout, domain preview and caret checks passed; packaged automation did not establish a running worker.                                                                                     | Confirm current packaged worker/sidebar, save/restart, permissions, clipboard and Lock. An automation limitation is not a pass or evidence that manual installation fails. |
+| Target | Existing evidence                                                                                                                                                                                               | Remaining acceptance checks                                                                                                                              |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Edge   | 0.1.4 genuine worker/sidebar: 12 packaged smoke checks passed, including page/domain encrypted save, immediate Done, restart/unlock/reopen, sender isolation and CSP. Renderer layout/menu/caret checks passed. | Actual user-driven site-access prompt/import, clipboard and cross-panel Lock.                                                                            |
+| Chrome | 0.9.3 manual owner-reported checklist pass on September 24, 2026; explicitly confirmed Lock across two panels and working import/export. Earlier packaged automation did not establish a running worker.        | Exact Chrome version, OS, export type and individual checklist outcomes were not supplied. Store installation and updates require separate verification. |
 
 The host renderer runner is `scripts/browser-panel-regression.mjs`; the installed
 Chromium package runner is `scripts/browser-extension-regression.mjs`; lifecycle
@@ -579,8 +592,9 @@ are excluded by the manifest; no mobile-browser support is claimed.
 
 Before production distribution, check the current artifact in **both Chrome and
 Edge**, including real clipboard/site-permission behavior, then separately verify
-store distribution and upgrades. There was no store submission, automatic update,
-or installation into the user's profile during this work.
+store distribution and upgrades. Agent-run checks did not install into the owner's
+profile; the later owner-reported Chrome check is recorded above. Current store
+submission status is tracked in [STORE_LISTING.md](STORE_LISTING.md).
 
 See README.md for installation and dependency-ordered release gates, and PRIVACY.md
 for data/permission handling. The shared adaptive workspace remains a proposal in

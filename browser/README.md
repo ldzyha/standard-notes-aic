@@ -59,8 +59,11 @@ Removed the redundant `activeTab` permission. Page imports still request access
 to the selected origin after an explicit click and use `scripting` only after
 approval. The bilingual privacy policy now includes Chrome's Limited Use
 statement. Store registration and listing assets are complete; the 0.9.3 draft
-is saved. Installed-Chrome acceptance and review submission remain pending.
-See the [current store status](STORE_LISTING.md).
+is saved. The owner reported that the manual Chrome 0.9.3 checklist works,
+explicitly confirming Lock across two panels and import/export. The exact Chrome
+version, OS and export type were not supplied; see the [verification record](VERIFICATION.md).
+Submitted on September 24, 2026 at 14:38 UTC: **Pending review**, with automatic
+publication after approval enabled. It is not published; see the [current store status](STORE_LISTING.md).
 
 ## 0.9.2 — accordion layout and save feedback
 
