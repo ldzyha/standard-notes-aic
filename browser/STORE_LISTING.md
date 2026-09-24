@@ -12,7 +12,7 @@ ID: `mokndlkbkhnemhhcahddhdgihgdckbhp`. **Not submitted for review.**
 - Developer registration is complete; the one-time **US$5** fee was paid.
   Public publisher: **AIC**. The owner declared **Non-trader**.
 - Contact: **leonid@dzyha.com**, **verified** in the reloaded publisher dashboard.
-  Homepage: **https://dzyha.com/**; support: the repository's Issues page below.
+  Saved homepage: [GitHub browser project](https://github.com/ldzyha/standard-notes-aic/tree/main/browser); support: the repository's Issues page below.
 - Package UI confirms **Draft 0.9.3**, six permissions and no `activeTab`; the
   extension is not published. The **0.9.3 ZIP** was uploaded. A combined English/Ukrainian description of
   **3,026 characters** was saved. Category: **Workflow & Planning**; interface
@@ -31,13 +31,10 @@ Installed-Chrome acceptance remains a separate internal check. The current
 automation environment blocks `chrome://extensions` by URL policy; native
 installation and acceptance checks require an ordinary user-controlled Chrome
 session. The synthetic-host listing captures do not verify those native checks.
-The selected homepage currently lacks a direct AIC privacy link. Firebase Hosting
-serves release `e68a12` from August 21, 2026; the available site repository's
-`main` commit `d98d860` dates from April 15, 2026 and predates the live content.
-Do not deploy that stale checkout over the current site. No website deployment
-has been performed. These are not additional dashboard validation messages. The owner’s choice between retaining
-dzyha.com and temporarily using the GitHub browser-project homepage is pending;
-the saved homepage has not changed. Existing 0.9.2 release assets remain unchanged.
+The GitHub browser-project homepage is saved in Chrome Web Store and confirmed
+after reloading the dashboard. Its rendered README links directly to the English
+and Ukrainian privacy policies, providing access within one click.
+No website deployment is needed. Existing 0.9.2 release assets remain unchanged.
 
 ### Release and links
 
@@ -51,7 +48,7 @@ acceptance remains outstanding. This document does not confirm store approval.
 - [Public privacy policy](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/PRIVACY.md).
   Its URL returned HTTP 200 without authentication on September 24, 2026; the
   policy links to Ukrainian. A dedicated GitHub Pages privacy page is not configured.
-- [Product homepage](https://dzyha.com/).
+- [Product homepage](https://github.com/ldzyha/standard-notes-aic/tree/main/browser).
 - [Support](https://github.com/ldzyha/standard-notes-aic/issues).
 - Saved category: **Workflow & Planning**. The package's interface is English;
   bilingual listing text and documentation do not make the interface localized.
@@ -173,7 +170,7 @@ ID: `mokndlkbkhnemhhcahddhdgihgdckbhp`. **На перевірку не пода�
 - Реєстрацію розробника завершено; одноразовий внесок **5 доларів США** сплачено.
   Публічне ім’я видавця: **AIC**. Власник заявив статус **Non-trader**.
 - Контакт: **leonid@dzyha.com**, **підтверджений** у перезавантаженій панелі
-  видавця. Домашня сторінка: **https://dzyha.com/**; підтримка — Issues
+  видавця. Збережена домашня сторінка: [браузерний проєкт на GitHub](https://github.com/ldzyha/standard-notes-aic/tree/main/browser); підтримка — Issues
   репозиторію за посиланням нижче.
 - Панель пакета підтверджує **Draft 0.9.3**, шість дозволів і відсутність
   `activeTab`; розширення не опубліковано. **ZIP 0.9.3** завантажено. Збережено спільний англійський/український опис на
@@ -194,14 +191,10 @@ ID: `mokndlkbkhnemhhcahddhdgihgdckbhp`. **На перевірку не пода�
 встановлення та приймання потрібно виконати у звичайній сесії Chrome під
 керуванням користувача. Зображення для магазину із синтетичним хостом не
 підтверджують ці перевірки встановленого розширення.
-На вибраній домашній сторінці немає прямого посилання на приватність AIC.
-Firebase Hosting показує випуск `e68a12` від 21 серпня 2026 року; доступний
-коміт `main` репозиторію сайту `d98d860` датований 15 квітня 2026 року й старіший
-за поточний вміст сайту. Не публікуйте цей застарілий checkout поверх чинного
-сайту. Публікацію змін сайту не виконували. Це не додаткові повідомлення
-валідації панелі. Очікується вибір власника: лишити
-dzyha.com чи тимчасово використати GitHub-сторінку браузерного проєкту. Збережену
-домашню сторінку не змінено. Наявні файли випуску 0.9.2 не змінено.
+GitHub-сторінку браузерного проєкту збережено в Chrome Web Store й перевірено
+після перезавантаження панелі. Її відображений README має прямі посилання на
+англійську й українську політики приватності — доступ за один перехід.
+Публікація змін сайту не потрібна. Наявні файли випуску 0.9.2 не змінено.
 
 ### Випуск і посилання
 
@@ -215,7 +208,7 @@ dzyha.com чи тимчасово використати GitHub-сторінку
 - [Публічна політика приватності](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/PRIVACY.md).
   24 вересня 2026 року адреса повернула HTTP 200 без авторизації. Політика має
   посилання на українську версію; окрему сторінку приватності GitHub Pages не налаштовано.
-- [Сторінка продукту](https://dzyha.com/).
+- [Сторінка продукту](https://github.com/ldzyha/standard-notes-aic/tree/main/browser).
 - [Підтримка](https://github.com/ldzyha/standard-notes-aic/issues).
 - Збережена категорія: **Workflow & Planning**. Інтерфейс пакета англійський;
   двомовний опис і документація не означають локалізованого інтерфейсу.

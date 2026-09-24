@@ -13,8 +13,8 @@ is blocked because no Azure subscription is accessible for a new organization. S
 [the bilingual automation guide](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md).
 Chrome Web Store **0.9.3** is a saved draft: the ZIP, listing and screenshots are
 saved, the contact email is verified, and **Submit for review** is enabled.
-It has **not been submitted or published**. Installed-Chrome acceptance and a
-privacy-policy link from the selected homepage remain pending; see the
+It has **not been submitted or published**. Installed-Chrome acceptance remains
+pending; see the
 [current draft record](browser/STORE_LISTING.md). Edge submission is unconfirmed.
 The experimental public GitHub baseline remains **0.9.2**
 (`aic-browser-chromium-0.9.2.zip` in release **46.0.2**); those assets are unchanged.
@@ -53,8 +53,8 @@ leaves the source unchanged.
   [`browser/README.md`](browser/README.md) so they describe the released version.
   The [public privacy policy](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/PRIVACY.md)
   was verified without authentication on September 24, 2026 and is saved in the
-  Chrome draft. Make it reachable within one click from the selected homepage;
-  that link is still pending. The draft's screenshots, description, support contact
+  Chrome draft. The [GitHub product homepage](https://github.com/ldzyha/standard-notes-aic/tree/main/browser)
+  links to both policy languages directly in its README. The draft's screenshots, description, support contact
   and reviewer instructions are saved; see [their scope](browser/STORE_LISTING.md).
   Descriptions of tab access, deliberate import, clipboard use, local encryption,
   and the absence of synchronization must match the product.
@@ -99,7 +99,7 @@ this organization setup.
 2. Open the [existing 0.9.3 draft](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/listing).
    Its ZIP is uploaded; do not create a duplicate item.
 3. Review the saved **Store listing**, **Privacy practices**, and **Distribution**.
-   Complete installed-Chrome acceptance and the homepage privacy link before submission.
+   Complete installed-Chrome acceptance before submission.
 4. Select **Submit for Review** only after the gates above pass. After approval,
    verify **0.9.3** and install it
    from the store in a clean Chrome profile. Upload alone is not publication.
@@ -153,7 +153,7 @@ See [Local data](browser/README.md).
 У Chrome Web Store збережено чернетку **0.9.3**: ZIP, опис і скриншоти збережені,
 контактний email підтверджений, кнопка **Submit for review** доступна.
 Її **не подано на перевірку й не опубліковано**. Приймання встановленого Chrome-пакета
-та посилання на політику з вибраної домашньої сторінки ще очікують завершення;
+ще не завершено;
 дивіться [актуальний стан чернетки](browser/STORE_LISTING.md#українська).
 Подання до Edge не підтверджено. Публічна експериментальна версія GitHub лишається
 **0.9.2** (`aic-browser-chromium-0.9.2.zip` у випуску **46.0.2**); ці файли не змінено.
@@ -179,7 +179,7 @@ clipboard лишає source без змін.
 ## Перед початком
 
 - **Завершіть випускні перевірки.** Звірте версії у `../aic-notes/package.json` і [`browser/manifest.json`](browser/manifest.json), SHA-256 та вміст фінальних архівів. У ZIP `manifest.json` має лежати в корені; `THIRD_PARTY_NOTICES.md` має містити всі потрібні повідомлення про залежності. Старий ZIP, що залишився в папці, не є фінальним автоматично. Наявний Edge packaged smoke не замінює ще не підтверджену перевірку **встановленого Chrome-пакета**. Не подавайте браузерне розширення, доки ця перевірка й релізні умови не виконані. [Chrome: підготовка пакета](https://developer.chrome.com/docs/webstore/prepare), [Edge: пакет ZIP](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
-- **Підготуйте публічну політику й сторінки.** Оновіть [`browser/PRIVACY.md`](browser/PRIVACY.md) та [`browser/README.md`](browser/README.md): вони мають описувати випущену версію, а не лише development build. [Публічну політику](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/PRIVACY.md) перевірено без входу в акаунт 24 вересня 2026 року; адресу збережено в чернетці Chrome. Забезпечте доступ до неї за один перехід із вибраної домашньої сторінки — це ще не завершено. Скриншоти, опис, контакт підтримки та інструкції рецензентам збережені; [межі цих матеріалів](browser/STORE_LISTING.md#українська) описано окремо. Пояснення доступу до вкладки, ручного імпорту, буфера обміну, локального шифрування й відсутності синхронізації мають збігатися з поведінкою продукту. [Chrome: privacy practices](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy), [Edge: privacy](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
+- **Підготуйте публічну політику й сторінки.** Оновіть [`browser/PRIVACY.md`](browser/PRIVACY.md) та [`browser/README.md`](browser/README.md): вони мають описувати випущену версію, а не лише development build. [Публічну політику](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/PRIVACY.md) перевірено без входу в акаунт 24 вересня 2026 року; адресу збережено в чернетці Chrome. [GitHub-сторінка продукту](https://github.com/ldzyha/standard-notes-aic/tree/main/browser) має прямі посилання на обидві мовні версії політики в README. Скриншоти, опис, контакт підтримки та інструкції рецензентам збережені; [межі цих матеріалів](browser/STORE_LISTING.md#українська) описано окремо. Пояснення доступу до вкладки, ручного імпорту, буфера обміну, локального шифрування й відсутності синхронізації мають збігатися з поведінкою продукту. [Chrome: privacy practices](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy), [Edge: privacy](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
 - **Підготуйте три облікові записи.** Для VS Code перевірте право керувати видавцем `ldzyha` через Microsoft/Azure DevOps; не створюйте іншого ID для того самого розширення. Chrome Web Store вимагає одноразову реєстраційну плату та двоетапну перевірку; суму перевірте перед оплатою. Для Edge потрібен акаунт програми в Partner Center; Microsoft вказує, що реєстрація безкоштовна. Не записуйте паролі, токени чи коди відновлення в репозиторій. [VS Code](https://code.visualstudio.com/api/working-with-extensions/publishing-extension), [Chrome](https://developer.chrome.com/docs/webstore/register), [Edge](https://learn.microsoft.com/en-us/microsoft-edge/extensions-chromium/publish/create-dev-account).
 
 Створення **нової організації Azure DevOps** потребує активної Azure subscription;
@@ -201,7 +201,7 @@ clipboard лишає source без змін.
 
 1. Візьміть фінальний Chromium ZIP після перевірки в Chrome; **Load unpacked** із `dist-browser/chromium/` — лише спосіб розробницького тестування.
 2. Відкрийте [наявну чернетку 0.9.3](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/listing). ZIP уже завантажено; не створюйте дублікат.
-3. Перегляньте збережені **Store listing**, **Privacy practices**, **Distribution**. До подання завершіть приймання встановленого Chrome-пакета та додайте посилання на політику з домашньої сторінки.
+3. Перегляньте збережені **Store listing**, **Privacy practices**, **Distribution**. До подання завершіть приймання встановленого Chrome-пакета.
 4. Натисніть **Submit for Review** лише після виконання умов вище. Після схвалення звірте версію **0.9.3** і встановіть із магазину в чистому профілі Chrome. Завантаження файлу саме по собі ще не означає публікації. [Офіційна інструкція](https://developer.chrome.com/docs/webstore/publish/).
 
 ### Microsoft Edge Add-ons

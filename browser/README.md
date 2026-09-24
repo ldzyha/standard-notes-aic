@@ -58,7 +58,9 @@ Supported browser targets are desktop **Google Chrome and Microsoft Edge only**,
 Removed the redundant `activeTab` permission. Page imports still request access
 to the selected origin after an explicit click and use `scripting` only after
 approval. The bilingual privacy policy now includes Chrome's Limited Use
-statement. Store registration, listing assets and submission remain pending.
+statement. Store registration and listing assets are complete; the 0.9.3 draft
+is saved. Installed-Chrome acceptance and review submission remain pending.
+See the [current store status](STORE_LISTING.md).
 
 ## 0.9.2 — accordion layout and save feedback
 
