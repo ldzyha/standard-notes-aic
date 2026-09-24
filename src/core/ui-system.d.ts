@@ -20,7 +20,7 @@ export type UiModifiers = {
   toolbar: "compact" | "wrap";
   menu: "compact";
   notice: "info" | "success" | "warning" | "error";
-  field: "compact" | "invalid" | "masked" | "composite" | "unlabelled";
+  field: "compact" | "invalid" | "masked" | "composite" | "unlabelled" | "icon";
   card: "compact" | "security" | "properties" | "readonly" | "empty";
   tree: "compact" | "ancestors";
   context: "compact" | "empty" | "editing";

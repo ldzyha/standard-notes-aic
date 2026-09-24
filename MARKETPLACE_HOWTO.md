@@ -7,20 +7,22 @@
 **Status:** this is a plan for the first manual submissions, not a publication
 announcement. GitHub is the current release channel. Submission to VS Code
 Marketplace, Chrome Web Store, and Microsoft Edge Add-ons has not been confirmed.
-Browser release **0.9.0 is experimental**. Firefox and Mullvad are outside this
+Browser release **0.9.1 is experimental**. Firefox and Mullvad are outside this
 plan. Complete verification and store materials first, submit to each store
 separately, and verify installation after approval.
 
 | Destination            | Submission file                                         | Target version         |
 | ---------------------- | ------------------------------------------------------- | ---------------------- |
-| VS Code Marketplace    | `aic-notes-52.1.0.vsix`                                 | AIC Notes 52.1.0       |
-| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.9.0.zip` | AIC — Page notes 0.9.0 |
-| Microsoft Edge Add-ons | **the same** Chromium ZIP                               | AIC — Page notes 0.9.0 |
+| VS Code Marketplace    | `aic-notes-53.0.1.vsix`                                 | AIC Notes 53.0.1       |
+| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.9.1.zip` | AIC — Page notes 0.9.1 |
+| Microsoft Edge Add-ons | **the same** Chromium ZIP                               | AIC — Page notes 0.9.1 |
 
-These are **expected names**, not proof that a file is ready. Standard Notes AIC
-**44.1.0** and shared core **7.3.0** are coordinated with this release, but
-Standard Notes is not submitted to these stores. AIC Notes **52.1.0** and browser
-**0.9.0** use natural-width labels and values that wrap as complete items, compact
+These are **expected names**, not proof that a file is ready. This patch restores
+empty-password generation on narrow panels with wrapping options; existing values
+and read-only notes remain protected. Standard Notes AIC
+**45.0.1** and shared core **7.3.1** are coordinated with this release, but
+Standard Notes is not submitted to these stores. AIC Notes **53.0.1** and browser
+**0.9.1** use natural-width labels and values that wrap as complete items, compact
 lock-only password copy, a trailing `+` menu, and quiet row dividers. Leaving
 source edit sorts rows naturally by label within each section, preserving section
 order and exact values. They also use direct Mermaid Markdown editing with a live
@@ -69,12 +71,12 @@ leaves the source unchanged.
 
 #### VS Code Marketplace
 
-1. Take the **verified** `aic-notes-52.1.0.vsix` and checksum from
+1. Take the **verified** `aic-notes-53.0.1.vsix` and checksum from
    [AIC Notes Releases](https://github.com/ldzyha/aic-notes/releases).
 2. On the [Marketplace publisher page](https://marketplace.visualstudio.com/manage/publishers/),
    select `ldzyha` and upload the VSIX manually.
 3. Review the description and links, then complete the portal workflow.
-4. After publication, verify version **52.1.0** on `ldzyha.aic-notes` and install
+4. After publication, verify version **53.0.1** on `ldzyha.aic-notes` and install
    it from Extensions in a clean VS Code profile. A VSIX on GitHub supports manual
    installation but does **not** publish the extension to Marketplace.
    [Official guide](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
@@ -87,7 +89,7 @@ leaves the source unchanged.
    select **Add new item** and upload the ZIP.
 3. Complete **Store listing**, **Privacy practices**, and **Distribution**. Explain
    manifest permissions and provide only the verified privacy-policy URL.
-4. Select **Submit for Review**. After approval, verify **0.9.0** and install it
+4. Select **Submit for Review**. After approval, verify **0.9.1** and install it
    from the store in a clean Chrome profile. Upload alone is not publication.
    [Official guide](https://developer.chrome.com/docs/webstore/publish/).
 
@@ -98,7 +100,7 @@ leaves the source unchanged.
    **Create new extension** and upload the ZIP.
 3. Complete **Availability**, **Properties**, **Privacy**, **Store listings**, and
    certification notes. Verify markets, visibility, permissions, and policy URL.
-4. Submit for review. When the status becomes **In the store**, verify **0.9.0**
+4. Submit for review. When the status becomes **In the store**, verify **0.9.1**
    and install it from Edge Add-ons in a clean profile. Chrome submission does
    **not** publish to Edge.
    [Official guide](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
@@ -129,15 +131,17 @@ See [Local data](browser/README.md).
 
 ## Українська
 
-**Статус:** це план першого ручного подання, а не повідомлення про публікацію. Зараз канал випуску — GitHub; у VS Code Marketplace, Chrome Web Store та Microsoft Edge Add-ons подання ще не підтверджені. Браузерний випуск **0.9.0 експериментальний**. Firefox і Mullvad не входять у цей план. Рекомендація: спершу завершити перевірки та матеріали, потім подати кожен магазин окремо й перевірити встановлення після схвалення.
+**Статус:** це план першого ручного подання, а не повідомлення про публікацію. Зараз канал випуску — GitHub; у VS Code Marketplace, Chrome Web Store та Microsoft Edge Add-ons подання ще не підтверджені. Браузерний випуск **0.9.1 експериментальний**. Firefox і Mullvad не входять у цей план. Рекомендація: спершу завершити перевірки та матеріали, потім подати кожен магазин окремо й перевірити встановлення після схвалення.
 
 | Куди                   | Файл для подання                                        | Цільова версія         |
 | ---------------------- | ------------------------------------------------------- | ---------------------- |
-| VS Code Marketplace    | `aic-notes-52.1.0.vsix`                                 | AIC Notes 52.1.0       |
-| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.9.0.zip` | AIC — Page notes 0.9.0 |
-| Microsoft Edge Add-ons | **той самий** Chromium ZIP                              | AIC — Page notes 0.9.0 |
+| VS Code Marketplace    | `aic-notes-53.0.1.vsix`                                 | AIC Notes 53.0.1       |
+| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.9.1.zip` | AIC — Page notes 0.9.1 |
+| Microsoft Edge Add-ons | **той самий** Chromium ZIP                              | AIC — Page notes 0.9.1 |
 
-Це **очікувані назви**, не доказ готовності файлів. Standard Notes AIC **44.1.0** і спільне ядро **7.3.0** координуються з цим випуском, але Standard Notes не подається до цих магазинів. AIC Notes **52.1.0** та браузер **0.9.0** переносять назви й значення цілими елементами природної ширини. Пароль має компактну кнопку копіювання із замком, меню `+` йде після останнього значення, записи розділяє легка лінія. Вихід із редагування джерела сортує рядки за назвою в кожній секції, зберігаючи порядок секцій і точні значення. Mermaid редагується як Markdown-код із живим прев’ю, однаковою кнопкою Edit і масштабуванням лише у прев’ю. Акценти цитат, коротка центрована горизонтальна лінія та порожній текстовий рядок замість шаблону Account з’явилися у попередніх версіях. Попередній випуск браузера 0.4.0 додав Global Shared у зашифрованому сховищі поточного профілю. Це не синхронізація між застосунками й не реалізація майбутньої архітектури ключів або VS Code `global.aic`.
+Це **очікувані назви**, не доказ готовності файлів. Виправлення повертає генерацію
+для порожніх парольних полів у вузьких панелях з адаптивними параметрами; наявні
+значення й нотатки в режимі читання лишаються захищеними. Standard Notes AIC **45.0.1** і спільне ядро **7.3.1** координуються з цим випуском, але Standard Notes не подається до цих магазинів. AIC Notes **53.0.1** та браузер **0.9.1** переносять назви й значення цілими елементами природної ширини. Пароль має компактну кнопку копіювання із замком, меню `+` йде після останнього значення, записи розділяє легка лінія. Вихід із редагування джерела сортує рядки за назвою в кожній секції, зберігаючи порядок секцій і точні значення. Mermaid редагується як Markdown-код із живим прев’ю, однаковою кнопкою Edit і масштабуванням лише у прев’ю. Акценти цитат, коротка центрована горизонтальна лінія та порожній текстовий рядок замість шаблону Account з’явилися у попередніх версіях. Попередній випуск браузера 0.4.0 додав Global Shared у зашифрованому сховищі поточного профілю. Це не синхронізація між застосунками й не реалізація майбутньої архітектури ключів або VS Code `global.aic`.
 
 Усі керовані preview-блоки також мають спільну кнопку **Вирізати** з іконкою
 ножиць. Вона копіює повний Markdown-блок перед видаленням; помилка запису в
@@ -153,24 +157,24 @@ clipboard лишає source без змін.
 
 ### VS Code Marketplace
 
-1. Візьміть **перевірений** `aic-notes-52.1.0.vsix` і його контрольну суму з [AIC Notes Releases](https://github.com/ldzyha/aic-notes/releases).
+1. Візьміть **перевірений** `aic-notes-53.0.1.vsix` і його контрольну суму з [AIC Notes Releases](https://github.com/ldzyha/aic-notes/releases).
 2. На [сторінці видавців Marketplace](https://marketplace.visualstudio.com/manage/publishers/) виберіть `ldzyha` та завантажте VSIX вручну.
 3. Перегляньте опис і посилання, завершіть подання за підказками порталу.
-4. Після публікації перевірте версію **52.1.0** на сторінці `ldzyha.aic-notes` та встановіть її з розділу Extensions у чистому профілі VS Code. Файл VSIX на GitHub дає ручне встановлення, але **не** публікує розширення в Marketplace. [Офіційна інструкція](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
+4. Після публікації перевірте версію **53.0.1** на сторінці `ldzyha.aic-notes` та встановіть її з розділу Extensions у чистому профілі VS Code. Файл VSIX на GitHub дає ручне встановлення, але **не** публікує розширення в Marketplace. [Офіційна інструкція](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
 
 ### Chrome Web Store
 
 1. Візьміть фінальний Chromium ZIP після перевірки в Chrome; **Load unpacked** із `dist-browser/chromium/` — лише спосіб розробницького тестування.
 2. У [Developer Dashboard](https://chrome.google.com/webstore/devconsole) виберіть **Add new item** і завантажте ZIP.
 3. Заповніть **Store listing**, **Privacy practices**, **Distribution**; обґрунтуйте дозволи маніфесту та вставте тільки перевірений URL політики.
-4. Натисніть **Submit for Review**. Після схвалення звірте версію **0.9.0** і встановіть із магазину в чистому профілі Chrome. Завантаження файлу саме по собі ще не означає публікації. [Офіційна інструкція](https://developer.chrome.com/docs/webstore/publish/).
+4. Натисніть **Submit for Review**. Після схвалення звірте версію **0.9.1** і встановіть із магазину в чистому профілі Chrome. Завантаження файлу саме по собі ще не означає публікації. [Офіційна інструкція](https://developer.chrome.com/docs/webstore/publish/).
 
 ### Microsoft Edge Add-ons
 
 1. Використайте **той самий** фінальний ZIP після окремої перевірки в Edge.
 2. У [Partner Center](https://partner.microsoft.com/dashboard) відкрийте Edge → **Create new extension** і завантажте ZIP.
 3. Заповніть **Availability**, **Properties**, **Privacy**, **Store listings** та нотатки для сертифікації; перевірте ринки, видимість, дозволи й URL політики.
-4. Надішліть на перевірку. Коли статус стане **In the store**, звірте версію **0.9.0** і встановіть із Edge Add-ons у чистому профілі. Подання до Chrome **не** публікує продукт в Edge. [Офіційна інструкція](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
+4. Надішліть на перевірку. Коли статус стане **In the store**, звірте версію **0.9.1** і встановіть із Edge Add-ons у чистому профілі. Подання до Chrome **не** публікує продукт в Edge. [Офіційна інструкція](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
 
 ## Після подання й наступні оновлення
 

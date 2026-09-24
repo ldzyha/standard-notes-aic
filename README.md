@@ -13,9 +13,17 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
-Release 44.1.0 uses shared core 7.3.0 for readable wrapping and automatic
-ordering of AIC rows. The same behavior ships in AIC Notes 52.1.0 and experimental
-browser 0.9.0.
+Release 45.0.1 restores password generation on narrow screens using shared core
+7.3.1. The same fix ships in AIC Notes 53.0.1 and experimental browser 0.9.1.
+
+Empty editable secret (`*|`) parts offer **Generate password** at every panel
+width, regardless of their label. Options wrap to fit narrow screens. Generation
+stays local, never overwrites filled values, and is unavailable in read-only notes.
+
+Icon-only copy buttons briefly show a checkmark on success or a cross on failure,
+with an accessible status announcement and a stable action name. Larger section
+headings, distinct neutral group backgrounds and subtle alternating gray rows
+make records easier to scan.
 
 Labels, email addresses and logins use their natural width. A complete value moves
 to the next line before its text wraps; only text wider than the full available
@@ -62,7 +70,8 @@ remain plaintext; use your normal protected account, not the standalone demo, fo
 ### Copy, Paste and generation
 
 Tap/click a field label to copy its label, or a value to copy its value; “Copied” appears
-briefly over the pressed target after success. Tab moves focus; Enter/Space activates a focused field.
+briefly over text targets after success; icon-only controls show a checkmark and
+announce success accessibly. Tab moves focus; Enter/Space activates a focused field.
 The field icon is **Paste**, present only while the field is empty. Empty fields also offer
 Delete; filled fields have neither button. There is no Replace action. Copy remains available; manual editing
 or clearing uses **Edit** for the complete Markdown block. Whole-block Copy stays in the header.
@@ -79,14 +88,14 @@ Only if clipboard access is denied, unavailable or times out does AIC offer an i
 masked paste-only input. Direct typing is blocked and hidden values are never previewed.
 Empty clipboard text makes no change. AIC does not enumerate or store clipboard history.
 
-On wider layouts, empty `*|` secret parts in password-oriented rows offer
-**Generate password**. The control is hidden when the viewport is 600px wide
-or narrower, including mobile layouts.
+Empty editable `*|` secret parts offer **Generate password** at every viewport
+width, regardless of label. Options wrap inside narrow panels; read-only notes
+omit generation controls.
 Default: 24 characters,
 uppercase, lowercase, numbers and symbols. Length: 8–128; each enabled group is represented.
 Generation never overwrites, previews or copies the value automatically. To generate again,
-clear the value through source Edit and return to preview. TOTP/API keys and arbitrary
-masked labels are not password-generation targets.
+clear the value through source Edit and return to preview. TOTP and other
+non-secret part types do not offer password generation.
 
 The shared generator uses local [Web Crypto randomness](https://developer.mozilla.org/en-US/docs/Web/API/Crypto/getRandomValues),
 unbiased sampling and no weak fallback. Controls are inspired by
@@ -182,6 +191,13 @@ grammar in Standard Notes, the browser panel, and both VS Code editor surfaces.
 Legacy YAML Properties remain ordinary authored Markdown. They are not rendered as
 fields, interpreted as metadata, rewritten on save, or automatically migrated. Source
 mode keeps that text accessible for manual repair.
+
+## Release 45.0.1
+
+Password generation is available for empty password fields on narrow screens
+again, with wrapping options. Filled values and read-only notes remain protected.
+The coordinated versions are AIC Notes 53.0.1, browser 0.9.1 and core 7.3.1.
+See the bilingual [installation guide](RELEASE_INSTALL.md).
 
 ## Release 44.1.0
 
@@ -544,6 +560,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `44.1.0` is sequence 44 with
-one feature outcome and zero fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `45.0.1` is sequence 45 with
+zero feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

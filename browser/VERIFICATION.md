@@ -1,11 +1,34 @@
-# Chrome / Edge experimental build verification — 2026-09-23
+# Chrome / Edge experimental build verification — 2026-09-24
 
 [English](VERIFICATION.md) · [Українська](VERIFICATION.uk.md)
 
-Status: **0.9.0 experimental component**, not a store release or an independently
+Status: **0.9.1 experimental component**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
 using one Chromium Manifest V3 package. All test passphrases, notes and clipboard
 substitutes are synthetic. No user profile or real notes are part of these tests.
+
+## 0.9.1 narrow credential controls — UI verification
+
+- Version pair: Standard Notes **45.0.1**, browser **0.9.1**, AIC Notes
+  **53.0.1**, shared core **7.3.1**. Browser vault format is unchanged.
+- The regression scope is empty-field generation at narrow widths, wrapping
+  options, preservation of filled values and read-only omission.
+- The canonical editor's generator was checked with synthetic data and
+  coarse-pointer CSS at 240, 320, 360, 600 and 601 px, including dark theme at
+  360 px. It remained visible and within the panel. Generation produced a masked
+  lock button, removed the generation action from the filled field and preserved
+  its neighboring value.
+- The production VS Code webview bundle was inspected with a synthetic host:
+  main editor in light theme and Linked Note in dark theme at 360 px, plus the
+  main editor in light theme at 320 and 240 px. There was no horizontal overflow;
+  group titles measured 16 px with weight 750, neutral surfaces separated groups
+  and rows, and the generator panel fit at 240 px.
+- At 360 px in dark theme, password Copy changed lock → checkmark → lock while
+  retaining exactly 44 × 44 px geometry and an accessible live status message.
+  Clipboard responses were simulated; the OS clipboard was not used.
+- These are synthetic host UI checks of the canonical editor and production VS
+  Code bundle. They do not establish acceptance of an installed browser extension,
+  authenticated Standard Notes host or physical mobile device.
 
 ## 0.9.0 responsive records and edit-exit ordering — verification scope
 

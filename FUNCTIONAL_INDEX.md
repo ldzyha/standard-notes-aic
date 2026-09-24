@@ -16,11 +16,22 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 structured AIC fields, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 44.1.0 pairs with AIC Notes 52.1.0 and AIC Editor Core 7.3.0.
+storage format. Release 45.0.1 pairs with AIC Notes 53.0.1 and AIC Editor Core 7.3.1.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
-Shared core 7.3.0 owns the responsive AIC row layout and edit-exit ordering.
+Shared core 7.3.1 restores the password generator at narrow widths.
+
+Empty editable secret (`*|`) parts offer **Generate password** at every panel
+width, regardless of their label. Options wrap to fit narrow screens. Generation
+stays local, never overwrites filled values, and is unavailable in read-only notes.
+
+Icon-only copy buttons briefly show a checkmark on success or a cross on failure,
+with an accessible status announcement and a stable action name. Larger section
+headings, distinct neutral group backgrounds and subtle alternating gray rows
+make records easier to scan.
+
+The responsive AIC row layout and edit-exit ordering continue to use the same core.
 
 Labels, email addresses and logins use their natural width. A complete value moves
 to the next line before its text wraps; only text wider than the full available
@@ -37,7 +48,7 @@ and manual reordering do not trigger sorting.
 
 ## Current host boundary — 2026-09-15
 
-The experimental browser release component 0.9.0 targets Chrome and Edge only, using one
+The experimental browser release component 0.9.1 targets Chrome and Edge only, using one
 Chromium package and this repository's `AicEditor`, with
 the same always-compact editor toolbar as Standard Notes and explicit read-only
 page/selection/Markdown import. When shared AIC data are empty, their
@@ -106,6 +117,12 @@ Primary product, privacy, verification, functional-index, architecture,
 provenance and changelog documents have direct English/Ukrainian navigation.
 Localized files are included in the Standard Notes, Chromium and VS Code release
 package contracts. Generated third-party notices retain exact upstream wording.
+
+## Password generation at narrow widths in release 45.0.1
+
+The shared credential controls expose generation for empty password fields at all
+widths. The responsive panel wraps options within the available space. Generation
+remains local, explicit and unavailable for filled fields or read-only documents.
 
 ## Responsive rows and edit-exit sorting in release 44.1.0
 
@@ -314,9 +331,11 @@ unreproduced Standard Notes PWA crash.
   One-time codes are canonical presets, not additional field types. New blocks
   include an unlabeled text row for an email or another identifier.
 - Credential rows keep their label, responsive value parts and creation actions in
-  one connected layout. Labels take only their bounded content width; text values
-  flex and wrap, while protected values use a compact lock-and-six-dot copy target.
-  The browser panel wraps its toolbar at small widths without a values-only scroller.
+  one connected layout. Labels and values wrap as whole items at their natural
+  width; filled secret parts use compact lock-only copy targets with checkmark
+  feedback. Larger section headings, neutral group surfaces and subtle gray row
+  alternation clarify the hierarchy. The browser toolbar wraps at small widths
+  without a values-only scroller.
 - Copying an unused one-time part changes its marker to `0|`; activating a used
   value restores `1|` without copying, and only used values expose removal. Other
   masked parts keep independent copy feedback. Raw Markdown remains visible in
@@ -349,8 +368,9 @@ unreproduced Standard Notes PWA crash.
   mobile import-save transport regressions (synthetic host, not a physical device).
 
 - `security-password` owns WebCrypto-only bounded unbiased generation, length8–128,
-  default24 with all enabled groups required. Only empty recognized hidden password labels
-  can generate; existing values/TOTP/API keys are excluded. Tests: `security-password`.
+  default24 with all enabled groups required. Every empty editable secret (`*|`)
+  part can generate regardless of label or width; filled values, TOTP and other
+  part types are excluded. Read-only notes omit the action. Tests: `security-password`.
 - Field label and value Copy are independent, with local feedback; Tab navigates normally.
   Paste directly reads the latest value and is absent on every populated field. Delete is
   available only for genuinely empty fields; whitespace is a value. There is

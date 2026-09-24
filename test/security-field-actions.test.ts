@@ -3,7 +3,11 @@ import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { aicMarkdownLanguage } from "../src/language";
-import { makeSecurityBlockExtension } from "../src/core/security-block.js";
+import {
+  makeSecurityBlockExtension,
+  securityBlocks,
+} from "../src/core/security-block.js";
+import { parseSecurityBlock } from "../src/core/security-model.js";
 
 const source = [
   "```aic",
@@ -456,4 +460,96 @@ describe("security field actions", () => {
       host.querySelector('[aria-label="Copy Password label"]'),
     ).not.toBeNull();
   });
+
+  it.each([
+    {
+      name: "quoted empty secret between public values",
+      row: 'Service | synthetic@example.invalid *| "" | public note',
+      generateLabel: "Generate Service secret 2",
+      partIndex: 1,
+      appendSecret: false,
+    },
+    {
+      name: "unlabelled empty secret with a public neighbor",
+      row: '*| "" | public note',
+      generateLabel: "Generate Row secret 1",
+      partIndex: 0,
+      appendSecret: false,
+    },
+    {
+      name: "secret appended through the row menu",
+      row: "Service | public note *| synthetic-existing-value",
+      generateLabel: "Generate Service secret 3",
+      partIndex: 2,
+      appendSecret: true,
+    },
+  ])(
+    "generates only the targeted $name and preserves its neighbors",
+    ({ row, generateLabel, partIndex, appendSecret }) => {
+      vi.stubGlobal("crypto", {
+        getRandomValues: (bytes: Uint8Array) => {
+          bytes.fill(0);
+          return bytes;
+        },
+      });
+      const { host, view, control } = fixture(
+        `\`\`\`aic\n${row}\nExisting *| synthetic-neighbor-secret\n\`\`\``,
+      );
+      if (appendSecret) {
+        control("Add after Service").click();
+        control("Add secret field to Service").click();
+      }
+      const readModel = () => {
+        const block = securityBlocks(view.state)[0]!;
+        const parsed = parseSecurityBlock(block.body);
+        if (!parsed.ok) throw new Error("Synthetic credential block invalid");
+        return parsed.model;
+      };
+      const before = readModel();
+      const sourceBefore = view.state.doc.toString();
+      const trigger = control(generateLabel);
+      trigger.click();
+      for (const label of ["Lowercase", "Numbers", "Symbols"]) {
+        const checkbox = [
+          ...host.querySelectorAll<HTMLInputElement>(
+            '.cm-aic-security-panel input[type="checkbox"]',
+          ),
+        ].find((input) => input.parentElement?.textContent === label)!;
+        checkbox.click();
+      }
+      [
+        ...host.querySelectorAll<HTMLButtonElement>(
+          ".cm-aic-security-panel-button",
+        ),
+      ]
+        .find((button) => button.textContent === "Generate")!
+        .click();
+      const after = readModel();
+      const target = after.sections[0]!.fields[0]!.parts[partIndex]!;
+      expect(target.kind).toBe("secret");
+      expect(target.value).toHaveLength(24);
+      expect(host.textContent).not.toContain(target.value);
+      expect(host.textContent).not.toContain("synthetic-neighbor-secret");
+      expect(after).toEqual({
+        ...before,
+        sections: before.sections.map((section, sectionIndex) => ({
+          ...section,
+          fields: section.fields.map((field, fieldIndex) => ({
+            ...field,
+            parts: field.parts.map((part, index) =>
+              sectionIndex === 0 && fieldIndex === 0 && index === partIndex
+                ? { ...part, value: target.value }
+                : part,
+            ),
+          })),
+        })),
+      });
+      expect(host.querySelector(`[aria-label="${generateLabel}"]`)).toBeNull();
+      const generatedSource = view.state.doc.toString();
+      trigger.click();
+      expect(view.state.doc.toString()).toBe(generatedSource);
+      expect(undo(view)).toBe(true);
+      expect(view.state.doc.toString()).toBe(sourceBefore);
+    },
+  );
 });

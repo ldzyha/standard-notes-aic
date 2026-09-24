@@ -6,7 +6,10 @@
 }
 .cm-aic-security-body {
   display: grid;
+  gap: var(--aic-space-3);
   min-width: 0;
+  padding: var(--aic-space-2);
+  background: var(--aic-bg);
 }
 .cm-aic-security-capacity {
   display: flex;
@@ -39,10 +42,27 @@
 }
 .cm-aic-security-section {
   min-width: 0;
+  border: 1px solid color-mix(in srgb, var(--aic-fg) 18%, var(--aic-bg));
+  border-radius: var(--aic-radius-control);
+  background: color-mix(in srgb, var(--aic-fg) 3%, var(--aic-bg));
 }
-.cm-aic-security-body > .cm-aic-security-section:not(:first-child) {
-  border-top: 1px solid
-    color-mix(in srgb, var(--aic-border) 65%, var(--aic-contrast-fg) 35%);
+.cm-aic-security-section > .cm-aic-security-section-header {
+  min-height: 2.6rem;
+  padding-block: 0.4rem;
+  border-start-start-radius: inherit;
+  border-start-end-radius: inherit;
+  background: color-mix(in srgb, var(--aic-fg) 12%, var(--aic-bg));
+}
+.cm-aic-security-section
+  > .cm-aic-security-section-header
+  > .cm-aic-security-section-title {
+  font-size: 1rem;
+  font-weight: 750;
+  line-height: 1.35;
+}
+.cm-aic-security-section > :last-child {
+  border-end-start-radius: inherit;
+  border-end-end-radius: inherit;
 }
 .cm-aic-security-section-header {
   display: flex;
@@ -280,6 +300,13 @@
   min-width: 0;
   border-top: 0;
 }
+.cm-aic-security-section > .cm-aic-security-card[data-aic-card-kind] {
+  background: var(--aic-bg);
+}
+.cm-aic-security-section
+  > .cm-aic-security-card[data-aic-card-kind]:nth-of-type(even) {
+  background: color-mix(in srgb, var(--aic-fg) 4%, var(--aic-bg));
+}
 .cm-aic-security-card + .cm-aic-security-card {
   border-top: 1px solid
     color-mix(in srgb, var(--aic-contrast-fg) 14%, transparent);
@@ -352,6 +379,15 @@
   word-break: normal;
   white-space: pre-wrap;
 }
+.cm-aic-security-card-parts [data-aic-part-kind="text"] .cm-aic-security-value {
+  background: color-mix(in srgb, var(--aic-fg) 4%, var(--aic-bg));
+}
+.cm-aic-security-card-parts
+  :is([data-aic-part-kind="card"], [data-aic-part-kind="totp"])
+  .cm-aic-security-value {
+  padding-inline: 0.4rem;
+  background: color-mix(in srgb, var(--aic-fg) 8%, var(--aic-bg));
+}
 .cm-aic-security-card-parts .cm-aic-security-value[data-aic-protected="true"] {
   display: inline-flex;
   flex: 0 0 auto;
@@ -376,6 +412,13 @@
   font-family: var(--sn-stylekit-monospace-font, monospace);
   letter-spacing: 0.08em;
   white-space: nowrap;
+}
+.cm-aic-security-card-parts .cm-aic-security-value:hover {
+  background: color-mix(
+    in srgb,
+    var(--aic-contrast) 88%,
+    var(--aic-contrast-fg) 12%
+  );
 }
 .cm-aic-security-value[data-aic-protected="true"]::before {
   display: block;
@@ -544,6 +587,23 @@
 .cm-aic-security-field-status:empty {
   display: none;
 }
+.cm-aic-security .cm-aic-security-field-status.aic-field__status--icon {
+  /* Keep announcements available without drawing text over an icon target. */
+  position: absolute;
+  width: 1px !important;
+  height: 1px;
+  min-height: 0 !important;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  border: 0;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.cm-aic-security [data-aic-copy-result="error"],
+.cm-aic-security .cm-aic-security-action[data-aic-copy-result="error"] {
+  color: var(--aic-danger, #b92337);
+}
 .cm-aic-security-add {
   position: relative;
   min-width: 0;
@@ -662,11 +722,15 @@
   color: var(--aic-contrast-fg);
 }
 .cm-aic-security-panel {
+  box-sizing: border-box;
   display: flex;
+  flex: 1 1 100%;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.45rem 0.7rem;
-  margin: 0.15rem 0.55rem 0.45rem;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0.15rem 0 0.45rem;
   padding: 0.5rem;
   border: 1px solid var(--aic-control-border, var(--aic-border));
   border-radius: 0.45rem;
@@ -679,6 +743,7 @@
 }
 .cm-aic-security-panel label {
   display: inline-flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 0.3rem;
 }
@@ -704,6 +769,8 @@
 }
 .cm-aic-security-panel-message {
   flex: 1 1 auto;
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .cm-aic-security-panel-actions {
   flex-wrap: wrap;
@@ -721,12 +788,6 @@
 .cm-aic-security-panel-button.is-primary {
   border-color: var(--aic-accent);
   color: var(--aic-accent);
-}
-@media (max-width: 600px) {
-  .cm-aic-security [data-aic-icon="generate"],
-  .cm-aic-security-panel[data-aic-panel="password"] {
-    display: none;
-  }
 }
 .cm-aic-security-error {
   margin: 0.5rem 0.65rem;

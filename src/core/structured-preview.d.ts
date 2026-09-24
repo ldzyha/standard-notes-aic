@@ -64,9 +64,10 @@ export function showIconFeedback(
     label?: string;
     restoreIcon?: string;
     restoreLabel?: string;
-    duration?: number;
+    /** Null leaves reset scheduling to the caller's widget lifecycle. */
+    duration?: number | null;
   }>,
-): void;
+): () => void;
 
 export function writeTextToClipboard(
   text: unknown,

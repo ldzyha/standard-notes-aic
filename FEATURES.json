@@ -300,7 +300,7 @@
     {
       "id": "core.security-blocks",
       "group": "structured-data",
-      "purpose": "Parse and render bounded AIC credential blocks with masking, independently scoped field/section/block copy, whole-block cut, add, delete, filtering, diagnostics, responsive whole-item wrapping, and exact-source reordering. Labels and typed values use natural width and wrap as complete items before text breaks; passwords use compact lock-only copy targets, short card/TOTP values stay intact, and creation controls continue the final value. Subtle separators distinguish records. Leaving block source edit or whole-note source mode stably sorts labelled rows in natural case-insensitive order within each section, with unlabelled rows last; exact authored rows, value order and section order are preserved. Section copy preserves type and masking markers. Cut removes source only after clipboard success.",
+      "purpose": "Parse and render bounded AIC credential blocks with masking, independently scoped field/section/block copy, whole-block cut, add, delete, filtering, diagnostics, responsive whole-item wrapping, and exact-source reordering. Labels and typed values use natural width and wrap as complete items before text breaks; passwords use compact lock-only copy targets, short card/TOTP values stay intact, and creation controls continue the final value. Larger section headings, neutral group backgrounds and subtle alternating gray row surfaces distinguish the hierarchy. Icon-only password, section and block copy targets show temporary success checkmarks or failure crosses while keeping stable accessible action names and live feedback. Leaving block source edit or whole-note source mode stably sorts labelled rows in natural case-insensitive order within each section, with unlabelled rows last; exact authored rows, value order and section order are preserved. Section copy preserves type and masking markers. Cut removes source only after clipboard success.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/core/security-model.js",
@@ -330,6 +330,7 @@
         "standard-notes-aic/test/security-model.test.ts",
         "standard-notes-aic/test/security-block-ui.test.ts",
         "standard-notes-aic/test/security-card-preview.test.ts",
+        "standard-notes-aic/test/security-copy-feedback.test.ts",
         "standard-notes-aic/test/security-source-sort.test.ts",
         "standard-notes-aic/test/security-section-copy.test.ts",
         "standard-notes-aic/scripts/browser-section-copy-regression.mjs",
@@ -344,7 +345,7 @@
     {
       "id": "core.credential-tools",
       "group": "structured-data",
-      "purpose": "Handle card parts, password generation on wider layouts, TOTP derivation, QR parsing, and recovery-code state under explicit security limits.",
+      "purpose": "Handle card parts, password generation for every empty editable secret part regardless of label or width, with responsive options and read-only guards, TOTP derivation, QR parsing, and recovery-code state under explicit security limits.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/core/security-card.js",

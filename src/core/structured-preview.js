@@ -604,11 +604,18 @@ export function showIconFeedback(
   button.dataset.aicIcon = icon;
   button.setAttribute("aria-label", label);
   button.title = label;
-  button.ownerDocument.defaultView?.setTimeout(() => {
+  let timer = null;
+  const restore = () => {
+    if (timer !== null) button.ownerDocument.defaultView?.clearTimeout(timer);
+    timer = null;
     button.dataset.aicIcon = restoreIcon;
     button.setAttribute("aria-label", restoreLabel);
     button.title = restoreLabel;
-  }, duration);
+  };
+  // Widget owners with an existing feedback lifecycle schedule their own reset.
+  if (duration !== null)
+    timer = button.ownerDocument.defaultView?.setTimeout(restore, duration);
+  return restore;
 }
 
 export async function writeTextToClipboard(text, document) {

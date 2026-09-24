@@ -20,7 +20,7 @@
   "components": [
     {
       "id": "button",
-      "purpose": "Named native action control with consistent geometry, focus, disabled state, variant, size, and optional icon.",
+      "purpose": "Named native action control with consistent geometry, focus, disabled state, variant, size, and optional icon. Icon-only copy feedback keeps the accessible action name stable, announces status, briefly shows a success checkmark or failure cross, and restores its original icon.",
       "hosts": ["standard-notes", "standalone", "browser"],
       "bem": {
         "block": "aic-button",
@@ -147,7 +147,7 @@
     },
     {
       "id": "field",
-      "purpose": "Labelled value/control unit with validation, masking, independently typed parts, help, error, and accessible action relationships. Composite AIC rows give labels and typed values natural width, wrap whole items before breaking long text, use compact lock-only password copy targets, and attach creation controls to the final part. Short card/TOTP values stay intact; unlabelled rows omit the label and coarse-pointer controls retain 44 px targets.",
+      "purpose": "Labelled value/control unit with validation, masking, independently typed parts, help, error, and accessible action relationships. Composite AIC rows give labels and typed values natural width, wrap whole items before breaking long text, use compact lock-only password copy targets, and attach creation controls to the final part. Short card/TOTP values stay intact; unlabelled rows omit the label and coarse-pointer controls retain 44 px targets. Icon-only copy targets show temporary success checkmarks with accessible status; subtle gray row alternation supports scanning.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "bem": {
         "block": "aic-field",
@@ -160,7 +160,14 @@
           "status",
           "actions"
         ],
-        "modifiers": ["compact", "invalid", "masked", "composite", "unlabelled"]
+        "modifiers": [
+          "compact",
+          "invalid",
+          "masked",
+          "composite",
+          "unlabelled",
+          "icon"
+        ]
       },
       "canonicalOwners": [
         "standard-notes-aic/src/core/ui-system.js",
@@ -185,7 +192,7 @@
     },
     {
       "id": "card",
-      "purpose": "Structured content surface with header, title, body, and actions for AIC fields, diagrams, errors, and compact read-only previews.",
+      "purpose": "Structured content surface with header, title, body, and actions for AIC fields, diagrams, errors, and compact read-only previews. AIC sections use larger headings and distinct neutral group backgrounds to separate their rows visually.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "bem": {
         "block": "aic-card",

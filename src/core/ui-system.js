@@ -11,7 +11,7 @@ export const UI_COMPONENTS = Object.freeze({
     ["message", "actions"],
   ),
   field: definition(
-    ["compact", "invalid", "masked", "composite", "unlabelled"],
+    ["compact", "invalid", "masked", "composite", "unlabelled", "icon"],
     ["label", "control", "hint", "error", "value", "status", "actions"],
   ),
   card: definition(

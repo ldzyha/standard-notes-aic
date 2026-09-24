@@ -4,6 +4,21 @@
 
 ## Unreleased
 
+## 45.0.1 — 2026-09-24
+
+Release sequence 45 · 0 feature outcomes · 1 fixed-bug outcome. This release
+pairs with AIC Notes 53.0.1, experimental browser 0.9.1 and shared core 7.3.1.
+
+### Fix
+
+- Restored **Generate password** for every empty editable secret (`*|`) part
+  regardless of label and panel width. Options wrap within narrow panels;
+  generation remains local, and filled values/read-only notes cannot be overwritten.
+- Icon-only copy targets use a temporary checkmark after success and retain an
+  accessible status announcement.
+- Larger section headings, neutral group backgrounds and subtle alternating
+  gray rows make the credential hierarchy easier to scan.
+
 ## 44.1.0 — 2026-09-23
 
 Release sequence 44 · 1 feature outcome · 0 fixed-bug outcomes. This release

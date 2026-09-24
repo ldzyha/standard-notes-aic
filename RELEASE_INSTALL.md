@@ -4,39 +4,35 @@
 
 ## English
 
-### Release overview — September 23, 2026
+### Release overview — September 24, 2026
 
-This release coordinates **AIC Notes for VS Code 52.1.0**, **AIC for Standard
-Notes 44.1.0**, and the **experimental Chrome/Edge extension 0.9.0** on shared
-core **7.3.0**.
+This release coordinates **AIC Notes for VS Code 53.0.1**, **AIC for Standard
+Notes 45.0.1**, and the **experimental Chrome/Edge extension 0.9.1** on shared
+core **7.3.1**. It restores password generation on narrow screens.
 
-Labels, email addresses and logins use their natural width. A complete value moves
-to the next line before its text wraps; only text wider than the full available
-line breaks internally. Passwords use compact lock-only copy buttons, while
-short card values and TOTP codes remain readable. The `+` menu follows the last
-value, and subtle separators distinguish records. Touch controls retain 44 px
-targets.
+Empty editable secret (`*|`) parts offer **Generate password** at every panel
+width, regardless of their label. Options wrap to fit narrow screens. Generation
+stays local, never overwrites filled values, and is unavailable in read-only notes.
 
-Leaving an AIC block's source edit, or switching the whole note from source to
-preview, sorts rows by label within each section using natural, case-insensitive
-order. Unlabelled rows remain in their original order at the end. Section order,
-value order and exact authored values are preserved. Opening a preview, copying
-and manual reordering do not trigger sorting.
+Icon-only copy buttons briefly show a checkmark on success or a cross on failure,
+with an accessible status announcement and a stable action name. Larger section
+headings, distinct neutral group backgrounds and subtle alternating gray rows
+make records easier to scan.
 
-The behavior is shared by Standard Notes, the browser extension, and the main
-VS Code editor and Linked Note. Product and release documents ship in English
-and Ukrainian.
+The fix is shared by Standard Notes, the browser extension, and the main VS Code
+editor and Linked Note. The previous release’s readable wrapping and edit-exit
+sorting remain available. Product and release documents ship in English and Ukrainian.
 
 ### VS Code / code-server
 
-1. Download [AIC Notes 52.1.0 VSIX](https://github.com/ldzyha/aic-notes/releases/download/v52.1.0/aic-notes-52.1.0.vsix)
-   and [its SHA-256 file](https://github.com/ldzyha/aic-notes/releases/download/v52.1.0/aic-notes-52.1.0.vsix.sha256).
+1. Download [AIC Notes 53.0.1 VSIX](https://github.com/ldzyha/aic-notes/releases/download/v53.0.1/aic-notes-53.0.1.vsix)
+   and [its SHA-256 file](https://github.com/ldzyha/aic-notes/releases/download/v53.0.1/aic-notes-53.0.1.vsix.sha256).
 2. In VS Code, open the Command Palette and run **Extensions: Install from
    VSIX…**. Select the downloaded file and reload the window. For code-server,
-   run `code-server --install-extension ./aic-notes-52.1.0.vsix --force`.
-3. Confirm that **AIC Notes 52.1.0** appears in Extensions.
+   run `code-server --install-extension ./aic-notes-53.0.1.vsix --force`.
+3. Confirm that **AIC Notes 53.0.1** appears in Extensions.
 
-The [VS Code release page](https://github.com/ldzyha/aic-notes/releases/tag/v52.1.0)
+The [VS Code release page](https://github.com/ldzyha/aic-notes/releases/tag/v53.0.1)
 contains the VSIX and checksum. This local extension does not require an account
 or Standard Notes synchronization.
 
@@ -48,14 +44,14 @@ or Standard Notes synchronization.
    not need to import it again: the client checks for updates through the same
    manifest. Restart Standard Notes if the previous version remains visible.
 
-The desktop package is also available as [AIC 44.1.0 ZIP](https://github.com/ldzyha/standard-notes-aic/releases/download/v44.1.0/standard-notes-aic-44.1.0.zip)
-with [its SHA-256 file](https://github.com/ldzyha/standard-notes-aic/releases/download/v44.1.0/standard-notes-aic-44.1.0.zip.sha256).
+The desktop package is also available as [AIC 45.0.1 ZIP](https://github.com/ldzyha/standard-notes-aic/releases/download/v45.0.1/standard-notes-aic-45.0.1.zip)
+with [its SHA-256 file](https://github.com/ldzyha/standard-notes-aic/releases/download/v45.0.1/standard-notes-aic-45.0.1.zip.sha256).
 The hosted manifest above is the normal installation method.
 
 ### Chrome / Microsoft Edge — experimental
 
-1. Download the [shared Chromium ZIP 0.9.0](https://github.com/ldzyha/standard-notes-aic/releases/download/v44.1.0/aic-browser-chromium-0.9.0.zip)
-   and [its SHA-256 file](https://github.com/ldzyha/standard-notes-aic/releases/download/v44.1.0/aic-browser-chromium-0.9.0.zip.sha256).
+1. Download the [shared Chromium ZIP 0.9.1](https://github.com/ldzyha/standard-notes-aic/releases/download/v45.0.1/aic-browser-chromium-0.9.1.zip)
+   and [its SHA-256 file](https://github.com/ldzyha/standard-notes-aic/releases/download/v45.0.1/aic-browser-chromium-0.9.1.zip.sha256).
 2. Extract the ZIP to a permanent folder. `manifest.json` must be at its root.
 3. Open `chrome://extensions` or `edge://extensions`, enable **Developer mode**,
    select **Load unpacked**, and choose the extracted folder rather than the ZIP.
@@ -65,7 +61,7 @@ Before updating an extension that contains data, wait for **Note saved**, export
 an encrypted backup, and keep its password. Replace the files in the same folder
 and select **Reload** on the existing extension card. Removing a populated
 extension can remove its local data. This browser package is still undergoing
-[separate verification](https://github.com/ldzyha/standard-notes-aic/blob/v44.1.0/browser/VERIFICATION.md);
+[separate verification](https://github.com/ldzyha/standard-notes-aic/blob/v45.0.1/browser/VERIFICATION.md);
 use synthetic data for now.
 
 ### File verification and store status
@@ -85,40 +81,38 @@ files and Standard Notes component using the methods above.
 
 ## Українська
 
-### Огляд випуску — 23 вересня 2026
+### Огляд випуску — 24 вересня 2026
 
-Цей випуск об’єднує **AIC Notes для VS Code 52.1.0**, **AIC для Standard Notes
-44.1.0** і **експериментальне розширення Chrome/Edge 0.9.0** на спільному ядрі
-**7.3.0**.
+Цей випуск об’єднує **AIC Notes для VS Code 53.0.1**, **AIC для Standard Notes
+45.0.1** і **експериментальне розширення Chrome/Edge 0.9.1** на спільному ядрі
+**7.3.1**. Виправлено доступ до генерації пароля на вузьких екранах.
 
-Назви, email та логіни займають природну ширину. Спочатку ціле значення
-переходить на наступний рядок; текст переноситься всередині лише тоді, коли
-не вміщується на повній доступній ширині. Пароль має компактну кнопку копіювання
-із замком, а короткі дані картки й TOTP-коди залишаються читабельними. Меню `+`
-йде після останнього значення, записи розділяють легкі лінії. Сенсорні кнопки
-зберігають область натискання 44 px.
+Порожні редаговані секретні частини (`*|`) показують **Generate password** на
+будь-якій ширині панелі незалежно від назви. Параметри переносяться на вузьких
+екранах. Генерація працює локально, не перезаписує заповнені значення й недоступна
+в режимі читання.
 
-Після виходу з редагування джерела AIC-блоку або перемикання всієї нотатки з
-джерела у прев’ю рядки кожної секції сортуються за назвою: без урахування регістру
-та з природним порядком чисел. Рядки без назви зберігають свій порядок наприкінці.
-Порядок секцій, порядок значень і точний текст значень не змінюються. Відкриття
-прев’ю, копіювання й ручне переставлення не запускають сортування.
+Кнопка копіювання ненадовго показує галочку після успіху або хрестик після
+помилки, зберігає доступну назву дії та повідомляє стан для читача екрана.
+Більші заголовки секцій, окремий нейтральний фон груп і
+легке чергування сірих рядків допомагають швидше знаходити записи.
 
-Однакова поведінка працює у Standard Notes, розширенні браузера, головному
-редакторі VS Code та Linked Note. Документація продукту й випуску входить до
-пакетів англійською та українською.
+Виправлення спільне для Standard Notes, розширення браузера, головного редактора
+VS Code та Linked Note. Читабельне перенесення й сортування після редагування з
+попереднього випуску зберігаються. Документація продукту й випуску доступна
+англійською та українською.
 
 ### VS Code / code-server
 
-1. Завантажте [AIC Notes 52.1.0 VSIX](https://github.com/ldzyha/aic-notes/releases/download/v52.1.0/aic-notes-52.1.0.vsix)
-   і [його SHA-256](https://github.com/ldzyha/aic-notes/releases/download/v52.1.0/aic-notes-52.1.0.vsix.sha256).
+1. Завантажте [AIC Notes 53.0.1 VSIX](https://github.com/ldzyha/aic-notes/releases/download/v53.0.1/aic-notes-53.0.1.vsix)
+   і [його SHA-256](https://github.com/ldzyha/aic-notes/releases/download/v53.0.1/aic-notes-53.0.1.vsix.sha256).
 2. У VS Code відкрийте палітру команд і виконайте **Extensions: Install from
    VSIX…**, виберіть завантажений файл, потім перезавантажте вікно. Для
    code-server виконайте
-   `code-server --install-extension ./aic-notes-52.1.0.vsix --force`.
-3. У списку Extensions перевірте **AIC Notes 52.1.0**.
+   `code-server --install-extension ./aic-notes-53.0.1.vsix --force`.
+3. У списку Extensions перевірте **AIC Notes 53.0.1**.
 
-[Сторінка випуску VS Code](https://github.com/ldzyha/aic-notes/releases/tag/v52.1.0)
+[Сторінка випуску VS Code](https://github.com/ldzyha/aic-notes/releases/tag/v53.0.1)
 містить VSIX та контрольну суму. Обліковий запис чи синхронізація зі Standard
 Notes цьому локальному розширенню не потрібні.
 
@@ -130,14 +124,14 @@ Notes цьому локальному розширенню не потрібні
    повторний імпорт не потрібний: клієнт перевіряє оновлення за тим самим
    маніфестом. Якщо версія лишилася старою, перезапустіть Standard Notes.
 
-Для настільного клієнта також доступний [архів AIC 44.1.0](https://github.com/ldzyha/standard-notes-aic/releases/download/v44.1.0/standard-notes-aic-44.1.0.zip)
-та [його SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v44.1.0/standard-notes-aic-44.1.0.zip.sha256).
+Для настільного клієнта також доступний [архів AIC 45.0.1](https://github.com/ldzyha/standard-notes-aic/releases/download/v45.0.1/standard-notes-aic-45.0.1.zip)
+та [його SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v45.0.1/standard-notes-aic-45.0.1.zip.sha256).
 Звичайний спосіб встановлення — адреса маніфесту вище.
 
 ### Chrome / Microsoft Edge — експериментально
 
-1. Завантажте [спільний Chromium ZIP 0.9.0](https://github.com/ldzyha/standard-notes-aic/releases/download/v44.1.0/aic-browser-chromium-0.9.0.zip)
-   і [його SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v44.1.0/aic-browser-chromium-0.9.0.zip.sha256).
+1. Завантажте [спільний Chromium ZIP 0.9.1](https://github.com/ldzyha/standard-notes-aic/releases/download/v45.0.1/aic-browser-chromium-0.9.1.zip)
+   і [його SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v45.0.1/aic-browser-chromium-0.9.1.zip.sha256).
 2. Розпакуйте ZIP в окрему постійну папку. У її корені має бути `manifest.json`.
 3. Відкрийте `chrome://extensions` або `edge://extensions`, увімкніть
    **Developer mode**, натисніть **Load unpacked** і виберіть розпаковану папку,
@@ -148,7 +142,7 @@ Notes цьому локальному розширенню не потрібні
 тієї самої папки новими файлами та натисніть **Reload** на наявній картці
 розширення. Не видаляйте заповнене розширення перед оновленням: локальні дані
 можуть зникнути. Цей браузерний пакет ще проходить
-[окремі перевірки](https://github.com/ldzyha/standard-notes-aic/blob/v44.1.0/browser/VERIFICATION.md);
+[окремі перевірки](https://github.com/ldzyha/standard-notes-aic/blob/v45.0.1/browser/VERIFICATION.md);
 поки що використовуйте синтетичні дані.
 
 ### Перевірка файлів і статус магазинів

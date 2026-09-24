@@ -50,6 +50,7 @@ import {
   createIconButton,
   selectionRevealsPreview,
   selectionStaysInSource,
+  showIconFeedback,
   writeTextToClipboard,
 } from "./structured-preview.js";
 
@@ -1371,14 +1372,21 @@ class SecurityBlockWidget extends WidgetType {
 
     const copyFeedback = new Map();
     this.cleanups.push(() => {
-      for (const entry of copyFeedback.values()) clearTimeout(entry.timer);
+      for (const entry of copyFeedback.values()) {
+        clearTimeout(entry.timer);
+        entry.restore?.();
+      }
       copyFeedback.clear();
     });
-    const copyValue = async (value, label, status) => {
+    const copyValue = async (value, label, status, iconControl = null) => {
       if (!value || this.destroyed || !wrapper.isConnected) return false;
-      clearTimeout(copyFeedback.get(status)?.timer);
-      const entry = { timer: null };
+      const previous = copyFeedback.get(status);
+      clearTimeout(previous?.timer);
+      previous?.restore?.();
+      const entry = { timer: null, restore: null };
       copyFeedback.set(status, entry);
+      if (iconControl) applyUiComponent(status, "field", ["icon"], "status");
+      else status?.classList.remove("aic-field__status--icon");
       if (status) status.textContent = "";
       let copied;
       try {
@@ -1394,10 +1402,30 @@ class SecurityBlockWidget extends WidgetType {
         status?.isConnected &&
         copyFeedback.get(status) === entry
       ) {
-        status.textContent = copied ? "Copied" : "Copy failed";
+        const message = copied ? "Copied" : "Copy failed";
+        status.textContent = message;
+        if (iconControl?.isConnected) {
+          const originalTitle = iconControl.title;
+          const actionLabel = iconControl.getAttribute("aria-label");
+          const restore = showIconFeedback(iconControl, {
+            icon: copied ? "check" : "close",
+            label: actionLabel,
+            restoreIcon: iconControl.dataset.aicIcon,
+            restoreLabel: actionLabel,
+            duration: null,
+          });
+          iconControl.title = message;
+          iconControl.dataset.aicCopyResult = copied ? "success" : "error";
+          entry.restore = () => {
+            restore();
+            iconControl.title = originalTitle;
+            delete iconControl.dataset.aicCopyResult;
+          };
+        }
         entry.timer = setTimeout(
           () => {
             if (copyFeedback.get(status) !== entry) return;
+            entry.restore?.();
             status.textContent = "";
             copyFeedback.delete(status);
           },
@@ -1414,13 +1442,14 @@ class SecurityBlockWidget extends WidgetType {
         document,
         isProperties ? "Copy properties" : "Copy security block",
         "copy",
-        async () => {
+        async (control) => {
           const block = this.currentBlock(view);
           if (!block || !wrapper.isConnected) return;
           await copyValue(
             view.state.sliceDoc(block.from, block.to),
             isProperties ? "properties" : "security block",
             headerStatus,
+            control,
           );
         },
       ),
@@ -1626,7 +1655,7 @@ class SecurityBlockWidget extends WidgetType {
                 document,
                 "Copy section " + sectionName,
                 "copy",
-                async () => {
+                async (control) => {
                   const block = this.currentBlock(view);
                   if (!block || !wrapper.isConnected) return;
                   await copyValue(
@@ -1635,6 +1664,7 @@ class SecurityBlockWidget extends WidgetType {
                       ? `${section.label} section`
                       : `section ${sectionName}`,
                     copyStatus,
+                    control,
                   );
                 },
               ),
@@ -1986,7 +2016,12 @@ class SecurityBlockWidget extends WidgetType {
                   status.textContent = "Copied; state not saved";
                 return changed;
               }
-              return copyValue(stored, concise, status);
+              return copyValue(
+                stored,
+                concise,
+                status,
+                part.kind === "secret" ? output.content : null,
+              );
             },
             accessible,
           );
