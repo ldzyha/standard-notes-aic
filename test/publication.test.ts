@@ -71,7 +71,7 @@ describe("publication metadata", () => {
 
   it("documents the current R.F.B release and packages usage and UI contracts", () => {
     expect(manifest.version).toBe("46.0.2");
-    expect(browserManifest.version).toBe("0.9.2");
+    expect(browserManifest.version).toBe("0.9.3");
     expect(changelog).toContain(`## ${manifest.version} — 2026-09-24`);
     expect(changelog).toContain(
       "Release sequence 46 · 0 feature outcomes · 2 fixed-bug outcomes",
