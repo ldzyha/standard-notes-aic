@@ -116,8 +116,9 @@ restart and Lock behavior in an installed Chrome package.
 Chrome Web Store developer registration still requires the owner’s account
 choice. The owner must supply any missing verified developer contact email and
 dashboard identity declarations; no address is inferred from note examples.
-Native screenshots and the store promo tile are **not ready**. Capture the real
-installed build with synthetic notes and prepare accurate promo artwork; do not
+The [440 × 280 promo tile](store-assets/small-promo-440x280.png) is ready, with
+an [editable SVG](store-assets/small-promo-440x280.svg). Native screenshots are
+**not ready**. Capture the real installed build with synthetic notes; do not
 substitute fabricated interface screenshots. The
 package has no `_locales` directories, so separate Ukrainian store localization
 may not be offered; the Ukrainian text below can accompany English in the same
@@ -237,8 +238,9 @@ Lock. Тестового акаунта чи серверного пароля �
 Реєстрація розробника Chrome Web Store ще потребує вибору акаунта власником.
 Власник має надати відсутню підтверджену контактну email-адресу й декларації
 ідентичності, які вимагає панель. Дані з прикладів нотаток не використовуються.
-Справжні скриншоти й промоплитка магазину **ще не готові**. Потрібно зняти
-встановлену збірку із синтетичними нотатками й підготувати правдиве промозображення;
+[Промоплитка 440 × 280](store-assets/small-promo-440x280.png) готова; є
+[редагований SVG](store-assets/small-promo-440x280.svg). Справжні скриншоти
+**ще не готові**. Потрібно зняти встановлену збірку із синтетичними нотатками;
 не замінювати інтерфейс вигаданими скриншотами. У пакеті немає папок `_locales`, тому окремий український
 опис магазину може бути недоступним; обидві мовні версії можна розмістити в
 одному докладному описі без заяви про український інтерфейс.

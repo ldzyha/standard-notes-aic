@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="440" height="280" viewBox="0 0 440 280" role="img" aria-labelledby="title desc">
+  <title id="title">AIC</title>
+  <desc id="desc">The AIC blue chevron and green cursor on a dark note-shaped tile.</desc>
+  <rect width="440" height="280" fill="#111318"/>
+  <rect x="143" y="35" width="150" height="185" rx="9" fill="#151c24" stroke="#293847" stroke-width="1.5" transform="rotate(-9 218 127.5)"/>
+  <path d="M153 24h111l30 30v159a8 8 0 0 1-8 8H153a8 8 0 0 1-8-8V32a8 8 0 0 1 8-8Z" fill="#1b2028" stroke="#38434f" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M264 24v22a8 8 0 0 0 8 8h22" fill="#253340" stroke="#38434f" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M167 43h65" fill="none" stroke="#5b9dd9" stroke-opacity=".45" stroke-width="3" stroke-linecap="round"/>
+  <!-- The original public/aic-logo.svg geometry and brand colors. -->
+  <svg x="155" y="66" width="128" height="128" viewBox="0 0 128 128">
+    <rect width="128" height="128" rx="20" fill="#14161a"/>
+    <path d="m28 36 34 28-34 28" fill="none" stroke="#5b9dd9" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M64 94h38" fill="none" stroke="#4cc38a" stroke-width="12" stroke-linecap="round"/>
+  </svg>
+  <text x="222" y="257" fill="#f0f3f6" font-family="DejaVu Sans, Arial, sans-serif" font-size="26" font-weight="700" letter-spacing="6" text-anchor="middle">AIC</text>
+</svg>
