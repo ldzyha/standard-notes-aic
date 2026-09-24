@@ -4,28 +4,64 @@
 
 ## English
 
+### Saved dashboard status — September 24, 2026
+
+[Chrome Web Store draft](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/listing)
+ID: `mokndlkbkhnemhhcahddhdgihgdckbhp`. **Not submitted for review.**
+
+- Developer registration is complete; the one-time **US$5** fee was paid.
+  Public publisher: **AIC**. The owner declared **Non-trader**.
+- Contact: **leonid@dzyha.com**. A verification email was sent; verification is
+  **not confirmed**. Homepage: **https://dzyha.com/**; support: the repository's
+  Issues page below.
+- Package UI confirms **Draft 0.9.3**, six permissions and no `activeTab`; the
+  extension is not published. The **0.9.3 ZIP** was uploaded. A combined English/Ukrainian description of
+  **3,026 characters** was saved. Category: **Workflow & Planning**; interface
+  language: **English**. The icon and promo tile were uploaded and saved.
+- Privacy settings were saved: six permission explanations, **no remote code**,
+  five data categories (**personally identifiable**, **financial/payment**,
+  **authentication**, **web history**, **website content**), all three Limited
+  Use certification checkboxes, and the public privacy-policy URL below.
+- Distribution is **free**, **public** and available in **all regions**; the
+  dashboard defaults were confirmed. English/Ukrainian reviewer steps were saved.
+
+The dashboard's **Why can't I submit?** lists exactly two remaining requirements:
+
+1. At least one screenshot or video.
+2. A verified contact email.
+
+Installed-Chrome acceptance remains a separate internal check. The current
+automation environment blocks `chrome://extensions` by URL policy; native
+installation, panel screenshots and acceptance checks require an ordinary
+user-controlled Chrome session. This tooling restriction leaves those checks
+unverified. The selected
+homepage currently lacks a direct AIC privacy link; its authoritative source is
+unresolved, and no website deployment has been performed. These are not reported
+as additional dashboard validation messages. Existing 0.9.2 release assets remain
+unchanged.
+
 ### Release and links
 
 Draft for candidate **AIC — Page notes 0.9.3**. The published baseline is
 0.9.2 in the [46.0.2 release](https://github.com/ldzyha/standard-notes-aic/releases/tag/v46.0.2).
-The 0.9.3 candidate removes redundant `activeTab` permission; it must pass its
-package and installed-Chrome checks before submission. This document does not
-confirm store approval.
+The uploaded 0.9.3 candidate removes redundant `activeTab` permission. Its ZIP
+checksum, manifest and bundled files were checked locally; installed-Chrome
+acceptance remains outstanding. This document does not confirm store approval.
 
 - Candidate package: `aic-browser-chromium-0.9.3.zip` and its matching `.sha256`.
 - [Public privacy policy](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/PRIVACY.md).
   Its URL returned HTTP 200 without authentication on September 24, 2026; the
   policy links to Ukrainian. A dedicated GitHub Pages privacy page is not configured.
-- [Product homepage](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/README.md).
+- [Product homepage](https://dzyha.com/).
 - [Support](https://github.com/ldzyha/standard-notes-aic/issues).
-- Suggested category: **Productivity**, if offered by the dashboard. The package's
-  interface is English; bilingual documentation does not make the interface localized.
+- Saved category: **Workflow & Planning**. The package's interface is English;
+  bilingual listing text and documentation do not make the interface localized.
 
 ### Short description
 
 Local Markdown notes for web pages. Import read-only content, navigate by domain, and export your own backups.
 
-### Detailed description
+### Detailed description reference
 
 Keep notes beside the web page you are reading. AIC opens a Markdown editor in
 Chrome's side panel and connects each note to its exact page URL.
@@ -108,46 +144,77 @@ unlock it to check persistence. Try Import on a public text page, granting acces
 only to that site; try explicit Copy/Paste and Lock. No reviewer account or server
 credentials are needed.
 
-Before submission, verify that the final 0.9.3 archive omits `activeTab`, and
-record installed-Chrome acceptance in [VERIFICATION.md](VERIFICATION.md). Existing
+Record installed-Chrome acceptance in [VERIFICATION.md](VERIFICATION.md). Existing
 renderer checks do not establish real permission-prompt, clipboard, worker,
 restart and Lock behavior in an installed Chrome package.
 
-Chrome Web Store developer registration completed on September 24, 2026 after
-the one-time $5 fee. The owner must still confirm the public publisher identity,
-verified contact email and trader declaration; no address is inferred from notes.
-The [440 × 280 promo tile](store-assets/small-promo-440x280.png) is ready, with
-an [editable SVG](store-assets/small-promo-440x280.svg). Native screenshots are
-**not ready**. Capture the real installed build with synthetic notes; do not
-substitute fabricated interface screenshots. The
-package has no `_locales` directories, so separate Ukrainian store localization
-may not be offered; the Ukrainian text below can accompany English in the same
-long description without claiming Ukrainian interface support.
+The [440 × 280 promo tile](store-assets/small-promo-440x280.png) and extension
+icon are uploaded and saved; an [editable SVG](store-assets/small-promo-440x280.svg)
+is retained. Native screenshots are **not ready**. Capture the real installed
+build with synthetic notes; do not substitute fabricated interface screenshots.
+The package has no `_locales` directories. Both languages were saved together in
+one description without claiming a Ukrainian interface.
 [Store listing guidance](https://developer.chrome.com/docs/webstore/cws-dashboard-listing).
 
 ## Українська
+
+### Збережений стан панелі — 24 вересня 2026
+
+[Чернетка Chrome Web Store](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/listing)
+ID: `mokndlkbkhnemhhcahddhdgihgdckbhp`. **На перевірку не подано.**
+
+- Реєстрацію розробника завершено; одноразовий внесок **5 доларів США** сплачено.
+  Публічне ім’я видавця: **AIC**. Власник заявив статус **Non-trader**.
+- Контакт: **leonid@dzyha.com**. Лист перевірки надіслано; адресу **ще не
+  підтверджено**. Домашня сторінка: **https://dzyha.com/**; підтримка — Issues
+  репозиторію за посиланням нижче.
+- Панель пакета підтверджує **Draft 0.9.3**, шість дозволів і відсутність
+  `activeTab`; розширення не опубліковано. **ZIP 0.9.3** завантажено. Збережено спільний англійський/український опис на
+  **3 026 символів**. Категорія: **Workflow & Planning**; мова інтерфейсу:
+  **English**. Іконку та промоплитку завантажено й збережено.
+- Збережено налаштування приватності: шість пояснень дозволів, **без віддаленого
+  коду**, п’ять категорій даних (**персональні ідентифікаційні**, **фінансові /
+  платіжні**, **автентифікаційні**, **історія перегляду**, **вміст сайтів**),
+  усі три декларації Limited Use та публічну адресу політики нижче.
+- Розповсюдження **безкоштовне**, **публічне**, в **усіх регіонах**; типові
+  налаштування панелі підтверджено. Двомовні кроки для рецензента збережено.
+
+Панель **Why can't I submit?** показує рівно дві невиконані вимоги:
+
+1. Щонайменше один скриншот або відео.
+2. Підтверджена контактна email-адреса.
+
+Приймання встановленого Chrome-пакета залишається окремою внутрішньою перевіркою.
+Поточне середовище автоматизації блокує `chrome://extensions` політикою URL;
+встановлення, справжні скриншоти панелі та приймання потрібно виконати у звичайній
+сесії Chrome під керуванням користувача. Через це обмеження інструмента ці
+перевірки залишаються невиконаними.
+На вибраній домашній сторінці немає прямого посилання на приватність AIC;
+актуальне джерело сайту не визначено, публікацію змін сайту не виконували.
+Це не додаткові повідомлення валідації панелі. Наявні файли випуску 0.9.2 не змінено.
 
 ### Випуск і посилання
 
 Чернетка для кандидата **AIC — Page notes 0.9.3**. Опублікована базова версія —
 0.9.2 у [випуску 46.0.2](https://github.com/ldzyha/standard-notes-aic/releases/tag/v46.0.2).
-Кандидат 0.9.3 прибирає зайвий дозвіл `activeTab`; перед поданням потрібні
-перевірки його пакета та встановлення у Chrome. Це не підтвердження схвалення.
+Завантажений кандидат 0.9.3 прибирає зайвий дозвіл `activeTab`. Контрольну суму,
+маніфест і файли ZIP перевірено локально; приймання встановленого Chrome-пакета
+ще не завершено. Це не підтвердження схвалення.
 
 - Пакет кандидата: `aic-browser-chromium-0.9.3.zip` та відповідний `.sha256`.
 - [Публічна політика приватності](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/PRIVACY.md).
   24 вересня 2026 року адреса повернула HTTP 200 без авторизації. Політика має
   посилання на українську версію; окрему сторінку приватності GitHub Pages не налаштовано.
-- [Сторінка продукту](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/README.uk.md).
+- [Сторінка продукту](https://dzyha.com/).
 - [Підтримка](https://github.com/ldzyha/standard-notes-aic/issues).
-- Рекомендована категорія: **Productivity**, якщо вона є в панелі. Інтерфейс
-  пакета англійський; двомовна документація не означає локалізованого інтерфейсу.
+- Збережена категорія: **Workflow & Planning**. Інтерфейс пакета англійський;
+  двомовний опис і документація не означають локалізованого інтерфейсу.
 
 ### Короткий опис
 
 Локальні Markdown-нотатки для вебсторінок. Імпортуйте текст, знаходьте нотатки за доменом і зберігайте власні резервні копії.
 
-### Докладний опис
+### Довідковий докладний опис
 
 Тримайте нотатки поруч зі сторінкою, яку читаєте. AIC відкриває Markdown-редактор
 у бічній панелі Chrome та прив’язує кожну нотатку до точної URL сторінки.
@@ -230,18 +297,14 @@ AIC обробляє дані локально. Не вибирайте «нем
 спробуйте Import, надаючи доступ лише цьому сайту; перевірте явні Copy/Paste і
 Lock. Тестового акаунта чи серверного пароля не потрібно.
 
-Перед поданням перевірте, що фінальний архів 0.9.3 не містить `activeTab`, і
-запишіть перевірку встановленого Chrome-пакета у [VERIFICATION.md](VERIFICATION.md). Перевірки
-редактора не доводять роботу справжніх запитів дозволу, буфера, worker,
+Запишіть приймання встановленого Chrome-пакета у [VERIFICATION.md](VERIFICATION.md).
+Перевірки редактора не доводять роботу справжніх запитів дозволу, буфера, worker,
 перезапуску та Lock у встановленому розширенні.
 
-Реєстрацію розробника Chrome Web Store завершено 24 вересня 2026 року після
-одноразового внеску $5. Власник ще має підтвердити публічне ім’я видавця,
-контактний email і статус trader/non-trader. Адреси з нотаток не використовуються.
-[Промоплитка 440 × 280](store-assets/small-promo-440x280.png) готова; є
-[редагований SVG](store-assets/small-promo-440x280.svg). Справжні скриншоти
-**ще не готові**. Потрібно зняти встановлену збірку із синтетичними нотатками;
-не замінювати інтерфейс вигаданими скриншотами. У пакеті немає папок `_locales`, тому окремий український
-опис магазину може бути недоступним; обидві мовні версії можна розмістити в
-одному докладному описі без заяви про український інтерфейс.
+[Промоплитку 440 × 280](store-assets/small-promo-440x280.png) та іконку розширення
+завантажено й збережено; [редагований SVG](store-assets/small-promo-440x280.svg)
+лишився у репозиторії. Справжні скриншоти **ще не готові**. Потрібно зняти
+встановлену збірку із синтетичними нотатками, не замінюючи інтерфейс вигаданими
+скриншотами. У пакеті немає папок `_locales`. Обидві мови збережено в одному
+описі без заяви про український інтерфейс.
 [Інструкція сторінки магазину](https://developer.chrome.com/docs/webstore/cws-dashboard-listing).
