@@ -6,8 +6,10 @@
 
 **Status:** [AIC Notes](https://marketplace.visualstudio.com/items?itemName=ldzyha.aic-notes)
 is public in VS Code Marketplace; **53.0.1** is the last confirmed store version.
-The target update **54.0.2** still needs verified artifacts and publication.
-Automatic publishing is prepared but awaits repository publishing access; follow
+The **54.0.2** GitHub release is available; its manual Marketplace upload still
+awaits CAPTCHA completion and is not confirmed published. Automatic publishing
+is prepared, but `VSCE_PAT` is absent. The attempted Azure DevOps credential setup
+is blocked because no Azure subscription is accessible for a new organization. See
 [the bilingual automation guide](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md).
 Chrome Web Store and Microsoft Edge Add-ons submissions remain unconfirmed.
 Browser **0.9.2 is experimental**. Firefox and Mullvad are outside this plan.
@@ -58,6 +60,13 @@ leaves the source unchanged.
   [VS Code](https://code.visualstudio.com/api/working-with-extensions/publishing-extension),
   [Chrome](https://developer.chrome.com/docs/webstore/register),
   [Edge](https://learn.microsoft.com/en-us/microsoft-edge/extensions-chromium/publish/create-dev-account).
+
+Creating a **new Azure DevOps organization** requires an active Azure subscription;
+existing organizations and free-tier limits are unaffected.
+[Microsoft prerequisites](https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/create-organization?view=azure-devops).
+This requirement does not apply to every publisher or authentication route.
+Existing manual Marketplace uploads and VS Code client updates do not require
+this organization setup.
 
 ### Manual updates and first browser submissions
 
@@ -126,8 +135,10 @@ See [Local data](browser/README.md).
 
 **Статус:** [AIC Notes](https://marketplace.visualstudio.com/items?itemName=ldzyha.aic-notes)
 вже опубліковано у VS Code Marketplace; **53.0.1** — остання підтверджена версія
-магазину. Оновлення **54.0.2** ще потребує перевірених файлів і публікації.
-Автопублікацію підготовлено, але вона очікує доступу для репозиторію; дивіться
+магазину. GitHub-випуск **54.0.2** доступний; ручне завантаження до Marketplace
+ще очікує завершення CAPTCHA, публікацію не підтверджено. Автопублікацію
+підготовлено, але `VSCE_PAT` відсутній. Налаштування доступу через Azure DevOps
+зупинилося: акаунт не має доступної Azure subscription для нової організації. Дивіться
 [двомовну інструкцію](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md#українська).
 Подання до Chrome Web Store та Microsoft Edge Add-ons ще не підтверджені.
 Браузер **0.9.2 експериментальний**. Firefox і Mullvad не входять у цей план.
@@ -153,6 +164,12 @@ clipboard лишає source без змін.
 - **Завершіть випускні перевірки.** Звірте версії у `../aic-notes/package.json` і [`browser/manifest.json`](browser/manifest.json), SHA-256 та вміст фінальних архівів. У ZIP `manifest.json` має лежати в корені; `THIRD_PARTY_NOTICES.md` має містити всі потрібні повідомлення про залежності. Старий ZIP, що залишився в папці, не є фінальним автоматично. Наявний Edge packaged smoke не замінює ще не підтверджену перевірку **встановленого Chrome-пакета**. Не подавайте браузерне розширення, доки ця перевірка й релізні умови не виконані. [Chrome: підготовка пакета](https://developer.chrome.com/docs/webstore/prepare), [Edge: пакет ZIP](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
 - **Підготуйте публічну політику й сторінки.** Оновіть [`browser/PRIVACY.md`](browser/PRIVACY.md) та [`browser/README.md`](browser/README.md): вони мають описувати випущену версію, а не лише development build. Розмістіть політику за стабільною HTTPS-адресою та відкрийте її без входу в акаунт. Адресу не зазначено тут, бо її ще треба опублікувати й перевірити. Зробіть справжні скриншоти, короткий опис, контакт підтримки та, за потреби, тестові інструкції для рецензентів. Пояснення доступу до вкладки, ручного імпорту, буфера обміну, локального шифрування й відсутності синхронізації мають збігатися з поведінкою продукту. [Chrome: privacy practices](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy), [Edge: privacy](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
 - **Підготуйте три облікові записи.** Для VS Code перевірте право керувати видавцем `ldzyha` через Microsoft/Azure DevOps; не створюйте іншого ID для того самого розширення. Chrome Web Store вимагає одноразову реєстраційну плату та двоетапну перевірку; суму перевірте перед оплатою. Для Edge потрібен акаунт програми в Partner Center; Microsoft вказує, що реєстрація безкоштовна. Не записуйте паролі, токени чи коди відновлення в репозиторій. [VS Code](https://code.visualstudio.com/api/working-with-extensions/publishing-extension), [Chrome](https://developer.chrome.com/docs/webstore/register), [Edge](https://learn.microsoft.com/en-us/microsoft-edge/extensions-chromium/publish/create-dev-account).
+
+Створення **нової організації Azure DevOps** потребує активної Azure subscription;
+наявні організації та ліміти безкоштовного рівня не змінюються.
+[Вимоги Microsoft](https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/create-organization?view=azure-devops).
+Це не вимога для всіх видавців чи способів авторизації. Наявна ручна публікація
+в Marketplace та оновлення у клієнті VS Code не потребують створення цієї організації.
 
 ## Ручні оновлення та перше подання до магазинів браузера
 
