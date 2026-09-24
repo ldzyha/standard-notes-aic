@@ -2,9 +2,9 @@
 
 [English](PRIVACY.md) · [Українська](PRIVACY.uk.md)
 
-This describes the Chrome and Edge experimental component 0.9.2. See README.md and VERIFICATION.md for release status and testing boundaries.
+This policy describes the current data handling of the Chrome and Edge experimental component 0.9.3. See README.md and VERIFICATION.md for release status and testing boundaries.
 
-AIC has no server, account, telemetry or synchronization. All runtime resources are bundled. Its extension content policy blocks outgoing connections and remote embedded resources. It reads page content only after you request an import; it does not edit, autofill or insert into source websites. Opening a source link is ordinary browser navigation.
+In this version, AIC has no server, account, telemetry, analytics or synchronization. All runtime resources are bundled. Its extension content policy blocks outgoing connections and remote embedded resources. It reads page content only after you request an import; it does not edit, autofill or insert into source websites. Opening a source link is ordinary browser navigation.
 
 Notes, domain AIC documents, the optional Global Shared record, titles, URLs, dates and the navigation index are encrypted together in local extension storage. Domain values are displayed only for the same exact scheme, host and port. Global Shared is one explicitly created record available across pages in this browser profile, including without an active page. Neither record is copied into page Markdown or inserted into websites. Your master passphrase is not persisted. The derived key remains only in trusted browser session memory after unlock; Lock, browser restart, extension reload or update removes it. There is no embedded key or disk fallback. Both local and session storage require explicit trusted-context access restrictions; local storage contains only encrypted data.
 
@@ -21,9 +21,21 @@ Removing an extension removes its local data, but not downloaded backups. Keep a
 - `storage`: encrypted local data and a session-only unlock key; no `storage.sync`.
 - `tabs`: identify the active page in the panel's window and open/activate saved source URLs. No history-database permission.
 - `sidePanel`: display the notes panel in Chrome and Edge.
-- `activeTab` and `scripting`: deliberate, read-only page/selection capture.
+- `scripting`: deliberate, read-only page/selection capture after you grant access to the selected site.
 - Optional HTTP(S) site access: requested for the selected origin on import, not granted to every site at installation. You can revoke site access in browser extension settings.
 - `clipboardRead`: an explicit Paste action on an empty typed field reads the latest clipboard text after the user's click. General editor paste stays native; there is no top-level clipboard-import button, monitoring, history collection or background read.
 - `clipboardWrite`: deliberate copy actions, including hidden field values.
 
 Encryption does not protect an unlocked extension or a compromised device/browser. Plaintext exists in memory while editing. Visible webpage text, titles and URLs can contain confidential information; excluding form values is not universal secret detection. This build is not an independently audited password manager.
+
+## Chrome Web Store Limited Use
+
+AIC's handling of user data complies with the [Chrome Web Store User Data Policy, including its Limited Use requirements](https://developer.chrome.com/docs/webstore/program-policies/limited-use).
+
+Browser permissions support only the local notes, page import and navigation features described above. The developer does not receive or remotely access your notes or captured page content. AIC does not sell user data or use it for advertising, unrelated profiling, creditworthiness assessments or lending. Exports and clipboard copies happen only through your explicit actions, as described above.
+
+## Changes to this policy
+
+The developer may update this policy with product releases. Accounts and synchronization between systems are not available in this version. Before such features become available, their data handling will be described separately, including what data is involved, where it is sent, who receives it and for what purpose.
+
+Changes to data practices will be prominently disclosed. Where required, AIC will obtain your affirmative, informed consent before new collection, use or sharing begins. Updating this policy alone does not authorize new uses of previously stored data or constitute your advance consent to future data handling.

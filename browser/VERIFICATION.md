@@ -2,10 +2,23 @@
 
 [English](VERIFICATION.md) · [Українська](VERIFICATION.uk.md)
 
-Status: **0.9.2 experimental component**, not a store release or an independently
+Status: **0.9.3 experimental submission candidate**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
 using one Chromium Manifest V3 package. All test passphrases, notes and clipboard
 substitutes are synthetic. No user profile or real notes are part of these tests.
+
+## 0.9.3 — Chrome Web Store preparation
+
+The browser manifest drops redundant `activeTab`; capture still requests optional
+origin access before `scripting.executeScript`. Privacy documentation adds the
+Chrome Limited Use statement. Runtime code and shared editor versions are unchanged.
+Installed Chrome/Edge acceptance and store submission are not established by this
+permission and documentation update.
+
+The 34 existing focused tests passed across browser build configuration, package
+assets, platform adapter, service authorization and panel actions. Tests that
+spawn Node were rerun outside the sandbox after its process restriction blocked
+them; no product test failure remained.
 
 ## 0.9.2 — accordion layout and save feedback verification
 
