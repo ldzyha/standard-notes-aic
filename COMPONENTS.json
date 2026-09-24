@@ -20,8 +20,8 @@
   "components": [
     {
       "id": "button",
-      "purpose": "Named native action control with consistent geometry, focus, disabled state, variant, size, and optional icon. Icon-only copy feedback keeps the accessible action name stable, announces status, briefly shows a success checkmark or failure cross, and restores its original icon.",
-      "hosts": ["standard-notes", "standalone", "browser"],
+      "purpose": "Named native action control with consistent geometry, focus, disabled state, variant, size, and optional icon. Icon-only copy feedback keeps the accessible action name stable, announces status, briefly shows a success checkmark or failure cross, and restores its original icon. Unsaved changes accent and softly pulse only the save button, with a static reduced-motion cue.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "bem": {
         "block": "aic-button",
         "elements": ["icon", "label"],
@@ -32,7 +32,8 @@
           "normal",
           "compact",
           "touch",
-          "icon-only"
+          "icon-only",
+          "unsaved"
         ]
       },
       "canonicalOwners": [
@@ -192,7 +193,7 @@
     },
     {
       "id": "card",
-      "purpose": "Structured content surface with header, title, body, and actions for AIC fields, diagrams, errors, and compact read-only previews. AIC sections use larger headings and distinct neutral group backgrounds to separate their rows visually.",
+      "purpose": "Structured content surface with header, title, body, and actions for AIC fields, diagrams, errors, and compact read-only previews. AIC sections use larger headings and distinct neutral group backgrounds to separate their rows visually. Details keep wrapping summary titles and source actions separate, with inset child previews and one visible parent boundary.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "bem": {
         "block": "aic-card",
@@ -206,12 +207,22 @@
           "section-actions",
           "footer"
         ],
-        "modifiers": ["compact", "security", "properties", "readonly", "empty"]
+        "modifiers": [
+          "compact",
+          "security",
+          "properties",
+          "readonly",
+          "empty",
+          "details",
+          "embedded"
+        ]
       },
       "canonicalOwners": [
         "standard-notes-aic/src/core/ui-system.js",
         "standard-notes-aic/src/core/ui-system.css",
-        "standard-notes-aic/src/core/security-block.js"
+        "standard-notes-aic/src/core/security-block.js",
+        "standard-notes-aic/src/core/details-preview.js",
+        "standard-notes-aic/src/core/preview-layout.css"
       ],
       "legacyHooks": {
         "shared": [
@@ -219,7 +230,9 @@
           ".cm-aic-security-card",
           ".cm-aic-security-body",
           ".cm-aic-properties",
-          ".cm-md-code-preview"
+          ".cm-md-code-preview",
+          ".cm-aic-details-summary",
+          ".cm-aic-details-body"
         ],
         "browser": [".browser-domain-properties", ".browser-delete-confirm"],
         "vscode": [".aicn-error-card"]

@@ -2,10 +2,31 @@
 
 [English](VERIFICATION.md) · [Українська](VERIFICATION.uk.md)
 
-Status: **0.9.1 experimental component**, not a store release or an independently
+Status: **0.9.2 experimental component**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
 using one Chromium Manifest V3 package. All test passphrases, notes and clipboard
 substitutes are synthetic. No user profile or real notes are part of these tests.
+
+## 0.9.2 — accordion layout and save feedback verification
+
+- Coordinated targets: Standard Notes **46.0.2**, AIC Notes **54.0.2** and shared
+  core **7.3.2**. Browser storage format and permissions are unchanged.
+- CUA inspection in a Chromium renderer used a synthetic fixture running the
+  canonical `AicEditor`, the runtime shared by Standard Notes and the browser.
+  Light and dark themes were checked at 360 and 1280 px. Code, Mermaid and table
+  children retained their accordion insets and bounds without horizontal
+  overflow at the document root. Read-only behavior remained intact.
+- The compiled production VS Code webview bundle was inspected with a synthetic
+  host in both the main editor and Linked Note. In dark Linked Note, toggling a
+  checkbox made the draft dirty while the editor background remained
+  `rgb(24, 26, 28)` and its text color stayed unchanged. The Save button visibly
+  pulsed; a simulated save acknowledgement hid it.
+- Collapsing an accordion hid its complete body. Editing a child code block
+  opened only that block's source.
+- These are synthetic renderer and host UI checks, not verification of the
+  Standard Notes transport, an installed browser extension or a physical device.
+  Full release gates and final artifact checks are recorded separately; earlier
+  evidence below does not establish installed Chrome/Edge acceptance for 0.9.2.
 
 ## 0.9.1 narrow credential controls — UI verification
 

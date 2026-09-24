@@ -350,9 +350,12 @@ describe("Standard Notes editor bridge", () => {
     });
     expect(bridge.saves).toHaveLength(0);
     expect(editor.dataset.saveState).toBe("dirty");
-    expect(root.querySelector(".aic-save-status")?.textContent).toBe(
-      "Unsaved changes",
-    );
+    expect(root.querySelector(".aic-save-status")?.textContent).toBe("");
+    expect(
+      root
+        .querySelector(".aic-save-button.aic-button--unsaved")
+        ?.getAttribute("aria-description"),
+    ).toBe("Unsaved changes");
     editor.dispatchEvent(new FocusEvent("focusout", { relatedTarget: null }));
     expect(bridge.saves).toHaveLength(1);
     expect(bridge.saves[0]).toMatchObject({

@@ -151,15 +151,20 @@ describe("compact toolbar", () => {
     expect(save.hidden).toBe(false);
     expect(save.disabled).toBe(false);
     expect(save.getAttribute("aria-label")).toBe("Save note");
-    expect(status.textContent).toBe("Unsaved changes");
+    expect(status.textContent).toBe("");
+    expect(save.classList.contains("aic-button--unsaved")).toBe(true);
+    expect(save.getAttribute("aria-description")).toBe("Unsaved changes");
+    expect(save.getAttribute("aria-busy")).toBe("false");
     expect(visibleButtonLabels(editor)).toHaveLength(8);
 
     editor.setSaveState("dirty", true, "saving");
     expect(save.disabled).toBe(true);
     expect(status.textContent).toBe("Saving note…");
+    expect(save.getAttribute("aria-busy")).toBe("true");
 
     editor.setSaveState("saved", false, "saved");
     expect(save.hidden).toBe(true);
+    expect(save.classList.contains("aic-button--unsaved")).toBe(false);
     expect(status.textContent).toBe("Note saved");
     expect(visibleButtonLabels(editor)).toHaveLength(7);
 
@@ -168,6 +173,11 @@ describe("compact toolbar", () => {
     expect(save.disabled).toBe(false);
     expect(save.getAttribute("aria-label")).toBe("Retry save");
     expect(status.textContent).toBe("Note not saved. Retry save.");
+    expect(save.classList.contains("aic-button--unsaved")).toBe(true);
+    expect(save.getAttribute("aria-busy")).toBe("false");
+    expect(save.getAttribute("aria-description")).toBe(
+      "Note not saved. Retry save.",
+    );
   });
 
   it("keeps source and local help accessible while read-only", () => {

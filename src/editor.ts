@@ -419,9 +419,7 @@ export class AicEditor {
             ? "Note saved"
             : feedback === "failed"
               ? "Note not saved. Retry save."
-              : state === "dirty"
-                ? "Unsaved changes"
-                : "";
+              : "";
     this.reflectSaveAction();
     if (state === "saved") {
       const doc = this.view.state.doc;
@@ -448,6 +446,16 @@ export class AicEditor {
     this.saveButton.title = label;
     this.saveButton.hidden = this.element.dataset.saveState !== "dirty";
     this.saveButton.disabled = this.currentReadOnly || this.savePending;
+    this.saveButton.classList.toggle(
+      "aic-button--unsaved",
+      !this.saveButton.hidden,
+    );
+    this.saveButton.setAttribute("aria-busy", String(this.savePending));
+    this.saveButton.setAttribute(
+      "aria-description",
+      this.saveStatus?.textContent ||
+        (!this.saveButton.hidden ? "Unsaved changes" : ""),
+    );
     if (this.saveControls)
       this.saveControls.hidden =
         this.saveButton.hidden && !this.saveStatus?.textContent;

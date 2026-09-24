@@ -246,11 +246,12 @@
     {
       "id": "core.details",
       "group": "shared-editor",
-      "purpose": "Parse and render details accordions with whole-block cut while retaining nested links, tasks, comments, and open state.",
+      "purpose": "Parse and render details accordions with readable wrapping titles, consistent source actions, and inset nested previews inside a continuous parent boundary while retaining whole-block cut, links, tasks, comments, and open state.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/core/details-model.js",
-        "standard-notes-aic/src/details-extension.ts"
+        "standard-notes-aic/src/details-extension.ts",
+        "standard-notes-aic/src/core/details-preview.js"
       ],
       "sourceFiles": [
         "standard-notes-aic/src/core/details-model.js",
@@ -258,7 +259,10 @@
         "standard-notes-aic/src/details-model.ts",
         "standard-notes-aic/src/details-extension.ts",
         "aic-notes/src/webview/details-model.js",
-        "aic-notes/src/webview/details.js"
+        "aic-notes/src/webview/details.js",
+        "standard-notes-aic/src/core/details-preview.js",
+        "standard-notes-aic/src/core/details-preview.d.ts",
+        "standard-notes-aic/src/core/preview-layout.css"
       ],
       "entrypoints": [
         "standard-notes-aic/src/editor.ts",
@@ -525,7 +529,7 @@
     {
       "id": "core.ui-system",
       "group": "design-system",
-      "purpose": "Define the shared component IDs, BEM class application, button factory, geometry tokens, and additive migration surface used by host adapters.",
+      "purpose": "Define the shared component IDs, BEM class application, button factory, geometry tokens, and additive migration surface used by host adapters. Indicate unsaved changes on the save button with a soft pulse and static reduced-motion accent, preserving the document background and text colors.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/core/ui-system.js",
@@ -541,7 +545,9 @@
       "entrypoints": ["standard-notes-aic/src/core/ui-system.js"],
       "verification": [
         "standard-notes-aic/test/ui-system.test.ts",
-        "standard-notes-aic/test/ui-registry-contract.test.ts"
+        "standard-notes-aic/test/ui-registry-contract.test.ts",
+        "standard-notes-aic/test/toolbar-compact.test.ts",
+        "aic-notes/test/release-contract.test.js"
       ]
     },
     {

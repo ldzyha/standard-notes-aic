@@ -103,7 +103,13 @@ async function assertDirtyToolbar(page, colorScheme, width) {
     layout.buttons.map(({ label }) => label),
     ["Save note", ...expectedLabels],
   );
-  assert.equal(layout.status, "Unsaved changes");
+  assert.equal(layout.status, "");
+  assert.equal(
+    await toolbar
+      .locator(".aic-save-button.aic-button--unsaved")
+      .getAttribute("aria-description"),
+    "Unsaved changes",
+  );
   assert.equal(layout.selectCount, 0);
   assert.ok(
     layout.buttons.every(

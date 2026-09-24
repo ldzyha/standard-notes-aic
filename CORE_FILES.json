@@ -13,6 +13,8 @@
   "code-languages.js",
   "details-model.d.ts",
   "details-model.js",
+  "details-preview.d.ts",
+  "details-preview.js",
   "draft-session.d.ts",
   "draft-session.js",
   "editor-help.d.ts",

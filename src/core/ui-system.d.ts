@@ -16,12 +16,20 @@ export type UiModifiers = {
     | "normal"
     | "compact"
     | "touch"
-    | "icon-only";
+    | "icon-only"
+    | "unsaved";
   toolbar: "compact" | "wrap";
   menu: "compact";
   notice: "info" | "success" | "warning" | "error";
   field: "compact" | "invalid" | "masked" | "composite" | "unlabelled" | "icon";
-  card: "compact" | "security" | "properties" | "readonly" | "empty";
+  card:
+    | "compact"
+    | "security"
+    | "properties"
+    | "readonly"
+    | "empty"
+    | "details"
+    | "embedded";
   tree: "compact" | "ancestors";
   context: "compact" | "empty" | "editing";
 };

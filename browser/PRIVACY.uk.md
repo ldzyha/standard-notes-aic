@@ -2,7 +2,7 @@
 
 [English](PRIVACY.md) · [Українська](PRIVACY.uk.md)
 
-Цей документ описує експериментальний компонент 0.9.1 для Chrome та Edge.
+Цей документ описує експериментальний компонент 0.9.2 для Chrome та Edge.
 Статус випуску й межі перевірок наведені у [README](README.uk.md) та
 [VERIFICATION](VERIFICATION.uk.md).
 

@@ -37,6 +37,113 @@ describe("AIC details grammar", () => {
 });
 
 describe("AIC details interaction", () => {
+  it("groups linked actions and insets only previews belonging to an open details body", () => {
+    const source = [
+      ">>>|open| - [ ] [src/components/long-file-name.ts · L10–L18](src/components/long-file-name.ts#L10-L18)",
+      "```typescript",
+      "const example = true;",
+      "```",
+      "",
+      "**Comment**",
+      "This text remains in the note editor.",
+      "<<<",
+      "",
+      "```text",
+      "Outside the accordion",
+      "```",
+      "",
+      "after",
+    ].join("\n");
+    const host = document.body.appendChild(document.createElement("div"));
+    const editor = new AicEditor(host, { initialText: source });
+    editor.view.dispatch({ selection: { anchor: source.length } });
+    const summary = host.querySelector(".cm-aic-details-summary")!;
+    const heading = summary.querySelector(".aic-card__section--details")!;
+    expect(heading.querySelector(".cm-aic-details-title")?.textContent).toBe(
+      "src/components/long-file-name.ts · L10–L18",
+    );
+    expect(heading.querySelector('[role="checkbox"]')).not.toBeNull();
+    const actions = summary.querySelector(".aic-card__actions--details")!;
+    expect(actions.querySelectorAll(".aic-button--icon-only")).toHaveLength(3);
+
+    const cards = host.querySelectorAll<HTMLElement>(".cm-md-code-preview");
+    expect(cards).toHaveLength(2);
+    expect(cards[0]!.classList.contains("aic-card__body--embedded")).toBe(true);
+    expect(cards[1]!.classList.contains("aic-card__body--embedded")).toBe(
+      false,
+    );
+    expect(host.querySelectorAll(".aic-card__footer--details")).toHaveLength(1);
+    expect(host.querySelectorAll(".cm-editor")).toHaveLength(1);
+    expect(editor.value).toBe(source);
+
+    actions.querySelector<HTMLButtonElement>(".cm-aic-details-edit")!.click();
+    expect(host.querySelector(".cm-aic-details-summary")).toBeNull();
+    expect(host.querySelector(".aic-card__footer--details")).toBeNull();
+    expect(host.querySelector(".aic-card__body--embedded")).toBeNull();
+    expect(editor.value).toBe(source);
+    editor.view.dispatch({ selection: { anchor: source.length } });
+    expect(host.querySelectorAll(".aic-card__body--embedded")).toHaveLength(1);
+    editor.destroy();
+    host.remove();
+  });
+
+  it("keeps a code-only body bounded across read-only disclosure without changing source", () => {
+    const source =
+      ">>> Read-only example\n```js\nconst value = 1;\n```\n<<<\n\nafter";
+    const host = document.body.appendChild(document.createElement("div"));
+    const editor = new AicEditor(host, { initialText: source, readOnly: true });
+    editor.view.dispatch({ selection: { anchor: source.length } });
+    const toggle = () =>
+      host
+        .querySelector<HTMLButtonElement>(".cm-aic-details-disclosure")!
+        .click();
+    expect(host.querySelector(".cm-md-code-preview")).toBeNull();
+    toggle();
+    expect(
+      host.querySelector(".cm-md-code-preview.aic-card__body--embedded"),
+    ).not.toBeNull();
+    expect(host.querySelector(".aic-card__footer--details")).not.toBeNull();
+    expect(host.querySelector(".cm-aic-details-cut")).toBeNull();
+    expect(editor.value).toBe(source);
+    toggle();
+    expect(host.querySelector(".cm-md-code-preview")).toBeNull();
+    expect(host.querySelector(".aic-card__footer--details")).toBeNull();
+    expect(editor.value).toBe(source);
+    editor.destroy();
+    host.remove();
+  });
+
+  it("rebuilds body membership after source-mode remount and clears it when a card moves outside", async () => {
+    const source =
+      ">>>|open| Example\n```js\nconst value = 1;\n```\n<<<\n\nafter";
+    const host = document.body.appendChild(document.createElement("div"));
+    const editor = new AicEditor(host, { initialText: source });
+    const embedded = () =>
+      host.querySelector(".cm-md-code-preview.aic-card__body--embedded");
+    // Initial paint has no selection/update transaction to trigger the listener.
+    await vi.waitFor(() => expect(embedded()).not.toBeNull());
+    const toggle = host.querySelector<HTMLButtonElement>(
+      ".aic-source-mode-toggle",
+    )!;
+    toggle.click();
+    expect(host.querySelector(".aic-card__body--embedded")).toBeNull();
+    toggle.click();
+    editor.view.dispatch({ selection: { anchor: source.length } });
+    await vi.waitFor(() => expect(embedded()).not.toBeNull());
+    expect(editor.value).toBe(source);
+    editor.updateDocument("```js\nconst value = 1;\n```\n\nafter");
+    expect(host.querySelector(".cm-md-code-preview")).not.toBeNull();
+    expect(embedded()).toBeNull();
+    expect(host.querySelector(".aic-card__footer--details")).toBeNull();
+    // Removing the plugin before its pending measure must not access removed fields.
+    toggle.click();
+    toggle.click();
+    toggle.click();
+    editor.destroy();
+    host.remove();
+    await new Promise((resolve) => setTimeout(resolve, 25));
+  });
+
   it("refreshes captured task offsets after header whitespace changes and rejects detached controls", () => {
     const initial = ">>>|open| - [ ] [Task](x)\nbody\n<<<\n\nafter";
     const host = document.createElement("div");

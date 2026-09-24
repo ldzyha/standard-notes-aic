@@ -16,11 +16,16 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 structured AIC fields, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 45.0.1 pairs with AIC Notes 53.0.1 and AIC Editor Core 7.3.1.
+storage format. Release 46.0.2 pairs with AIC Notes 54.0.2 and AIC Editor Core 7.3.2.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
-Shared core 7.3.1 restores the password generator at narrow widths.
+Shared core 7.3.2 supplies the coordinated accordion and save-indicator fixes.
+
+Linked-code comments stay inside their details accordion, with compact headers
+and readable nesting. Unsaved edits keep the editor background unchanged; the
+Save button pulses until changes are saved. Reduced motion uses a static
+indicator, and save acknowledgements remain authoritative.
 
 Empty editable secret (`*|`) parts offer **Generate password** at every panel
 width, regardless of their label. Options wrap to fit narrow screens. Generation
@@ -48,7 +53,7 @@ and manual reordering do not trigger sorting.
 
 ## Current host boundary — 2026-09-15
 
-The experimental browser release component 0.9.1 targets Chrome and Edge only, using one
+The experimental browser release component 0.9.2 targets Chrome and Edge only, using one
 Chromium package and this repository's `AicEditor`, with
 the same always-compact editor toolbar as Standard Notes and explicit read-only
 page/selection/Markdown import. When shared AIC data are empty, their
@@ -117,6 +122,16 @@ Primary product, privacy, verification, functional-index, architecture,
 provenance and changelog documents have direct English/Ukrainian navigation.
 Localized files are included in the Standard Notes, Chromium and VS Code release
 package contracts. Generated third-party notices retain exact upstream wording.
+
+## Accordion and save feedback fixes in release 46.0.2
+
+Linked-code comments stay inside their details accordion, with compact headers
+and readable nesting. Unsaved edits keep the editor background unchanged; the
+Save button pulses until changes are saved. Reduced motion uses a static
+indicator, and save acknowledgements remain authoritative.
+
+The host still owns draft persistence and save acknowledgement; this changes
+preview membership and presentation, not Markdown or storage formats.
 
 ## Password generation at narrow widths in release 45.0.1
 

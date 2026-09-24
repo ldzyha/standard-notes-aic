@@ -13,8 +13,13 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
-Release 45.0.1 restores password generation on narrow screens using shared core
-7.3.1. The same fix ships in AIC Notes 53.0.1 and experimental browser 0.9.1.
+Release 46.0.2 pairs with AIC Notes 54.0.2, experimental browser 0.9.2 and
+shared core 7.3.2.
+
+Linked-code comments stay inside their details accordion, with compact headers
+and readable nesting. Unsaved edits keep the editor background unchanged; the
+Save button pulses until changes are saved. Reduced motion uses a static
+indicator, and save acknowledgements remain authoritative.
 
 Empty editable secret (`*|`) parts offer **Generate password** at every panel
 width, regardless of their label. Options wrap to fit narrow screens. Generation
@@ -191,6 +196,15 @@ grammar in Standard Notes, the browser panel, and both VS Code editor surfaces.
 Legacy YAML Properties remain ordinary authored Markdown. They are not rendered as
 fields, interpreted as metadata, rewritten on save, or automatically migrated. Source
 mode keeps that text accessible for manual repair.
+
+## Release 46.0.2
+
+Linked-code comments stay inside their details accordion, with compact headers
+and readable nesting. Unsaved edits keep the editor background unchanged; the
+Save button pulses until changes are saved. Reduced motion uses a static
+indicator, and save acknowledgements remain authoritative.
+
+See the bilingual [installation guide](RELEASE_INSTALL.md).
 
 ## Release 45.0.1
 
@@ -535,9 +549,10 @@ It never opens a real Standard Notes account or modifies workspace documents.
   that UUID again at save time. Switching notes cannot redirect a draft into another note, and
   returning during the same editor session restores the correct dirty draft without storing its
   plaintext on disk.
-- Save state has a colour indicator and readable feedback. A neutral surface means the current
-  text is acknowledged; dirty drafts are amber, pending saves distinct, failures visible, and
-  empty placeholders gray. A saved state is never inferred from sending a request.
+- Unsaved drafts keep the editor background unchanged. The Save button pulses
+  while changes need saving, or stays static with reduced motion. Accessible
+  feedback distinguishes pending saves and failures; empty placeholders remain
+  neutral. A saved state requires acknowledgement, not merely sending a request.
 - A null context makes the editor unavailable and read-only. Partial metadata preserves omitted
   fields only for the same UUID; a newly identified note without its text remains locked.
 - Failed, unknown, timed-out or disposed saves do not mark drafts saved. An acknowledgement
@@ -552,7 +567,7 @@ the form `vX.Y.Z` run the same check, require an exact `package.json` version ma
 release archive containing root release documentation and registries, `package.json`,
 and `dist/`. The same release
 also builds and attaches the experimental Chrome/Edge ZIP, its SHA-256 checksum,
-and the [marketplace HOWTO](MARKETPLACE_HOWTO.md). No store submission is automatic.
+and the [marketplace HOWTO](MARKETPLACE_HOWTO.md). Browser-store submission remains a separate step.
 
 The production manifest is canonical at
 `https://ldzyha.github.io/standard-notes-aic/ext.json`. Its desktop archive is version-pinned, so a
@@ -560,6 +575,6 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `45.0.1` is sequence 45 with
-zero feature outcomes and one fixed-bug outcome; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `46.0.2` is sequence 46 with
+zero feature outcomes and two fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).

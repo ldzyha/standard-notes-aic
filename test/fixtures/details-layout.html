@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>AIC linked comment layout / Компонування коментаря</title>
+  <div id="app"></div>
+  <script type="module">
+    import { AicEditor } from "/src/editor.ts";
+    import "/src/styles.css";
+    import "/src/core/ui-system.css";
+    import "/src/core/icons.css";
+    import "/src/core/preview-layout.css";
+    import "/src/core/mermaid-viewport.css";
+    import "/src/core/security-block.css";
+    const params = new URLSearchParams(location.search);
+    if (params.has("dark")) {
+      document.documentElement.style.cssText =
+        "color-scheme:dark;--aic-bg:#181a1c;--aic-fg:#e4e7eb;--aic-border:#42464c;--aic-contrast:#202225;--aic-contrast-fg:#e4e7eb";
+    }
+    // Synthetic content only. Save acknowledgement is simulated without storage.
+    const editor = new AicEditor(document.querySelector("#app"), {
+      readOnly: params.has("readonly"),
+      initialText: [
+        "## Linked code",
+        "",
+        ">>>|open| - [ ] [shade-selector-globalization.md · L83](shade-selector-globalization.md#L83)",
+        "```markdown",
+        "model",
+        "```",
+        "",
+        "**Comment**",
+        "Keep the selected shade when this dialog closes.",
+        "<<<",
+        "",
+        ">>>|open| Flow and context / Схема й контекст",
+        "```mermaid",
+        "flowchart LR",
+        "  A[Choose shade] --> B[Preview] --> C[Confirm]",
+        "```",
+        "",
+        "The diagram belongs to this comment.",
+        "",
+        "| State | Result |",
+        "| --- | --- |",
+        "| Selected | Preserved |",
+        "",
+        "<<<",
+        "",
+        ">>> Closed comment / Згорнутий коментар",
+        "Hidden body",
+        "<<<",
+        "",
+        "Outside the accordion / Поза акордеоном",
+      ].join("\n"),
+      onChange: () => editor.setSaveState("dirty", false, "dirty"),
+      onSave: async () => {
+        editor.setSaveState("dirty", true, "saving");
+        await new Promise((resolve) => setTimeout(resolve, 350));
+        const saved = !params.has("fail");
+        editor.setSaveState(
+          saved ? "saved" : "dirty",
+          false,
+          saved ? "saved" : "failed",
+        );
+        return saved;
+      },
+    });
+    editor.setSaveState("saved");
+  </script>
+</html>

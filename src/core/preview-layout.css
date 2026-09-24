@@ -161,6 +161,145 @@
   margin-block: 0;
 }
 
+/* Details retain the parent editor. Their title, source actions, ordinary
+   lines and replacement widgets share one visible, inset body boundary. */
+.cm-editor .cm-content .aic-card__header--details {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  width: 100%;
+  min-width: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--aic-details-border, var(--aic-border));
+  border-inline-start: 2px solid var(--aic-accent);
+  border-radius: var(--aic-radius-surface);
+  background: var(--aic-details-surface, var(--aic-contrast));
+  color: var(--aic-fg);
+  font: 600 0.94rem/1.4 var(--aic-font-ui);
+  letter-spacing: normal;
+  text-transform: none;
+}
+.cm-editor
+  .cm-content
+  .aic-card__header--details[data-open="true"][data-body="true"] {
+  padding-block-end: 10px;
+  border-bottom: 0;
+  border-radius: var(--aic-radius-surface) var(--aic-radius-surface) 0 0;
+}
+.aic-card__section--details {
+  display: flex;
+  align-items: flex-start;
+  gap: 2px;
+  flex: 1 1 18rem;
+  min-width: 0;
+  max-width: 100%;
+}
+.aic-card__section--details .aic-card__title--details {
+  justify-content: flex-start;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 4px;
+  color: inherit;
+  font: inherit;
+  line-height: 1.4;
+  text-align: start;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.aic-card__actions--details {
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 2px;
+  max-width: 100%;
+  margin-inline-start: auto;
+}
+.aic-card__header--details .cm-aic-details-check {
+  position: relative;
+  align-items: center;
+  justify-content: center;
+}
+.aic-card__header--details .cm-aic-details-check::before {
+  box-sizing: border-box;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--aic-control-border, currentColor);
+  border-radius: 3px;
+  content: "";
+}
+.aic-card__header--details .cm-aic-details-check.checked::after {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+}
+.cm-editor .cm-content > .cm-line.aic-card__body--details {
+  box-sizing: border-box;
+  padding-inline: 12px;
+  border-inline-start: 2px solid var(--aic-accent);
+  border-inline-end: 1px solid var(--aic-details-border, var(--aic-border));
+  background-color: var(--aic-details-surface, var(--aic-contrast));
+}
+.cm-editor .cm-content > .aic-card__body--embedded {
+  --aic-details-inset: 12px;
+  --aic-details-child-surface: color-mix(
+    in srgb,
+    var(--aic-bg) 98%,
+    var(--aic-fg) 2%
+  );
+  position: relative;
+  isolation: isolate;
+  box-sizing: border-box;
+  width: calc(100% - 2 * var(--aic-details-inset));
+  max-width: calc(100% - 2 * var(--aic-details-inset));
+  margin-inline: var(--aic-details-inset);
+  background: var(--aic-details-child-surface);
+  overflow: visible;
+}
+.cm-editor .cm-content > .aic-card__body--embedded > pre {
+  background: var(--aic-details-child-surface);
+}
+.cm-editor .cm-content > .aic-card__body--embedded > :first-child {
+  border-start-start-radius: inherit;
+  border-start-end-radius: inherit;
+}
+.cm-editor .cm-content > .aic-card__body--embedded > :last-child {
+  border-end-start-radius: inherit;
+  border-end-end-radius: inherit;
+}
+/* The child keeps its own card edge. The gutters continue the parent rail
+   without wrapping or moving DOM owned by CodeMirror. */
+.cm-editor .cm-content > .aic-card__body--embedded::before,
+.cm-editor .cm-content > .aic-card__body--embedded::after {
+  position: absolute;
+  z-index: -1;
+  box-sizing: border-box;
+  inset-block: -1px;
+  width: var(--aic-details-inset);
+  background: var(--aic-details-surface, var(--aic-contrast));
+  content: "";
+  pointer-events: none;
+}
+.cm-editor .cm-content > .aic-card__body--embedded::before {
+  inset-inline-start: calc(-1 * var(--aic-details-inset) - 1px);
+  border-inline-start: 2px solid var(--aic-accent);
+}
+.cm-editor .cm-content > .aic-card__body--embedded::after {
+  inset-inline-end: calc(-1 * var(--aic-details-inset) - 1px);
+  border-inline-end: 1px solid var(--aic-details-border, var(--aic-border));
+}
+.cm-editor .cm-content > .aic-card__footer--details {
+  box-sizing: border-box;
+  height: 12px;
+  border-inline-start: 2px solid var(--aic-accent);
+  border-inline-end: 1px solid var(--aic-details-border, var(--aic-border));
+  border-block-start: 0;
+  border-block-end: 1px solid var(--aic-details-border, var(--aic-border));
+  border-radius: 0 0 var(--aic-radius-surface) var(--aic-radius-surface);
+  background: var(--aic-details-surface, var(--aic-contrast));
+}
+
 /* drawSelection hides the native caret. Theme the actual drawn insertion and
    drop cursors; keep CodeMirror's focus, selection and blink behavior intact. */
 .cm-editor .cm-cursor,

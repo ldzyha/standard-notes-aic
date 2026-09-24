@@ -25,6 +25,12 @@ import {
   sourcePreviewExitHandlers,
 } from "./core/source-mode.js";
 
+import {
+  createDetailsSummary,
+  DetailsEndWidget,
+  detailsBodyLayout,
+} from "./core/details-preview.js";
+
 const toggleVisual = StateEffect.define<number>();
 const editSource = StateEffect.define<number>({
   map: (value, mapping) => mapping.mapPos(value),
@@ -109,12 +115,6 @@ class DetailsSummaryWidget extends WidgetType {
 
   override toDOM(view: EditorView): HTMLElement {
     const document = view.dom.ownerDocument;
-    const row = document.createElement("div");
-    row.className = "cm-aic-details-summary";
-    row.dataset.aicSourceFrom = String(this.block.from);
-    row.dataset.aicSourceTo = String(this.block.end);
-    row.dataset.open = String(this.open);
-    row.dataset.body = String(this.block.contentFrom < this.block.closeFrom);
     const isCurrent = () =>
       row.isConnected &&
       this.block.headerFrom >= 0 &&
@@ -137,39 +137,13 @@ class DetailsSummaryWidget extends WidgetType {
       });
     };
 
-    const disclosure = document.createElement("button");
-    disclosure.type = "button";
-    disclosure.className = "cm-aic-details-disclosure cm-aic-icon-button";
-    disclosure.dataset.aicIcon = "chevron";
-    disclosure.setAttribute(
-      "aria-label",
-      this.open ? "Collapse details" : "Expand details",
-    );
-    disclosure.setAttribute("aria-expanded", String(this.open));
-    disclosure.addEventListener("pointerdown", (event) =>
-      event.preventDefault(),
-    );
-    disclosure.addEventListener("click", toggle);
-    row.append(disclosure);
-
     const data = this.block.summary;
-    if (data.checked !== null) {
-      const checkbox = document.createElement("button");
-      checkbox.type = "button";
-      checkbox.className = `cm-aic-details-check${data.checked ? " checked" : ""}`;
-      checkbox.setAttribute("role", "checkbox");
-      checkbox.setAttribute("aria-checked", String(data.checked));
-      checkbox.setAttribute(
-        "aria-label",
-        data.checked
-          ? "Mark linked item incomplete"
-          : "Mark linked item complete",
-      );
-      checkbox.disabled = view.state.readOnly;
-      checkbox.addEventListener("pointerdown", (event) =>
-        event.preventDefault(),
-      );
-      checkbox.addEventListener("click", () => {
+    const { row, actions } = createDetailsSummary(document, {
+      block: this.block,
+      open: this.open,
+      readOnly: this.readOnly,
+      onToggle: toggle,
+      onCheck: () => {
         if (view.state.readOnly || !isCurrent() || data.taskOffset < 0) return;
         const from = this.block.titleFrom + data.taskOffset;
         if (from < this.block.headerFrom || from + 1 > this.block.headerTo)
@@ -178,30 +152,9 @@ class DetailsSummaryWidget extends WidgetType {
           changes: { from, to: from + 1, insert: data.checked ? " " : "x" },
           userEvent: "input",
         });
-      });
-      row.append(checkbox);
-    }
-
-    const title = document.createElement("button");
-    title.type = "button";
-    title.className = "cm-aic-details-title";
-    title.textContent = data.label;
-    title.setAttribute(
-      "aria-label",
-      `${this.open ? "Collapse" : "Expand"} ${data.label}`,
-    );
-    title.addEventListener("pointerdown", (event) => event.preventDefault());
-    title.addEventListener("click", toggle);
-    row.append(title);
-
-    if (data.href) {
-      const link = document.createElement("button");
-      link.type = "button";
-      link.className = "cm-aic-details-link cm-aic-icon-button";
-      link.dataset.aicIcon = "open";
-      link.setAttribute("aria-label", `Open linked source: ${data.label}`);
-      link.addEventListener("pointerdown", (event) => event.preventDefault());
-      link.addEventListener("click", () => {
+      },
+      onOpen: () => {
+        if (!isCurrent()) return;
         const external = safeExternalUrl(data.href);
         if (external)
           document.defaultView?.open(external, "_blank", "noopener,noreferrer");
@@ -212,9 +165,8 @@ class DetailsSummaryWidget extends WidgetType {
               bubbles: true,
             }),
           );
-      });
-      row.append(link);
-    }
+      },
+    });
 
     const edit = createIconButton(document, {
       label: view.state.readOnly
@@ -233,7 +185,7 @@ class DetailsSummaryWidget extends WidgetType {
         view.focus();
       },
     });
-    row.append(edit);
+    actions.append(edit);
     if (!this.readOnly) {
       const cut = createIconButton(document, {
         label: "Cut details block",
@@ -256,7 +208,7 @@ class DetailsSummaryWidget extends WidgetType {
           view.focus();
         },
       });
-      row.append(cut);
+      actions.append(cut);
     }
     return row;
   }
@@ -295,7 +247,13 @@ function previewDecorations(state: EditorState) {
       ),
     );
     ranges.push(
-      Decoration.replace({ block: true }).range(block.closeFrom, block.closeTo),
+      Decoration.replace({
+        block: true,
+        widget:
+          block.contentFrom < block.closeFrom
+            ? new DetailsEndWidget()
+            : undefined,
+      }).range(block.closeFrom, block.closeTo),
     );
   }
   return Decoration.set(ranges, true);
@@ -345,7 +303,11 @@ function bodyDecorations(state: EditorState) {
       bodyLines.push(line);
     }
     bodyLines.forEach((line, index) => {
-      const classes = ["cm-aic-details-body"];
+      const classes = [
+        "cm-aic-details-body",
+        "aic-card__body",
+        "aic-card__body--details",
+      ];
       if (index === 0) classes.push("cm-aic-details-body-first");
       if (index === bodyLines.length - 1)
         classes.push("cm-aic-details-body-last");
@@ -369,10 +331,22 @@ const detailsBodyField = StateField.define({
   provide: (field) => EditorView.decorations.from(field),
 });
 
+function openDetailsBlocks(state: EditorState) {
+  const overrides = state.field(visualOverrides);
+  const source = state.field(sourceOverrides);
+  return detailsForDocument(state.doc).filter(
+    (block) =>
+      !source.has(block.headerFrom) &&
+      !selectionRevealsPreview(state.selection.ranges, block.from, block.end) &&
+      (overrides.has(block.headerFrom) ? !block.open : block.open),
+  );
+}
+
 export function detailsExtensions(): Extension {
   return [
     visualOverrides,
     sourceOverrides,
+    detailsBodyLayout(openDetailsBlocks),
     sourcePreviewExitHandlers.of((state) => {
       const active = state.field(sourceOverrides);
       return (

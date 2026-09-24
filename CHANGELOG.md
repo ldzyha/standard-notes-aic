@@ -4,6 +4,19 @@
 
 ## Unreleased
 
+## 46.0.2 — 2026-09-24
+
+Release sequence 46 · 0 feature outcomes · 2 fixed-bug outcomes. This release
+pairs with AIC Notes 54.0.2, experimental browser 0.9.2 and shared core 7.3.2.
+
+### Fixes
+
+1. Keep linked-code comments inside their details accordion, with compact headers
+   and readable nested content.
+2. Keep the editor background unchanged for unsaved drafts. The Save button pulses
+   while changes need saving; reduced motion uses a static indicator. Only the
+   host's acknowledgement marks a draft saved, and failures retain its changes.
+
 ## 45.0.1 — 2026-09-24
 
 Release sequence 45 · 0 feature outcomes · 1 fixed-bug outcome. This release

@@ -1,7 +1,16 @@
 /** Shared visual primitives. Hosts own behavior, storage and navigation. */
 export const UI_COMPONENTS = Object.freeze({
   button: definition(
-    ["default", "ghost", "danger", "normal", "compact", "touch", "icon-only"],
+    [
+      "default",
+      "ghost",
+      "danger",
+      "normal",
+      "compact",
+      "touch",
+      "icon-only",
+      "unsaved",
+    ],
     ["icon", "label"],
   ),
   toolbar: definition(["compact", "wrap"], ["group", "title", "actions"]),
@@ -15,7 +24,15 @@ export const UI_COMPONENTS = Object.freeze({
     ["label", "control", "hint", "error", "value", "status", "actions"],
   ),
   card: definition(
-    ["compact", "security", "properties", "readonly", "empty"],
+    [
+      "compact",
+      "security",
+      "properties",
+      "readonly",
+      "empty",
+      "details",
+      "embedded",
+    ],
     [
       "header",
       "title",

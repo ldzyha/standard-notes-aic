@@ -55,6 +55,25 @@
 .aic-button--danger {
   color: var(--aic-danger, #b92337);
 }
+.aic-button.aic-button--unsaved {
+  --aic-button-color: var(--aic-accent, Highlight);
+  color: var(--aic-button-color);
+  box-shadow: inset 0 0 0 1px currentColor;
+}
+.aic-button--unsaved:not(:disabled):not([hidden]):not([aria-busy="true"]):not(
+    :hover
+  ):not(:focus-visible) {
+  animation: aic-unsaved-pulse 2.6s ease-in-out infinite;
+}
+@keyframes aic-unsaved-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.58;
+  }
+}
 .aic-button--icon-only {
   width: var(--aic-button-size);
   height: var(--aic-button-size);
@@ -223,6 +242,9 @@
 @media (prefers-reduced-motion: reduce) {
   .aic-button {
     transition: none;
+  }
+  .aic-button--unsaved {
+    animation: none !important;
   }
 }
 @media (forced-colors: active) {
