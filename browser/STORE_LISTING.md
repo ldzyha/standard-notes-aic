@@ -11,9 +11,8 @@ ID: `mokndlkbkhnemhhcahddhdgihgdckbhp`. **Not submitted for review.**
 
 - Developer registration is complete; the one-time **US$5** fee was paid.
   Public publisher: **AIC**. The owner declared **Non-trader**.
-- Contact: **leonid@dzyha.com**. A verification email was sent; verification is
-  **not confirmed**. Homepage: **https://dzyha.com/**; support: the repository's
-  Issues page below.
+- Contact: **leonid@dzyha.com**, **verified** in the reloaded publisher dashboard.
+  Homepage: **https://dzyha.com/**; support: the repository's Issues page below.
 - Package UI confirms **Draft 0.9.3**, six permissions and no `activeTab`; the
   extension is not published. The **0.9.3 ZIP** was uploaded. A combined English/Ukrainian description of
   **3,026 characters** was saved. Category: **Workflow & Planning**; interface
@@ -25,20 +24,19 @@ ID: `mokndlkbkhnemhhcahddhdgihgdckbhp`. **Not submitted for review.**
 - Distribution is **free**, **public** and available in **all regions**; the
   dashboard defaults were confirmed. English/Ukrainian reviewer steps were saved.
 
-The dashboard's **Why can't I submit?** lists exactly two remaining requirements:
-
-1. At least one screenshot or video.
-2. A verified contact email.
+Both screenshots were uploaded and saved. The dashboard shows **Item saved**,
+and **Submit for review** is enabled. **No review submission has been made.**
 
 Installed-Chrome acceptance remains a separate internal check. The current
 automation environment blocks `chrome://extensions` by URL policy; native
-installation, panel screenshots and acceptance checks require an ordinary
-user-controlled Chrome session. This tooling restriction leaves those checks
-unverified. The selected
+installation and acceptance checks require an ordinary user-controlled Chrome
+session. The synthetic-host listing captures do not verify those native checks.
+The selected
 homepage currently lacks a direct AIC privacy link; its authoritative source is
 unresolved, and no website deployment has been performed. These are not reported
-as additional dashboard validation messages. Existing 0.9.2 release assets remain
-unchanged.
+as additional dashboard validation messages. The owner’s choice between retaining
+dzyha.com and temporarily using the GitHub browser-project homepage is pending;
+the saved homepage has not changed. Existing 0.9.2 release assets remain unchanged.
 
 ### Release and links
 
@@ -150,8 +148,16 @@ restart and Lock behavior in an installed Chrome package.
 
 The [440 × 280 promo tile](store-assets/small-promo-440x280.png) and extension
 icon are uploaded and saved; an [editable SVG](store-assets/small-promo-440x280.svg)
-is retained. Native screenshots are **not ready**. Capture the real installed
-build with synthetic notes; do not substitute fabricated interface screenshots.
+is retained. Both listing screenshots are **uploaded and saved**:
+
+- [English, light theme](store-assets/screenshot-en-light.jpg).
+- [Ukrainian note and caption, dark theme](store-assets/screenshot-uk-dark.jpg);
+  the interface remains English.
+
+Each file is a **1280 × 800 JPEG, 8-bit, three components**. They capture the
+actual `BrowserPanel` UI with a synthetic in-memory service and notes, using the
+production theme palettes. They do not establish native Chrome installation or
+acceptance.
 The package has no `_locales` directories. Both languages were saved together in
 one description without claiming a Ukrainian interface.
 [Store listing guidance](https://developer.chrome.com/docs/webstore/cws-dashboard-listing).
@@ -165,8 +171,8 @@ ID: `mokndlkbkhnemhhcahddhdgihgdckbhp`. **На перевірку не пода�
 
 - Реєстрацію розробника завершено; одноразовий внесок **5 доларів США** сплачено.
   Публічне ім’я видавця: **AIC**. Власник заявив статус **Non-trader**.
-- Контакт: **leonid@dzyha.com**. Лист перевірки надіслано; адресу **ще не
-  підтверджено**. Домашня сторінка: **https://dzyha.com/**; підтримка — Issues
+- Контакт: **leonid@dzyha.com**, **підтверджений** у перезавантаженій панелі
+  видавця. Домашня сторінка: **https://dzyha.com/**; підтримка — Issues
   репозиторію за посиланням нижче.
 - Панель пакета підтверджує **Draft 0.9.3**, шість дозволів і відсутність
   `activeTab`; розширення не опубліковано. **ZIP 0.9.3** завантажено. Збережено спільний англійський/український опис на
@@ -179,19 +185,19 @@ ID: `mokndlkbkhnemhhcahddhdgihgdckbhp`. **На перевірку не пода�
 - Розповсюдження **безкоштовне**, **публічне**, в **усіх регіонах**; типові
   налаштування панелі підтверджено. Двомовні кроки для рецензента збережено.
 
-Панель **Why can't I submit?** показує рівно дві невиконані вимоги:
-
-1. Щонайменше один скриншот або відео.
-2. Підтверджена контактна email-адреса.
+Обидва скриншоти завантажено й збережено. Панель показує **Item saved**,
+кнопка **Submit for review** доступна. **На перевірку ще не подано.**
 
 Приймання встановленого Chrome-пакета залишається окремою внутрішньою перевіркою.
 Поточне середовище автоматизації блокує `chrome://extensions` політикою URL;
-встановлення, справжні скриншоти панелі та приймання потрібно виконати у звичайній
-сесії Chrome під керуванням користувача. Через це обмеження інструмента ці
-перевірки залишаються невиконаними.
+встановлення та приймання потрібно виконати у звичайній сесії Chrome під
+керуванням користувача. Зображення для магазину із синтетичним хостом не
+підтверджують ці перевірки встановленого розширення.
 На вибраній домашній сторінці немає прямого посилання на приватність AIC;
 актуальне джерело сайту не визначено, публікацію змін сайту не виконували.
-Це не додаткові повідомлення валідації панелі. Наявні файли випуску 0.9.2 не змінено.
+Це не додаткові повідомлення валідації панелі. Очікується вибір власника: лишити
+dzyha.com чи тимчасово використати GitHub-сторінку браузерного проєкту. Збережену
+домашню сторінку не змінено. Наявні файли випуску 0.9.2 не змінено.
 
 ### Випуск і посилання
 
@@ -303,8 +309,15 @@ Lock. Тестового акаунта чи серверного пароля �
 
 [Промоплитку 440 × 280](store-assets/small-promo-440x280.png) та іконку розширення
 завантажено й збережено; [редагований SVG](store-assets/small-promo-440x280.svg)
-лишився у репозиторії. Справжні скриншоти **ще не готові**. Потрібно зняти
-встановлену збірку із синтетичними нотатками, не замінюючи інтерфейс вигаданими
-скриншотами. У пакеті немає папок `_locales`. Обидві мови збережено в одному
+лишився у репозиторії. Обидва скриншоти **завантажено й збережено**:
+
+- [Англійський, світла тема](store-assets/screenshot-en-light.jpg).
+- [Українська нотатка й підпис, темна тема](store-assets/screenshot-uk-dark.jpg);
+  інтерфейс залишається англійським.
+
+Кожний файл — **JPEG 1280 × 800, 8 біт, три компоненти**. Це знімки справжнього
+`BrowserPanel` із синтетичним сервісом і нотатками лише в пам’яті, з палітрами
+виробничих тем. Вони не підтверджують встановлення чи приймання розширення у Chrome.
+У пакеті немає папок `_locales`. Обидві мови збережено в одному
 описі без заяви про український інтерфейс.
 [Інструкція сторінки магазину](https://developer.chrome.com/docs/webstore/cws-dashboard-listing).
