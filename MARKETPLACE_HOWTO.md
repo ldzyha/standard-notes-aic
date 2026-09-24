@@ -11,20 +11,27 @@ awaits CAPTCHA completion and is not confirmed published. Automatic publishing
 is prepared, but `VSCE_PAT` is absent. The attempted Azure DevOps credential setup
 is blocked because no Azure subscription is accessible for a new organization. See
 [the bilingual automation guide](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md).
-Chrome Web Store and Microsoft Edge Add-ons submissions remain unconfirmed.
-Browser **0.9.2 is experimental**. Firefox and Mullvad are outside this plan.
+Chrome Web Store **0.9.3** is a saved draft: the ZIP, listing and screenshots are
+saved, the contact email is verified, and **Submit for review** is enabled.
+It has **not been submitted or published**. Installed-Chrome acceptance and a
+privacy-policy link from the selected homepage remain pending; see the
+[current draft record](browser/STORE_LISTING.md). Edge submission is unconfirmed.
+The experimental public GitHub baseline remains **0.9.2**
+(`aic-browser-chromium-0.9.2.zip` in release **46.0.2**); those assets are unchanged.
+Firefox and Mullvad are outside this plan.
 
 | Destination            | Submission file                                         | Target version         |
 | ---------------------- | ------------------------------------------------------- | ---------------------- |
 | VS Code Marketplace    | `aic-notes-54.0.2.vsix`                                 | AIC Notes 54.0.2       |
-| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.9.2.zip` | AIC — Page notes 0.9.2 |
-| Microsoft Edge Add-ons | **the same** Chromium ZIP                               | AIC — Page notes 0.9.2 |
+| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.9.3.zip` | AIC — Page notes 0.9.3 |
+| Microsoft Edge Add-ons | **the same** Chromium ZIP                               | AIC — Page notes 0.9.3 |
 
 These are **expected names**, not proof that a file is ready. Standard Notes AIC **46.0.2**
 and shared core **7.3.2** are coordinated with this release; Standard Notes is
-not submitted to these stores. The update fixes accordion membership and compact
+not submitted to these stores. That release fixes accordion membership and compact
 headers, and keeps unsaved editor backgrounds unchanged while Save indicates
-pending changes. Markdown, storage and permissions are unchanged.
+pending changes. The 0.9.3 submission candidate additionally removes redundant
+`activeTab` permission; Markdown and storage are unchanged.
 
 Every managed preview block also has the shared **Cut** scissors action. It
 copies the complete Markdown block before removing it; a failed clipboard write
@@ -44,9 +51,11 @@ leaves the source unchanged.
 - **Prepare public policy and store pages.** Update
   [`browser/PRIVACY.md`](browser/PRIVACY.md) and
   [`browser/README.md`](browser/README.md) so they describe the released version.
-  Host the privacy policy at a stable public HTTPS URL. The URL is not listed here
-  because it still must be published and verified. Prepare real screenshots, a
-  short description, support contact, and reviewer instructions when necessary.
+  The [public privacy policy](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/PRIVACY.md)
+  was verified without authentication on September 24, 2026 and is saved in the
+  Chrome draft. Make it reachable within one click from the selected homepage;
+  that link is still pending. The draft's screenshots, description, support contact
+  and reviewer instructions are saved; see [their scope](browser/STORE_LISTING.md).
   Descriptions of tab access, deliberate import, clipboard use, local encryption,
   and the absence of synchronization must match the product.
   [Chrome privacy practices](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy),
@@ -87,11 +96,12 @@ this organization setup.
 
 1. Use the final Chromium ZIP after Chrome verification. **Load unpacked** from
    `dist-browser/chromium/` is only a development test method.
-2. In the [Developer Dashboard](https://chrome.google.com/webstore/devconsole),
-   select **Add new item** and upload the ZIP.
-3. Complete **Store listing**, **Privacy practices**, and **Distribution**. Explain
-   manifest permissions and provide only the verified privacy-policy URL.
-4. Select **Submit for Review**. After approval, verify **0.9.2** and install it
+2. Open the [existing 0.9.3 draft](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/listing).
+   Its ZIP is uploaded; do not create a duplicate item.
+3. Review the saved **Store listing**, **Privacy practices**, and **Distribution**.
+   Complete installed-Chrome acceptance and the homepage privacy link before submission.
+4. Select **Submit for Review** only after the gates above pass. After approval,
+   verify **0.9.3** and install it
    from the store in a clean Chrome profile. Upload alone is not publication.
    [Official guide](https://developer.chrome.com/docs/webstore/publish/).
 
@@ -102,7 +112,7 @@ this organization setup.
    **Create new extension** and upload the ZIP.
 3. Complete **Availability**, **Properties**, **Privacy**, **Store listings**, and
    certification notes. Verify markets, visibility, permissions, and policy URL.
-4. Submit for review. When the status becomes **In the store**, verify **0.9.2**
+4. Submit for review. When the status becomes **In the store**, verify **0.9.3**
    and install it from Edge Add-ons in a clean profile. Chrome submission does
    **not** publish to Edge.
    [Official guide](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
@@ -140,20 +150,27 @@ See [Local data](browser/README.md).
 підготовлено, але `VSCE_PAT` відсутній. Налаштування доступу через Azure DevOps
 зупинилося: акаунт не має доступної Azure subscription для нової організації. Дивіться
 [двомовну інструкцію](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md#українська).
-Подання до Chrome Web Store та Microsoft Edge Add-ons ще не підтверджені.
-Браузер **0.9.2 експериментальний**. Firefox і Mullvad не входять у цей план.
+У Chrome Web Store збережено чернетку **0.9.3**: ZIP, опис і скриншоти збережені,
+контактний email підтверджений, кнопка **Submit for review** доступна.
+Її **не подано на перевірку й не опубліковано**. Приймання встановленого Chrome-пакета
+та посилання на політику з вибраної домашньої сторінки ще очікують завершення;
+дивіться [актуальний стан чернетки](browser/STORE_LISTING.md#українська).
+Подання до Edge не підтверджено. Публічна експериментальна версія GitHub лишається
+**0.9.2** (`aic-browser-chromium-0.9.2.zip` у випуску **46.0.2**); ці файли не змінено.
+Firefox і Mullvad не входять у цей план.
 
 | Куди                   | Файл для подання                                        | Цільова версія         |
 | ---------------------- | ------------------------------------------------------- | ---------------------- |
 | VS Code Marketplace    | `aic-notes-54.0.2.vsix`                                 | AIC Notes 54.0.2       |
-| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.9.2.zip` | AIC — Page notes 0.9.2 |
-| Microsoft Edge Add-ons | **той самий** Chromium ZIP                              | AIC — Page notes 0.9.2 |
+| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.9.3.zip` | AIC — Page notes 0.9.3 |
+| Microsoft Edge Add-ons | **той самий** Chromium ZIP                              | AIC — Page notes 0.9.3 |
 
 Це **очікувані назви**, не доказ готовності файлів. Standard Notes AIC **46.0.2**
 і спільне ядро **7.3.2** узгоджені з цим випуском; Standard Notes не подається
-до цих магазинів. Оновлення виправляє належність вмісту до акордеона й компактність
+до цих магазинів. Той випуск виправляє належність вмісту до акордеона й компактність
 заголовків; незбережені зміни не змінюють фон редактора, а Save показує потребу
-збереження. Markdown, сховище й дозволи не змінено.
+збереження. Кандидат 0.9.3 додатково прибирає зайвий дозвіл `activeTab`;
+Markdown і сховище не змінено.
 
 Усі керовані preview-блоки також мають спільну кнопку **Вирізати** з іконкою
 ножиць. Вона копіює повний Markdown-блок перед видаленням; помилка запису в
@@ -162,7 +179,7 @@ clipboard лишає source без змін.
 ## Перед початком
 
 - **Завершіть випускні перевірки.** Звірте версії у `../aic-notes/package.json` і [`browser/manifest.json`](browser/manifest.json), SHA-256 та вміст фінальних архівів. У ZIP `manifest.json` має лежати в корені; `THIRD_PARTY_NOTICES.md` має містити всі потрібні повідомлення про залежності. Старий ZIP, що залишився в папці, не є фінальним автоматично. Наявний Edge packaged smoke не замінює ще не підтверджену перевірку **встановленого Chrome-пакета**. Не подавайте браузерне розширення, доки ця перевірка й релізні умови не виконані. [Chrome: підготовка пакета](https://developer.chrome.com/docs/webstore/prepare), [Edge: пакет ZIP](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
-- **Підготуйте публічну політику й сторінки.** Оновіть [`browser/PRIVACY.md`](browser/PRIVACY.md) та [`browser/README.md`](browser/README.md): вони мають описувати випущену версію, а не лише development build. Розмістіть політику за стабільною HTTPS-адресою та відкрийте її без входу в акаунт. Адресу не зазначено тут, бо її ще треба опублікувати й перевірити. Зробіть справжні скриншоти, короткий опис, контакт підтримки та, за потреби, тестові інструкції для рецензентів. Пояснення доступу до вкладки, ручного імпорту, буфера обміну, локального шифрування й відсутності синхронізації мають збігатися з поведінкою продукту. [Chrome: privacy practices](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy), [Edge: privacy](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
+- **Підготуйте публічну політику й сторінки.** Оновіть [`browser/PRIVACY.md`](browser/PRIVACY.md) та [`browser/README.md`](browser/README.md): вони мають описувати випущену версію, а не лише development build. [Публічну політику](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/PRIVACY.md) перевірено без входу в акаунт 24 вересня 2026 року; адресу збережено в чернетці Chrome. Забезпечте доступ до неї за один перехід із вибраної домашньої сторінки — це ще не завершено. Скриншоти, опис, контакт підтримки та інструкції рецензентам збережені; [межі цих матеріалів](browser/STORE_LISTING.md#українська) описано окремо. Пояснення доступу до вкладки, ручного імпорту, буфера обміну, локального шифрування й відсутності синхронізації мають збігатися з поведінкою продукту. [Chrome: privacy practices](https://developer.chrome.com/docs/webstore/cws-dashboard-privacy), [Edge: privacy](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
 - **Підготуйте три облікові записи.** Для VS Code перевірте право керувати видавцем `ldzyha` через Microsoft/Azure DevOps; не створюйте іншого ID для того самого розширення. Chrome Web Store вимагає одноразову реєстраційну плату та двоетапну перевірку; суму перевірте перед оплатою. Для Edge потрібен акаунт програми в Partner Center; Microsoft вказує, що реєстрація безкоштовна. Не записуйте паролі, токени чи коди відновлення в репозиторій. [VS Code](https://code.visualstudio.com/api/working-with-extensions/publishing-extension), [Chrome](https://developer.chrome.com/docs/webstore/register), [Edge](https://learn.microsoft.com/en-us/microsoft-edge/extensions-chromium/publish/create-dev-account).
 
 Створення **нової організації Azure DevOps** потребує активної Azure subscription;
@@ -183,16 +200,16 @@ clipboard лишає source без змін.
 ### Chrome Web Store
 
 1. Візьміть фінальний Chromium ZIP після перевірки в Chrome; **Load unpacked** із `dist-browser/chromium/` — лише спосіб розробницького тестування.
-2. У [Developer Dashboard](https://chrome.google.com/webstore/devconsole) виберіть **Add new item** і завантажте ZIP.
-3. Заповніть **Store listing**, **Privacy practices**, **Distribution**; обґрунтуйте дозволи маніфесту та вставте тільки перевірений URL політики.
-4. Натисніть **Submit for Review**. Після схвалення звірте версію **0.9.2** і встановіть із магазину в чистому профілі Chrome. Завантаження файлу саме по собі ще не означає публікації. [Офіційна інструкція](https://developer.chrome.com/docs/webstore/publish/).
+2. Відкрийте [наявну чернетку 0.9.3](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/listing). ZIP уже завантажено; не створюйте дублікат.
+3. Перегляньте збережені **Store listing**, **Privacy practices**, **Distribution**. До подання завершіть приймання встановленого Chrome-пакета та додайте посилання на політику з домашньої сторінки.
+4. Натисніть **Submit for Review** лише після виконання умов вище. Після схвалення звірте версію **0.9.3** і встановіть із магазину в чистому профілі Chrome. Завантаження файлу саме по собі ще не означає публікації. [Офіційна інструкція](https://developer.chrome.com/docs/webstore/publish/).
 
 ### Microsoft Edge Add-ons
 
 1. Використайте **той самий** фінальний ZIP після окремої перевірки в Edge.
 2. У [Partner Center](https://partner.microsoft.com/dashboard) відкрийте Edge → **Create new extension** і завантажте ZIP.
 3. Заповніть **Availability**, **Properties**, **Privacy**, **Store listings** та нотатки для сертифікації; перевірте ринки, видимість, дозволи й URL політики.
-4. Надішліть на перевірку. Коли статус стане **In the store**, звірте версію **0.9.2** і встановіть із Edge Add-ons у чистому профілі. Подання до Chrome **не** публікує продукт в Edge. [Офіційна інструкція](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
+4. Надішліть на перевірку. Коли статус стане **In the store**, звірте версію **0.9.3** і встановіть із Edge Add-ons у чистому профілі. Подання до Chrome **не** публікує продукт в Edge. [Офіційна інструкція](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
 
 ## Після подання й наступні оновлення
 

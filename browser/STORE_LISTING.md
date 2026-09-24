@@ -31,10 +31,11 @@ Installed-Chrome acceptance remains a separate internal check. The current
 automation environment blocks `chrome://extensions` by URL policy; native
 installation and acceptance checks require an ordinary user-controlled Chrome
 session. The synthetic-host listing captures do not verify those native checks.
-The selected
-homepage currently lacks a direct AIC privacy link; its authoritative source is
-unresolved, and no website deployment has been performed. These are not reported
-as additional dashboard validation messages. The owner’s choice between retaining
+The selected homepage currently lacks a direct AIC privacy link. Firebase Hosting
+serves release `e68a12` from August 21, 2026; the available site repository's
+`main` commit `d98d860` dates from April 15, 2026 and predates the live content.
+Do not deploy that stale checkout over the current site. No website deployment
+has been performed. These are not additional dashboard validation messages. The owner’s choice between retaining
 dzyha.com and temporarily using the GitHub browser-project homepage is pending;
 the saved homepage has not changed. Existing 0.9.2 release assets remain unchanged.
 
@@ -193,9 +194,12 @@ ID: `mokndlkbkhnemhhcahddhdgihgdckbhp`. **На перевірку не пода�
 встановлення та приймання потрібно виконати у звичайній сесії Chrome під
 керуванням користувача. Зображення для магазину із синтетичним хостом не
 підтверджують ці перевірки встановленого розширення.
-На вибраній домашній сторінці немає прямого посилання на приватність AIC;
-актуальне джерело сайту не визначено, публікацію змін сайту не виконували.
-Це не додаткові повідомлення валідації панелі. Очікується вибір власника: лишити
+На вибраній домашній сторінці немає прямого посилання на приватність AIC.
+Firebase Hosting показує випуск `e68a12` від 21 серпня 2026 року; доступний
+коміт `main` репозиторію сайту `d98d860` датований 15 квітня 2026 року й старіший
+за поточний вміст сайту. Не публікуйте цей застарілий checkout поверх чинного
+сайту. Публікацію змін сайту не виконували. Це не додаткові повідомлення
+валідації панелі. Очікується вибір власника: лишити
 dzyha.com чи тимчасово використати GitHub-сторінку браузерного проєкту. Збережену
 домашню сторінку не змінено. Наявні файли випуску 0.9.2 не змінено.
 
