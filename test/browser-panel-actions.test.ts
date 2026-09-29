@@ -138,6 +138,17 @@ describe("browser panel direct actions", () => {
       const action = button(root, label);
       expect(action.title).not.toBe("");
     }
+    for (const [label, icon] of [
+      ["Import current content", "import-page"],
+      ["Import Markdown file", "import-file"],
+      ["Export Markdown file", "export-file"],
+    ]) {
+      const action = button(root, label!);
+      expect(action.closest(".browser-toolbar")).not.toBeNull();
+      expect(action.dataset.aicIcon).toBe(icon);
+      expect(action.classList.contains("cm-aic-icon-button")).toBe(true);
+      expect(action.textContent).toBe("");
+    }
     expect(root.querySelector('[aria-label="Add content"]')).toBeNull();
     expect(
       root.querySelector('[aria-label="Paste from clipboard"]'),
@@ -155,7 +166,7 @@ describe("browser panel direct actions", () => {
     const guide = root.querySelector<HTMLElement>(
       '[role="dialog"][aria-label="AIC guide"]',
     );
-    expect(guide?.textContent).toMatch(/Browser transfer.*↑ Markdown/su);
+    expect(guide?.textContent).toMatch(/Browser transfer.*Import Markdown/su);
     expect(guide?.textContent).toMatch(/current browser-vault passphrase/iu);
   });
 

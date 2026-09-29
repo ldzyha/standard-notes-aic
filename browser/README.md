@@ -4,7 +4,7 @@
 
 [Privacy policy](PRIVACY.md) · [Політика приватності](PRIVACY.uk.md)
 
-Status: **0.9.3 experimental submission candidate**, using the editor from AIC 46.0.2, AIC Notes 54.0.2 and shared core 7.3.2. It is not a browser-store release or an independently audited password manager. Use synthetic data until the final packaged-runtime gates in VERIFICATION.md are resolved.
+Status: **0.10.0 experimental experimental build**, using the editor from AIC 47.1.0, AIC Notes 55.1.0 and shared core 7.4.0. It is not a browser-store release or an independently audited password manager. Use synthetic data until the final packaged-runtime gates in VERIFICATION.md are resolved.
 
 Empty editable secret (`*|`) parts offer **Generate password** at every panel
 width, regardless of their label. Options wrap to fit narrow screens. Generation
@@ -39,16 +39,33 @@ Supported browser targets are desktop **Google Chrome and Microsoft Edge only**,
 - Notes persist locally across restarts. There is one note per exact URL, including query and fragment. AIC records at most 100 recent URLs while its panel is active and unlocked; it never queries browser history.
 - No account, server, telemetry or synchronization. Whole-library transfer uses encrypted backups; Markdown import/export and clipboard transfer are deliberate plaintext actions.
 
+## Pinning a note and related pages
+
+Use **Pin note** in the top toolbar to keep a note open while switching tabs,
+navigating or closing its source tab. Write something first if the page still has
+an untouched placeholder. Pinning saves pending edits; a failed save keeps the
+current draft available. **Unpin note** resumes following the active tab after saving.
+
+While pinned, typing or pasting into the note adds the active web page once under
+**Related links**. Switching tabs alone adds nothing. The note's own URL and
+browser-internal pages are excluded. Links retain the exact URL and use an escaped
+page title; they are ordinary Markdown, included in saves and exports. The link
+and the edit share one Undo operation. Content import reads the active page and
+appends to the pinned note. Choosing a page in Notes and history unpins the note.
+
+A pin belongs to this panel. It survives hiding and showing a retained panel,
+but Lock, closing the panel document or restarting the browser clears it.
+
 ## Compact panel and importing content
 
 - A page without a note opens an editable **AIC placeholder** immediately. Merely opening it, moving focus or leaving does not create a note. The first edit creates the encrypted local note without resetting the editor, selection or undo history.
-- The direct content control imports the current readable selection when one exists and otherwise the readable page. The separate **↑ Markdown** control imports a plaintext Markdown file; **↓ Markdown** downloads the current note. An untouched placeholder is replaced by the exact imported Markdown; imports otherwise append and save. They never replace authored note text or write to the website. Failed saves remain editable/exportable drafts.
+- The direct content control imports the current readable selection when one exists and otherwise the readable page. The separate **Import Markdown** control imports a plaintext Markdown file; **Export Markdown** downloads the current note. An untouched placeholder is replaced by the exact imported Markdown; imports otherwise append and save. They never replace authored note text or write to the website. Failed saves remain editable/exportable drafts.
 - AIC field menus stay inside the visible editor, choose space above or below the button, and scroll internally when space is limited.
 - The writing cursor uses the active text color and a 2 px stroke in both preview and source mode. It follows focus and light/dark theme changes; reduced-motion mode disables blinking.
 - Typed AIC fields use compact rows. Each separator types the next value: `|` text, `*|` secret, `#|` authenticator seed, `_|` card value, `1|` unused one-time value and `0|` used one-time value. Parts keep separate actions and accessible hints; labels and values wrap together at narrow widths.
 - For selection import, select readable text on the source page first. Page/selection import requests access to that site only after your click. Browser-protected pages, forms, editable controls, hidden content and inaccessible frames are not imported. If a site prevents capture, copy its text and paste natively into the editor.
 - An explicit Paste action may fill an empty typed field from the current clipboard after a user click. It does not monitor or enumerate clipboard history; ordinary editor paste remains native.
-- **Notes and history** opens navigation without rebuilding the editor. **More options** is limited to local note/history deletion and clearly separated encrypted-library backup import/export. Plaintext Markdown transfer stays on the direct ↑/↓ controls.
+- **Notes and history** opens navigation without rebuilding the editor. **More options** is limited to local note/history deletion and clearly separated encrypted-library backup import/export. Plaintext Markdown transfer stays on the direct import/export controls.
 - Navigation shows bounded page titles under their domain. It omits single-page path ladders and shows a common path only where it groups several pages. Visible labels and tooltips omit query/fragment details; the exact stored URL, note identity and navigation target remain unchanged.
 - The compact browser toolbar keeps Save and Preview/Markdown controls visible and exposes five direct strike, link, bullet-list, numbered-list and task-list actions. Menus and navigation preserve the editor and its selection. Escape closes a panel menu and returns focus to its trigger. The local **?** guide explains AIC syntax and current actions without network access.
 - Save failures remain visible until dismissed; routine confirmations disappear after five seconds. Notifications float above the lower edge rather than pushing the editor down.
@@ -282,12 +299,12 @@ Chrome Incognito and Edge InPrivate are not supported in this build. The manifes
 
 ## Build and local testing
 
-To test a GitHub release without building, download `aic-browser-chromium-0.9.2.zip`
+To test a GitHub release without building, download `aic-browser-chromium-0.10.0.zip`
 and its `.sha256` from [AIC Releases](https://github.com/ldzyha/standard-notes-aic/releases),
 verify the checksum, and extract into a permanent folder. Use that folder for
 **Load unpacked** below. The ZIP is not a Chrome/Edge store installation package.
 
-Run `npm run build:browser` from the canonical repository. No additional runtime dependencies or external services are needed. It produces one unpacked directory, `dist-browser/chromium/`, and one archive, `dist-browser/artifacts/aic-browser-chromium-0.9.3.zip`, for both Chrome and Edge. Other browser build modes are rejected.
+Run `npm run build:browser` from the canonical repository. No additional runtime dependencies or external services are needed. It produces one unpacked directory, `dist-browser/chromium/`, and one archive, `dist-browser/artifacts/aic-browser-chromium-0.10.0.zip`, for both Chrome and Edge. Other browser build modes are rejected.
 
 The archive uses deterministic ordering and timestamps and includes the `>_` icon, worker, editor assets and privacy notices. Previously generated development files are not current targets; the build does not delete older archives or browser profiles. The command never installs into a user's profile or submits to a store.
 
@@ -319,3 +336,11 @@ All runtime assets are bundled. Extension CSP denies outgoing connections and re
 - [WebCrypto AES-GCM](https://developer.mozilla.org/en-US/docs/Web/API/AesGcmParams)
 - [OWASP cryptographic storage](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html)
 - [Chrome extension storage](https://developer.chrome.com/docs/extensions/reference/api/storage)
+
+## Bundled instructions for coding agents
+
+Open **? → Instructions for coding agents** to select and copy the shared guide
+into any coding agent that accepts Markdown. The guide is bundled with this
+installation; it requires no separate AIC executable, server, account or config
+folder. Share note content separately and deliberately. This handoff does not
+grant the agent access to browser-vault or Standard Notes data.

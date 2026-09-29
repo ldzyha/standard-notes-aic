@@ -4,6 +4,27 @@
 
 ## Unreleased
 
+## 47.1.0 — 2026-09-29
+
+Release sequence 47 · 1 feature outcome · 0 fixed-bug outcomes.
+Coordinated with Standard Notes AIC 47.1.0, AIC Notes 55.1.0,
+experimental browser 0.10.0 and shared core 7.4.0.
+
+### F01 — Portable agent instructions
+
+Bundle the same provider-neutral Markdown guide in every extension. No separate
+AIC executable or configuration folder is required. VS Code offers Copy Agent
+Instructions and explicit workspace setup; setup preserves owner files and no
+longer runs global rule synchronization. Browser and Standard Notes expose the
+guide locally. Documentation now uses direct statements for simple answers.
+
+### Accompanying browser 0.10.0
+
+- Pin a note while browsing; typing adds the active page once under Related links.
+- Preserve the editor while switching tabs, keep failed drafts, and clear the pin
+  on Lock. Related links share the typing transaction and Undo.
+- Use shared outline icons for page capture, file import and file export.
+
 ## 46.0.2 — 2026-09-24
 
 Release sequence 46 · 0 feature outcomes · 2 fixed-bug outcomes. This release

@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { undo } from "@codemirror/commands";
 import { EditorView } from "@codemirror/view";
 import { BrowserPanel } from "../src/browser/panel";
 import { AIC_EMPTY_DOCUMENT } from "../src/core/security-model.js";
@@ -194,6 +195,190 @@ afterEach(() => {
 });
 
 describe("browser panel", () => {
+  it("pins the editor, links only pages typed about, and unpins to the active page", async () => {
+    const fake = fixture({
+      notes: [note("https://example.com/a", "Research")],
+    });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    const view = editor(root);
+    button(root, "Pin note").click();
+    await vi.waitFor(() =>
+      expect(button(root, "Unpin note")?.getAttribute("aria-pressed")).toBe(
+        "true",
+      ),
+    );
+    const source = {
+      tabId: 8,
+      windowId: 2,
+      title: "Source article",
+      url: "https://source.example/article",
+    };
+    fake.setPage(source);
+    fake.activated.emit({ tabId: 8, windowId: 2 });
+    await vi.waitFor(() =>
+      expect(fake.messages.filter((m) => m.type === "context")).toHaveLength(2),
+    );
+    await Promise.resolve();
+    expect(editor(root)).toBe(view);
+    expect(view.state.doc.toString()).toBe("Research");
+    view.dispatch({
+      changes: { from: 8, insert: " notes" },
+      selection: { anchor: 14 },
+      userEvent: "input.type",
+    });
+    expect(view.state.doc.toString()).toContain(
+      "- [Source article](<https://source.example/article>)",
+    );
+    expect(view.state.selection.main.anchor).toBe(14);
+    undo(view);
+    expect(view.state.doc.toString()).toBe("Research");
+    view.dispatch({
+      changes: { from: 8, insert: " new" },
+      userEvent: "input.type",
+    });
+    view.dispatch({
+      changes: { from: 12, insert: " notes" },
+      userEvent: "input.type",
+    });
+    expect(
+      view.state.doc.toString().match(/https:\/\/source.example\/article/gu),
+    ).toHaveLength(1);
+    button(root, "Save note").click();
+    await vi.waitFor(() =>
+      expect(fake.library.notes[0]!.markdown).toContain("## Related links"),
+    );
+    expect(fake.library.notes).toHaveLength(1);
+    button(root, "Unpin note").click();
+    await vi.waitFor(() =>
+      expect(root.querySelector(".browser-page-title")?.textContent).toBe(
+        "Source article",
+      ),
+    );
+    expect(editor(root)).not.toBe(view);
+  });
+
+  it("keeps the pin across hide/show and clears it on lock", async () => {
+    const fake = fixture({ notes: [note("https://example.com/a")] });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    button(root, "Pin note").click();
+    await vi.waitFor(() => expect(button(root, "Unpin note")).not.toBeNull());
+    const visibility = vi.spyOn(document, "visibilityState", "get");
+    visibility.mockReturnValue("hidden");
+    document.dispatchEvent(new Event("visibilitychange"));
+    fake.setPage({
+      tabId: 8,
+      windowId: 2,
+      title: "Other",
+      url: "https://other.example",
+    });
+    visibility.mockReturnValue("visible");
+    document.dispatchEvent(new Event("visibilitychange"));
+    await vi.waitFor(() =>
+      expect(root.querySelector(".cm-editor")).not.toBeNull(),
+    );
+    expect(editor(root).state.doc.toString()).toBe("Private body");
+    expect(button(root, "Unpin note")).not.toBeNull();
+    fake.changed.emit({ "aic-browser-unlock": { oldValue: {} } }, "session");
+    expect(button(root, "Unpin note")).toBeNull();
+    expect(root.querySelector(".cm-editor")).toBeNull();
+  });
+
+  it("keeps failed drafts open when unpinning cannot save", async () => {
+    const fake = fixture({ notes: [note("https://example.com/a")] });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    button(root, "Pin note").click();
+    await vi.waitFor(() => expect(button(root, "Unpin note")).not.toBeNull());
+    const view = editor(root);
+    view.dispatch({
+      changes: { from: 0, insert: "Draft " },
+      userEvent: "input.type",
+    });
+    fake.override((message) =>
+      message.type === "save"
+        ? Promise.reject(new Error("Disk full"))
+        : undefined,
+    );
+    button(root, "Unpin note").click();
+    await vi.waitFor(() =>
+      expect(root.textContent).toContain(
+        "Save or export your unsaved draft before changing its pin",
+      ),
+    );
+    expect(editor(root)).toBe(view);
+    expect(button(root, "Unpin note")).not.toBeNull();
+  });
+
+  it("saves a new draft before pinning and imports the active page into that note", async () => {
+    const fake = fixture();
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    expect(button(root, "Pin note").disabled).toBe(true);
+    const view = editor(root);
+    view.dispatch({
+      changes: { from: view.state.doc.length, insert: "Research" },
+      userEvent: "input.type",
+    });
+    expect(button(root, "Pin note").disabled).toBe(false);
+    button(root, "Pin note").click();
+    await vi.waitFor(() => expect(button(root, "Unpin note")).not.toBeNull());
+    expect(fake.library.notes).toHaveLength(1);
+    const source = {
+      tabId: 8,
+      windowId: 2,
+      title: "Source",
+      url: "https://source.example/article",
+    };
+    fake.setPage(source);
+    fake.activated.emit({ tabId: 8, windowId: 2 });
+    await vi.waitFor(() =>
+      expect(fake.messages.filter((m) => m.type === "context")).toHaveLength(2),
+    );
+    await Promise.resolve();
+    button(root, "Import current content").click();
+    await vi.waitFor(() =>
+      expect(fake.library.notes[0]!.markdown).toContain("Captured content"),
+    );
+    expect(fake.messages).toContainEqual({
+      type: "capture",
+      page: source,
+      mode: "auto",
+      allowPrivate: false,
+    });
+    expect(fake.library.notes[0]!.url).toBe("https://example.com/a");
+    expect(editor(root)).toBe(view);
+  });
+
+  it("preserves the caret when a related link is inserted before the edited section", async () => {
+    const text = "## Related links\n\n## Conclusions\n\nText";
+    const fake = fixture({ notes: [note("https://example.com/a", text)] });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    button(root, "Pin note").click();
+    await vi.waitFor(() => expect(button(root, "Unpin note")).not.toBeNull());
+    fake.setPage({
+      tabId: 8,
+      windowId: 2,
+      title: "Source",
+      url: "https://source.example/article",
+    });
+    fake.activated.emit({ tabId: 8, windowId: 2 });
+    await vi.waitFor(() =>
+      expect(fake.messages.filter((m) => m.type === "context")).toHaveLength(2),
+    );
+    await Promise.resolve();
+    const view = editor(root);
+    view.dispatch({
+      changes: { from: text.length, insert: "!" },
+      selection: { anchor: text.length + 1 },
+      userEvent: "input.type",
+    });
+    expect(view.state.doc.toString().endsWith("Text!")).toBe(true);
+    expect(view.state.selection.main.anchor).toBe(view.state.doc.length);
+  });
+
   it("keeps a new Properties placeholder unsaved until the first edit", async () => {
     const fake = fixture();
     const { root, panel } = mount(fake.api);

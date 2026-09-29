@@ -1,3 +1,4 @@
+import { AGENT_GUIDE } from "../src/core/agent-guide.js";
 import { describe, expect, it } from "vitest";
 import { createEditorHelp } from "../src/core/editor-help.js";
 import { parseSecurityDocument } from "../src/core/security-model.js";
@@ -20,7 +21,7 @@ describe("shared editor help", () => {
       );
       expect(guide.textContent).toContain("Email and URL remain text");
       expect(guide.textContent).toContain("Masking is visual");
-      expect(guide.textContent).not.toContain("↑ Markdown");
+      expect(guide.textContent).not.toContain("Import Markdown");
       expect(guide.querySelector("script")).toBeNull();
     },
   );
@@ -30,12 +31,32 @@ describe("shared editor help", () => {
     expect(guide.textContent).toContain("current browser-vault passphrase");
     expect(guide.textContent).not.toContain("central-store");
     expect(guide.textContent).toContain("current selection");
-    expect(guide.textContent).toContain("↑ Markdown");
-    expect(guide.textContent).toContain("↓ Markdown");
+    expect(guide.textContent).toContain("Import Markdown");
+    expect(guide.textContent).toContain("Export Markdown");
     const example = guide.querySelector("pre code")!.textContent!;
     expect(parseSecurityDocument(`${example}\n`).ok).toBe(true);
     expect(guide.textContent).toContain("plaintext Markdown");
   });
+
+  it.each(["browser", "standard-notes", "vscode"] as const)(
+    "bundles identical selectable agent instructions for %s",
+    (host) => {
+      const guide = createEditorHelp(document, { host });
+      const text = guide.querySelector<HTMLTextAreaElement>("textarea");
+      expect(text?.readOnly).toBe(true);
+      expect(text?.value).toBe(AGENT_GUIDE);
+      expect(text?.getAttribute("aria-label")).toBe(
+        "AIC instructions for coding agents",
+      );
+      expect(guide.querySelector("details summary")?.textContent).toBe(
+        "Instructions for coding agents",
+      );
+      expect(AGENT_GUIDE).toContain("require no AIC executable");
+      expect(AGENT_GUIDE).toContain(
+        "Choose documentation format from the answer",
+      );
+    },
+  );
 
   it("rejects unknown hosts instead of inventing host behavior", () => {
     expect(() =>

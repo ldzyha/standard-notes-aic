@@ -25,8 +25,8 @@ describe("publication metadata", () => {
 
   it("uses the unified installation guide as the public release notes", () => {
     expect(releaseInstall).toContain("https://dzyha.com/");
-    expect(releaseInstall).toContain("aic-notes-54.0.2.vsix");
-    expect(releaseInstall).toContain("aic-browser-chromium-0.9.2.zip");
+    expect(releaseInstall).toContain("aic-notes-55.1.0.vsix");
+    expect(releaseInstall).toContain("aic-browser-chromium-0.10.0.zip");
     expect(releaseInstall).toContain("## English");
     expect(releaseInstall).toContain("## Українська");
     expect(releaseWorkflow).toContain("--notes-file RELEASE_INSTALL.md");
@@ -70,17 +70,17 @@ describe("publication metadata", () => {
   });
 
   it("documents the current R.F.B release and packages usage and UI contracts", () => {
-    expect(manifest.version).toBe("46.0.2");
-    expect(browserManifest.version).toBe("0.9.3");
-    expect(changelog).toContain(`## ${manifest.version} — 2026-09-24`);
+    expect(manifest.version).toBe("47.1.0");
+    expect(browserManifest.version).toBe("0.10.0");
+    expect(changelog).toContain(`## ${manifest.version} — 2026-09-29`);
     expect(changelog).toContain(
-      "Release sequence 46 · 0 feature outcomes · 2 fixed-bug outcomes",
+      "Release sequence 47 · 1 feature outcome · 0 fixed-bug outcomes",
     );
     expect(changelog).toContain(
       "An unfinished fenced code block stays editable",
     );
-    expect(marketplaceHowto).toContain("aic-browser-chromium-0.9.2.zip");
-    expect(marketplaceHowto).toContain("Standard Notes AIC **46.0.2**");
+    expect(marketplaceHowto).toContain("aic-browser-chromium-0.10.0.zip");
+    expect(marketplaceHowto).toContain("Standard Notes AIC **47.1.0**");
     expect(marketplaceHowto).toContain("## English");
     expect(marketplaceHowto).toContain("## Українська");
     expect(readme).toContain("## Slash templates");

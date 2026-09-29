@@ -633,18 +633,20 @@
     {
       "id": "browser.page-notes",
       "group": "browser-adapter",
-      "purpose": "Create on first edit, save, export, copy, and delete exact-URL page notes while retaining failed local drafts.",
+      "purpose": "Create on first edit, save, export, copy, and delete exact-URL page notes while retaining failed local drafts. Pin a saved note while browsing and add deduplicated active-page related links atomically when typing.",
       "hosts": ["browser"],
       "canonicalOwners": [
         "standard-notes-aic/src/browser/drafts.ts",
         "standard-notes-aic/src/browser/draft-coordinator.ts",
         "standard-notes-aic/src/browser/panel.ts",
-        "standard-notes-aic/src/browser/library.ts"
+        "standard-notes-aic/src/browser/library.ts",
+        "standard-notes-aic/src/browser/related-links.ts"
       ],
       "sourceFiles": [
         "standard-notes-aic/src/browser/drafts.ts",
         "standard-notes-aic/src/browser/draft-coordinator.ts",
-        "standard-notes-aic/src/browser/panel.ts"
+        "standard-notes-aic/src/browser/panel.ts",
+        "standard-notes-aic/src/browser/related-links.ts"
       ],
       "entrypoints": [
         "standard-notes-aic/src/browser/main.ts",
@@ -654,7 +656,8 @@
         "standard-notes-aic/test/browser-drafts.test.ts",
         "standard-notes-aic/test/browser-panel.test.ts",
         "standard-notes-aic/test/browser-panel-delete.test.ts",
-        "standard-notes-aic/test/browser-library.test.ts"
+        "standard-notes-aic/test/browser-library.test.ts",
+        "standard-notes-aic/test/browser-related-links.test.ts"
       ]
     },
     {
@@ -744,7 +747,7 @@
     {
       "id": "browser.capture-import",
       "group": "browser-adapter",
-      "purpose": "Capture the explicitly selected current page content or selection, sanitize it into Markdown, resolve safe links, and append page or file content after permission and navigation-race checks; native paste remains editor-owned.",
+      "purpose": "Capture the explicitly selected current page content or selection, sanitize it into Markdown, resolve safe links, and append page or file content after permission and navigation-race checks; shared outline icons distinguish page capture, file import and file export in the browser header; native paste remains editor-owned.",
       "hosts": ["browser"],
       "canonicalOwners": [
         "standard-notes-aic/src/browser/capture-page.ts",
@@ -995,7 +998,7 @@
     {
       "id": "vscode.agent-workflow",
       "group": "vscode-adapter",
-      "purpose": "Enable a thin trusted workspace marker and explicitly check or sync the separately owned AIC agent-rule contract.",
+      "purpose": "Expose bundled agent instructions and enable a trusted workspace handoff without executing AIC or changing global configuration.",
       "hosts": ["vscode"],
       "canonicalOwners": [
         "aic-notes/src/agents/bootstrap.js",
@@ -1028,6 +1031,25 @@
         "aic-notes/test/retired-auth-cleanup.test.js",
         "aic-notes/test/core-integrity.test.js",
         "aic-notes/test/release-contract.test.js"
+      ]
+    },
+    {
+      "id": "core.portable-agent-guide",
+      "group": "shared-core",
+      "purpose": "Bundle one agent-neutral Markdown instruction guide in every extension without requiring a separate AIC executable or config folder.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "canonicalOwners": ["standard-notes-aic/src/core/agent-guide.js"],
+      "sourceFiles": [
+        "standard-notes-aic/src/core/agent-guide.js",
+        "standard-notes-aic/src/core/agent-guide.d.ts"
+      ],
+      "entrypoints": [
+        "standard-notes-aic/src/core/editor-help.js",
+        "aic-notes/src/agents/bootstrap.js"
+      ],
+      "verification": [
+        "standard-notes-aic/test/editor-help.test.ts",
+        "aic-notes/test/agent-bootstrap.test.js"
       ]
     }
   ],

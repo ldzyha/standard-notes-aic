@@ -16,11 +16,11 @@ This file is the release contract for the Standard Notes editor component. The
 plugin and AIC Notes extension share the small runtime core for explicit drafts,
 structured AIC fields, structured preview mutation, the complete CodeMirror code-fence extension,
 slash templates, CSS-mask icons, and the Mermaid viewport. Markdown remains the only cross-client
-storage format. Release 46.0.2 pairs with AIC Notes 54.0.2 and AIC Editor Core 7.3.2.
+storage format. Release 47.1.0 pairs with AIC Notes 55.1.0 and AIC Editor Core 7.4.0.
 This index describes the current release source; it does not assert that its archive,
 GitHub Pages deployment or hosted manifest has already been published.
 
-Shared core 7.3.2 supplies the coordinated accordion and save-indicator fixes.
+Shared core 7.4.0 adds bundled agent instructions and shared browser transfer icons.
 
 Linked-code comments stay inside their details accordion, with compact headers
 and readable nesting. Unsaved edits keep the editor background unchanged; the
@@ -53,7 +53,7 @@ and manual reordering do not trigger sorting.
 
 ## Current host boundary — 2026-09-15
 
-The experimental browser release component 0.9.2 targets Chrome and Edge only, using one
+The experimental browser release component 0.10.0 targets Chrome and Edge only, using one
 Chromium package and this repository's `AicEditor`, with
 the same always-compact editor toolbar as Standard Notes and explicit read-only
 page/selection/Markdown import. When shared AIC data are empty, their
@@ -123,7 +123,7 @@ provenance and changelog documents have direct English/Ukrainian navigation.
 Localized files are included in the Standard Notes, Chromium and VS Code release
 package contracts. Generated third-party notices retain exact upstream wording.
 
-## Accordion and save feedback fixes in release 46.0.2
+## Accordion and save feedback fixes in release 47.1.0
 
 Linked-code comments stay inside their details accordion, with compact headers
 and readable nesting. Unsaved edits keep the editor background unchanged; the
@@ -605,3 +605,27 @@ explicit distribution manifest, not maintained independently in the extension.
   bundled component and must be installable from the stable `ext.json` URL.
 - Publication is a separate acceptance step: verify package/tag/archive versions,
   Pages deployment and the live manifest before announcing deployment.
+
+## Browser pinned-note provenance
+
+`src/browser/panel.ts` owns the panel-local pin and separately tracks the active
+page. Pinned tab changes preserve the editor, selection and Undo history. Pin and
+unpin use the existing draft save coordinator; lock/disposal clears the pin.
+`src/browser/related-links.ts` adds deduplicated, escaped active-page links to a
+Related links section only on editor input transactions. Generated links share
+Undo and persistence with the edit. Shared core and storage schema are unchanged.
+Coverage: `browser-panel`, `browser-related-links` and the feature registry checks.
+
+## Portable agent instructions
+
+`src/core/agent-guide.js` owns the versioned, provider-neutral Markdown guide.
+Every editor's local help exposes the exact bundled text. VS Code additionally
+provides a copy command and explicit trusted workspace export; its marker binds
+the instruction file by SHA-256. It does not execute `aic`, synchronize global
+rules or change an existing `AGENTS.md`. Optional full-kernel operations remain
+separate and require that runtime. Tests cover guide parity, fresh setup, legacy
+marker migration, untrusted copy, modified-file preservation and failed writes.
+
+Browser header transfer actions use shared `import-page`, `import-file` and
+`export-file` outline icons from `src/core/icons.css`, with existing accessible
+labels, tooltips, focus styles and touch targets.

@@ -31,3 +31,7 @@ compact interfaces, BEM blocks/elements/modifiers, and explicit host boundaries.
 Host differences are intentional when required by storage, permissions, document
 ownership or platform UI. Share the mechanism; do not erase those boundaries to
 make the source files look alike.
+
+Documentation follows `DOCUMENTATION.md`: state simple answers directly, and keep
+a question heading only when it helps explain a more complex answer. Choose the
+smallest format that preserves the answer and its material conditions.

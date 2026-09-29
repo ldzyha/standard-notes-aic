@@ -1,3 +1,4 @@
+import { AGENT_GUIDE } from "./agent-guide.js";
 import { applyUiComponent } from "./ui-system.js";
 
 const HOSTS = new Set(["browser", "standard-notes", "vscode"]);
@@ -101,6 +102,22 @@ export function createEditorHelp(document, { host }) {
     ]),
   );
 
+  const agentHelp = document.createElement("details");
+  const agentTitle = document.createElement("summary");
+  agentTitle.textContent = "Instructions for coding agents";
+  const agentHint = document.createElement("p");
+  agentHint.textContent =
+    "Select and copy these instructions into your coding agent. No separate AIC installation is required.";
+  const agentText = document.createElement("textarea");
+  applyUiComponent(agentText, "field", ["compact"], "control");
+  agentText.readOnly = true;
+  agentText.rows = 8;
+  agentText.setAttribute("aria-label", "AIC instructions for coding agents");
+  agentText.value = AGENT_GUIDE;
+  agentText.style.width = "100%";
+  agentHelp.append(agentTitle, agentHint, agentText);
+  root.append(agentHelp);
+
   const example = document.createElement("pre");
   const code = document.createElement("code");
   code.textContent =
@@ -115,8 +132,8 @@ export function createEditorHelp(document, { host }) {
           "Content",
           "import the current selection, or the visible page when none is selected",
         ],
-        ["↑ Markdown", "import a Markdown file"],
-        ["↓ Markdown", "download the current note as plaintext Markdown"],
+        ["Import Markdown", "import a Markdown file"],
+        ["Export Markdown", "download the current note as plaintext Markdown"],
         ["Backup", "export or import the encrypted browser vault from More"],
       ]),
     );

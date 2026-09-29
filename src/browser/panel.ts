@@ -1,3 +1,5 @@
+import { ChangeSet, EditorState, StateEffect } from "@codemirror/state";
+import { relatedPageLink } from "./related-links";
 import { AicEditor } from "../editor";
 import { AIC_EMPTY_DOCUMENT } from "../core/security-model.js";
 import { request, type ActivePage, type BrowserApi } from "./api";
@@ -51,6 +53,9 @@ export class BrowserPanel {
   private privateWindow = false;
   private allowPrivate = false;
   private page: ActivePage | null = null;
+  private pinnedPage: ActivePage | null = null;
+  private activePage: ActivePage | null = null;
+  private activeGeneration = 0;
   private library = emptyLibrary();
   private editor: AicEditor | null = null;
   private editorGeneration = 0;
@@ -141,7 +146,10 @@ export class BrowserPanel {
         this.refreshSharedData();
     });
     this.listen(api.tabs.onActivated, (info) => {
-      if (info.windowId === this.windowId && info.tabId !== this.page?.tabId)
+      if (
+        info.windowId === this.windowId &&
+        info.tabId !== this.activePage?.tabId
+      )
         this.contextChanged();
     });
     this.listen(api.tabs.onUpdated, (id, change, tab) => {
@@ -209,6 +217,8 @@ export class BrowserPanel {
         this.setImporting(false);
         this.dropEditor();
         this.page = null;
+        this.activePage = null;
+        ++this.activeGeneration;
         this.closeOverlay();
         this.content.replaceChildren();
         this.tell("");
@@ -315,23 +325,30 @@ export class BrowserPanel {
     label: string,
     glyph: string,
     action: (button: HTMLButtonElement) => void | Promise<unknown>,
+    iconName?: string,
   ): HTMLButtonElement {
     const button = this.button(label, action);
     applyUiComponent(button, "button", ["ghost", "icon-only", "compact"]);
     button.classList.add("browser-icon-button");
     button.title = label;
-    const icon = this.el("span", "", glyph);
-    icon.setAttribute("aria-hidden", "true");
-    button.replaceChildren(icon);
+    if (iconName) {
+      button.classList.add("cm-aic-icon-button");
+      button.dataset.aicIcon = iconName;
+      button.replaceChildren();
+    } else {
+      const icon = this.el("span", "", glyph);
+      icon.setAttribute("aria-hidden", "true");
+      button.replaceChildren(icon);
+    }
     return button;
   }
 
   private importIconButton(
     label: string,
-    glyph: string,
+    iconName: string,
     action: (button: HTMLButtonElement) => void | Promise<unknown>,
   ): HTMLButtonElement {
-    const button = this.iconButton(label, glyph, action);
+    const button = this.iconButton(label, "", action, iconName);
     button.dataset.importAction = "true";
     button.disabled = this.importing;
     return button;
@@ -377,17 +394,37 @@ export class BrowserPanel {
         identity.append(source);
       }
       this.toolbar.append(identity);
+      if (this.page) {
+        const pin = this.iconButton(
+          this.pinnedPage ? "Unpin note" : "Pin note",
+          "",
+          () => this.togglePin(),
+        );
+        pin.classList.add("cm-aic-icon-button");
+        pin.dataset.aicIcon = "pin";
+        pin.replaceChildren();
+        pin.dataset.pinNote = "true";
+        pin.setAttribute("aria-pressed", String(Boolean(this.pinnedPage)));
+        const draft = this.noteId ? this.drafts?.get(this.noteId) : null;
+        pin.disabled = !this.pinnedPage && !draft?.note && !draft?.dirty;
+        pin.title = pin.disabled
+          ? "Write a note before pinning it"
+          : this.pinnedPage
+            ? "Unpin note and follow the active tab"
+            : "Keep this note open and link pages you write about";
+        this.toolbar.append(pin);
+      }
       if (this.page && !this.shared?.editing && !this.globalShared?.editing) {
         const capture = this.importIconButton(
           "Import current content",
-          "↳",
+          "import-page",
           () => this.capture("auto"),
         );
         capture.title =
           "Import selected readable content when available; otherwise import the readable page";
         const markdown = this.importIconButton(
           "Import Markdown file",
-          "↑",
+          "import-file",
           () => this.chooseMarkdownFile(),
         );
         markdown.title = "Import a plaintext Markdown file into this note";
@@ -397,8 +434,9 @@ export class BrowserPanel {
           const noteId = this.noteId;
           const exportMarkdown = this.iconButton(
             "Export Markdown file",
-            "↓",
+            "",
             () => this.exportDraft(noteId),
+            "export-file",
           );
           exportMarkdown.title =
             "Export plaintext Markdown; the file may contain secrets";
@@ -604,6 +642,7 @@ export class BrowserPanel {
             );
           }
           if (this.page?.url === url) {
+            this.pinnedPage = null;
             // Destroy the old editor/undo history, not the independent shared draft.
             this.noteId = null;
             this.editor?.destroy();
@@ -975,7 +1014,54 @@ export class BrowserPanel {
 
   private contextChanged(): void {
     if (!this.canUseLibrary()) return;
-    void this.refreshContext();
+    if (this.pinnedPage) void this.refreshActivePage();
+    else void this.refreshContext();
+  }
+
+  private async refreshActivePage(): Promise<void> {
+    const active = ++this.activeGeneration;
+    this.activePage = null;
+    if (!this.canUseLibrary() || this.windowId === null) return;
+    const generation = this.generation;
+    try {
+      const page = await request<ActivePage | null>(this.api, {
+        type: "context",
+        windowId: this.windowId,
+        allowPrivate: this.allowPrivate,
+      });
+      if (
+        this.valid(generation) &&
+        active === this.activeGeneration &&
+        this.canUseLibrary()
+      )
+        this.activePage = page;
+    } catch (error) {
+      if (this.valid(generation) && active === this.activeGeneration)
+        this.fail(error);
+    }
+  }
+
+  private async togglePin(): Promise<void> {
+    if (!this.page || !this.noteId || this.importing || this.deleting) return;
+    const generation = this.generation;
+    const context = this.contextGeneration;
+    if (!(await this.flushAllDrafts())) {
+      this.tell(
+        "Save or export your unsaved draft before changing its pin.",
+        "error",
+      );
+      return;
+    }
+    if (!this.valid(generation, context)) return;
+    if (this.pinnedPage) {
+      this.pinnedPage = null;
+      await this.refreshContext();
+      this.toolbar.querySelector<HTMLButtonElement>("[data-pin-note]")?.focus();
+    } else if (this.drafts?.get(this.noteId)?.note) {
+      this.pinnedPage = { ...this.page };
+      this.renderToolbar();
+      this.toolbar.querySelector<HTMLButtonElement>("[data-pin-note]")?.focus();
+    }
   }
 
   private dropEditor(): void {
@@ -994,6 +1080,18 @@ export class BrowserPanel {
 
   private async refreshContext(): Promise<void> {
     if (!this.canUseLibrary() || this.windowId === null) return;
+    if (this.pinnedPage) {
+      await this.refreshActivePage();
+      if (!this.canUseLibrary() || !this.pinnedPage) return;
+      if (!this.page) {
+        this.page = { ...this.pinnedPage };
+        this.renderPage();
+      }
+      this.refreshSharedData();
+      return;
+    }
+    this.activePage = null;
+    ++this.activeGeneration;
     this.clearMarkdownImport();
     const generation = this.generation;
     const context = ++this.contextGeneration;
@@ -1018,6 +1116,7 @@ export class BrowserPanel {
       });
       if (!this.valid(generation, context)) return;
       this.page = page;
+      this.activePage = page;
       this.library = library;
       this.contextLoading = false;
       this.renderPage();
@@ -1101,6 +1200,38 @@ export class BrowserPanel {
           : false,
     });
     this.editor.switchDocument(draft.key, draft.text);
+    this.editor.view.dispatch({
+      effects: StateEffect.appendConfig.of(
+        EditorState.transactionFilter.of((transaction) => {
+          if (
+            !transaction.docChanged ||
+            !transaction.isUserEvent("input") ||
+            !this.pinnedPage ||
+            !this.activePage ||
+            this.deleting
+          )
+            return transaction;
+          const change = relatedPageLink(
+            transaction.newDoc.toString(),
+            this.activePage,
+            this.pinnedPage.url,
+          );
+          return change
+            ? [
+                transaction,
+                {
+                  changes: change,
+                  selection: transaction.newSelection.map(
+                    ChangeSet.of(change, transaction.newDoc.length),
+                    -1,
+                  ),
+                  sequential: true,
+                },
+              ]
+            : transaction;
+        }),
+      ),
+    });
     if (!draft.note && !draft.dirty && draft.text === PLACEHOLDER_TEXT)
       this.editor.view.dispatch({ selection: { anchor: draft.text.length } });
     this.reflectDraft(draft);
@@ -1109,6 +1240,16 @@ export class BrowserPanel {
   }
 
   private reflectDraft(draft: Draft): void {
+    const pin =
+      this.toolbar.querySelector<HTMLButtonElement>("[data-pin-note]");
+    if (pin) {
+      pin.disabled = !this.pinnedPage && !draft.note && !draft.dirty;
+      pin.title = pin.disabled
+        ? "Write a note before pinning it"
+        : this.pinnedPage
+          ? "Unpin note and follow the active tab"
+          : "Keep this note open and link pages you write about";
+    }
     this.editor?.setSaveState(
       draft.dirty ? "dirty" : draft.note ? "saved" : "placeholder",
       draft.saving,
@@ -1524,7 +1665,10 @@ export class BrowserPanel {
   private capture(mode: "auto" | "page" | "selection"): Promise<void> | void {
     if (!this.page || !this.canUseLibrary()) return;
     this.requireImportReady();
-    const page = { ...this.page };
+    if (!this.activePage)
+      throw new Error("Wait for an active web page before importing content.");
+    const page = { ...this.activePage };
+    const active = this.activeGeneration;
     const generation = this.generation;
     const context = this.contextGeneration;
     // This call must remain synchronous inside the deliberate click gesture.
@@ -1544,7 +1688,8 @@ export class BrowserPanel {
     return (async () => {
       if (!(await permission))
         throw new Error("Site access was not granted. Nothing was imported.");
-      if (!this.valid(generation, context)) return;
+      if (!this.valid(generation, context) || active !== this.activeGeneration)
+        return;
       const capture = await request<PageCapture>(this.api, {
         type: "capture",
         page,
@@ -1552,6 +1697,7 @@ export class BrowserPanel {
         allowPrivate: this.allowPrivate,
       });
       if (!this.valid(generation, context)) return;
+      if (active !== this.activeGeneration) return;
       const imported = importCapturedPage(capture);
       if (!imported.markdown) {
         this.tell(
@@ -1619,7 +1765,10 @@ export class BrowserPanel {
       url,
       allowPrivate: this.allowPrivate,
     });
-    if (this.valid(generation, context)) await this.refreshContext();
+    if (this.valid(generation, context)) {
+      this.pinnedPage = null;
+      await this.refreshContext();
+    }
   }
 
   private download(text: string, filename: string, type: string): void {
@@ -1944,6 +2093,9 @@ export class BrowserPanel {
     ++this.domainReloadRevision;
     this.library = emptyLibrary();
     this.page = null;
+    this.pinnedPage = null;
+    this.activePage = null;
+    ++this.activeGeneration;
     this.filter = "";
     this.importing = false;
     this.contextLoading = false;

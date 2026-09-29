@@ -13,8 +13,8 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
-Release 46.0.2 pairs with AIC Notes 54.0.2, experimental browser 0.9.2 and
-shared core 7.3.2.
+Release 47.1.0 pairs with AIC Notes 55.1.0, experimental browser 0.10.0 and
+shared core 7.4.0.
 
 Linked-code comments stay inside their details accordion, with compact headers
 and readable nesting. Unsaved edits keep the editor background unchanged; the
@@ -197,7 +197,7 @@ Legacy YAML Properties remain ordinary authored Markdown. They are not rendered 
 fields, interpreted as metadata, rewritten on save, or automatically migrated. Source
 mode keeps that text accessible for manual repair.
 
-## Release 46.0.2
+## Release 47.1.0
 
 Linked-code comments stay inside their details accordion, with compact headers
 and readable nesting. Unsaved edits keep the editor background unchanged; the
@@ -575,6 +575,14 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `46.0.2` is sequence 46 with
-zero feature outcomes and two fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `47.1.0` is sequence 47 with
+one feature outcome and zero fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).
+
+## Bundled instructions for coding agents
+
+Open **? → Instructions for coding agents** to select and copy the shared guide
+into any coding agent that accepts Markdown. The guide is bundled with this
+installation; it requires no separate AIC executable, server, account or config
+folder. Share note content separately and deliberately. This handoff does not
+grant the agent access to browser-vault or Standard Notes data.
