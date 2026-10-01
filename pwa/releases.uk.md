@@ -9,7 +9,7 @@
 у VS Code. Захищені файлові редактори працюють з однаковими `.aicnotes`;
 синхронізуйте експортовані файли через керований вами сервіс.
 
-## Підготовлено: Standard Notes 50.0.1 / VS Code 59.0.2 / браузер 0.11.2
+## Доступні випуски: Standard Notes 50.0.1 / VS Code 59.0.2 / браузер 0.11.2
 
 Спільне ядро 7.5.2 показує Mermaid у природному розмірі по центру полотна.
 Широкі діаграми зменшуються до ширини екрана, довгі підписи переносяться,
@@ -17,10 +17,13 @@
 кнопки масштабу прибрано. Mermaid завантажується лише за потреби.
 У VS Code діаграми також оновлюють кольори при зміні теми без повторного відкриття.
 
-Після публікації: [VSIX 59.0.2](https://github.com/ldzyha/aic-notes/releases/download/v59.0.2/aic-notes-59.0.2.vsix)
+Завантажте [VSIX 59.0.2](https://github.com/ldzyha/aic-notes/releases/download/v59.0.2/aic-notes-59.0.2.vsix)
 та [SHA-256](https://github.com/ldzyha/aic-notes/releases/download/v59.0.2/aic-notes-59.0.2.vsix.sha256),
 [Standard Notes 50.0.1](https://github.com/ldzyha/standard-notes-aic/releases/tag/v50.0.1).
-Перевірка файлів, розгортання PWA та схвалення магазинів є окремими етапами.
+PWA вже оновлено. Файли GitHub опубліковано, їхні SHA-256 перевірено.
+[Chromium 0.11.2 ZIP](https://github.com/ldzyha/standard-notes-aic/releases/download/v50.0.1/aic-browser-chromium-0.11.2.zip)
+і [SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v50.0.1/aic-browser-chromium-0.11.2.zip.sha256)
+доступні для ручного встановлення у Chrome або Edge.
 Підтверджена версія Marketplace — 58.1.1. Chrome публікує 0.9.3, а 0.11.1
 ще перевіряється; нове завантаження 0.11.2 поки недоступне.
 
