@@ -4,13 +4,37 @@
 
 ## Current dashboard check — October 1, 2026
 
-The existing Chrome item `mokndlkbkhnemhhcahddhdgihgdckbhp` is published at
-**0.9.3**. Its saved update draft now uses [AIC](https://aic.dzyha.com/) as the
-homepage and [Terms and privacy](https://aic.dzyha.com/terms) as the privacy-policy
-URL. The bilingual description also points to the canonical English and
-Ukrainian Terms pages. Saving a draft is separate from submitting an update or
-obtaining store approval. The September record below describes the earlier
-submission and is retained as history.
+The existing Chrome item `mokndlkbkhnemhhcahddhdgihgdckbhp` has **0.11.1 pending
+review**; the published baseline remains **0.9.3**. The dashboard confirmed
+“Your extension was submitted for review” and “Item submitted”, then the status
+page confirmed “This draft is pending review”. **Publish automatically after
+passed review** remained enabled. Submission is not approval.
+
+The uploaded ZIP is the published [49.1.2 release asset](https://github.com/ldzyha/standard-notes-aic/releases/tag/v49.1.2),
+`aic-browser-chromium-0.11.1.zip`, with SHA-256
+`4760803d8da0901cb9df13a9cec65f5d393efe5802219e52481af6b5c377dfbd`.
+The package dashboard confirmed 0.11.1 and the same six required permissions.
+The saved homepage is [AIC](https://aic.dzyha.com/); the privacy-policy field is
+[Terms and privacy](https://aic.dzyha.com/terms). The bilingual description also
+points to the canonical English and Ukrainian Terms pages.
+
+Existing release workflows build, test and verify packages. Their API publishing
+jobs remain inactive until publisher credentials are configured; this update was
+submitted through the authenticated dashboard. The September record below is
+retained as history.
+
+### Поточний стан — 1 жовтня 2026 року
+
+Chrome **0.11.1 подано на перевірку**; опублікованою версією залишається **0.9.3**.
+Панель підтвердила подання й стан **Pending review**. Автоматичну публікацію після
+схвалення залишено ввімкненою. Подання не означає схвалення.
+
+Завантажено ZIP із релізу 49.1.2; його версію, SHA-256 вище та незмінні шість
+обов’язкових дозволів перевірено. Збережені посилання домашньої сторінки й
+політики приватності ведуть на `aic.dzyha.com`, включно з українською сторінкою
+Terms у двомовному описі. CI збирає, тестує й перевіряє пакети; API-публікація
+ще не активована через відсутність налаштованих облікових даних видавця. Це
+оновлення подано через авторизовану панель. Вересневий запис нижче є історичним.
 
 ## English
 
