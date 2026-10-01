@@ -88,8 +88,10 @@ text is limited to 512 KiB. A Markdown import allows up to 2,000 selected `.md`
 files; their parent directories do not consume that note quota. Existing bundles
 retain a combined limit of 2,000 stored records, counting files and explicitly
 recorded folders, including empty folders. Imports also allow 4 MiB per file and 6 MiB of total JSON
-payload including base64 and metadata. A separate scan limit allows 10,000
-inspected entries after exclusions; the 2,000 Markdown-file limit is unchanged.
+payload including base64 and metadata. The number of inspected files and folders
+does not limit a Markdown import: a large code tree with a few notes is scanned
+fully, with progress and cancellation. Only retained notes count toward the
+2,000 Markdown-file limit.
 Fallback browser folder selection enumerates files before AIC can filter them;
 it permits `.gitignore` and `.ignore` only to read rules and never imports them as
 notes. Ignore rules are limited to 64 KiB each, 1 MiB total, 256 applicable files
@@ -109,8 +111,12 @@ notes** in the updated extension for those files. The VS Code encrypted-file hos
 continues to require a passphrase.
 
 Install the PWA through your browser. Its interface is cached for offline use.
-**Install app update** saves the current draft before applying an update. The app
-sends no notes, keys or passwords to a server.
+**Update app** appears when a downloaded update is ready. It saves the current
+draft, shows **Updating…**, and disappears after the new version opens. Failed
+saves or new edits keep the draft open; finish saving before reloading. A stalled
+activation offers a retry. **Install AIC Notes** is a separate browser install
+action and disappears when its one-use prompt has been used or dismissed.
+The app sends no notes, keys or passwords to a server.
 
 Build with `npm run build:pwa`; serve `dist-pwa/` over HTTPS at `aic.dzyha.com`.
 Serve `sw.js`, `index.html` and the manifest with revalidation, and hashed assets

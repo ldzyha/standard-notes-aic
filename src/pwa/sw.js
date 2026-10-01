@@ -59,7 +59,7 @@ self.addEventListener("install", (event) => {
   );
 });
 self.addEventListener("message", (event) => {
-  if (event.data === "activate-update") self.skipWaiting();
+  if (event.data === "activate-update") event.waitUntil(self.skipWaiting());
 });
 self.addEventListener("activate", (event) => {
   event.waitUntil(

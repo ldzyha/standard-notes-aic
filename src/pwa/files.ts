@@ -31,7 +31,6 @@ export interface FileSelectionProgress {
   total?: number;
 }
 
-const MAX_SCAN_ENTRIES = 5 * MAX_PWA_ENTRIES;
 const MAX_RESTORE_ENTRIES = 60_000;
 const READ_CONCURRENCY = 4;
 const READ_TIMEOUT_MS = 30_000;
@@ -45,12 +44,6 @@ const DIRECTORY_PREFIX_SIZE = 64;
 /** Filename filtering only; contents remain opaque bytes in this adapter. */
 export function isMarkdownPath(path: string): boolean {
   return /\.md$/iu.test(path);
-}
-
-function scanLimit(): never {
-  throw new Error(
-    `The selection exceeds ${MAX_SCAN_ENTRIES.toLocaleString("en-US")} inspected entries after exclusions. Add folder rules to .gitignore or .ignore, or choose a smaller folder.`,
-  );
 }
 
 function selectionLimit(options: FileSelectionOptions): never {
@@ -595,12 +588,6 @@ function pickWithInput(
           checkAbort(options);
           const inputFiles = input.files;
           if (
-            options.markdownOnly &&
-            !folder &&
-            (inputFiles?.length ?? 0) > MAX_SCAN_ENTRIES
-          )
-            scanLimit();
-          if (
             !options.markdownOnly &&
             (inputFiles?.length ?? 0) > MAX_PWA_ENTRIES
           ) {
@@ -613,7 +600,6 @@ function pickWithInput(
               ? await inputFolderRules(inputFiles, options, progress)
               : new Map<string, FolderIgnore>();
           const defaults = new FolderIgnore();
-          let inspectedEntries = 0;
           for (const file of inputFiles ?? []) {
             await progress.checkpoint();
             const relative = file.webkitRelativePath;
@@ -633,8 +619,6 @@ function pickWithInput(
               (file.name === ".gitignore" || file.name === ".ignore")
             )
               continue;
-            if (options.markdownOnly && ++inspectedEntries > MAX_SCAN_ENTRIES)
-              scanLimit();
             const allowed = !options.markdownOnly || isMarkdownPath(path);
             await progress.scanned(allowed);
             if (!allowed) continue;
@@ -717,7 +701,6 @@ export async function pickFiles(
         ),
       options,
     );
-    if (options.markdownOnly && handles.length > MAX_SCAN_ENTRIES) scanLimit();
     const selected: { handle: NativeFileHandle; path: string }[] = [];
     for (const handle of handles) {
       const allowed = !options.markdownOnly || isMarkdownPath(handle.name);
@@ -750,7 +733,6 @@ export async function pickFolder(
     const directories: string[] = options.markdownOnly ? [] : [rootPath];
     const rules = new FolderIgnore();
     const ignoreReader = new IgnoreReader();
-    let inspectedEntries = 0;
     const walk = async (directory: NativeDirectoryHandle, prefix: string) => {
       const iterator = directory.values()[Symbol.asyncIterator]();
       try {
@@ -820,7 +802,6 @@ export async function pickFolder(
               (!options.markdownOnly || isMarkdownPath(handle.name)),
           );
           if (options.markdownOnly) {
-            if (++inspectedEntries > MAX_SCAN_ENTRIES) scanLimit();
             if (handle.kind === "file" && !isMarkdownPath(handle.name))
               continue;
           }

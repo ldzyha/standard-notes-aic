@@ -1,3 +1,8 @@
+import {
+  AppUpdateLifecycle,
+  OneShotInstallPrompt,
+  type InstallPrompt,
+} from "./app-lifecycle";
 import { AicEditor } from "../editor";
 import { createScopeTabs, type ScopeTabs } from "../core/scope-tabs.js";
 import { scopedNotes, type NoteScope, type ScopedNote } from "./note-scopes";
@@ -86,7 +91,7 @@ let opening: AbortController | null = null;
 let fileQuery = "";
 let visibleFileCount = 100;
 let listedWorkspace: string | null = null;
-let installing: (Event & { prompt(): Promise<void> }) | null = null;
+let appUpdates: AppUpdateLifecycle | null = null;
 let lastUsed = Date.now();
 
 function element<K extends keyof HTMLElementTagNameMap>(
@@ -145,16 +150,23 @@ logo.width = 28;
 logo.height = 28;
 brand.append(logo, element("strong", "", "AIC Notes"));
 const status = element("span", "pwa-status", "On this device");
-const updateButton = button("Install app update", async () => {
+const updateButton = button("Update app", async () => {
   if (!(await save())) return;
   if (dirty) return;
-  registration?.waiting?.postMessage("activate-update");
+  // Activation is deferred until run releases its editing lock.
+  requestAppActivation = true;
 });
 updateButton.hidden = true;
+updateButton.classList.add("pwa-header__update");
 const installButton = button("Install AIC Notes", async () => {
-  await installing?.prompt();
+  const prompt = installPrompts.consume();
+  if (prompt) await prompt.prompt();
 });
 installButton.hidden = true;
+const installPrompts = new OneShotInstallPrompt((available) => {
+  installButton.hidden = !available;
+});
+let requestAppActivation = false;
 const cancelOpenButton = createUiButton(document, {
   label: "Cancel folder opening",
   text: "Cancel opening",
@@ -267,7 +279,7 @@ sidebar.append(
 );
 const content = element("section", "pwa-content");
 const actions = element("div", "pwa-actions");
-const title = element("h1", "pwa-title", "Your notes, on your devices");
+const title = element("h1", "pwa-title", "Start editing");
 const details = element("p", "pwa-details");
 const noteHeader = element("div", "pwa-note-header");
 const backButton = button("Browse notes", showNotesBrowser, "", {
@@ -306,7 +318,7 @@ browserActions.append(
     icon: "folder",
   }),
 );
-sidebar.append(browserActions);
+sidebar.insertBefore(browserActions, fileHeading);
 const editorContainer = element("div", "pwa-editor");
 content.append(noteHeader, details, actions, editorContainer);
 layout.append(sidebar, content);
@@ -587,6 +599,11 @@ async function run(action: () => void | Promise<unknown>) {
     if (textArea) textArea.disabled = false;
     app.removeAttribute("aria-busy");
     reflectSave();
+    if (requestAppActivation) {
+      requestAppActivation = false;
+      appUpdates?.activate();
+    }
+    appUpdates?.reconsider();
   }
 }
 
@@ -1620,7 +1637,7 @@ function renderContent() {
   reflectSave();
   reflectScreen();
   if (!payload) {
-    title.textContent = "Your notes, on your devices";
+    title.textContent = "Start editing";
     details.textContent = hostSource
       ? "Open this encrypted file with its passphrase."
       : "";
@@ -1630,10 +1647,10 @@ function renderContent() {
           icon: "note-add",
           variant: "primary",
         }),
-        button("Open files", () => openFiles(), "Files", {
+        button("Open files", () => openFiles(), "Open files", {
           icon: "document",
         }),
-        button("Open folder", () => openFiles(true), "Folder", {
+        button("Open folder", () => openFiles(true), "Open folder", {
           icon: "folder",
         }),
         button("Workspace options", openWorkspaceOptions, "", {
@@ -1919,7 +1936,8 @@ window.addEventListener("beforeunload", (event) => {
     event.returnValue = "";
   }
 });
-window.addEventListener("pagehide", () => {
+window.addEventListener("pagehide", (event) => {
+  appUpdates?.suspend(event.persisted);
   lifecycle++;
   opening?.abort();
   opening = null;
@@ -1942,6 +1960,7 @@ window.addEventListener("pagehide", () => {
 });
 window.addEventListener("pageshow", (event) => {
   if (event.persisted) {
+    appUpdates?.resume();
     void refreshEntities();
     renderContent();
   }
@@ -1968,12 +1987,10 @@ window.addEventListener("online", reflectSave);
 window.addEventListener("offline", reflectSave);
 window.addEventListener("beforeinstallprompt", (event) => {
   event.preventDefault();
-  installing = event as typeof installing;
-  installButton.hidden = false;
+  installPrompts.offer(event as InstallPrompt);
 });
 window.addEventListener("appinstalled", () => {
-  installing = null;
-  installButton.hidden = true;
+  installPrompts.consume();
 });
 document.addEventListener("keydown", (event) => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "s") {
@@ -1981,7 +1998,6 @@ document.addEventListener("keydown", (event) => {
     void run(save);
   }
 });
-let reloadingForUpdate = false;
 async function start() {
   if (!(await refreshEntities())) return;
   renderContent();
@@ -2004,23 +2020,34 @@ async function start() {
     "serviceWorker" in navigator &&
     import.meta.env.PROD
   ) {
-    const hadController = !!navigator.serviceWorker.controller;
+    appUpdates = new AppUpdateLifecycle(navigator.serviceWorker, {
+      canReload: () => !dirty && !saveFailed && !saveTask && !working,
+      reload: () => location.reload(),
+      onError: (message) => notify(message, true),
+      onState: (state) => {
+        updateButton.hidden = state === "none";
+        updateButton.disabled =
+          state === "installing" || state === "activating";
+        updateButton.textContent =
+          state === "installing"
+            ? "Downloading…"
+            : state === "activating"
+              ? "Updating…"
+              : state === "reload"
+                ? "Reload app update"
+                : "Update app";
+        updateButton.setAttribute("aria-label", updateButton.textContent);
+        updateButton.title = updateButton.textContent;
+        if (state === "reload" && dirty && !saveFailed)
+          notify(
+            "A new app version is ready. Save your draft, then reload the update.",
+          );
+      },
+    });
     registration = await navigator.serviceWorker.register("./sw.js", {
       scope: "./",
     });
-    const reflectUpdate = () => {
-      updateButton.hidden = !registration?.waiting;
-    };
-    reflectUpdate();
-    registration.addEventListener("updatefound", () => {
-      registration?.installing?.addEventListener("statechange", reflectUpdate);
-    });
-    navigator.serviceWorker.addEventListener("controllerchange", () => {
-      if (hadController && !reloadingForUpdate && !dirty) {
-        reloadingForUpdate = true;
-        location.reload();
-      }
-    });
+    appUpdates.attach(registration);
     // Updates are checked by the browser and at foreground entry, never against a notes server.
     window.addEventListener("focus", () => {
       void registration?.update().catch(() => {});

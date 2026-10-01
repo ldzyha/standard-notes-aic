@@ -25,7 +25,7 @@
     {
       "id": "host.portable-file-notes",
       "group": "host-adapters",
-      "purpose": "Open local .md workspaces without a password in the PWA, persist explicitly unencrypted device snapshots through the existing controller/storage owner, and optionally create an interoperable encrypted copy without deleting the plaintext source. Filter new imports and navigation to Markdown, count only selected notes toward the import quota, and retain hierarchy through file paths with separately bounded scanning/export. Use four-lane metadata/byte reads with all-size preflight, cooperative task yields and 30-second per-I/O deadlines. Expose opening progress and cancellation without partial workspace mutations, render Markdown navigation incrementally with filename filtering while retaining the active editor/draft, and reuse canonical validation for unchanged file data while checking metadata. Preserve existing bundle bytes and explicit folder records, explicit exports and user-owned synchronization; retain the browser page-library and VS Code encrypted-file boundaries. On mobile, open the existing searchable Notes sidebar in a native modal drawer above the mounted editor, with focus restoration and Back/Escape dismissal. Expose direct New note, Open files, and Open folder actions; create the first local workspace implicitly for a new note. Use compact custom SVG actions and contextual document/workspace menus. Create uniquely named editable drafts immediately; validated renames preserve file IDs. Open creates a separate workspace and Add merges. Preserve the mounted editor for same-document navigation, filtering and layout changes; local autosave shares the existing save/CAS owner, retains failed drafts and exposes Retry with accurate device-local status. Show a file explorer and one Current, Shared folder/site, or Global project/profile note at a time, preserving mounted scope editors and the single save owner. VS Code encrypted-file saves refuse deleted existing files and retain recoverable encrypted changes.",
+      "purpose": "Open local .md workspaces without a password in the PWA, persist explicitly unencrypted device snapshots through the existing controller/storage owner, and optionally create an interoperable encrypted copy without deleting the plaintext source. Filter new imports and navigation to Markdown, count only selected notes toward the import quota, and retain hierarchy through file paths with cooperative cancellable full-tree scanning and separately bounded export. Use four-lane metadata/byte reads with all-size preflight, cooperative task yields and 30-second per-I/O deadlines. Expose opening progress and cancellation without partial workspace mutations, render Markdown navigation incrementally with filename filtering while retaining the active editor/draft, and reuse canonical validation for unchanged file data while checking metadata. Preserve existing bundle bytes and explicit folder records, explicit exports and user-owned synchronization; retain the browser page-library and VS Code encrypted-file boundaries. On mobile, open the existing searchable Notes sidebar in a native modal drawer above the mounted editor, with focus restoration and Back/Escape dismissal. Expose direct New note, Open files, and Open folder actions; create the first local workspace implicitly for a new note. Use compact custom SVG actions, neutral light/dark editor chrome, a file explorer and contextual document/workspace menus. Create uniquely named editable drafts immediately; validated renames preserve file IDs. Open creates a separate workspace and Add merges. Preserve the mounted editor for same-document navigation, filtering and layout changes; local autosave shares the existing save/CAS owner, retains failed drafts and exposes Retry with accurate device-local status. Show a file explorer and one Current, Shared folder/site, or Global project/profile note at a time, preserving mounted scope editors and the single save owner. VS Code encrypted-file saves refuse deleted existing files and retain recoverable encrypted changes. Explicit app activation observes waiting/installing workers and controller changes, defers reload until drafts are safe, bounds activation waits, and consumes one-shot install prompts.",
       "hosts": ["pwa", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/pwa/main.ts",
@@ -44,7 +44,8 @@
         "standard-notes-aic/src/pwa/styles.css",
         "standard-notes-aic/src/pwa/sw.js",
         "aic-notes/src/portable/provider.js",
-        "standard-notes-aic/src/pwa/note-scopes.ts"
+        "standard-notes-aic/src/pwa/note-scopes.ts",
+        "standard-notes-aic/src/pwa/app-lifecycle.ts"
       ],
       "entrypoints": [
         "standard-notes-aic/pwa/index.html",
@@ -61,7 +62,8 @@
         "standard-notes-aic/test/pwa-ui.test.ts",
         "standard-notes-aic/test/pwa-offline.test.ts",
         "aic-notes/test/portable-provider.test.js",
-        "standard-notes-aic/test/pwa-note-scopes.test.ts"
+        "standard-notes-aic/test/pwa-note-scopes.test.ts",
+        "standard-notes-aic/test/pwa-app-lifecycle.test.ts"
       ]
     },
     {

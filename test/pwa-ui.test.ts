@@ -858,7 +858,7 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     release!();
     await idle();
     expect(document.querySelector(".pwa-title")?.textContent).toBe(
-      "Your notes, on your devices",
+      "Start editing",
     );
     expect(document.querySelector(".synthetic-editor")).toBeNull();
     expect(await state.repository!.listLocal()).toHaveLength(1);
@@ -887,7 +887,7 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     await idle();
     expect(document.querySelectorAll(".pwa-entities__item")).toHaveLength(0);
     expect(document.querySelector(".pwa-title")?.textContent).toBe(
-      "Your notes, on your devices",
+      "Start editing",
     );
     expect(document.querySelector(".pwa-notice")?.textContent).toBe("");
     expect(document.querySelector(".synthetic-editor")).toBeNull();

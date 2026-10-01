@@ -532,32 +532,129 @@ describe("portable filesystem adapter", () => {
       expect(config.arrayBuffer).toHaveBeenCalledOnce();
     });
   });
-  it("bounds traversal of a large unrelated tree without reading any file contents", async () => {
+  it("scans over 10k unrelated native files and retains all six Markdown notes", async () => {
     const root = directory("project");
     let inspected = 0;
     const readUnrelated = vi.fn(async () => {
-      throw new Error("An unrelated file was read.");
+      throw new Error("Unrelated content read");
     });
     root.values = async function* () {
-      for (let index = 0; index < 20000; index++) {
-        inspected += 1;
+      for (let index = 0; index < 12000; index++) {
+        inspected++;
         yield {
-          kind: "file",
+          kind: "file" as const,
           name: `source-${index}.ts`,
           getFile: readUnrelated,
           createWritable: vi.fn(),
         };
       }
+      for (let index = 0; index < 6; index++)
+        yield nativeFile(
+          browserFile(`note-${index}.md`, encode(`Note ${index}`)),
+        );
     };
     installPicker(
       "showDirectoryPicker",
       vi.fn(async () => root),
     );
-    await expect(pickFolder({ markdownOnly: true })).rejects.toThrow(
-      "10,000 inspected entries",
+    const progress = vi.fn();
+    const picked = await pickFolder({
+      markdownOnly: true,
+      onProgress: progress,
+    });
+    expect(picked?.files.map((file) => file.path)).toEqual(
+      Array.from({ length: 6 }, (_, i) => `project/note-${i}.md`),
     );
-    expect(inspected).toBeLessThanOrEqual(10001);
+    expect(inspected).toBe(12000);
     expect(readUnrelated).not.toHaveBeenCalled();
+    expect(progress).toHaveBeenLastCalledWith(
+      expect.objectContaining({ phase: "reading", selected: 6, read: 6 }),
+    );
+  });
+
+  it("filters over 10k unrelated fallback files without losing six late notes", async () => {
+    vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+    const unrelated = Array.from({ length: 12000 }, (_, i) =>
+      browserFile(`${i}.ts`, encode("unused"), `project/${i}.ts`),
+    );
+    const notes = Array.from({ length: 6 }, (_, i) =>
+      browserFile(`note-${i}.md`, encode(`Note ${i}`), `project/note-${i}.md`),
+    );
+    const pending = pickFolder({ markdownOnly: true });
+    chooseInputFiles([...unrelated, ...notes]);
+    expect((await pending)?.files.map((file) => file.path)).toEqual(
+      notes.map((file) => file.webkitRelativePath),
+    );
+    expect(
+      unrelated.every(
+        (file) => vi.mocked(file.arrayBuffer).mock.calls.length === 0,
+      ),
+    ).toBe(true);
+  });
+
+  it("cancels a large native scan after 10k names without reading unrelated metadata or late notes", async () => {
+    const root = directory("project");
+    const controller = new AbortController();
+    let inspected = 0;
+    const unread = vi.fn(async () => {
+      throw new Error("No content should be read");
+    });
+    root.values = async function* () {
+      for (let index = 0; index < 30000; index++) {
+        inspected++;
+        if (inspected === 12000) controller.abort();
+        yield {
+          kind: "file" as const,
+          name: `source-${index}.ts`,
+          getFile: unread,
+          createWritable: vi.fn(),
+        };
+      }
+      yield {
+        kind: "file" as const,
+        name: "late.md",
+        getFile: unread,
+        createWritable: vi.fn(),
+      };
+    };
+    installPicker(
+      "showDirectoryPicker",
+      vi.fn(async () => root),
+    );
+    const progress = vi.fn();
+    expect(
+      await pickFolder({
+        markdownOnly: true,
+        signal: controller.signal,
+        onProgress: progress,
+      }),
+    ).toBeNull();
+    expect(inspected).toBe(12000);
+    expect(unread).not.toHaveBeenCalled();
+    expect(progress.mock.calls.every(([value]) => value.read === 0)).toBe(true);
+  });
+
+  it("filters a large explicit native selection by note quota rather than total names", async () => {
+    const unread = vi.fn(async () => {
+      throw new Error("Unrelated content read");
+    });
+    const handles = Array.from({ length: 12000 }, (_, i) => ({
+      kind: "file" as const,
+      name: `${i}.ts`,
+      getFile: unread,
+      createWritable: vi.fn(),
+    }));
+    handles.push(
+      ...Array.from({ length: 6 }, (_, i) =>
+        nativeFile(browserFile(`${i}.md`, encode("note"))),
+      ),
+    );
+    installPicker(
+      "showOpenFilePicker",
+      vi.fn(async () => handles),
+    );
+    expect((await pickFiles({ markdownOnly: true }))?.files).toHaveLength(6);
+    expect(unread).not.toHaveBeenCalled();
   });
 
   it("filters folder-input paths before bytes and excludes nested dependency notes", async () => {

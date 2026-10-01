@@ -57,7 +57,7 @@ interface FetchEvent {
   request: MockRequest;
   respondWith(promise: Promise<CachedResponse>): void;
 }
-type WorkerEvent = WaitEvent | FetchEvent | { data: unknown };
+type WorkerEvent = WaitEvent | FetchEvent | (WaitEvent & { data: unknown });
 
 function workerHarness(code: string, failPrecache = false) {
   const handlers = new Map<string, (event: WorkerEvent) => void>();
@@ -138,7 +138,14 @@ function workerHarness(code: string, failPrecache = false) {
       return pending;
     },
     message(data: unknown) {
-      handlers.get("message")!({ data });
+      let pending: Promise<unknown> | undefined;
+      handlers.get("message")!({
+        data,
+        waitUntil: (promise) => {
+          pending = promise;
+        },
+      });
+      return pending;
     },
     fetch(path: string, method = "GET", mode = "same-origin") {
       let response: Promise<CachedResponse> | undefined;
@@ -362,11 +369,23 @@ describe("PWA offline shell lifecycle", () => {
       BUILD_FILES.map((file) => new URL(file, SCOPE).href),
     ]);
     expect(harness.skipWaiting).not.toHaveBeenCalled();
-    harness.message({ activate: true });
-    harness.message("another-message");
+    expect(harness.message({ activate: true })).toBeUndefined();
+    expect(harness.message("another-message")).toBeUndefined();
     expect(harness.skipWaiting).not.toHaveBeenCalled();
-    harness.message("activate-update");
+    let complete!: () => void;
+    harness.skipWaiting.mockImplementationOnce(
+      () => new Promise<void>((resolve) => (complete = resolve)),
+    );
+    const activation = harness.message("activate-update");
+    expect(activation).toBeInstanceOf(Promise);
     expect(harness.skipWaiting).toHaveBeenCalledOnce();
+    let settled = false;
+    void activation!.then(() => (settled = true));
+    await Promise.resolve();
+    expect(settled).toBe(false);
+    complete();
+    await activation;
+    expect(settled).toBe(true);
   });
 
   it("rejects installation if any application asset cannot be precached", async () => {

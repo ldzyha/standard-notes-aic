@@ -643,8 +643,9 @@ parent. Rules never escape the selected root or use global Git configuration. Fa
 pickers enumerate first, permit rule files only for parsing, and never import
 them; generic binary folder import remains unchanged. Rules are bounded to 64 KiB
 each, 1 MiB total, 256 applicable files and 10,000 lines; invalid or unreadable
-rules reject the selection. Ignored entries do not consume the 10,000-entry scan
-bound, while selected `.md` files retain the 2,000-file quota and hierarchy
+rules reject the selection. Markdown traversal has no inspected-entry ceiling and
+never silently truncates a tree; cooperative checkpoints keep progress and cancellation
+responsive. Selected `.md` files retain the 2,000-file quota and hierarchy
 without explicit parent-folder records. Existing payloads retain the combined
 2,000 files/explicit-folders limit, including empty folders. Export reconstructs
 parents under its separate 60,000 physical-entry and 12 MiB ZIP bounds. Coverage
@@ -690,6 +691,12 @@ a precached HTML URL, the worker reconstructs its response for browser navigatio
 Installation repairs only those documents in earlier AIC shell caches, preserving
 their content and runtime version until the user activates the update. Note
 storage is untouched. Coverage: `pwa-offline` and `site-pages`.
+
+PWA installation and update controls follow browser lifecycle events, including
+workers already waiting when the app opens. An explicit update saves through the
+existing owner; controller changes cannot reload a dirty, failed, or busy draft.
+Activation has a bounded wait and retry state. Installation prompts are consumed
+once, including dismissal. Coverage: `pwa-app-lifecycle` and `pwa-ui`.
 
 ## Extension update distribution
 

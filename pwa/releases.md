@@ -11,12 +11,22 @@ service you manage.
 
 ## Web update — October 1, 2026
 
+Opening a large project no longer fails after 10,000 inspected entries: AIC scans
+the selected tree and imports its Markdown notes, with progress and cancellation.
+The interface now uses compact editor-style headers, an explorer sidebar, neutral
+light/dark surfaces and touch-sized controls on phones.
+
+The **Update app** button now follows activation through to completion, including
+updates already waiting when the app opens. It shows progress, offers a retry
+if activation stalls, and preserves unsaved drafts before reloading. The separate
+**Install AIC Notes** button stops offering a browser prompt after it is consumed.
+
 Folder imports skip nested `node_modules` and `.git` directories, and honor
 `.gitignore` and `.ignore` in the selected folder and its descendants. Excluded
-paths do not consume the scan or Markdown quota. The browser's fallback picker
+paths are pruned before reading note content. The browser's fallback picker
 may still enumerate the folder before AIC receives the selection.
 
-Choose **Folder** on the start screen to import Markdown notes. Install the
+Choose **Open folder** on the start screen to import Markdown notes. Install the
 available app update first if that button or the new filtering is missing.
 
 ## PWA and portable files — 48.4.5 / browser 0.11.0
@@ -68,8 +78,9 @@ experimental browser 0.11.0 and shared core 7.5.0.
 5. Reopen the installed app without a connection to edit local notes. Your
    separate file-sync service needs a connection when transferring exported files.
 
-When **Install app update** appears, AIC saves the current draft before applying
-the update. Keep exported backups: browser data can be cleared or evicted.
+When **Update app** appears, AIC saves the current draft before applying
+the update. **Updating…** disappears after the new version opens. If saving fails,
+keep the app open and retry the save. Keep exported backups: browser data can be cleared or evicted.
 Writable file and folder pickers are available in supported desktop browsers;
 other browsers use file selection and downloads. See [data handling and
 limits](/terms).
