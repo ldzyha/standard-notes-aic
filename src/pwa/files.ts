@@ -1,5 +1,6 @@
-/** User-selected filesystem access. File contents are opaque bytes here. */
+/** User-selected filesystem access. Note contents remain opaque bytes. */
 import { MAX_VAULT_PLAINTEXT_BYTES } from "../browser/vault-crypto";
+import { FolderIgnore, isHardExcludedPath } from "./folder-ignore";
 import {
   MAX_PWA_ENTRIES,
   MAX_PWA_FILE_BYTES,
@@ -34,33 +35,21 @@ const MAX_SCAN_ENTRIES = 5 * MAX_PWA_ENTRIES;
 const MAX_RESTORE_ENTRIES = 60_000;
 const READ_CONCURRENCY = 4;
 const READ_TIMEOUT_MS = 30_000;
-const EXCLUDED_MARKDOWN_DIRECTORIES = new Set([".git", "node_modules"]);
+const IGNORE_FILES = [".gitignore", ".ignore"] as const;
+const MAX_IGNORE_FILE_BYTES = 64 * 1024;
+const MAX_IGNORE_TOTAL_BYTES = 1024 * 1024;
+const MAX_IGNORE_FILES = 256;
+const MAX_IGNORE_LINES = 10_000;
+const DIRECTORY_PREFIX_SIZE = 64;
 
 /** Filename filtering only; contents remain opaque bytes in this adapter. */
 export function isMarkdownPath(path: string): boolean {
   return /\.md$/iu.test(path);
 }
 
-function allowedInputPath(
-  path: string,
-  folder: boolean,
-  options: FileSelectionOptions,
-): boolean {
-  if (!options.markdownOnly) return true;
-  if (!isMarkdownPath(path)) return false;
-  // The explicitly chosen root is retained. Only nested unrelated trees are skipped.
-  return (
-    !folder ||
-    !path
-      .split("/")
-      .slice(1, -1)
-      .some((name) => EXCLUDED_MARKDOWN_DIRECTORIES.has(name.toLowerCase()))
-  );
-}
-
 function scanLimit(): never {
   throw new Error(
-    `The selection exceeds ${MAX_SCAN_ENTRIES.toLocaleString("en-US")} inspected entries. Choose a smaller folder or selection.`,
+    `The selection exceeds ${MAX_SCAN_ENTRIES.toLocaleString("en-US")} inspected entries after exclusions. Add folder rules to .gitignore or .ignore, or choose a smaller folder.`,
   );
 }
 
@@ -205,6 +194,144 @@ class SelectionProgress {
 
   stop(): void {
     this.active = false;
+  }
+}
+
+/** Ignore files are bounded import configuration, never imported note content. */
+class IgnoreReader {
+  private files = 0;
+  private bytes = 0;
+  private lines = 0;
+
+  async read(
+    file: File,
+    path: string,
+    options: FileSelectionOptions,
+  ): Promise<string> {
+    checkAbort(options);
+    if (++this.files > MAX_IGNORE_FILES)
+      throw new Error(
+        "A folder selection supports at most 256 applicable ignore files.",
+      );
+    if (file.size > MAX_IGNORE_FILE_BYTES)
+      throw new Error(
+        `Ignore file ${path} exceeds 64 KiB. Choose a smaller folder or simplify its rules.`,
+      );
+    this.bytes += file.size;
+    if (this.bytes > MAX_IGNORE_TOTAL_BYTES)
+      throw new Error("The selection exceeds 1 MiB of ignore rules.");
+    const bytes = await readOperation(() => file.arrayBuffer(), options, path);
+    if (bytes.byteLength !== file.size)
+      throw new Error(`Ignore file ${path} changed while it was being read.`);
+    checkAbort(options);
+    let text: string;
+    try {
+      text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+    } catch {
+      throw new Error(`Ignore file ${path} must contain UTF-8 text.`);
+    }
+    this.lines += text.split(/\r?\n/u).length;
+    if (this.lines > MAX_IGNORE_LINES)
+      throw new Error("The selection exceeds 10,000 lines of ignore rules.");
+    return text;
+  }
+}
+
+function folderPath(relative: string): { root: string; path: string } | null {
+  const separator = relative.indexOf("/");
+  return separator < 0
+    ? null
+    : {
+        root: relative.slice(0, separator),
+        path: relative.slice(separator + 1),
+      };
+}
+
+async function inputFolderRules(
+  files: FileList,
+  options: FileSelectionOptions,
+  progress: SelectionProgress,
+): Promise<Map<string, FolderIgnore>> {
+  const roots = new Map<string, FolderIgnore>();
+  const candidates: {
+    file: File;
+    root: string;
+    scope: string;
+    path: string;
+    name: (typeof IGNORE_FILES)[number];
+  }[] = [];
+  // A folder input is already enumerated by the browser. Inspect names without
+  // allocating file bytes or charging excluded dependency trees to the quota.
+  for (const file of files) {
+    await progress.checkpoint();
+    const entry = folderPath(file.webkitRelativePath);
+    if (!entry || isHardExcludedPath(entry.path)) continue;
+    const name = entry.path.split("/").at(-1)!;
+    if (name !== ".gitignore" && name !== ".ignore") continue;
+    const scope = entry.path.slice(0, -name.length).replace(/\/$/u, "");
+    candidates.push({ file, ...entry, scope, name });
+  }
+  // Rules higher in the tree must prune candidate rule files in excluded folders
+  // before those files are read. Sibling order and FileList order are irrelevant.
+  candidates.sort(
+    (a, b) =>
+      (a.scope ? a.scope.split("/").length : 0) -
+        (b.scope ? b.scope.split("/").length : 0) ||
+      a.path.localeCompare(b.path),
+  );
+  const reader = new IgnoreReader();
+  for (const candidate of candidates) {
+    await progress.checkpoint();
+    let rules = roots.get(candidate.root);
+    if (!rules) roots.set(candidate.root, (rules = new FolderIgnore()));
+    if (rules.isIgnored(candidate.scope, true)) continue;
+    rules.addRules(
+      candidate.scope,
+      candidate.name,
+      await reader.read(
+        candidate.file,
+        candidate.file.webkitRelativePath,
+        options,
+      ),
+    );
+  }
+  return roots;
+}
+
+async function nativeFolderRules(
+  directory: NativeDirectoryHandle,
+  entries: (NativeFileHandle | NativeDirectoryHandle)[],
+  complete: boolean,
+  scope: string,
+  displayPath: string,
+  rules: FolderIgnore,
+  reader: IgnoreReader,
+  options: FileSelectionOptions,
+  progress: SelectionProgress,
+): Promise<void> {
+  for (const name of IGNORE_FILES) {
+    await progress.checkpoint();
+    const path = `${displayPath}/${name}`;
+    let handle = entries.find((entry) => entry.name === name);
+    if (handle?.kind === "directory" || (!handle && complete)) continue;
+    if (!handle) {
+      try {
+        handle = await readOperation(
+          () => directory.getFileHandle(name),
+          options,
+          path,
+        );
+      } catch (error) {
+        if (
+          isNamedError(error, "NotFoundError") ||
+          isNamedError(error, "TypeMismatchError")
+        )
+          continue;
+        throw error;
+      }
+    }
+    const file = await readOperation(() => handle.getFile(), options, path);
+    rules.addRules(scope, name, await reader.read(file, path, options));
   }
 }
 
@@ -432,7 +559,8 @@ function pickWithInput(
     const input = document.createElement("input");
     input.type = "file";
     input.multiple = true;
-    if (options.markdownOnly) input.accept = ".md";
+    if (options.markdownOnly)
+      input.accept = folder ? ".md,.gitignore,.ignore" : ".md";
     input.tabIndex = -1;
     input.style.cssText = "position:fixed;left:-9999px;opacity:0";
     if (folder) input.setAttribute("webkitdirectory", "");
@@ -468,6 +596,7 @@ function pickWithInput(
           const inputFiles = input.files;
           if (
             options.markdownOnly &&
+            !folder &&
             (inputFiles?.length ?? 0) > MAX_SCAN_ENTRIES
           )
             scanLimit();
@@ -479,12 +608,34 @@ function pickWithInput(
           }
           const roots = new Set<string>();
           const selected: { file: File; path: string }[] = [];
-          for (const file of Array.from(inputFiles ?? [])) {
+          const rules =
+            folder && options.markdownOnly && inputFiles
+              ? await inputFolderRules(inputFiles, options, progress)
+              : new Map<string, FolderIgnore>();
+          const defaults = new FolderIgnore();
+          let inspectedEntries = 0;
+          for (const file of inputFiles ?? []) {
+            await progress.checkpoint();
             const relative = file.webkitRelativePath;
             const path = folder && relative ? relative : file.name;
             if (folder && relative)
               roots.add(validateRelativePath(relative.split("/")[0]!));
-            const allowed = allowedInputPath(path, folder, options);
+            const entry = folder ? folderPath(relative) : null;
+            if (
+              options.markdownOnly &&
+              entry &&
+              (rules.get(entry.root) ?? defaults).isIgnored(entry.path)
+            )
+              continue;
+            if (
+              folder &&
+              options.markdownOnly &&
+              (file.name === ".gitignore" || file.name === ".ignore")
+            )
+              continue;
+            if (options.markdownOnly && ++inspectedEntries > MAX_SCAN_ENTRIES)
+              scanLimit();
+            const allowed = !options.markdownOnly || isMarkdownPath(path);
             await progress.scanned(allowed);
             if (!allowed) continue;
             if (folder && relative) validateRelativePath(relative);
@@ -597,29 +748,81 @@ export async function pickFolder(
     const rootPath = validateRelativePath(root.name);
     const selected: { handle: NativeFileHandle; path: string }[] = [];
     const directories: string[] = options.markdownOnly ? [] : [rootPath];
+    const rules = new FolderIgnore();
+    const ignoreReader = new IgnoreReader();
     let inspectedEntries = 0;
     const walk = async (directory: NativeDirectoryHandle, prefix: string) => {
       const iterator = directory.values()[Symbol.asyncIterator]();
       try {
-        while (true) {
-          // Abort can release the UI even while a platform directory iterator waits.
-          const item = await readOperation(
-            () => iterator.next(),
+        const buffered: (NativeFileHandle | NativeDirectoryHandle)[] = [];
+        let complete = false;
+        let bufferIndex = 0;
+        if (options.markdownOnly) {
+          // Most project directories are small. Reuse their listing for rule
+          // discovery instead of issuing two absent-file lookups per directory.
+          // Large directories retain streaming traversal and bounded buffering.
+          while (buffered.length <= DIRECTORY_PREFIX_SIZE) {
+            const item = await readOperation(
+              () => iterator.next(),
+              options,
+              `folder ${prefix.slice(0, -1)}`,
+            );
+            if (item.done) {
+              complete = true;
+              break;
+            }
+            buffered.push(item.value);
+            await progress.checkpoint();
+          }
+          await nativeFolderRules(
+            directory,
+            buffered,
+            complete,
+            prefix.slice(rootPath.length + 1).replace(/\/$/u, ""),
+            prefix.slice(0, -1),
+            rules,
+            ignoreReader,
             options,
-            `folder ${prefix.slice(0, -1)}`,
+            progress,
           );
-          if (item.done) break;
-          const handle = item.value;
+        }
+        while (true) {
+          let handle = buffered[bufferIndex++];
+          if (!handle) {
+            if (complete) break;
+            // Abort releases the UI even while a platform directory iterator waits.
+            const item = await readOperation(
+              () => iterator.next(),
+              options,
+              `folder ${prefix.slice(0, -1)}`,
+            );
+            if (item.done) break;
+            handle = item.value;
+          }
+          if (
+            options.markdownOnly &&
+            handle.kind === "file" &&
+            (handle.name === ".gitignore" || handle.name === ".ignore")
+          )
+            continue;
+          if (
+            options.markdownOnly &&
+            rules.isIgnored(
+              `${prefix.slice(rootPath.length + 1)}${handle.name}`,
+              handle.kind === "directory",
+            )
+          ) {
+            await progress.checkpoint();
+            continue;
+          }
           await progress.scanned(
             handle.kind === "file" &&
               (!options.markdownOnly || isMarkdownPath(handle.name)),
           );
           if (options.markdownOnly) {
             if (++inspectedEntries > MAX_SCAN_ENTRIES) scanLimit();
-            if (handle.kind === "directory") {
-              if (EXCLUDED_MARKDOWN_DIRECTORIES.has(handle.name.toLowerCase()))
-                continue;
-            } else if (!isMarkdownPath(handle.name)) continue;
+            if (handle.kind === "file" && !isMarkdownPath(handle.name))
+              continue;
           }
           const path = validateRelativePath(`${prefix}${handle.name}`);
           if (handle.kind === "directory") {

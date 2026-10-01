@@ -229,6 +229,309 @@ describe("portable filesystem adapter", () => {
     expect(metadata).not.toHaveBeenCalled();
   });
 
+  describe("folder import ignore configuration", () => {
+    it("prunes an ignored native tree before its 10k entries or rule files are touched", async () => {
+      const root = directory("project");
+      const excluded = directory("generated");
+      const note = browserFile("keep.md", encode("keep"));
+      root.files.set(
+        ".gitignore",
+        nativeFile(browserFile(".gitignore", encode("generated/"))),
+      );
+      root.files.set(note.name, nativeFile(note));
+      root.directories.set(excluded.name, excluded);
+      const readExcluded = vi.fn(async () =>
+        browserFile("bad.md", encode("bad")),
+      );
+      excluded.values = vi.fn(async function* () {
+        for (let i = 0; i < 10001; i++)
+          yield {
+            kind: "file" as const,
+            name: `${i}.md`,
+            getFile: readExcluded,
+            createWritable: vi.fn(),
+          };
+      });
+      excluded.files.set(
+        ".gitignore",
+        nativeFile(browserFile(".gitignore", encode("!**/*"))),
+      );
+      installPicker(
+        "showDirectoryPicker",
+        vi.fn(async () => root),
+      );
+      expect(
+        (await pickFolder({ markdownOnly: true }))?.files.map(
+          (file) => file.path,
+        ),
+      ).toEqual(["project/keep.md"]);
+      expect(excluded.values).not.toHaveBeenCalled();
+      expect(excluded.getFileHandle).not.toHaveBeenCalled();
+      expect(readExcluded).not.toHaveBeenCalled();
+    });
+
+    it("applies nested .ignore precedence identically to native and shuffled fallback lists", async () => {
+      const root = directory("project");
+      const docs = directory("docs");
+      root.directories.set("docs", docs);
+      const fixtures = [
+        browserFile(".gitignore", encode("*.md"), "project/.gitignore"),
+        browserFile(
+          ".gitignore",
+          encode("!keep.md\n!blocked.md"),
+          "project/docs/.gitignore",
+        ),
+        browserFile(".ignore", encode("blocked.md"), "project/docs/.ignore"),
+        browserFile("keep.md", encode("keep"), "project/docs/keep.md"),
+        browserFile("blocked.md", encode("blocked"), "project/docs/blocked.md"),
+        browserFile("other.md", encode("other"), "project/docs/other.md"),
+      ];
+      for (const file of fixtures)
+        (file.webkitRelativePath === "project/.gitignore"
+          ? root
+          : docs
+        ).files.set(file.name, nativeFile(file));
+      installPicker(
+        "showDirectoryPicker",
+        vi.fn(async () => root),
+      );
+      expect(
+        (await pickFolder({ markdownOnly: true }))?.files.map(
+          (file) => file.path,
+        ),
+      ).toEqual(["project/docs/keep.md"]);
+      Reflect.deleteProperty(window, "showDirectoryPicker");
+      vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(
+        () => {},
+      );
+      const pending = pickFolder({ markdownOnly: true });
+      chooseInputFiles([...fixtures].reverse());
+      expect((await pending)?.files.map((file) => file.path)).toEqual([
+        "project/docs/keep.md",
+      ]);
+      expect(fixtures[4]!.arrayBuffer).not.toHaveBeenCalled();
+      expect(fixtures[5]!.arrayBuffer).not.toHaveBeenCalled();
+    });
+
+    it("does not charge over 10k hard-excluded and gitignored fallback names or read bytes", async () => {
+      vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(
+        () => {},
+      );
+      const config = browserFile(
+        ".gitignore",
+        encode("generated/"),
+        "project/.gitignore",
+      );
+      const ignored = Array.from({ length: 10002 }, (_, i) =>
+        browserFile(
+          `${i}.md`,
+          encode("ignored"),
+          `project/${i % 2 ? "Node_Modules" : "generated"}/${i}.md`,
+        ),
+      );
+      const kept = browserFile("keep.md", encode("keep"), "project/keep.md");
+      const pending = pickFolder({ markdownOnly: true });
+      chooseInputFiles([...ignored, kept, config]);
+      expect((await pending)?.files.map((file) => file.path)).toEqual([
+        "project/keep.md",
+      ]);
+      expect(
+        ignored.every(
+          (file) => vi.mocked(file.arrayBuffer).mock.calls.length === 0,
+        ),
+      ).toBe(true);
+    });
+
+    it("never reads an ignored fallback directory's rules to resurrect its note", async () => {
+      vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(
+        () => {},
+      );
+      const rootRules = browserFile(
+        ".gitignore",
+        encode("private/"),
+        "project/.gitignore",
+      );
+      const hiddenRules = browserFile(
+        ".gitignore",
+        encode("!**/*"),
+        "project/private/.gitignore",
+      );
+      const hiddenNote = browserFile(
+        "secret.md",
+        encode("synthetic"),
+        "project/private/secret.md",
+      );
+      const kept = browserFile("keep.md", encode("keep"), "project/keep.md");
+      const pending = pickFolder({ markdownOnly: true });
+      chooseInputFiles([hiddenRules, hiddenNote, kept, rootRules]);
+      expect((await pending)?.files.map((file) => file.path)).toEqual([
+        "project/keep.md",
+      ]);
+      expect(hiddenRules.arrayBuffer).not.toHaveBeenCalled();
+      expect(hiddenNote.arrayBuffer).not.toHaveBeenCalled();
+    });
+
+    it("rejects a 64KiB-exceeding rule file before bytes or note metadata", async () => {
+      const root = directory("project");
+      const config = browserFile(".gitignore", encode("rule"));
+      Object.defineProperty(config, "size", { value: 65537 });
+      const note = nativeFile(browserFile("keep.md", encode("keep")));
+      root.files.set(config.name, nativeFile(config));
+      root.files.set(note.name, note);
+      installPicker(
+        "showDirectoryPicker",
+        vi.fn(async () => root),
+      );
+      await expect(pickFolder({ markdownOnly: true })).rejects.toThrow(
+        "exceeds 64 KiB",
+      );
+      expect(config.arrayBuffer).not.toHaveBeenCalled();
+      expect(note.getFile).not.toHaveBeenCalled();
+      expect(root.getFileHandle).not.toHaveBeenCalled();
+    });
+
+    it.each(["metadata abort", "content timeout"] as const)(
+      "stops %s of rules without later traversal, even after late completion",
+      async (mode) => {
+        vi.useFakeTimers();
+        const root = directory("project");
+        const controller = new AbortController();
+        const bytes = encode("*.tmp");
+        const config = browserFile(".gitignore", bytes);
+        const handle = nativeFile(config);
+        let release!: () => void;
+        if (mode === "metadata abort")
+          handle.getFile.mockImplementation(
+            () =>
+              new Promise<File>((resolve) => {
+                release = () => resolve(config);
+              }),
+          );
+        else
+          vi.mocked(config.arrayBuffer).mockImplementation(
+            () =>
+              new Promise<ArrayBuffer>((resolve) => {
+                release = () => resolve(bytes.slice().buffer);
+              }),
+          );
+        root.files.set(config.name, handle);
+        const child = directory("child");
+        const note = nativeFile(browserFile("later.md", encode("later")));
+        root.directories.set(child.name, child);
+        root.files.set(note.name, note);
+        const childValues = vi.spyOn(child, "values");
+        const values = vi.spyOn(root, "values");
+        installPicker(
+          "showDirectoryPicker",
+          vi.fn(async () => root),
+        );
+        const pending = pickFolder({
+          markdownOnly: true,
+          signal: controller.signal,
+        });
+        const outcome =
+          mode === "metadata abort"
+            ? expect(pending).resolves.toBeNull()
+            : expect(pending).rejects.toThrow("longer than 30 seconds");
+        await vi.advanceTimersByTimeAsync(0);
+        expect(release).toBeTypeOf("function");
+        if (mode === "metadata abort") controller.abort();
+        else await vi.advanceTimersByTimeAsync(30000);
+        await outcome;
+        release();
+        await vi.runAllTimersAsync();
+        expect(values).toHaveBeenCalledOnce();
+        expect(childValues).not.toHaveBeenCalled();
+        expect(child.getFileHandle).not.toHaveBeenCalled();
+        expect(note.getFile).not.toHaveBeenCalled();
+        expect(root.getFileHandle).not.toHaveBeenCalled();
+        if (mode === "metadata abort")
+          expect(config.arrayBuffer).not.toHaveBeenCalled();
+        expect(vi.getTimerCount()).toBe(0);
+      },
+    );
+
+    it("reuses small directory listings without absent configuration lookups", async () => {
+      const root = directory("project");
+      const docs = directory("docs");
+      const empty = directory("empty");
+      root.directories.set(docs.name, docs);
+      root.directories.set(empty.name, empty);
+      docs.files.set(
+        "note.md",
+        nativeFile(browserFile("note.md", encode("note"))),
+      );
+      installPicker(
+        "showDirectoryPicker",
+        vi.fn(async () => root),
+      );
+      expect(
+        (await pickFolder({ markdownOnly: true }))?.files.map(
+          (file) => file.path,
+        ),
+      ).toEqual(["project/docs/note.md"]);
+      for (const directory of [root, docs, empty])
+        expect(directory.getFileHandle).not.toHaveBeenCalled();
+    });
+
+    it("discovers a rule beyond the prefix before charging excluded native entries", async () => {
+      const root = directory("project");
+      const ignoredReads = vi.fn(async () =>
+        browserFile("ignored.md", encode("ignored")),
+      );
+      for (let index = 0; index < 10002; index++)
+        root.files.set(`ignored-${index}.md`, {
+          kind: "file",
+          name: `ignored-${index}.md`,
+          getFile: ignoredReads,
+          createWritable: vi.fn(),
+        });
+      const config = browserFile(".gitignore", encode("ignored-*.md"));
+      root.files.set(config.name, nativeFile(config));
+      root.files.set(
+        "keep.md",
+        nativeFile(browserFile("keep.md", encode("keep"))),
+      );
+      installPicker(
+        "showDirectoryPicker",
+        vi.fn(async () => root),
+      );
+      expect(
+        (await pickFolder({ markdownOnly: true }))?.files.map(
+          (file) => file.path,
+        ),
+      ).toEqual(["project/keep.md"]);
+      expect(root.getFileHandle.mock.calls.map(([name]) => name)).toEqual([
+        ".gitignore",
+        ".ignore",
+      ]);
+      expect(config.arrayBuffer).toHaveBeenCalledOnce();
+      expect(ignoredReads).not.toHaveBeenCalled();
+    });
+
+    it("keeps generic binary folder behavior and never probes configuration handles", async () => {
+      const root = directory("project");
+      const modules = directory("node_modules");
+      const binary = browserFile("data.bin", Uint8Array.of(0, 255));
+      const config = browserFile(".gitignore", encode("node_modules/"));
+      modules.files.set(binary.name, nativeFile(binary));
+      root.directories.set(modules.name, modules);
+      root.files.set(config.name, nativeFile(config));
+      installPicker(
+        "showDirectoryPicker",
+        vi.fn(async () => root),
+      );
+      const picked = await pickFolder();
+      expect(picked?.files.map((file) => file.path).sort()).toEqual([
+        "project/.gitignore",
+        "project/node_modules/data.bin",
+      ]);
+      expect(root.getFileHandle).not.toHaveBeenCalled();
+      expect(modules.getFileHandle).not.toHaveBeenCalled();
+      expect(binary.arrayBuffer).toHaveBeenCalledOnce();
+      expect(config.arrayBuffer).toHaveBeenCalledOnce();
+    });
+  });
   it("bounds traversal of a large unrelated tree without reading any file contents", async () => {
     const root = directory("project");
     let inspected = 0;
@@ -261,7 +564,7 @@ describe("portable filesystem adapter", () => {
     vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
     const pending = pickFolder({ markdownOnly: true });
     const input = document.querySelector<HTMLInputElement>("input[type=file]")!;
-    expect(input.accept).toBe(".md");
+    expect(input.accept).toBe(".md,.gitignore,.ignore");
     const note = browserFile(
       "NOTE.MD",
       encode("note"),

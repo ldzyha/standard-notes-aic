@@ -13,6 +13,13 @@ actions and always create a separate workspace. Explicit **New workspace** is in
 there. The list shows `.md` files, including uppercase `.MD`; new imports skip
 other file types and folders named `.git` or `node_modules`.
 
+Native Markdown folder import prunes nested `.git` and `node_modules`, then
+applies `.gitignore` and `.ignore` in every traversed folder; `.ignore` wins when
+both are in one folder. A `!` rule cannot revive an excluded parent. The
+explicitly chosen root remains eligible, and rules apply only inside that selected
+root—not outside it or from global Git configuration. Generic binary folder import
+keeps its existing behavior and does not apply these rules.
+
 Folder opening shows scanning and reading progress. **Cancel opening** stops the
 pending import and keeps your current notes. The file list initially shows up to
 100 matching Markdown notes; **Show more** reveals the next group. Use **Search notes…** to filter filenames. Filtering and showing more keep the current
@@ -82,8 +89,12 @@ files; their parent directories do not consume that note quota. Existing bundles
 retain a combined limit of 2,000 stored records, counting files and explicitly
 recorded folders, including empty folders. Imports also allow 4 MiB per file and 6 MiB of total JSON
 payload including base64 and metadata. A separate scan limit allows 10,000
-inspected entries, including non-Markdown files and visited folders. Larger
-imports are rejected before storage writes.
+inspected entries after exclusions; the 2,000 Markdown-file limit is unchanged.
+Fallback browser folder selection enumerates files before AIC can filter them;
+it permits `.gitignore` and `.ignore` only to read rules and never imports them as
+notes. Ignore rules are limited to 64 KiB each, 1 MiB total, 256 applicable files
+and 10,000 lines. An invalid or unreadable rule file rejects the whole selection
+before storage writes rather than silently ignoring its rules.
 
 Folder export has a separate limit of 60,000 physical files and folders, including
 reconstructed parents. ZIP fallback also has a 12 MiB archive-size limit. These

@@ -636,14 +636,19 @@ canonical bundled runtime. From the PWA start screen, **New workspace**, **Open�
 files** and **Open… → Open folder** create a local workspace without a password. **Open files/folder** always creates a separate workspace. **Add files/folder**
 in Workspace options merges into the current workspace using its storage mode.
 New imports and file navigation show only `.md`
-(case-insensitive); folder imports skip `.git` and `node_modules` without changing
-the byte-preserving payload format for existing bundles. Markdown folder imports
-count only selected `.md` files toward the 2,000-file quota; note paths retain
-hierarchy without adding explicit parent-folder records. The separate scan bound
-remains 10,000 inspected entries. Existing payloads retain the combined 2,000
-files/explicit-folders limit, including empty folders. Export reconstructs parents
-under its separate 60,000 physical-entry and 12 MiB ZIP bounds. Coverage is in
-`pwa-files` and `pwa-data`.
+(case-insensitive). Native Markdown folder imports retain the selected root, prune
+nested `.git` and `node_modules`, and apply scoped `.gitignore`/`.ignore` rules
+before descent; `.ignore` wins in one folder and negation cannot revive a pruned
+parent. Rules never escape the selected root or use global Git configuration. Fallback
+pickers enumerate first, permit rule files only for parsing, and never import
+them; generic binary folder import remains unchanged. Rules are bounded to 64 KiB
+each, 1 MiB total, 256 applicable files and 10,000 lines; invalid or unreadable
+rules reject the selection. Ignored entries do not consume the 10,000-entry scan
+bound, while selected `.md` files retain the 2,000-file quota and hierarchy
+without explicit parent-folder records. Existing payloads retain the combined
+2,000 files/explicit-folders limit, including empty folders. Export reconstructs
+parents under its separate 60,000 physical-entry and 12 MiB ZIP bounds. Coverage
+is in `pwa-files` and `pwa-data`.
 
 Folder opening uses the existing import owner to report scanning/reading progress
 and expose **Cancel opening**. The file adapter accepts an AbortSignal and

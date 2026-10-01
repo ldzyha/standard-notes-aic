@@ -9,6 +9,16 @@ extension for encrypted page notes, or AIC Notes in VS Code. Protected file
 editors share the same `.aicnotes` data; synchronize exported files through a
 service you manage.
 
+## Web update — October 1, 2026
+
+Folder imports skip nested `node_modules` and `.git` directories, and honor
+`.gitignore` and `.ignore` in the selected folder and its descendants. Excluded
+paths do not consume the scan or Markdown quota. The browser's fallback picker
+may still enumerate the folder before AIC receives the selection.
+
+Choose **Folder** on the start screen to import Markdown notes. Install the
+available app update first if that button or the new filtering is missing.
+
 ## PWA and portable files — 48.4.5 / browser 0.11.0
 
 This release pairs the installable Notes PWA at [aic.dzyha.com](https://aic.dzyha.com/)

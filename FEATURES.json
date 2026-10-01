@@ -1,7 +1,7 @@
 {
   "registryVersion": 1,
   "scope": "AIC Markdown functionality implemented by standard-notes-aic and aic-notes",
-  "asOf": "2026-09-30",
+  "asOf": "2026-10-01",
   "status": {
     "currentFacts": "Entrypoints and verification paths describe the current working trees. The aic-notes/vendor copies are distribution artifacts and are not independent feature owners.",
     "approvedDirection": "Maintain one stable registry of user-visible features, shared runtime capabilities, and host adapters.",
@@ -39,6 +39,7 @@
         "standard-notes-aic/src/pwa/storage.ts",
         "standard-notes-aic/src/pwa/source.ts",
         "standard-notes-aic/src/pwa/files.ts",
+        "standard-notes-aic/src/pwa/folder-ignore.ts",
         "standard-notes-aic/src/pwa/vscode-host.ts",
         "standard-notes-aic/src/pwa/styles.css",
         "standard-notes-aic/src/pwa/sw.js",
@@ -55,6 +56,7 @@
         "standard-notes-aic/test/pwa-local-workspaces.test.ts",
         "standard-notes-aic/test/pwa-source.test.ts",
         "standard-notes-aic/test/pwa-files.test.ts",
+        "standard-notes-aic/test/pwa-folder-ignore.test.ts",
         "standard-notes-aic/test/pwa-vscode-host.test.ts",
         "standard-notes-aic/test/pwa-ui.test.ts",
         "standard-notes-aic/test/pwa-offline.test.ts",
