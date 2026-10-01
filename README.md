@@ -13,13 +13,16 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
-Release 47.1.0 pairs with AIC Notes 55.1.0, experimental browser 0.10.0 and
-shared core 7.4.0.
+Release 48.4.4 pairs with AIC Notes 56.4.4, experimental browser 0.11.0 and
+shared core 7.5.0.
 
-Linked-code comments stay inside their details accordion, with compact headers
-and readable nesting. Unsaved edits keep the editor background unchanged; the
-Save button pulses until changes are saved. Reduced motion uses a static
-indicator, and save acknowledgements remain authoritative.
+The new local-file PWA opens Markdown files and folders, keeps device-local copies,
+and offers optional encrypted exports. Current, Shared and Global tabs focus on
+one note at a time across supported hosts; mobile navigation gives the editor
+more space. Optional on-device AI and the shared DDK-based writing guide help
+revise documents. Folder imports count only Markdown files and support progress
+and cancellation. VS Code refuses to save an existing document after its file
+has been deleted. Synchronization remains under the user's control.
 
 Empty editable secret (`*|`) parts offer **Generate password** at every panel
 width, regardless of their label. Options wrap to fit narrow screens. Generation
@@ -197,12 +200,15 @@ Legacy YAML Properties remain ordinary authored Markdown. They are not rendered 
 fields, interpreted as metadata, rewritten on save, or automatically migrated. Source
 mode keeps that text accessible for manual repair.
 
-## Release 47.1.0
+## Release 48.4.4
 
-Linked-code comments stay inside their details accordion, with compact headers
-and readable nesting. Unsaved edits keep the editor background unchanged; the
-Save button pulses until changes are saved. Reduced motion uses a static
-indicator, and save acknowledgements remain authoritative.
+The new local-file PWA opens Markdown files and folders, keeps device-local copies,
+and offers optional encrypted exports. Current, Shared and Global tabs focus on
+one note at a time across supported hosts; mobile navigation gives the editor
+more space. Optional on-device AI and the shared DDK-based writing guide help
+revise documents. Folder imports count only Markdown files and support progress
+and cancellation. VS Code refuses to save an existing document after its file
+has been deleted. Synchronization remains under the user's control.
 
 See the bilingual [installation guide](RELEASE_INSTALL.md).
 
@@ -575,8 +581,8 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `47.1.0` is sequence 47 with
-one feature outcome and zero fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `48.4.4` is sequence 48 with
+four feature outcomes and four fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Bundled instructions for coding agents

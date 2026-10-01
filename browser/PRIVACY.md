@@ -2,7 +2,11 @@
 
 [English](PRIVACY.md) · [Українська](PRIVACY.uk.md)
 
-This policy describes the current data handling of the Chrome and Edge experimental component 0.9.3. See README.md and VERIFICATION.md for release status and testing boundaries.
+This policy describes the encrypted page-notes panel of the experimental Chrome
+and Edge component. See README.md and VERIFICATION.md for release status and
+testing boundaries. The PWA's optional unencrypted local workspaces are described
+in [Terms and privacy](https://aic.dzyha.com/terms); the page-notes library described
+below remains encrypted.
 
 In this version, AIC has no server, account, telemetry, analytics or synchronization. All runtime resources are bundled. Its extension content policy blocks outgoing connections and remote embedded resources. It reads page content only after you request an import; it does not edit, autofill or insert into source websites. Opening a source link is ordinary browser navigation.
 

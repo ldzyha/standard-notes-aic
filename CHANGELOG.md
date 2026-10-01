@@ -2,7 +2,96 @@
 
 [English](CHANGELOG.md) · [Українська](CHANGELOG.uk.md)
 
-## Unreleased
+## 48.4.4 — 2026-10-01
+
+Release sequence 48 · 4 feature outcomes · 4 fixed-bug outcomes. Coordinates
+AIC Notes for VS Code 56.4.4, experimental browser 0.11.0 and shared core 7.5.0.
+
+### F01 — Portable local workspaces with optional encryption
+
+- The PWA opens local Markdown workspaces and compatible `.aicnotes` files.
+  Device saves remain local; they never update the original folder or Drive.
+  Use **Export Markdown**, **Export all notes**, or **Save encrypted copy** to
+  make a file you manage elsewhere.
+- The browser file-notes view and VS Code retain the same optional passphrase
+  boundary and ciphertext cache behavior.
+
+### F02 — Focused navigation for files, scopes and phones
+
+- **Current**, **Shared** and **Global** lead to the current file, its nearest
+  parent note and its workspace/project note. Each return keeps the original
+  current-file anchor and native editor ownership.
+- Folder browsing, a searchable Notes list, a compact phone header and explicit
+  **New workspace**, **New note** and **Open notes** actions keep list and editor
+  navigation usable on a small screen. The live DDK writing method is linked in
+  the guide; AIC still stores Markdown and its richer syntax rather than DDK JSON.
+
+### F03 — Optional on-device Grammar and Improve
+
+Chrome-supported devices can review local suggestions before **Apply**. Protected
+Markdown and regular editor Undo remain authoritative; ordinary offline editing
+works without the optional model.
+
+### F04 — Release verification is ready for opt-in publishing
+
+The publishing workflow verifies the exact package and neighboring checksum.
+Repository credentials, GitHub publication, and store approval remain separate
+actions; this source release does not claim that any store has updated.
+
+### Fixes
+
+1. Markdown-folder limits count selected Markdown files rather than unrelated
+   folders, while retaining hierarchy and existing payload limits.
+2. Folder reads are bounded and cancellable, preserve the active editor and its
+   unsaved draft, and reject late results or partial imports.
+3. Redirect/cache recovery keeps bilingual public pages and offline app loading
+   working without clearing note storage.
+4. A confirmed deletion of an existing file rejects a later save instead of
+   recreating it; an intentional new-note placeholder can still create its file.
+
+### Earlier unreleased details
+
+- Add mobile-first controls and built-in, on-device Grammar / Improve assistance, with protected Markdown, reviewed application and editor Undo.
+- Serve bilingual terms, privacy, release history and installation at
+  `aic.dzyha.com/terms` and `aic.dzyha.com/releases`, including offline access.
+- Fix public-page and app navigation after Firebase redirects precached HTML.
+  Repair earlier application caches while preserving note storage and explicit
+  update activation.
+
+- Fix Markdown folder imports that rejected fewer than 2,000 notes because
+  unrelated folders consumed their quota. Count selected `.md` files and retain
+  hierarchy through note paths; reconstruct export folders under a separate
+  bound while keeping the existing payload and scan limits.
+
+- Bound metadata and content I/O to four concurrent reads, check selected-file
+  sizes before byte reads, and yield during scanning/reading. Cancel opening
+  without partial imports or late progress; individual directory/file reads have
+  a 30-second deadline while the human picker remains under user control.
+- Show folder scanning/reading progress with **Cancel opening**. Render the first
+  100 matching Markdown files with filename search and **Show more**, preserving
+  the active note and its unsaved draft while filtering or showing more.
+- Reuse canonical validation for unchanged in-memory file data while continuing
+  metadata/descriptor checks and preserving payload and encryption formats.
+
+### Portable file notes with optional encryption
+
+- Open local Markdown workspaces through **New workspace**, **Open files** or
+  **Open folder** without a password. **Save** stores an explicitly unencrypted
+  device snapshot; new imports and the file list use `.md` only and skip `.git`
+  and `node_modules` folders.
+- **Encrypt workspace** creates a separate protected copy. The unencrypted local
+  source remains until confirmed removal from the app. Browser page notes and
+  the VS Code encrypted-file host retain their passphrase boundary.
+- Opening a folder imports a snapshot; saving locally does not write back to it.
+  Export readable files explicitly or share an encrypted `.aicnotes` through a
+  file-sync service you manage. Protected entities retain ciphertext caches,
+  byte-preserving bundles and observed external-change guards.
+- Preserve existing non-Markdown bundle files even when hidden from navigation;
+  include them in full folder export. Detect stale cross-tab local saves and
+  removals while retaining prior durable data after a failed save.
+- Checksum-verified browser/VS Code publishing and reviewed shared runtime update
+  PRs are available for the configured release process. Store listings remain
+  separate from the GitHub release.
 
 ## 47.1.0 — 2026-09-29
 

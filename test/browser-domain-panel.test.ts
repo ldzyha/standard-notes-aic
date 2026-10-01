@@ -224,7 +224,24 @@ async function mount(api: BrowserApi) {
   await panel.ready;
   return { root, panel };
 }
-function press(root: ParentNode, name: RegExp) {
+async function press(root: ParentNode, name: RegExp) {
+  if (name.test("Export Markdown file"))
+    root
+      .querySelector<HTMLButtonElement>('button[aria-label="More options"]')
+      ?.click();
+  if (root instanceof HTMLElement) {
+    const panel = root.closest<HTMLElement>(".browser-scope-panel");
+    if (panel?.hidden) {
+      const label = panel.dataset.scope === "global" ? "Global" : "Shared";
+      panel
+        .closest(".browser-panel")!
+        .querySelector<HTMLButtonElement>(
+          `[role="tab"][aria-label="${label}"]`,
+        )!
+        .click();
+      await vi.waitFor(() => expect(panel.hidden).toBe(false));
+    }
+  }
   const button = [...root.querySelectorAll<HTMLButtonElement>("button")].find(
     (candidate) =>
       name.test(
@@ -284,7 +301,7 @@ describe("profile-global shared properties in the browser panel", () => {
       '.browser-domain-properties[data-scope="global"]',
     )!;
 
-  it("keeps the empty Global action inline before Shared and never persists an untouched placeholder", async () => {
+  it("keeps Global and Shared in exclusive panels and never persists an untouched placeholder", async () => {
     const fake = fixture();
     const { root } = await mount(fake.api);
     const toolbar = root.querySelector(".browser-note .aic-toolbar")!;
@@ -292,9 +309,17 @@ describe("profile-global shared properties in the browser panel", () => {
       [
         ...toolbar.querySelectorAll<HTMLElement>(".browser-domain-properties"),
       ].map((item) => item.dataset.scope),
-    ).toEqual(["global", "domain"]);
+    ).toEqual([]);
+    expect(
+      [...root.querySelectorAll("[role=tab]")].map((tab) => tab.textContent),
+    ).toEqual(["Current", "Shared", "Global"]);
+    expect(
+      root.querySelector<HTMLElement>(
+        '.browser-scope-panel[data-scope="current"]',
+      )!.hidden,
+    ).toBe(false);
     expect(globalView(root).textContent).toContain("Global");
-    press(globalView(root), /^Edit global shared properties$/u);
+    await press(globalView(root), /^Edit global shared properties$/u);
     for (const action of [
       "Import current content",
       "Import Markdown file",
@@ -306,7 +331,7 @@ describe("profile-global shared properties in the browser panel", () => {
     expect(view(globalView(root)).state.doc.toString()).toBe(
       AIC_EMPTY_DOCUMENT,
     );
-    press(globalView(root), /^Done$/u);
+    await press(globalView(root), /^Done$/u);
     await vi.waitFor(() =>
       expect(globalView(root).dataset.editing).toBe("false"),
     );
@@ -326,6 +351,12 @@ describe("profile-global shared properties in the browser panel", () => {
     });
     const a = await mount(fake.api);
     const b = await mount(fake.api);
+    await press(a.root, /^Global$/u);
+    await vi.waitFor(() =>
+      expect(
+        globalView(a.root).closest<HTMLElement>(".browser-scope-panel")!.hidden,
+      ).toBe(false),
+    );
     const button = globalView(a.root).querySelector<HTMLButtonElement>(
       '[aria-label="Copy Codes one-time 1 and mark it used"]',
     )!;
@@ -347,7 +378,10 @@ describe("profile-global shared properties in the browser panel", () => {
     expect(globalView(b.root).innerHTML).not.toContain("global-synthetic-code");
     button.click();
     expect(writeText).toHaveBeenCalledTimes(1);
-    press(globalView(b.root), /^Reactivate Codes used 1 without copying$/u);
+    await press(
+      globalView(b.root),
+      /^Reactivate Codes used 1 without copying$/u,
+    );
     await vi.waitFor(async () =>
       expect((await fake.store.load()).global?.revision).toBe(3),
     );
@@ -384,9 +418,9 @@ describe("profile-global shared properties in the browser panel", () => {
     const a = await mount(fake.api);
     const b = await mount(fake.api);
     expect(shared(a.root)).toBeNull();
-    press(globalView(a.root), /^Edit global shared properties$/u);
+    await press(globalView(a.root), /^Edit global shared properties$/u);
     replace(view(globalView(a.root)), properties("global-no-page"));
-    press(globalView(a.root), /^Done$/u);
+    await press(globalView(a.root), /^Done$/u);
     await vi.waitFor(() =>
       expect(globalView(a.root).dataset.editing).toBe("false"),
     );
@@ -409,7 +443,7 @@ describe("profile-global shared properties in the browser panel", () => {
   it("keeps Global dirty source during a remote conflict and clears pending ACKs on Lock", async () => {
     const fake = fixture({ global: global() });
     const { root } = await mount(fake.api);
-    press(globalView(root), /^Edit global shared properties$/u);
+    await press(globalView(root), /^Edit global shared properties$/u);
     const editor = view(globalView(root));
     replace(editor, properties("local-global"));
     await fake.store.saveGlobal(
@@ -442,7 +476,7 @@ describe("shared domain Properties in the browser panel", () => {
     });
     const a = await mount(fake.api);
     const b = await mount(fake.api);
-    press(shared(a.root), /^Copy Codes one-time 1 and mark it used$/u);
+    await press(shared(a.root), /^Copy Codes one-time 1 and mark it used$/u);
     await vi.waitFor(async () =>
       expect((await fake.store.load()).domains[0]!.markdown).toContain(
         "Codes 0| fixture-code",
@@ -460,7 +494,7 @@ describe("shared domain Properties in the browser panel", () => {
     expect(shared(a.root).innerHTML).not.toContain("fixture-code");
     expect(pageView(a.root).state.doc.toString()).toBe("Page-only body");
     expect(pageView(b.root).state.doc.toString()).toBe("Page-only body");
-    press(shared(b.root), /^Reactivate Codes used 1 without copying$/u);
+    await press(shared(b.root), /^Reactivate Codes used 1 without copying$/u);
     await vi.waitFor(async () =>
       expect((await fake.store.load()).domains[0]!.markdown).toContain(
         "Codes 1| fixture-code",
@@ -474,7 +508,7 @@ describe("shared domain Properties in the browser panel", () => {
         ),
       ).not.toBeNull(),
     );
-    press(shared(a.root), /^Copy Codes one-time 1 and mark it used$/u);
+    await press(shared(a.root), /^Copy Codes one-time 1 and mark it used$/u);
     await vi.waitFor(async () =>
       expect((await fake.store.load()).domains[0]!.markdown).toContain(
         "Codes 0| fixture-code",
@@ -486,7 +520,7 @@ describe("shared domain Properties in the browser panel", () => {
         shared(a.root).querySelector('[aria-label="Delete Codes used 1"]'),
       ).not.toBeNull(),
     );
-    press(shared(a.root), /^Delete Codes used 1$/u);
+    await press(shared(a.root), /^Delete Codes used 1$/u);
     await vi.waitFor(async () =>
       expect((await fake.store.load()).domains[0]!.markdown).toContain(
         "Codes | visible-note",
@@ -506,6 +540,12 @@ describe("shared domain Properties in the browser panel", () => {
       ],
     });
     const { root } = await mount(fake.api);
+    await press(root, /^Shared$/u);
+    await vi.waitFor(() =>
+      expect(
+        shared(root).closest<HTMLElement>(".browser-scope-panel")!.hidden,
+      ).toBe(false),
+    );
     const card = shared(root);
     expect(card.textContent).toContain("shared-user");
     expect(card.textContent).not.toContain("synthetic-shared-password");
@@ -551,7 +591,7 @@ describe("shared domain Properties in the browser panel", () => {
         initialPage.state.selection.main.to,
       ),
     ).toBe("Page-only body");
-    press(root, /^Export Markdown file$/u);
+    await press(root, /^Export Markdown file$/u);
     const exportText = await new Promise<string>((resolve) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
@@ -585,8 +625,8 @@ describe("shared domain Properties in the browser panel", () => {
   it("creates one shared record only after editing and inherits it on a sibling page", async () => {
     const fake = fixture();
     const { root } = await mount(fake.api);
-    press(shared(root), /^Edit shared properties$/u);
-    press(shared(root), /^Done$/u);
+    await press(shared(root), /^Edit shared properties$/u);
+    await press(shared(root), /^Done$/u);
     await vi.waitFor(() => expect(shared(root).dataset.editing).toBe("false"));
     expect(
       fake.messages.some(
@@ -594,9 +634,9 @@ describe("shared domain Properties in the browser panel", () => {
           message.type === "create-domain" || message.type === "create",
       ),
     ).toBe(false);
-    press(shared(root), /^Edit shared properties$/u);
+    await press(shared(root), /^Edit shared properties$/u);
     replace(view(shared(root)), properties("entered-once"));
-    press(shared(root), /^Done$/u);
+    await press(shared(root), /^Done$/u);
     await vi.waitFor(() => expect(shared(root).dataset.editing).toBe("false"));
     fake.navigate(second);
     await vi.waitFor(() =>
@@ -617,9 +657,9 @@ describe("shared domain Properties in the browser panel", () => {
     const b = await mount(fake.api);
     const page = pageView(b.root);
     page.dispatch({ selection: { anchor: 4 } });
-    press(shared(a.root), /^Edit shared properties$/u);
+    await press(shared(a.root), /^Edit shared properties$/u);
     replace(view(shared(a.root)), properties("updated-user"));
-    press(shared(a.root), /^Done$/u);
+    await press(shared(a.root), /^Done$/u);
     await vi.waitFor(() =>
       expect(shared(b.root).textContent).toContain("updated-user"),
     );
@@ -631,7 +671,7 @@ describe("shared domain Properties in the browser panel", () => {
   it("retains a dirty domain draft on remote revision conflict without overwriting either version", async () => {
     const fake = fixture({ domains: [domain()] });
     const { root } = await mount(fake.api);
-    press(shared(root), /^Edit shared properties$/u);
+    await press(shared(root), /^Edit shared properties$/u);
     const editor = view(shared(root));
     replace(editor, properties("local-draft"));
     await fake.remote(properties("remote-winner"));
@@ -639,7 +679,7 @@ describe("shared domain Properties in the browser panel", () => {
       expect(root.textContent).toMatch(/changed|conflict|another window/iu),
     );
     expect(editor.state.doc.toString()).toContain("local-draft");
-    press(shared(root), /^Done$/u);
+    await press(shared(root), /^Done$/u);
     await vi.waitFor(() => expect(root.textContent).toContain("not saved"));
     expect((await fake.store.load()).domains[0]!.markdown).toContain(
       "remote-winner",
@@ -650,13 +690,13 @@ describe("shared domain Properties in the browser panel", () => {
   it("updates an untouched shared editor on remote save without writing its old source back", async () => {
     const fake = fixture({ domains: [domain()] });
     const { root } = await mount(fake.api);
-    press(shared(root), /^Edit shared properties$/u);
+    await press(shared(root), /^Edit shared properties$/u);
     const editor = view(shared(root));
     await fake.remote(properties("remote-current"));
     await vi.waitFor(() =>
       expect(editor.state.doc.toString()).toBe(properties("remote-current")),
     );
-    press(shared(root), /^Done$/u);
+    await press(shared(root), /^Done$/u);
     await vi.waitFor(() => expect(shared(root).dataset.editing).toBe("false"));
     expect(
       fake.messages.filter((message) => message.type === "save-domain"),
@@ -671,7 +711,7 @@ describe("shared domain Properties in the browser panel", () => {
     const { root } = await mount(fake.api);
     const page = pageView(root);
     page.dispatch({ selection: { anchor: 4 } });
-    press(shared(root), /^Edit shared properties$/u);
+    await press(shared(root), /^Edit shared properties$/u);
     const editor = view(shared(root));
     replace(editor, properties("autosaved-user"));
     editor.dispatch({ selection: { anchor: 2 } });
@@ -696,7 +736,7 @@ describe("shared domain Properties in the browser panel", () => {
     expect(editor.state.selection.main.anchor).toBe(2);
     expect(pageView(root)).toBe(page);
     expect(page.state.selection.main.anchor).toBe(4);
-    press(shared(root), /^Done$/u);
+    await press(shared(root), /^Done$/u);
     await vi.waitFor(() => expect(shared(root).dataset.editing).toBe("false"));
     expect(
       fake.messages.filter((message) => message.type === "save-domain"),
@@ -713,9 +753,9 @@ describe("shared domain Properties in the browser panel", () => {
     const gate = deferred();
     fake.beforeAck(() => gate.promise);
     const { root } = await mount(fake.api);
-    press(shared(root), /^Edit shared properties$/u);
+    await press(shared(root), /^Edit shared properties$/u);
     replace(view(shared(root)), properties("own-write"));
-    press(shared(root), /^Done$/u);
+    await press(shared(root), /^Done$/u);
     await vi.waitFor(() =>
       expect(fake.messages.some((message) => message.type === "load")).toBe(
         true,
@@ -735,7 +775,7 @@ describe("shared domain Properties in the browser panel", () => {
     const fake = fixture({ domains: [domain()] });
     const a = await mount(fake.api);
     const b = await mount(fake.api);
-    press(shared(b.root), /^Edit shared properties$/u);
+    await press(shared(b.root), /^Edit shared properties$/u);
     const preview = view(shared(a.root));
     const editor = view(shared(b.root));
     const previewDestroy = vi.spyOn(preview, "destroy");
@@ -757,10 +797,10 @@ describe("shared domain Properties in the browser panel", () => {
     const gate = deferred();
     fake.beforeAck(() => gate.promise);
     const { root } = await mount(fake.api);
-    press(shared(root), /^Edit shared properties$/u);
+    await press(shared(root), /^Edit shared properties$/u);
     const editor = view(shared(root));
     replace(editor, properties("first-change"));
-    press(shared(root), /^Done$/u);
+    await press(shared(root), /^Done$/u);
     await vi.waitFor(() =>
       expect(fake.messages.some((message) => message.type === "load")).toBe(
         true,
@@ -794,9 +834,9 @@ describe("shared domain Properties in the browser panel", () => {
     const { root } = await mount(fake.api);
     const sibling = await mount(fake.api);
     const invalid = "---\nPassword*: [synthetic-unfinished-secret\n---\n";
-    press(shared(root), /^Edit shared properties$/u);
+    await press(shared(root), /^Edit shared properties$/u);
     replace(view(shared(root)), invalid);
-    press(shared(root), /^Done$/u);
+    await press(shared(root), /^Done$/u);
     await vi.waitFor(() =>
       expect(shared(root).textContent).toContain("Finish a valid aic block"),
     );

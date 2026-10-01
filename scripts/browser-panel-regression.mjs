@@ -51,8 +51,15 @@ const syntheticHtml = [
   "<p><a href='javascript:alert(1)'>Unsafe destination</a></p></article>",
 ].join("");
 
+async function clickMoreAction(panel, name) {
+  const more = panel.getByRole("dialog", { name: "More options", exact: true });
+  if (!(await more.isVisible())) await openMenu(panel, "More options");
+  await more.getByRole("button", { name, exact: true }).click();
+}
+
 async function openMenu(panel, name) {
-  await panel.getByRole("button", { name, exact: true }).click();
+  if (name === "AIC guide") await clickMoreAction(panel, name);
+  else await panel.getByRole("button", { name, exact: true }).click();
   const dialog = panel.getByRole("dialog", { name, exact: true });
   await dialog.waitFor();
   return dialog;
@@ -942,18 +949,50 @@ try {
           path: path.join(output, `empty-${theme}-${width}.png`),
         });
 
-        for (const label of [
+        const headerActions = await panel
+          .locator(".browser-toolbar button")
+          .evaluateAll((buttons) =>
+            buttons.map((button) => {
+              const bounds = button.getBoundingClientRect();
+              return {
+                label: button.getAttribute("aria-label"),
+                width: bounds.width,
+                height: bounds.height,
+              };
+            }),
+          );
+        assert.deepEqual(
+          headerActions.map(({ label }) => label),
+          ["Notes and history", "More options", "Lock"],
+        );
+        assert.ok(
+          headerActions.every(
+            ({ width, height }) => width >= 44 && height >= 44,
+          ),
+        );
+        const actions = [
           "Import current content",
           "Import Markdown file",
           "Export Markdown file",
           "AIC guide",
-        ])
+        ];
+        for (const label of actions)
           assert.equal(
             await panel
               .getByRole("button", { name: label, exact: true })
               .count(),
-            1,
+            0,
           );
+        const actionMenu = await openMenu(panel, "More options");
+        for (const label of actions) {
+          const action = actionMenu.getByRole("button", {
+            name: label,
+            exact: true,
+          });
+          assert.equal(await action.count(), 1);
+          assert.equal(await action.innerText(), label);
+        }
+        await page.keyboard.press("Escape");
         assert.equal(
           await panel
             .getByRole("button", { name: /Add content|Paste from clipboard/u })
@@ -1024,9 +1063,7 @@ try {
           `the end of the guide must remain reachable inside the viewport scroller: ${JSON.stringify(guideEnd)}`,
         );
         await page.keyboard.press("Escape");
-        await panel
-          .getByRole("button", { name: "Import current content" })
-          .click();
+        await clickMoreAction(panel, "Import current content");
         await panel.locator(".aic-editor .cm-editor").waitFor();
         assert.match(
           await panel.locator(".cm-content").innerText(),
@@ -1049,9 +1086,7 @@ try {
             document.querySelector(".qa-panel")?.dataset.importing === "false",
         );
         const markdownChooser = page.waitForEvent("filechooser");
-        await panel
-          .getByRole("button", { name: "Import Markdown file" })
-          .click();
+        await clickMoreAction(panel, "Import Markdown file");
         await (
           await markdownChooser
         ).setFiles({
@@ -1177,9 +1212,7 @@ try {
         await page.evaluate(() => {
           window.panelQa.captureSelection = true;
         });
-        await panel
-          .getByRole("button", { name: "Import current content" })
-          .click();
+        await clickMoreAction(panel, "Import current content");
         await page.evaluate(() => {
           window.panelQa.captureSelection = false;
         });
@@ -1189,9 +1222,7 @@ try {
             ?.textContent?.includes("Selection content"),
         );
         const draftDownloadPromise = page.waitForEvent("download");
-        await panel
-          .getByRole("button", { name: "Export Markdown file" })
-          .click();
+        await clickMoreAction(panel, "Export Markdown file");
         const draftDownload = await draftDownloadPromise;
         const draftTarget = path.join(
           output,
@@ -1211,12 +1242,18 @@ try {
         const more = await openMenu(panel, "More options");
         assert.equal(
           await more
-            .getByRole("button", { name: /Copy note|Export Markdown/u })
+            .getByRole("button", { name: "Copy note", exact: true })
             .count(),
           0,
         );
         assert.equal(
-          await more.getByRole("heading", { name: "Local note" }).count(),
+          await more
+            .getByRole("button", { name: "Export Markdown file", exact: true })
+            .count(),
+          1,
+        );
+        assert.equal(
+          await more.getByRole("heading", { name: "Current note" }).count(),
           1,
         );
         await page.keyboard.press("Escape");
@@ -1309,9 +1346,7 @@ try {
           await page.evaluate(() => {
             window.panelQa.captureSelection = true;
           });
-          await privatePanel
-            .getByRole("button", { name: "Import current content" })
-            .click();
+          await clickMoreAction(privatePanel, "Import current content");
           await page.evaluate(() => {
             window.panelQa.captureSelection = false;
           });
@@ -1382,7 +1417,7 @@ try {
         }
         assert.deepEqual(errors, [], "no uncaught page exceptions");
         passed.push(
-          `${theme}/${width}: setup, direct imports, edit/save, page binding, native paste, encrypted download, lock/reopen`,
+          `${theme}/${width}: setup, contextual imports, edit/save, page binding, native paste, encrypted download, lock/reopen`,
         );
         await context.close();
       }

@@ -260,3 +260,24 @@
     opacity: 1;
   }
 }
+
+.aic-context--tabs {
+  display: flex;
+  flex: 0 0 auto;
+  gap: 2px;
+  min-width: 0;
+  border-bottom: 1px solid var(--aic-border);
+}
+.aic-context__tab {
+  flex: 1 1 0;
+  min-width: 44px;
+  min-height: 44px;
+  white-space: nowrap;
+}
+.aic-context__tab[aria-selected="true"] {
+  color: var(--aic-accent);
+  box-shadow: inset 0 -2px var(--aic-accent);
+}
+.aic-context__panel[hidden] {
+  display: none !important;
+}

@@ -55,6 +55,11 @@ describe("shared editor help", () => {
       expect(AGENT_GUIDE).toContain(
         "Choose documentation format from the answer",
       );
+      expect(AGENT_GUIDE).toContain("https://ddk.dzyha.com/prompt.html");
+      expect(AGENT_GUIDE).toContain("first document sufficient");
+      expect(AGENT_GUIDE).toContain("DDK JSON is a separate");
+      expect(AGENT_GUIDE).toContain("fenced code and Mermaid");
+      expect(AGENT_GUIDE).toContain("fenced aic blocks");
     },
   );
 

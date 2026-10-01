@@ -1,6 +1,6 @@
 // Canonical portable instructions. Hosts expose this exact text without a server,
 // executable, provider account, or access to another application's config folder.
-export const AGENT_GUIDE_VERSION = 1;
+export const AGENT_GUIDE_VERSION = 2;
 export const AGENT_GUIDE = `# AIC instructions for coding agents
 
 These instructions work with any coding agent that can read supplied Markdown.
@@ -45,13 +45,27 @@ when it helps explain a more complex answer. Put exact commands in code blocks.
 An answer is complete when the subject, result or action and important conditions
 are clear and the claim is supported by evidence. Stop when that is satisfied.
 
+## Use DDK to compose a reader-ready document
+
+[Document Design Kit](https://ddk.dzyha.com/prompt.html) supplies the writing
+method. Establish the initiator, purpose, reader and next action; answer only the
+smallest set of questions that reader needs; choose prose, bullets, ordered steps,
+tables or Mermaid by meaning; distinguish evidence, proposals and unknowns; then
+stop at the first document sufficient for that action. The author owns facts and
+decisions, and AI is optional assistance.
+
+Markdown is the default deliverable. DDK JSON is a separate, explicitly requested
+DDK exchange format; it is not an AIC note import, storage format or instruction to
+convert a note. Keep DDK's helper guidance outside the finished document.
+
 ## Use AIC Markdown without changing authored meaning
 
-AIC notes are Markdown. Preserve ordinary links, code fences, tables, details and
-AIC field syntax. AIC field separators type individual values: | text, *| secret,
-#| authenticator seed, _| card value, 1| unused one-time value, 0| used one-time
-value. Masking is visual; it does not authorize revealing or exporting a value.
-Do not put secrets into examples, logs, previews or instructions.
+AIC notes are Markdown. Preserve headings, ordinary links, fenced code and Mermaid,
+tables, details, raw HTML, legacy properties and fenced aic blocks. Inside a fenced
+aic block, field separators type individual values: | text, *| secret, #|
+authenticator seed, _| card value, 1| unused one-time value, 0| used one-time
+value. Masking is visual; it does not authorize revealing or exporting a value. Do
+not put secrets into examples, logs, previews or instructions.
 
 ## Use optional integrations only when available
 

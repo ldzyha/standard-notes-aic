@@ -33,6 +33,16 @@ An answer is complete when its subject, result or action, and material condition
 are clear and supported by the implementation or evidence. If one sentence meets
 that test, stop there. Apply the same rule to English and Ukrainian documentation.
 
+### Compose reader-facing documents with DDK
+
+[Document Design Kit](https://ddk.dzyha.com/prompt.html) supplies the shared
+composition method: establish the reader and next action, answer the smallest set
+of necessary questions, choose a format by meaning, distinguish facts from
+proposals and unknowns, then stop at the first sufficient document. Markdown is
+the default AIC deliverable. DDK JSON is only an explicitly requested DDK exchange
+format; it neither replaces AIC Markdown nor authorizes conversion of notes.
+Preserve AIC's richer Markdown syntax and typed fields.
+
 ## Українська
 
 Уся підтримувана документація продукту й випуску доступна англійською та
@@ -68,3 +78,13 @@ that test, stop there. Apply the same rule to English and Ukrainian documentatio
 Відповідь є повною, коли зрозумілі її предмет, результат або дія та суттєві умови,
 а твердження підтверджене реалізацією чи доказами. Якщо для цього достатньо одного
 речення, зупиніться на ньому. Правило однакове для англійської та української документації.
+
+### Створюйте документи для читача за DDK
+
+[Document Design Kit](https://ddk.dzyha.com/prompt.html) дає спільний спосіб
+композиції: визначте читача й наступну дію, дайте відповіді на найменший набір
+потрібних питань, оберіть формат за змістом, відокремте факти від пропозицій і
+невідомого та зупиніться на першому достатньому документі. Markdown є типовим
+форматом AIC. DDK JSON застосовується лише як явно запитуваний формат обміну DDK:
+він не замінює Markdown AIC і не дозволяє перетворювати нотатки. Зберігайте
+розширений синтаксис Markdown і типізовані поля AIC.

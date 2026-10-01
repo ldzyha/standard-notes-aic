@@ -35,10 +35,11 @@ confirming Lock across two panels and import/export. The exact Chrome version,
 OS and export type were not supplied; [verification scope](VERIFICATION.md)
 records these limits. This owner report is separate from the synthetic-host
 listing captures and does not establish independent or automated acceptance.
-The GitHub browser-project homepage is saved in Chrome Web Store and confirmed
-after reloading the dashboard. Its rendered README links directly to the English
-and Ukrainian privacy policies, providing access within one click.
-No website deployment is needed. Existing 0.9.2 release assets remain unchanged.
+The GitHub browser-project homepage was saved in Chrome Web Store and confirmed
+after reloading the dashboard on September 24. The canonical product links below
+now use `aic.dzyha.com`. Deploy its public pages, then update the existing store
+listing's homepage and privacy-policy fields. This source change does not update
+the dashboard. Existing 0.9.2 release assets remain unchanged.
 
 ### Release and links
 
@@ -50,10 +51,12 @@ owner report is recorded above. Store approval and store installation/update
 checks remain separate.
 
 - Candidate package: `aic-browser-chromium-0.9.3.zip` and its matching `.sha256`.
-- [Public privacy policy](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/PRIVACY.md).
-  Its URL returned HTTP 200 without authentication on September 24, 2026; the
-  policy links to Ukrainian. A dedicated GitHub Pages privacy page is not configured.
-- [Product homepage](https://github.com/ldzyha/standard-notes-aic/tree/main/browser).
+- [Terms and public privacy policy](https://aic.dzyha.com/terms).
+  Use this URL in Chrome Web Store and Edge Add-ons after deploying the public page.
+  The former GitHub policy URL was verified without authentication on September 24;
+  the new domain's availability and saved store fields must be checked separately.
+- [Product homepage](https://aic.dzyha.com/).
+- [Release notes and installation](https://aic.dzyha.com/releases).
 - [Support](https://github.com/ldzyha/standard-notes-aic/issues).
 - Saved category: **Workflow & Planning**. The package's interface is English;
   bilingual listing text and documentation do not make the interface localized.
@@ -200,9 +203,10 @@ Lock двох панелей та імпорт/експорт. Точну вер
 Повідомлення власника відокремлене від зображень із синтетичним хостом і не є
 незалежним чи автоматизованим прийманням.
 GitHub-сторінку браузерного проєкту збережено в Chrome Web Store й перевірено
-після перезавантаження панелі. Її відображений README має прямі посилання на
-англійську й українську політики приватності — доступ за один перехід.
-Публікація змін сайту не потрібна. Наявні файли випуску 0.9.2 не змінено.
+після перезавантаження панелі 24 вересня. Канонічні посилання нижче тепер
+використовують `aic.dzyha.com`. Розгорніть публічні сторінки й оновіть домашню
+сторінку та адресу політики в наявному записі магазину. Ця зміна джерела не
+оновлює dashboard. Наявні файли випуску 0.9.2 не змінено.
 
 ### Випуск і посилання
 
@@ -214,10 +218,12 @@ GitHub-сторінку браузерного проєкту збережено
 оновлення залишаються окремими етапами.
 
 - Пакет кандидата: `aic-browser-chromium-0.9.3.zip` та відповідний `.sha256`.
-- [Публічна політика приватності](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/PRIVACY.md).
-  24 вересня 2026 року адреса повернула HTTP 200 без авторизації. Політика має
-  посилання на українську версію; окрему сторінку приватності GitHub Pages не налаштовано.
-- [Сторінка продукту](https://github.com/ldzyha/standard-notes-aic/tree/main/browser).
+- [Умови та публічна політика приватності](https://aic.dzyha.com/terms).
+  Після розгортання публічної сторінки використайте адресу в Chrome Web Store
+  та Edge Add-ons. Колишню адресу GitHub перевірено без входу 24 вересня;
+  доступність нового домену та збережені поля магазину слід перевірити окремо.
+- [Сторінка продукту](https://aic.dzyha.com/).
+- [Нотатки випусків та встановлення](https://aic.dzyha.com/releases).
 - [Підтримка](https://github.com/ldzyha/standard-notes-aic/issues).
 - Збережена категорія: **Workflow & Planning**. Інтерфейс пакета англійський;
   двомовний опис і документація не означають локалізованого інтерфейсу.

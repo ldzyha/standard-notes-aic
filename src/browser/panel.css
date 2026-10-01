@@ -36,7 +36,7 @@
 .browser-toolbar {
   display: flex;
   align-items: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   flex: 0 0 auto;
   gap: 4px;
   min-height: 48px;
@@ -244,21 +244,6 @@
   min-height: 30px;
   padding: 1px 8px;
 }
-.browser-panel
-  .aic-toolbar--compact
-  > .browser-domain-properties[data-editing="false"][data-empty="true"] {
-  display: inline-flex;
-  flex: 0 0 auto;
-  min-height: 0;
-  margin-left: auto;
-  padding: 0;
-}
-.browser-panel
-  .aic-toolbar--compact
-  > .browser-domain-properties
-  + .browser-domain-properties {
-  margin-left: 0;
-}
 .browser-domain-properties[data-editing="false"][data-empty="true"]
   .browser-domain-properties-header {
   display: block;
@@ -275,17 +260,6 @@
 .browser-domain-properties[data-editing="false"][data-empty="true"]
   .browser-domain-properties-action {
   color: var(--aic-muted);
-}
-.browser-content[data-domain-editing="true"] .browser-note {
-  display: none;
-}
-.browser-content[data-domain-editing="true"]
-  .browser-shared-host:has([data-editing="true"]) {
-  display: flex;
-  flex: 1;
-  max-height: none;
-  min-height: 0;
-  overflow: hidden;
 }
 .browser-domain-properties[data-editing="true"] {
   display: flex;
@@ -450,11 +424,13 @@
 .browser-overlay {
   position: absolute;
   z-index: 30;
-  top: 52px;
+  top: 60px;
   left: 8px;
   right: 8px;
   padding: 10px;
-  max-height: calc(100% - 64px);
+  box-sizing: border-box;
+  min-height: 0;
+  max-height: max(0px, min(calc(100% - 72px), calc(100dvh - 80px)));
   overflow-y: auto;
   overscroll-behavior: contain;
   border: 1px solid var(--aic-border);
@@ -536,11 +512,30 @@
   margin: 3px;
 }
 @media (pointer: coarse) {
-  .browser-overlay {
-    top: 56px;
-  }
   .browser-panel .aic-toolbar--compact {
     min-height: 44px;
     padding-block: 0;
   }
+}
+
+.browser-scope-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+  overflow: auto;
+}
+.browser-scope-panel[data-scope="current"] {
+  overflow: hidden;
+}
+.browser-scope-panel > .browser-shared-host {
+  flex: 1;
+  max-height: none;
+  border-bottom: 0;
+}
+.browser-scope-panel .browser-shared-host:has([data-editing="true"]) {
+  display: flex;
+  min-height: 0;
+  overflow: hidden;
 }

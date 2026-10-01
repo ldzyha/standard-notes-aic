@@ -1,0 +1,116 @@
+name: Verify or submit browser updates
+
+on:
+  workflow_call:
+    inputs:
+      release_tag:
+        required: true
+        type: string
+      store:
+        default: both
+        type: string
+      verification_only:
+        default: true
+        type: boolean
+    secrets:
+      CHROME_CLIENT_ID:
+        required: false
+      CHROME_CLIENT_SECRET:
+        required: false
+      CHROME_REFRESH_TOKEN:
+        required: false
+      EDGE_API_KEY:
+        required: false
+      EDGE_CLIENT_ID:
+        required: false
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: Existing stable GitHub release tag (vN.N.N)
+        required: true
+        type: string
+      store:
+        description: Existing store listing to update
+        default: both
+        type: choice
+        options: [both, chrome, edge]
+      verification_only:
+        description: Verify the release without contacting store APIs
+        default: true
+        type: boolean
+
+permissions: {}
+
+concurrency:
+  group: aic-browser-marketplace
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    if: >-
+      github.repository == 'ldzyha/standard-notes-aic' &&
+      ((github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        store: [chrome, edge]
+    permissions:
+      contents: read
+    env:
+      RELEASE_TAG: ${{ inputs.release_tag }}
+      SELECTED_STORE: ${{ inputs.store }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.workflow_sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20.19.2
+      - name: Download exact stable release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          case "$SELECTED_STORE" in both|chrome|edge) ;; *) exit 1 ;; esac
+          RELEASE_DIRECTORY="$RUNNER_TEMP/browser-release"
+          mkdir -p "$RELEASE_DIRECTORY"
+          gh release view "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --json tagName,isDraft,isPrerelease,assets > "$RELEASE_DIRECTORY/release.json"
+          ASSET_NAME="$(node --input-type=module -e 'import { readFileSync } from "node:fs"; import { releaseIdentity } from "./scripts/publish-browser-store.mjs"; console.log(releaseIdentity(process.env.RELEASE_TAG, JSON.parse(readFileSync(process.argv[1], "utf8"))).fileName)' "$RELEASE_DIRECTORY/release.json")"
+          gh release download "$RELEASE_TAG" --repo "$GITHUB_REPOSITORY" \
+            --dir "$RELEASE_DIRECTORY" --pattern "$ASSET_NAME" --pattern "$ASSET_NAME.sha256"
+          node scripts/publish-browser-store.mjs verify "$RELEASE_TAG" \
+            "$RELEASE_DIRECTORY/release.json" "$RELEASE_DIRECTORY"
+      - name: Submit Chrome update for review
+        if: ${{ inputs.verification_only != true && (inputs.store == 'both' || inputs.store == 'chrome') && matrix.store == 'chrome' }}
+        env:
+          PUBLISH_ENABLED: ${{ vars.CHROME_PUBLISH_ENABLED }}
+          CHROME_PUBLISHER_ID: ${{ vars.CHROME_PUBLISHER_ID }}
+          CHROME_EXTENSION_ID: ${{ vars.CHROME_EXTENSION_ID }}
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+        run: |
+          if [[ "$PUBLISH_ENABLED" != true ]]; then
+            echo "::error::Enable CHROME_PUBLISH_ENABLED after configuring the existing listing's publisher access. No store request was made."
+            exit 1
+          fi
+          node scripts/publish-browser-store.mjs chrome "$RELEASE_TAG" \
+            "$RUNNER_TEMP/browser-release/release.json" "$RUNNER_TEMP/browser-release"
+      - name: Submit Edge update for review
+        if: ${{ inputs.verification_only != true && (inputs.store == 'both' || inputs.store == 'edge') && matrix.store == 'edge' }}
+        env:
+          PUBLISH_ENABLED: ${{ vars.EDGE_PUBLISH_ENABLED }}
+          EDGE_PRODUCT_ID: ${{ vars.EDGE_PRODUCT_ID }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+          EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
+        run: |
+          if [[ "$PUBLISH_ENABLED" != true ]]; then
+            echo "::error::Enable EDGE_PUBLISH_ENABLED after first publication and Publish API setup in Partner Center. No store request was made."
+            exit 1
+          fi
+          node scripts/publish-browser-store.mjs edge "$RELEASE_TAG" \
+            "$RUNNER_TEMP/browser-release/release.json" "$RUNNER_TEMP/browser-release"

@@ -22,7 +22,11 @@ export default defineConfig(({ mode }) => {
       target: "es2022",
       chunkSizeWarningLimit: 2000,
       rollupOptions: {
-        input: { panel: "browser/index.html", worker: "src/browser/worker.ts" },
+        input: {
+          panel: "browser/index.html",
+          files: "pwa/index.html",
+          worker: "src/browser/worker.ts",
+        },
         output: {
           entryFileNames: (chunk) =>
             chunk.name === "worker" ? "worker.js" : "assets/[name]-[hash].js",
@@ -42,6 +46,10 @@ export default defineConfig(({ mode }) => {
             ["VERIFICATION.md", "browser/VERIFICATION.md"],
             ["VERIFICATION.uk.md", "browser/VERIFICATION.uk.md"],
             ["THIRD_PARTY_NOTICES.md", "public/THIRD_PARTY_NOTICES.md"],
+            ["pwa/aic-logo.svg", "public/aic-logo.svg"],
+            ["pwa/icon-192.png", "pwa/icon-192.png"],
+            ["pwa/icon-512.png", "pwa/icon-512.png"],
+            ["pwa/manifest.webmanifest", "pwa/manifest.webmanifest"],
           ]) {
             this.emitFile({
               type: "asset",

@@ -603,3 +603,26 @@ ADAPTIVE_PREVIEW_STUDY.md, not a feature of this build.
 Scope-cleanup execution: GPT-5.6 Sol (high) handled the Chromium runtime/security
 boundary; GPT-5.6 Sol (medium) handled build targets and package regressions. The
 main agent owns documentation, integration and independent final verification.
+
+## 2026-10-01 — compact header and DDK authoring review
+
+Working-tree verification only; no website deployment, extension installation or
+store publication is established by these checks. The header now has Notes and
+history, More options and Lock; transfers, pinning and help use named menu actions.
+Synthetic renderer checks at 320 × 568 confirmed three 44 × 44 targets, no horizontal
+overflow, a bounded scrolling menu and Escape focus restoration. The real browser
+regression workflow was updated but not executed in this session.
+
+The affected browser/guide/site/registry suites passed 93 tests; built PWA offline
+checks passed 17; VS Code shared-guide and runtime integrity checks passed 35.
+All three web targets and the VS Code extension built successfully.
+
+Before preparing these artifacts, the Core authoring knowledge was refreshed from
+the current DDK guide, format rules and [public writing prompt](https://ddk.dzyha.com/prompt.html).
+The reviewed Core checkout was based on `c152359`, with working-tree authoring
+documents `playground/document/DOCUMENT-GUIDE.en.md` and
+`playground/document/public/prompt.html`; this is not a claim that those documents
+were committed at that revision. The public prompt matched the reviewed source,
+SHA-256 `d3c8f51c98ea8d5b940f15d47bb7b758d097c9abb062e2a22e3820eacd08b1ca`.
+The older sibling Core block-writing prompt was not treated as the current DDK
+contract. The updated AIC guides preserve Markdown and fenced `aic` fields.

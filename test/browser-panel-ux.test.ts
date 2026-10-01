@@ -149,6 +149,20 @@ function namedButton(
   );
 }
 function press(root: HTMLElement, name: RegExp): HTMLButtonElement {
+  if (
+    [
+      "Pin note",
+      "Unpin note",
+      "Import current content",
+      "Import Markdown file",
+      "Export Markdown file",
+      "AIC guide",
+    ].some((label) => name.test(label)) &&
+    !namedButton(root, name)
+  )
+    root
+      .querySelector<HTMLButtonElement>('button[aria-label="More options"]')!
+      .click();
   const button = namedButton(root, name);
   expect(button, `Expected button ${name}`).not.toBeNull();
   button!.focus();
@@ -168,12 +182,13 @@ afterEach(() => {
 });
 
 describe("browser panel compact UX", () => {
-  it("keeps page and Markdown import as direct header actions", async () => {
+  it("keeps page and Markdown transfer in More with a compact header", async () => {
     const fake = fixture({ notes: [note(firstPage, "Existing")] });
     const { root, panel } = mount(fake.api);
     await panel.ready;
     expect(namedButton(root, /^Add content$/iu)).toBeNull();
     expect(namedButton(root, /^Paste from clipboard$/iu)).toBeNull();
+    press(root, /^More options$/iu);
     expect(namedButton(root, /^Import current content$/iu)).not.toBeNull();
     expect(namedButton(root, /^Import Markdown file$/iu)).not.toBeNull();
     expect(namedButton(root, /^Export Markdown file$/iu)).not.toBeNull();
@@ -182,7 +197,7 @@ describe("browser panel compact UX", () => {
         .querySelector('[aria-label="Import Markdown file"]')
         ?.hasAttribute("aria-haspopup"),
     ).toBe(false);
-    expect(root.querySelector('[role="dialog"]')).toBeNull();
+    expect(root.querySelector('[role="dialog"]')).not.toBeNull();
   });
 
   it("keeps backup actions in More options and restores its trigger on Escape", async () => {
@@ -201,20 +216,20 @@ describe("browser panel compact UX", () => {
     expect(document.activeElement).toBe(trigger);
   });
 
-  it("keeps More limited to local-note and encrypted-backup actions", async () => {
+  it("groups current-note and encrypted-backup actions in More", async () => {
     const fake = fixture({ notes: [note(firstPage, "Existing")] });
     const { root, panel } = mount(fake.api);
     await panel.ready;
     press(root, /^More options$/iu);
     expect(root.querySelector(".browser-menu-group")?.textContent).toBe(
-      "Local note",
+      "Current note",
     );
     const menu = root.querySelector<HTMLElement>(
       '[role="dialog"][aria-label="More options"]',
     )!;
     expect(namedButton(root, /^Delete local note$/iu)).not.toBeNull();
     expect(namedButton(root, /^Copy note$/iu)).toBeNull();
-    expect(namedButton(menu, /^Export Markdown/iu)).toBeNull();
+    expect(namedButton(menu, /^Export Markdown file$/iu)).not.toBeNull();
     expect(namedButton(root, /^Export encrypted backup$/iu)).not.toBeNull();
     expect(namedButton(root, /^Import encrypted backup$/iu)).not.toBeNull();
   });
@@ -261,9 +276,11 @@ describe("browser panel compact UX", () => {
       "```aic\n# Properties\n\n```\n\n",
     );
     expect(root.querySelector(".cm-aic-properties")).toBeNull();
+    press(root, /^More options$/iu);
     expect(namedButton(root, /^Import current content$/iu)).not.toBeNull();
     expect(namedButton(root, /^Import Markdown file$/iu)).not.toBeNull();
     expect(namedButton(root, /^Create note$/iu)).toBeNull();
+    press(root, /^More options$/iu);
     expect(root.querySelector('[role="dialog"]')).toBeNull();
     expect(fake.messages.some((message) => message.type === "create")).toBe(
       false,
@@ -481,6 +498,7 @@ describe("browser panel compact UX", () => {
     const fake = fixture({ notes: [note(firstPage, "Existing")] });
     const { root, panel } = mount(fake.api);
     await panel.ready;
+    press(root, /^More options$/iu);
     const staleAction = namedButton(root, /^Import current content$/iu)!;
     fake.changed.emit({ "aic-browser-unlock": { oldValue: {} } }, "session");
     expect(staleAction.isConnected).toBe(false);

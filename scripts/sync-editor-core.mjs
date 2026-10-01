@@ -6,13 +6,18 @@ import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const source = path.join(root, "src", "core");
-const target = path.resolve(
-  root,
-  "..",
-  "aic-notes",
-  "vendor",
-  "aic-editor-core",
-);
+const targetOption = process.argv.indexOf("--target");
+if (
+  targetOption !== -1 &&
+  (!process.argv[targetOption + 1] ||
+    process.argv[targetOption + 1].startsWith("--"))
+)
+  throw new Error("--target requires the VS Code repository directory");
+const targetRoot =
+  targetOption === -1
+    ? path.resolve(root, "..", "aic-notes")
+    : path.resolve(process.argv[targetOption + 1]);
+const target = path.resolve(targetRoot, "vendor", "aic-editor-core");
 const check = process.argv.includes("--check");
 const snapshotRequested = process.argv.includes("--snapshot");
 if (check && snapshotRequested)

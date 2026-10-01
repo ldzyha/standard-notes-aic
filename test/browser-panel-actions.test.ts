@@ -69,6 +69,7 @@ function fixture() {
   const messages: Request[] = [];
   const api = {
     runtime: {
+      getURL: vi.fn((path: string) => `chrome-extension://fixture/${path}`),
       sendMessage: async (message: Request) => {
         messages.push(message);
         let value: unknown = null;
@@ -86,7 +87,12 @@ function fixture() {
     },
     windows: { getCurrent: async () => ({ id: 4, incognito: false }) },
     storage: { onChanged: changed },
-    tabs: { onActivated: activated, onUpdated: updated, onRemoved: removed },
+    tabs: {
+      create: vi.fn(async () => ({ id: 40, windowId: 4 })),
+      onActivated: activated,
+      onUpdated: updated,
+      onRemoved: removed,
+    },
     permissions: { request: vi.fn(async () => true) },
   } as unknown as BrowserApi;
   return {
@@ -100,6 +106,20 @@ function fixture() {
 }
 
 function button(root: HTMLElement, label: string): HTMLButtonElement {
+  if (
+    [
+      "Pin note",
+      "Unpin note",
+      "Import current content",
+      "Import Markdown file",
+      "Export Markdown file",
+      "AIC guide",
+    ].includes(label) &&
+    !root.querySelector(`button[aria-label="${label}"]`)
+  )
+    root
+      .querySelector<HTMLButtonElement>('button[aria-label="More options"]')!
+      .click();
   const result = root.querySelector<HTMLButtonElement>(
     `button[aria-label="${label}"]`,
   );
@@ -121,7 +141,49 @@ afterEach(() => {
 });
 
 describe("browser panel direct actions", () => {
-  it("uses direct accessible transfer actions and a minimal More menu", async () => {
+  it("opens the bundled shared file interface from the More menu", async () => {
+    const fake = fixture();
+    const root = document.createElement("div");
+    document.body.append(root);
+    const panel = new BrowserPanel(root, fake.api);
+    panels.push(panel);
+    await panel.ready;
+    button(root, "More options").click();
+    button(root, "Open file notes").click();
+    await Promise.resolve();
+    expect(fake.api.runtime.getURL).toHaveBeenCalledWith("pwa/index.html");
+    expect(fake.api.tabs.create).toHaveBeenCalledWith({
+      url: "chrome-extension://fixture/pwa/index.html",
+      windowId: 4,
+    });
+    expect(root.querySelector('[aria-label="Open file notes"]')).toBeNull();
+  });
+
+  it.each([
+    ["Terms and privacy", "https://aic.dzyha.com/terms"],
+    ["Releases and installation", "https://aic.dzyha.com/releases"],
+    ["How to create documents", "https://aic.dzyha.com/how-to"],
+  ])("opens %s through the browser tab API", async (label, url) => {
+    const fake = fixture();
+    const root = document.createElement("div");
+    document.body.append(root);
+    const panel = new BrowserPanel(root, fake.api);
+    panels.push(panel);
+    await panel.ready;
+    const previousRequests = fake.messages.length;
+
+    button(root, "More options").click();
+    button(root, label!).click();
+    await Promise.resolve();
+
+    expect(fake.api.tabs.create).toHaveBeenCalledWith({ url, windowId: 4 });
+    expect(fake.api.runtime.getURL).not.toHaveBeenCalled();
+    expect(fake.messages).toHaveLength(previousRequests);
+    expect(root.querySelector('[role="dialog"]')).toBeNull();
+    expect(editorText(root)).toBe("First");
+  });
+
+  it("keeps exactly three header controls and readable actions in More", async () => {
     const fake = fixture();
     const root = document.createElement("div");
     document.body.append(root);
@@ -129,34 +191,39 @@ describe("browser panel direct actions", () => {
     panels.push(panel);
     await panel.ready;
 
+    const headerButtons = [
+      ...root.querySelectorAll<HTMLButtonElement>(".browser-toolbar button"),
+    ];
+    expect(
+      headerButtons.map((button) => button.getAttribute("aria-label")),
+    ).toEqual(["Notes and history", "More options", "Lock"]);
+    for (const control of headerButtons) {
+      expect(control.classList.contains("aic-button--touch")).toBe(true);
+      expect(control.classList.contains("aic-button--compact")).toBe(false);
+    }
+    expect(
+      root.querySelector('[aria-label="Import current content"]'),
+    ).toBeNull();
+    button(root, "More options").click();
     for (const label of [
+      "Pin note",
       "Import current content",
       "Import Markdown file",
       "Export Markdown file",
       "AIC guide",
     ]) {
       const action = button(root, label);
+      expect(action.closest(".browser-popover")).not.toBeNull();
+      expect(action.textContent).toBe(label);
       expect(action.title).not.toBe("");
-    }
-    for (const [label, icon] of [
-      ["Import current content", "import-page"],
-      ["Import Markdown file", "import-file"],
-      ["Export Markdown file", "export-file"],
-    ]) {
-      const action = button(root, label!);
-      expect(action.closest(".browser-toolbar")).not.toBeNull();
-      expect(action.dataset.aicIcon).toBe(icon);
-      expect(action.classList.contains("cm-aic-icon-button")).toBe(true);
-      expect(action.textContent).toBe("");
     }
     expect(root.querySelector('[aria-label="Add content"]')).toBeNull();
     expect(
       root.querySelector('[aria-label="Paste from clipboard"]'),
     ).toBeNull();
     expect(root.querySelector('[aria-label="Copy note"]')).toBeNull();
-    button(root, "More options").click();
     expect(root.querySelector(".browser-menu-group")?.textContent).toBe(
-      "Local note",
+      "Current note",
     );
     expect(button(root, "Delete local note")).not.toBeNull();
     expect(button(root, "Export encrypted backup")).not.toBeNull();
@@ -168,6 +235,24 @@ describe("browser panel direct actions", () => {
     );
     expect(guide?.textContent).toMatch(/Browser transfer.*Import Markdown/su);
     expect(guide?.textContent).toMatch(/current browser-vault passphrase/iu);
+    const view = EditorView.findFromDOM(
+      root.querySelector<HTMLElement>(".cm-editor")!,
+    )!;
+    view.dispatch({ selection: { anchor: 2 } });
+    for (let index = 0; index < 2; index++) {
+      root.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
+      );
+      expect(document.activeElement).toBe(button(root, "More options"));
+      expect(
+        EditorView.findFromDOM(root.querySelector<HTMLElement>(".cm-editor")!),
+      ).toBe(view);
+      expect(view.state.selection.main.head).toBe(2);
+      button(root, "AIC guide").click();
+      expect(
+        root.querySelector('[role="dialog"][aria-label="AIC guide"]'),
+      ).not.toBeNull();
+    }
   });
 
   it("cancels a pending native file choice when the page changes", async () => {

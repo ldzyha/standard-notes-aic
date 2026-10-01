@@ -1,7 +1,7 @@
 {
   "name": "standard-notes-aic-editor",
-  "version": "47.1.0",
-  "aicEditorCore": "7.4.0",
+  "version": "48.4.4",
+  "aicEditorCore": "7.5.0",
   "private": true,
   "type": "module",
   "license": "UNLICENSED",
@@ -36,6 +36,8 @@
     "notices:generate": "node scripts/generate-third-party-notices.mjs",
     "notices:check": "node scripts/generate-third-party-notices.mjs --check",
     "build:browser": "npm run notices:check && node scripts/package-browser.mjs",
+    "build:pwa": "npm run notices:check && vite build --config vite.pwa.config.mjs",
+    "dev:pwa": "vite --config vite.pwa.config.mjs",
     "build": "npm run notices:check && vite build",
     "dev": "vite --host 0.0.0.0",
     "format": "prettier --write .",
@@ -43,7 +45,9 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build && npm run build:pwa",
+    "portable:sync": "node scripts/sync-portable-runtime.mjs",
+    "portable:check": "node scripts/sync-portable-runtime.mjs --check"
   },
   "dependencies": {
     "@codemirror/autocomplete": "6.20.3",

@@ -27,6 +27,7 @@ jobs:
       - run: npm ci
       - run: npm run check
       - run: npm run build:browser
+      - run: npm test -- test/pwa-offline.test.ts
 
   release:
     needs: test-platforms
@@ -56,6 +57,9 @@ jobs:
 
       - name: Build experimental Chrome and Edge package
         run: npm run build:browser
+
+      - name: Verify built offline and browser resources
+        run: npm test -- test/pwa-offline.test.ts
 
       - name: Package desktop extension
         env:
@@ -91,3 +95,20 @@ jobs:
               --title "AIC $PACKAGE_VERSION" \
               --notes-file RELEASE_INSTALL.md
           fi
+
+  publish-browser-marketplace:
+    if: vars.BROWSER_MARKETPLACE_ENABLED == 'true'
+    needs: release
+    permissions:
+      contents: read
+    uses: ./.github/workflows/browser-marketplace.yml
+    with:
+      release_tag: ${{ github.ref_name }}
+      store: ${{ vars.BROWSER_PUBLISH_TARGET || 'both' }}
+      verification_only: false
+    secrets:
+      CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+      CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+      CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+      EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+      EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}

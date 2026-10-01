@@ -11,8 +11,12 @@ function inspectMode(mode: string) {
     try {
       const config = browserConfig({ mode, command: "build" });
       const emitted = [];
-      config.plugins[0].generateBundle.call({ emitFile: asset => emitted.push(asset.fileName) });
-      console.log(JSON.stringify({ outDir: config.build.outDir, emitted }));
+      let manifest;
+      config.plugins[0].generateBundle.call({ emitFile: asset => {
+        emitted.push(asset.fileName);
+        if (asset.fileName === "manifest.json") manifest = JSON.parse(asset.source.toString());
+      } });
+      console.log(JSON.stringify({ outDir: config.build.outDir, input: config.build.rollupOptions.input, emitted, manifest }));
     } catch (error) {
       console.log(JSON.stringify({ error: error.message }));
     }
@@ -36,6 +40,14 @@ describe("browser build targets", () => {
     expect(config.emitted).toContain("manifest.json");
     expect(config.emitted).not.toContain("manifest.firefox.json");
     expect(config.emitted).toContain("icon-128.png");
+    expect(config.input.files).toBe("pwa/index.html");
+    expect(config.emitted).toContain("pwa/manifest.webmanifest");
+    expect(config.emitted).toContain("pwa/icon-192.png");
+    expect(config.manifest.homepage_url).toBe("https://aic.dzyha.com/");
+    expect(config.manifest.content_security_policy.extension_pages).toContain(
+      "connect-src 'none'",
+    );
+    expect(config.manifest.permissions).not.toContain("webRequest");
   });
 
   it.each(["browser-firefox", "production", "development"])(

@@ -1,0 +1,58 @@
+.aic-local-ai {
+  padding: 0.35rem 0;
+}
+
+.aic-local-ai__status {
+  color: var(--aic-muted, #6b7280);
+  font-size: 0.8rem;
+  align-self: center;
+  padding-inline: 0.35rem;
+  flex: 1 1 12rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.aic-local-ai__preview {
+  max-width: min(42rem, calc(100vw - 2rem));
+  max-height: calc(100dvh - 2rem);
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding: 1.25rem;
+  color: var(--aic-fg, CanvasText);
+  background: var(--aic-bg, Canvas);
+  border: 1px solid var(--aic-border, #a1a1aa);
+  border-radius: 0.6rem;
+}
+
+.aic-local-ai__preview::backdrop {
+  background: rgb(0 0 0 / 45%);
+}
+
+.aic-local-ai__replacement {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  border-block: 1px solid var(--aic-border, #a1a1aa);
+  padding-block: 1rem;
+}
+
+.aic-local-ai__notes {
+  font-size: 0.85rem;
+  color: var(--aic-muted, #6b7280);
+}
+
+.aic-local-ai--compact {
+  flex: 0 0 auto;
+}
+.aic-local-ai--compact .aic-toolbar {
+  padding: 0;
+  gap: 2px;
+  flex-wrap: nowrap;
+}
+.aic-local-ai--compact .aic-local-ai__status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}

@@ -1,0 +1,121 @@
+name: Propose shared editor updates
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - src/**
+      - pwa/**
+      - public/**
+      - CORE_FILES.json
+      - package.json
+      - package-lock.json
+      - tsconfig.json
+      - vite.pwa.config.mjs
+      - scripts/sync-editor-core.mjs
+      - scripts/sync-portable-runtime.mjs
+      - .github/workflows/sync-core.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: aic-editor-core-sync
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    if: >-
+      github.repository == 'ldzyha/standard-notes-aic' &&
+      github.ref == 'refs/heads/main' && vars.AIC_CORE_SYNC_ENABLED == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out committed canonical source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          path: source
+          persist-credentials: false
+      - name: Create repository-scoped GitHub App token
+        id: app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ vars.AIC_CORE_SYNC_APP_ID }}
+          private-key: ${{ secrets.AIC_CORE_SYNC_APP_PRIVATE_KEY }}
+          owner: ldzyha
+          repositories: aic-notes
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Check out VS Code host
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: ldzyha/aic-notes
+          ref: main
+          path: target
+          fetch-depth: 0
+          token: ${{ steps.app.outputs.token }}
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 20.19.2
+          cache: npm
+          cache-dependency-path: |
+            source/package-lock.json
+            target/package-lock.json
+      - name: Build the canonical portable editor
+        working-directory: source
+        run: |
+          npm ci
+          npm run build:pwa
+      - name: Mirror the declared core and exact portable build
+        run: |
+          node source/scripts/sync-editor-core.mjs --snapshot --target "$GITHUB_WORKSPACE/target"
+          node source/scripts/sync-portable-runtime.mjs --target "$GITHUB_WORKSPACE/target"
+          node --input-type=module <<'NODE'
+          import { readFile, writeFile } from 'node:fs/promises';
+          const source = JSON.parse(await readFile('source/package.json', 'utf8'));
+          const target = JSON.parse(await readFile('target/package.json', 'utf8'));
+          target.aicEditorCore = source.aicEditorCore;
+          await writeFile('target/package.json', JSON.stringify(target, null, 2) + '\n');
+          NODE
+          node source/scripts/sync-editor-core.mjs --check --target "$GITHUB_WORKSPACE/target"
+          node source/scripts/sync-portable-runtime.mjs --check --target "$GITHUB_WORKSPACE/target"
+      - name: Verify VS Code distribution
+        working-directory: target
+        run: |
+          npm ci
+          npm run release:gate
+      - name: Open or refresh the review pull request
+        working-directory: target
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          SYNC_BRANCH=codex/sync-editor-core
+          if git diff --quiet -- vendor/aic-editor-core vendor/portable-runtime CORE_SNAPSHOT.json PORTABLE_SNAPSHOT.json package.json && \
+             [[ -z "$(git ls-files --others --exclude-standard -- vendor/aic-editor-core vendor/portable-runtime CORE_SNAPSHOT.json PORTABLE_SNAPSHOT.json)" ]]; then
+            echo "Shared editor and portable runtime already match."
+            exit 0
+          fi
+          OLD_SHA="$(git rev-parse --verify "refs/remotes/origin/$SYNC_BRANCH" 2>/dev/null || true)"
+          git switch -C "$SYNC_BRANCH"
+          git config user.name 'aic-core-sync[bot]'
+          git config user.email 'aic-core-sync[bot]@users.noreply.github.com'
+          git add vendor/aic-editor-core vendor/portable-runtime CORE_SNAPSHOT.json PORTABLE_SNAPSHOT.json package.json
+          git commit -m 'Synchronize committed AIC editor and portable runtime'
+          git -c credential.helper= -c 'credential.helper=!gh auth git-credential' \
+            push --force-with-lease="$SYNC_BRANCH:$OLD_SHA" origin "$SYNC_BRANCH"
+          BODY_FILE="$RUNNER_TEMP/core-sync-pr.md"
+          cat > "$BODY_FILE" <<'BODY'
+          Updates the VS Code host to the committed canonical editor core declared in CORE_FILES.json and the exact canonical portable editor build. Both snapshots record the source commit and exact file hashes.
+
+          Validation: core parity, portable runtime parity, and the VS Code release gate passed, including tests, package verification, and checksum checks. This pull request does not change the host version or publish a store release.
+          BODY
+          PR_NUMBER="$(gh pr list --repo ldzyha/aic-notes --head "$SYNC_BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
+          if [[ -n "$PR_NUMBER" ]]; then
+            gh pr edit "$PR_NUMBER" --repo ldzyha/aic-notes \
+              --title 'Synchronize AIC shared editor and portable runtime' --body-file "$BODY_FILE"
+          else
+            gh pr create --repo ldzyha/aic-notes --base main --head "$SYNC_BRANCH" \
+              --title 'Synchronize AIC shared editor and portable runtime' --body-file "$BODY_FILE"
+          fi

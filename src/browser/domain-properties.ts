@@ -335,6 +335,11 @@ export class DomainPropertiesView {
     }
   }
 
+  /** A scope transition saves without disposing its editor or undo history. */
+  save(): Promise<boolean> {
+    return this.editing ? this.persist() : Promise.resolve(true);
+  }
+
   async finishEditing(): Promise<boolean> {
     const editingEditor = this.editor;
     if (!editingEditor) return false;

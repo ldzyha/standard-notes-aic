@@ -1,3 +1,4 @@
+import { createScopeTabs, type ScopeTabs } from "../core/scope-tabs.js";
 import { ChangeSet, EditorState, StateEffect } from "@codemirror/state";
 import { relatedPageLink } from "./related-links";
 import { AicEditor } from "../editor";
@@ -67,6 +68,8 @@ export class BrowserPanel {
   private globalKey: string | null = null;
   private globalRefreshDeferred = false;
   private shared: DomainPropertiesView | null = null;
+  private scopeTabs: ScopeTabs | null = null;
+  private activeScope: "current" | "shared" | "global" = "current";
   private domainKey: string | null = null;
   private domainReload: Promise<void> | null = null;
   private domainReloadRevision = 0;
@@ -343,17 +346,6 @@ export class BrowserPanel {
     return button;
   }
 
-  private importIconButton(
-    label: string,
-    iconName: string,
-    action: (button: HTMLButtonElement) => void | Promise<unknown>,
-  ): HTMLButtonElement {
-    const button = this.iconButton(label, "", action, iconName);
-    button.dataset.importAction = "true";
-    button.disabled = this.importing;
-    return button;
-  }
-
   private setImporting(busy: boolean): void {
     this.importing = busy;
     this.root.dataset.importing = String(busy);
@@ -376,81 +368,31 @@ export class BrowserPanel {
       const title = this.el(
         "strong",
         "browser-page-title",
-        this.contextLoading
-          ? "Loading page…"
-          : this.page
-            ? displayPageTitle(this.page)
-            : "Your notes",
+        this.activeScope === "global"
+          ? "Global notes"
+          : this.activeScope === "shared"
+            ? "Shared notes"
+            : this.contextLoading
+              ? "Loading page…"
+              : this.page
+                ? displayPageTitle(this.page)
+                : "Your notes",
       );
-      title.title = this.page ? displayPageTitle(this.page) : "Your notes";
+      title.title = title.textContent ?? "Your notes";
       identity.append(title);
-      if (this.page) {
+      if (this.page && this.activeScope !== "global") {
         const source = this.el(
           "small",
           "browser-page-origin",
-          new URL(this.page.url).host,
+          `${new URL(this.page.url).host}${this.pinnedPage ? " · Pinned" : ""}`,
         );
         source.title = displayPageLocation(this.page.url);
         identity.append(source);
       }
       this.toolbar.append(identity);
-      if (this.page) {
-        const pin = this.iconButton(
-          this.pinnedPage ? "Unpin note" : "Pin note",
-          "",
-          () => this.togglePin(),
-        );
-        pin.classList.add("cm-aic-icon-button");
-        pin.dataset.aicIcon = "pin";
-        pin.replaceChildren();
-        pin.dataset.pinNote = "true";
-        pin.setAttribute("aria-pressed", String(Boolean(this.pinnedPage)));
-        const draft = this.noteId ? this.drafts?.get(this.noteId) : null;
-        pin.disabled = !this.pinnedPage && !draft?.note && !draft?.dirty;
-        pin.title = pin.disabled
-          ? "Write a note before pinning it"
-          : this.pinnedPage
-            ? "Unpin note and follow the active tab"
-            : "Keep this note open and link pages you write about";
-        this.toolbar.append(pin);
-      }
-      if (this.page && !this.shared?.editing && !this.globalShared?.editing) {
-        const capture = this.importIconButton(
-          "Import current content",
-          "import-page",
-          () => this.capture("auto"),
-        );
-        capture.title =
-          "Import selected readable content when available; otherwise import the readable page";
-        const markdown = this.importIconButton(
-          "Import Markdown file",
-          "import-file",
-          () => this.chooseMarkdownFile(),
-        );
-        markdown.title = "Import a plaintext Markdown file into this note";
-        markdown.setAttribute("aria-description", markdown.title);
-        this.toolbar.append(capture, markdown);
-        if (this.editor && this.noteId) {
-          const noteId = this.noteId;
-          const exportMarkdown = this.iconButton(
-            "Export Markdown file",
-            "",
-            () => this.exportDraft(noteId),
-            "export-file",
-          );
-          exportMarkdown.title =
-            "Export plaintext Markdown; the file may contain secrets";
-          exportMarkdown.setAttribute("aria-description", exportMarkdown.title);
-          this.toolbar.append(exportMarkdown);
-        }
-      }
     } else {
       this.toolbar.append(this.el("span", "browser-brand", ">_ AIC"));
     }
-    if (this.canUseLibrary())
-      this.toolbar.append(
-        this.iconButton("AIC guide", "?", (button) => this.showGuide(button)),
-      );
     const more = this.iconButton("More options", "⋯", (button) =>
       this.showMoreMenu(button),
     );
@@ -465,8 +407,10 @@ export class BrowserPanel {
     for (const button of this.toolbar.querySelectorAll<HTMLButtonElement>(
       "button",
     )) {
+      button.classList.remove("aic-button--compact");
+      applyUiComponent(button, "button", ["touch"]);
       if (
-        ["Notes and history", "AIC guide", "More options"].includes(
+        ["Notes and history", "More options"].includes(
           button.getAttribute("aria-label") || "",
         )
       ) {
@@ -497,12 +441,77 @@ export class BrowserPanel {
   private showMoreMenu(trigger: HTMLButtonElement): void {
     const box = this.showPopover("More options", trigger);
     if (!box) return;
-    if (
-      this.page &&
-      this.canUseLibrary() &&
-      !this.shared?.editing &&
-      !this.globalShared?.editing
-    ) {
+    if (this.page && this.canUseLibrary() && this.activeScope === "current") {
+      const noteId = this.noteId;
+      const pin = this.button(
+        this.pinnedPage ? "Unpin note" : "Pin note",
+        () => {
+          this.closeOverlay(true);
+          if (this.activeScope === "current" && this.noteId === noteId)
+            return this.togglePin();
+        },
+      );
+      pin.dataset.pinNote = "true";
+      pin.setAttribute("aria-pressed", String(Boolean(this.pinnedPage)));
+      const draft = noteId ? this.drafts?.get(noteId) : null;
+      pin.disabled = !this.pinnedPage && !draft?.note && !draft?.dirty;
+      pin.title = pin.disabled
+        ? "Write a note before pinning it"
+        : this.pinnedPage
+          ? "Unpin note and follow the active tab"
+          : "Keep this note open and link pages you write about";
+      const capture = this.button("Import current content", () => {
+        this.closeOverlay(true);
+        if (this.activeScope === "current" && this.noteId === noteId)
+          return this.capture("auto");
+      });
+      capture.title =
+        "Import selected readable content when available; otherwise import the readable page";
+      const markdown = this.button("Import Markdown file", () => {
+        this.closeOverlay(true);
+        if (this.activeScope === "current" && this.noteId === noteId)
+          return this.chooseMarkdownFile();
+      });
+      markdown.title = "Import a plaintext Markdown file into this note";
+      for (const button of [capture, markdown]) {
+        button.dataset.importAction = "true";
+        button.disabled = this.importing;
+        button.setAttribute("aria-description", button.title);
+      }
+      box.append(
+        this.el("h2", "browser-menu-group", "Current note"),
+        pin,
+        capture,
+        markdown,
+      );
+      if (this.editor && noteId) {
+        const exportMarkdown = this.button("Export Markdown file", () => {
+          this.closeOverlay(true);
+          if (this.activeScope === "current" && this.noteId === noteId)
+            this.exportDraft(noteId);
+        });
+        exportMarkdown.title =
+          "Export plaintext Markdown; the file may contain secrets";
+        exportMarkdown.setAttribute("aria-description", exportMarkdown.title);
+        box.append(exportMarkdown);
+      }
+      box.append(this.el("hr"));
+    }
+    if (this.canUseLibrary()) {
+      const guide = this.button("AIC guide", () => {
+        this.closeOverlay();
+        this.showGuide(trigger);
+      });
+      guide.title = "AIC guide";
+      box.append(guide, this.el("hr"));
+    }
+    box.append(
+      this.button("Open file notes", () =>
+        this.openTab(this.api.runtime.getURL("pwa/index.html")),
+      ),
+      this.el("hr"),
+    );
+    if (this.page && this.canUseLibrary() && this.activeScope === "current") {
       const page = { ...this.page };
       const draft = this.drafts?.getForPage(page.url);
       const hasNote =
@@ -539,8 +548,26 @@ export class BrowserPanel {
       );
     box.append(
       this.button("Import encrypted backup", () => this.importBackupDialog()),
+      this.el("hr"),
+      this.el("h2", "browser-menu-group", "AIC"),
+      this.button("Terms and privacy", () =>
+        this.openTab("https://aic.dzyha.com/terms"),
+      ),
+      this.button("Releases and installation", () =>
+        this.openTab("https://aic.dzyha.com/releases"),
+      ),
+      this.button("How to create documents", () =>
+        this.openTab("https://aic.dzyha.com/how-to"),
+      ),
     );
     box.querySelector<HTMLButtonElement>("button")?.focus();
+  }
+
+  private async openTab(url: string): Promise<void> {
+    this.closeOverlay(true);
+    if (this.windowId === null)
+      throw new Error("Browser window context is unavailable.");
+    await this.api.tabs.create({ url, windowId: this.windowId });
   }
 
   private showGuide(trigger: HTMLButtonElement): void {
@@ -557,7 +584,13 @@ export class BrowserPanel {
     title: string,
     trigger: HTMLButtonElement,
   ): void {
-    if (!this.canUseLibrary() || this.importing || this.deleting) return;
+    if (
+      this.activeScope !== "current" ||
+      !this.canUseLibrary() ||
+      this.importing ||
+      this.deleting
+    )
+      return;
     const generation = this.generation;
     const context = this.contextGeneration;
     const draft = this.drafts?.getForPage(url);
@@ -1056,16 +1089,23 @@ export class BrowserPanel {
     if (this.pinnedPage) {
       this.pinnedPage = null;
       await this.refreshContext();
-      this.toolbar.querySelector<HTMLButtonElement>("[data-pin-note]")?.focus();
+      this.toolbar
+        .querySelector<HTMLButtonElement>('[aria-label="More options"]')
+        ?.focus();
     } else if (this.drafts?.get(this.noteId)?.note) {
       this.pinnedPage = { ...this.page };
       this.renderToolbar();
-      this.toolbar.querySelector<HTMLButtonElement>("[data-pin-note]")?.focus();
+      this.toolbar
+        .querySelector<HTMLButtonElement>('[aria-label="More options"]')
+        ?.focus();
     }
   }
 
   private dropEditor(): void {
     ++this.editorGeneration;
+    this.scopeTabs?.dispose();
+    this.scopeTabs = null;
+    this.activeScope = "current";
     this.noteId = null;
     this.editor?.destroy();
     this.editor = null;
@@ -1167,6 +1207,7 @@ export class BrowserPanel {
     }
     const warnings = this.el("div", "browser-draft-warnings");
     this.content.append(warnings);
+    this.mountScopeTabs();
     this.renderDraftWarnings();
   }
 
@@ -1236,12 +1277,11 @@ export class BrowserPanel {
       this.editor.view.dispatch({ selection: { anchor: draft.text.length } });
     this.reflectDraft(draft);
     this.renderToolbar();
-    this.placeSharedProperties();
   }
 
   private reflectDraft(draft: Draft): void {
     const pin =
-      this.toolbar.querySelector<HTMLButtonElement>("[data-pin-note]");
+      this.overlay.querySelector<HTMLButtonElement>("[data-pin-note]");
     if (pin) {
       pin.disabled = !this.pinnedPage && !draft.note && !draft.dirty;
       pin.title = pin.disabled
@@ -1298,9 +1338,8 @@ export class BrowserPanel {
         this.content.dataset.domainEditing = String(
           editing || this.globalShared?.editing || false,
         );
-        this.placeSharedProperties();
         this.renderToolbar();
-        if (!editing) this.editor?.focus();
+        if (!editing && this.activeScope === "current") this.editor?.focus();
       },
     });
     // Retain local domain edits when returning to the originating site; never
@@ -1340,29 +1379,85 @@ export class BrowserPanel {
         this.content.dataset.domainEditing = String(
           editing || this.shared?.editing || false,
         );
-        this.placeSharedProperties();
         this.renderToolbar();
-        if (!editing) this.editor?.focus();
+        if (!editing && this.activeScope === "current") this.editor?.focus();
       },
     });
     if (draft.dirty) this.globalShared.startEditing(draft.text);
     this.reflectDomainDraft(draft, this.globalShared);
   }
 
-  /** Empty scopes share compact inline actions in Global, then domain order. */
-  private placeSharedProperties(): void {
-    const toolbar = this.content.querySelector(".browser-note .aic-toolbar");
-    for (const view of [this.globalShared, this.shared]) {
-      if (!view) continue;
-      const empty = !view.editing && view.element.dataset.empty === "true";
-      const scope = view === this.globalShared ? "global" : "domain";
-      const host = this.content.querySelector(
-        `.browser-shared-host[data-scope="${scope}"]`,
-      );
-      const target = empty && toolbar ? toolbar : host;
-      if (target && view.element.parentElement !== target)
-        target.append(view.element);
+  private mountScopeTabs(): void {
+    this.scopeTabs?.dispose();
+    const current = this.el("section", "browser-scope-panel");
+    const shared = this.el("section", "browser-scope-panel");
+    const global = this.el("section", "browser-scope-panel");
+    current.dataset.scope = "current";
+    shared.dataset.scope = "shared";
+    global.dataset.scope = "global";
+    for (const child of [...this.content.children]) {
+      if (child.classList.contains("browser-draft-warnings")) continue;
+      if (child.matches('.browser-shared-host[data-scope="global"]'))
+        global.append(child);
+      else if (child.matches('.browser-shared-host[data-scope="domain"]'))
+        shared.append(child);
+      else current.append(child);
     }
+    if (!this.page)
+      shared.append(
+        this.el(
+          "p",
+          "browser-empty-context",
+          "Open a web page to use its Shared notes.",
+        ),
+      );
+    const generation = this.generation;
+    const context = this.contextGeneration;
+    this.scopeTabs = createScopeTabs(this.document, {
+      label: "Note scope",
+      selected: this.activeScope,
+      items: [
+        { id: "current", label: "Current", panel: current },
+        {
+          id: "shared",
+          label: "Shared",
+          panel: shared,
+          disabled: !this.page,
+          title: !this.page ? "Open a web page to use Shared notes" : undefined,
+        },
+        { id: "global", label: "Global", panel: global },
+      ],
+      onSelect: async (_id, previous) => {
+        if (!this.valid(generation, context) || this.importing || this.deleting)
+          return false;
+        const saved =
+          previous === "current"
+            ? await (this.noteId
+                ? (this.drafts?.flush(this.noteId) ?? true)
+                : true)
+            : previous === "shared"
+              ? ((await this.shared?.save()) ?? true)
+              : ((await this.globalShared?.save()) ?? true);
+        if (!saved && this.valid(generation, context))
+          this.tell(
+            "Scope change paused. Save or export this draft before leaving.",
+          );
+        return saved && this.valid(generation, context);
+      },
+      onSelected: (id) => {
+        this.activeScope = id as "current" | "shared" | "global";
+        this.closeOverlay();
+        this.content.dataset.scope = id;
+        this.renderToolbar();
+        this.renderDraftWarnings();
+        if (id === "current") this.editor?.view.requestMeasure();
+        else
+          (id === "shared" ? this.shared : this.globalShared)?.refreshTheme();
+      },
+    });
+    this.content.prepend(this.scopeTabs.element, current, shared, global);
+    this.content.dataset.scope = this.activeScope;
+    this.renderToolbar();
   }
 
   private renderPageAncestors(): void {
@@ -1417,7 +1512,6 @@ export class BrowserPanel {
               ? "saved"
               : "none",
     );
-    this.placeSharedProperties();
   }
 
   private refreshSharedData(): void {
@@ -1519,7 +1613,9 @@ export class BrowserPanel {
     const target = this.content.querySelector(".browser-draft-warnings");
     if (!target) return;
     target.replaceChildren();
-    for (const draft of this.drafts?.dirtyDrafts() ?? []) {
+    for (const draft of this.activeScope === "current"
+      ? (this.drafts?.dirtyDrafts() ?? [])
+      : []) {
       if (!draft.error) continue;
       const warning = this.el("div", "browser-draft-error");
       warning.append(
@@ -1533,7 +1629,9 @@ export class BrowserPanel {
       );
       target.append(warning);
     }
-    for (const draft of this.domainDrafts?.dirtyDrafts() ?? []) {
+    for (const draft of this.activeScope === "shared"
+      ? (this.domainDrafts?.dirtyDrafts() ?? [])
+      : []) {
       if (!draft.error) continue;
       const warning = this.el("div", "browser-draft-error");
       warning.append(
@@ -1547,7 +1645,9 @@ export class BrowserPanel {
       );
       target.append(warning);
     }
-    for (const draft of this.globalDrafts?.dirtyDrafts() ?? []) {
+    for (const draft of this.activeScope === "global"
+      ? (this.globalDrafts?.dirtyDrafts() ?? [])
+      : []) {
       if (!draft.error) continue;
       const warning = this.el("div", "browser-draft-error");
       warning.append(
@@ -1719,11 +1819,15 @@ export class BrowserPanel {
   }
 
   private requireImportReady(): void {
+    if (this.activeScope !== "current")
+      throw new Error("Choose Current to import into the page note.");
     if (this.importing)
       throw new Error("An import is already in progress. Wait for its result.");
   }
 
   private async appendMarkdown(markdown: string): Promise<void> {
+    if (this.activeScope !== "current")
+      throw new Error("Choose Current to import into the page note.");
     if (this.editor && this.noteId) {
       const length = this.editor.view.state.doc.length;
       const draft = this.drafts!.get(this.noteId);

@@ -174,6 +174,20 @@ function mount(api: BrowserApi) {
   return { root, panel };
 }
 function button(root: HTMLElement, label: string) {
+  if (
+    [
+      "Pin note",
+      "Unpin note",
+      "Import current content",
+      "Import Markdown file",
+      "Export Markdown file",
+      "AIC guide",
+    ].includes(label) &&
+    !root.querySelector(`button[aria-label="${label}"]`)
+  )
+    root
+      .querySelector<HTMLButtonElement>('button[aria-label="More options"]')!
+      .click();
   return root.querySelector<HTMLButtonElement>(
     `button[aria-label="${label}"]`,
   )!;
@@ -195,6 +209,80 @@ afterEach(() => {
 });
 
 describe("browser panel", () => {
+  it("switches only scope presentation while retaining Current text, selection and Undo", async () => {
+    const fake = fixture({
+      notes: [note("https://example.com/a", "Original")],
+    });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    const view = editor(root);
+    view.dispatch({
+      changes: { from: 8, insert: " edited" },
+      selection: { anchor: 3 },
+    });
+    button(root, "Shared").click();
+    await vi.waitFor(() =>
+      expect(
+        root.querySelector("[role=tab][aria-selected=true]")?.textContent,
+      ).toBe("Shared"),
+    );
+    expect(
+      root.querySelector(
+        '.browser-toolbar [aria-label="Import current content"]',
+      ),
+    ).toBeNull();
+    expect(
+      root.querySelector<HTMLElement>(
+        '.browser-scope-panel[data-scope="current"]',
+      )!.inert,
+    ).toBe(true);
+    button(root, "Global").click();
+    await vi.waitFor(() =>
+      expect(
+        root.querySelector("[role=tab][aria-selected=true]")?.textContent,
+      ).toBe("Global"),
+    );
+    button(root, "Current").click();
+    await vi.waitFor(() =>
+      expect(
+        root.querySelector("[role=tab][aria-selected=true]")?.textContent,
+      ).toBe("Current"),
+    );
+    expect(editor(root)).toBe(view);
+    expect(view.state.selection.main.anchor).toBe(3);
+    expect(view.state.doc.toString()).toBe("Original edited");
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe("Original");
+  });
+
+  it("keeps a failed Current save visible instead of activating another scope", async () => {
+    const fake = fixture({
+      notes: [note("https://example.com/a", "Original")],
+    });
+    fake.override((message) =>
+      message.type === "save"
+        ? Promise.reject(new Error("Synthetic failed save"))
+        : undefined,
+    );
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    const view = editor(root);
+    view.dispatch({ changes: { from: 8, insert: " recoverable" } });
+    button(root, "Shared").click();
+    await vi.waitFor(() =>
+      expect(root.textContent).toContain("Scope change paused"),
+    );
+    expect(
+      root.querySelector("[role=tab][aria-selected=true]")?.textContent,
+    ).toBe("Current");
+    expect(
+      root.querySelector<HTMLElement>(
+        '.browser-scope-panel[data-scope="current"]',
+      )!.hidden,
+    ).toBe(false);
+    expect(view.state.doc.toString()).toBe("Original recoverable");
+  });
+
   it("pins the editor, links only pages typed about, and unpins to the active page", async () => {
     const fake = fixture({
       notes: [note("https://example.com/a", "Research")],
@@ -208,6 +296,10 @@ describe("browser panel", () => {
         "true",
       ),
     );
+    expect(root.querySelector(".browser-page-origin")?.textContent).toContain(
+      "Pinned",
+    );
+    expect(root.querySelectorAll(".browser-toolbar button")).toHaveLength(3);
     const source = {
       tabId: 8,
       windowId: 2,

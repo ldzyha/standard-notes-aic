@@ -32,6 +32,15 @@ Host differences are intentional when required by storage, permissions, document
 ownership or platform UI. Share the mechanism; do not erase those boundaries to
 make the source files look alike.
 
+Before every AIC release, refresh the authoring knowledge from the current
+`../core` instructions and document-writing guides. Do not rely only on memory or
+a copied prompt. Compare the [current DDK writing instructions](https://ddk.dzyha.com/prompt.html)
+when the local Core checkout differs from published DDK. Record the source
+revision or reviewed documents in release verification, and resolve relevant
+drift before publication. Preserve AIC Markdown, fenced `aic` blocks, and host
+storage boundaries when applying DDK's writing method. VS Code follows this same
+pre-release rule through its reference to this guide.
+
 Documentation follows `DOCUMENTATION.md`: state simple answers directly, and keep
 a question heading only when it helps explain a more complex answer. Choose the
 smallest format that preserves the answer and its material conditions.

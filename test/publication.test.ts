@@ -24,9 +24,10 @@ describe("publication metadata", () => {
   });
 
   it("uses the unified installation guide as the public release notes", () => {
-    expect(releaseInstall).toContain("https://dzyha.com/");
-    expect(releaseInstall).toContain("aic-notes-55.1.0.vsix");
-    expect(releaseInstall).toContain("aic-browser-chromium-0.10.0.zip");
+    expect(releaseInstall).toContain("https://aic.dzyha.com/releases");
+    expect(releaseInstall).toContain("https://aic.dzyha.com/terms");
+    expect(releaseInstall).toContain("aic-notes-56.4.4.vsix");
+    expect(releaseInstall).toContain("aic-browser-chromium-0.11.0.zip");
     expect(releaseInstall).toContain("## English");
     expect(releaseInstall).toContain("## Українська");
     expect(releaseWorkflow).toContain("--notes-file RELEASE_INSTALL.md");
@@ -70,17 +71,20 @@ describe("publication metadata", () => {
   });
 
   it("documents the current R.F.B release and packages usage and UI contracts", () => {
-    expect(manifest.version).toBe("47.1.0");
-    expect(browserManifest.version).toBe("0.10.0");
-    expect(changelog).toContain(`## ${manifest.version} — 2026-09-29`);
+    expect(manifest.version).toBe("48.4.4");
+    expect(browserManifest.version).toBe("0.11.0");
+    expect(changelog).toContain(`## ${manifest.version} — 2026-10-01`);
     expect(changelog).toContain(
-      "Release sequence 47 · 1 feature outcome · 0 fixed-bug outcomes",
+      "Release sequence 48 · 4 feature outcomes · 4 fixed-bug outcomes",
     );
     expect(changelog).toContain(
-      "An unfinished fenced code block stays editable",
+      "### F02 — Focused navigation for files, scopes and phones",
     );
-    expect(marketplaceHowto).toContain("aic-browser-chromium-0.10.0.zip");
-    expect(marketplaceHowto).toContain("Standard Notes AIC **47.1.0**");
+    expect(changelog).toContain(
+      "### F04 — Release verification is ready for opt-in publishing",
+    );
+    expect(marketplaceHowto).toContain("aic-browser-chromium-0.11.0.zip");
+    expect(marketplaceHowto).toContain("Standard Notes AIC **48.4.4**");
     expect(marketplaceHowto).toContain("## English");
     expect(marketplaceHowto).toContain("## Українська");
     expect(readme).toContain("## Slash templates");

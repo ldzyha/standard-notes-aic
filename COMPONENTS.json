@@ -1,6 +1,6 @@
 {
   "registryVersion": 1,
-  "asOf": "2026-09-15",
+  "asOf": "2026-09-30",
   "status": {
     "currentFacts": "The shared runtime registry and base geometry exist in src/core/ui-system.*. Button is adopted by shared toolbar/actions and parts of the browser; card and field are adopted by the shared AIC renderer; toolbar, menu, notice, and tree are partially adopted in the browser. Most legacy selectors remain active and required.",
     "approvedDirection": "The user approved one cross-host design system using BEM elements and explicit modifiers for Standard Notes, Chromium, and VS Code. The eight current IDs are the implemented technical baseline accepted in root review, not names separately prescribed by the user.",
@@ -21,7 +21,7 @@
     {
       "id": "button",
       "purpose": "Named native action control with consistent geometry, focus, disabled state, variant, size, and optional icon. Icon-only copy feedback keeps the accessible action name stable, announces status, briefly shows a success checkmark or failure cross, and restores its original icon. Unsaved changes accent and softly pulse only the save button, with a static reduced-motion cue.",
-      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "hosts": ["standard-notes", "standalone", "browser", "vscode", "pwa"],
       "bem": {
         "block": "aic-button",
         "elements": ["icon", "label"],
@@ -63,8 +63,8 @@
     },
     {
       "id": "toolbar",
-      "purpose": "A compact wrapping group of context title and actions that avoids horizontal scrolling and retains 44 px coarse-pointer targets; behavior, optional local-guide placement, and save ownership remain with the host.",
-      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "purpose": "A compact wrapping group of context title and actions that avoids horizontal scrolling and retains 44 px coarse-pointer targets; behavior, optional local-guide placement, and save ownership remain with the host. The PWA places optional supported local AI in the existing compact editor toolbar and moves save status/retry to its note header.",
+      "hosts": ["standard-notes", "standalone", "browser", "vscode", "pwa"],
       "bem": {
         "block": "aic-toolbar",
         "elements": ["group", "title", "actions"],
@@ -90,7 +90,7 @@
     },
     {
       "id": "menu",
-      "purpose": "Bounded contextual choice surface with title, items, separators, hints, focus entry, dismissal, and host-owned action callbacks.",
+      "purpose": "Bounded contextual choice surface with title, items, separators, hints, focus entry, dismissal, and host-owned action callbacks. PWA document, workspace, Open and Help sheets use shared native actions with host-owned placement, focus restoration and lifecycle cleanup.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "bem": {
         "block": "aic-menu",
@@ -119,7 +119,7 @@
     {
       "id": "notice",
       "purpose": "Non-secret status, success, warning, progress, or actionable error feedback with optional actions and accessible live-region semantics.",
-      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "hosts": ["standard-notes", "standalone", "browser", "vscode", "pwa"],
       "bem": {
         "block": "aic-notice",
         "elements": ["message", "actions"],
@@ -149,7 +149,7 @@
     {
       "id": "field",
       "purpose": "Labelled value/control unit with validation, masking, independently typed parts, help, error, and accessible action relationships. Composite AIC rows give labels and typed values natural width, wrap whole items before breaking long text, use compact lock-only password copy targets, and attach creation controls to the final part. Short card/TOTP values stay intact; unlabelled rows omit the label and coarse-pointer controls retain 44 px targets. Icon-only copy targets show temporary success checkmarks with accessible status; subtle gray row alternation supports scanning.",
-      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "hosts": ["standard-notes", "standalone", "browser", "vscode", "pwa"],
       "bem": {
         "block": "aic-field",
         "elements": [
@@ -194,7 +194,7 @@
     {
       "id": "card",
       "purpose": "Structured content surface with header, title, body, and actions for AIC fields, diagrams, errors, and compact read-only previews. AIC sections use larger headings and distinct neutral group backgrounds to separate their rows visually. Details keep wrapping summary titles and source actions separate, with inset child previews and one visible parent boundary.",
-      "hosts": ["standard-notes", "standalone", "browser", "vscode"],
+      "hosts": ["standard-notes", "standalone", "browser", "vscode", "pwa"],
       "bem": {
         "block": "aic-card",
         "elements": [
@@ -242,7 +242,7 @@
     {
       "id": "tree",
       "purpose": "Hierarchical or ordered navigation metadata with groups, items, rows, labels, and actions; it never owns note content.",
-      "hosts": ["standard-notes", "standalone", "browser"],
+      "hosts": ["standard-notes", "standalone", "browser", "pwa"],
       "bem": {
         "block": "aic-tree",
         "elements": ["group", "item", "row", "label", "actions"],
@@ -274,18 +274,27 @@
     },
     {
       "id": "context",
-      "purpose": "Expose the current editing identity and its non-owning shared, ancestor, source, or path context without merging content or persistence identities.",
+      "purpose": "Expose the current editing identity and its non-owning shared, ancestor, source, or path context without merging content or persistence identities. Mutually exclusive accessible scope tabs keep one panel visible and focusable, support manual keyboard activation and defer transitions to the host save barrier.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "bem": {
         "block": "aic-context",
-        "elements": ["title", "path", "item", "link", "current"],
-        "modifiers": ["compact", "empty", "editing"]
+        "elements": [
+          "title",
+          "path",
+          "item",
+          "link",
+          "current",
+          "tab",
+          "panel"
+        ],
+        "modifiers": ["compact", "empty", "editing", "tabs"]
       },
       "canonicalOwners": [
         "standard-notes-aic/src/core/ui-system.js",
         "standard-notes-aic/src/core/ui-system.css",
         "standard-notes-aic/src/browser/panel.ts",
-        "aic-notes/src/notes/relationships.js"
+        "aic-notes/src/notes/relationships.js",
+        "standard-notes-aic/src/core/scope-tabs.js"
       ],
       "legacyHooks": {
         "shared": [".cm-aic-properties-metadata", ".cm-aic-note-relations"],

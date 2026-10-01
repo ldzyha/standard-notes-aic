@@ -1,7 +1,10 @@
 node_modules/
 dist/
 dist-browser/
+dist-pwa/
 coverage/
 *.log
 .release/
 *.zip
+
+.firebase/

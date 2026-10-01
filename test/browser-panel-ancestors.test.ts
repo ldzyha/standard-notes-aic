@@ -153,6 +153,10 @@ function pageView(root: HTMLElement) {
   )!;
 }
 function press(root: ParentNode, label: RegExp) {
+  if (label.test("Export Markdown file"))
+    root
+      .querySelector<HTMLButtonElement>('button[aria-label="More options"]')
+      ?.click();
   const button = [...root.querySelectorAll<HTMLButtonElement>("button")].find(
     (candidate) =>
       label.test(
@@ -171,19 +175,28 @@ afterEach(() => {
 });
 
 describe("saved page ancestors in the browser panel", () => {
-  it("places metadata-only ancestor links between domain sharing and the current editor", async () => {
+  it("places metadata-only ancestor links before the editor inside Current only", async () => {
     const fake = fixture();
     const root = await mount(fake.api);
     const content = root.querySelector(".browser-content")!;
-    const ordered = [
-      "browser-shared-host",
-      "browser-shared-host",
-      "browser-page-ancestors",
-      "browser-note",
-    ];
-    ordered.forEach((name, index) =>
-      expect(content.children[index]?.classList.contains(name)).toBe(true),
-    );
+    const current = content.querySelector<HTMLElement>(
+      '.browser-scope-panel[data-scope="current"]',
+    )!;
+    expect(current.hidden).toBe(false);
+    expect(
+      [...current.children].map((child) => child.className.split(" ")[0]),
+    ).toEqual(["browser-page-ancestors", "browser-note"]);
+    expect(current.querySelector(".browser-shared-host")).toBeNull();
+    expect(
+      content.querySelector<HTMLElement>(
+        '.browser-scope-panel[data-scope="shared"]',
+      )!.hidden,
+    ).toBe(true);
+    expect(
+      content.querySelector<HTMLElement>(
+        '.browser-scope-panel[data-scope="global"]',
+      )!.hidden,
+    ).toBe(true);
     const ancestors = content.querySelector(".browser-page-ancestors")!;
     expect(
       [...ancestors.querySelectorAll("li")].map((item) => item.textContent),
