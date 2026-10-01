@@ -82,7 +82,9 @@ describe("publication metadata", () => {
       "### B02 — Terms routes reach the canonical public page",
     );
     expect(marketplaceHowto).toContain("aic-browser-chromium-0.11.1.zip");
-    expect(marketplaceHowto).toContain("Standard Notes AIC **49.1.2**");
+    expect(marketplaceHowto).toContain(
+      `[Standard Notes AIC ${manifest.version}](https://github.com/ldzyha/standard-notes-aic/releases/tag/v${manifest.version})`,
+    );
     expect(marketplaceHowto).toContain("## English");
     expect(marketplaceHowto).toContain("## Українська");
     expect(readme).toContain("## Slash templates");
