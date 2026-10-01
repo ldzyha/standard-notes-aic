@@ -1,5 +1,7 @@
 # How to write a useful document
 
+> **Public writing guide:** <https://aic.dzyha.com/how-to>
+
 [Українська](/how-to/uk/) · [Open AIC Notes](/) · [Terms and privacy](/terms) · [Releases and installation](/releases)
 
 Use the [Document Design Kit writing prompt](https://ddk.dzyha.com/prompt.html)

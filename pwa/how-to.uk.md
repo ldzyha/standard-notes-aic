@@ -1,5 +1,7 @@
 # Як написати корисний документ
 
+> **Публічний посібник з написання:** <https://aic.dzyha.com/how-to/uk/>
+
 [English](/how-to) · [Відкрити AIC Notes](/) · [Умови та приватність](/terms/uk/) · [Випуски та встановлення](/releases/uk/)
 
 Скористайтеся [письмовим промптом Document Design Kit](https://ddk.dzyha.com/prompt.html),

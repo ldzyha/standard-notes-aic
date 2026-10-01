@@ -26,8 +26,8 @@ describe("publication metadata", () => {
   it("uses the unified installation guide as the public release notes", () => {
     expect(releaseInstall).toContain("https://aic.dzyha.com/releases");
     expect(releaseInstall).toContain("https://aic.dzyha.com/terms");
-    expect(releaseInstall).toContain("aic-notes-56.4.5.vsix");
-    expect(releaseInstall).toContain("aic-browser-chromium-0.11.0.zip");
+    expect(releaseInstall).toContain("aic-notes-57.1.2.vsix");
+    expect(releaseInstall).toContain("aic-browser-chromium-0.11.1.zip");
     expect(releaseInstall).toContain("## English");
     expect(releaseInstall).toContain("## Українська");
     expect(releaseWorkflow).toContain("--notes-file RELEASE_INSTALL.md");
@@ -71,20 +71,18 @@ describe("publication metadata", () => {
   });
 
   it("documents the current R.F.B release and packages usage and UI contracts", () => {
-    expect(manifest.version).toBe("48.4.5");
-    expect(browserManifest.version).toBe("0.11.0");
+    expect(manifest.version).toBe("49.1.2");
+    expect(browserManifest.version).toBe("0.11.1");
     expect(changelog).toContain(`## ${manifest.version} — 2026-10-01`);
     expect(changelog).toContain(
-      "Release sequence 48 · 4 feature outcomes · 5 fixed-bug outcomes",
+      "Release sequence 49 · 1 feature outcome · 2 fixed-bug outcomes",
     );
+    expect(changelog).toContain("### F01 — A shorter mobile writing workflow");
     expect(changelog).toContain(
-      "### F02 — Focused navigation for files, scopes and phones",
+      "### B02 — Terms routes reach the canonical public page",
     );
-    expect(changelog).toContain(
-      "### F04 — Release verification is ready for opt-in publishing",
-    );
-    expect(marketplaceHowto).toContain("aic-browser-chromium-0.11.0.zip");
-    expect(marketplaceHowto).toContain("Standard Notes AIC **48.4.5**");
+    expect(marketplaceHowto).toContain("aic-browser-chromium-0.11.1.zip");
+    expect(marketplaceHowto).toContain("Standard Notes AIC **49.1.2**");
     expect(marketplaceHowto).toContain("## English");
     expect(marketplaceHowto).toContain("## Українська");
     expect(readme).toContain("## Slash templates");

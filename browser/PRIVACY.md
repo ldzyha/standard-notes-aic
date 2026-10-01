@@ -1,5 +1,7 @@
 # AIC page notes: local data handling
 
+> **Public AIC terms and privacy:** <https://aic.dzyha.com/terms>
+
 [English](PRIVACY.md) · [Українська](PRIVACY.uk.md)
 
 This policy describes the encrypted page-notes panel of the experimental Chrome

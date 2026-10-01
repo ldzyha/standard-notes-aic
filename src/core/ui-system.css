@@ -52,6 +52,15 @@
   border-color: transparent;
   background: transparent;
 }
+.aic-button--primary {
+  border-color: transparent;
+  background: var(--aic-accent, Highlight);
+  color: var(--aic-on-accent, HighlightText);
+}
+.aic-button__label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
 .aic-button--danger {
   color: var(--aic-danger, #b92337);
 }
@@ -94,6 +103,13 @@
     in srgb,
     var(--aic-fg, CanvasText) 8%,
     var(--aic-bg, Canvas)
+  );
+}
+.aic-button--primary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: color-mix(
+    in srgb,
+    var(--aic-accent, Highlight) 88%,
+    var(--aic-fg, CanvasText)
   );
 }
 .aic-button:focus-visible,

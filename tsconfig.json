@@ -16,5 +16,11 @@
     "skipLibCheck": true,
     "types": ["vite/client", "vitest/globals"]
   },
-  "include": ["src", "test", "vite.config.ts", "eslint.config.js"]
+  "include": [
+    "src",
+    "test",
+    "scripts/site-pages.d.mts",
+    "vite.config.ts",
+    "eslint.config.js"
+  ]
 }

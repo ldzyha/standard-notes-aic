@@ -11,6 +11,7 @@ export type UiBlock =
 export type UiModifiers = {
   button:
     | "default"
+    | "primary"
     | "ghost"
     | "danger"
     | "normal"
@@ -76,7 +77,8 @@ export function createUiButton(
   options: Readonly<{
     label: string;
     text?: string;
-    variant?: "default" | "ghost" | "danger";
+    icon?: string;
+    variant?: "default" | "primary" | "ghost" | "danger";
     size?: "compact" | "normal" | "touch";
     iconOnly?: boolean;
   }>,

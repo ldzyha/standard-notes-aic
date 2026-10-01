@@ -18,6 +18,14 @@ const ROUTES = {
   "how-to.md": "/how-to",
   "how-to.uk.md": "/how-to/uk/",
 };
+const LEGACY_REDIRECTS = [
+  ["terms/index.html", "/terms"],
+  ["terms/uk/index.html", "/terms/uk/"],
+  ["releases/index.html", "/releases"],
+  ["releases/uk/index.html", "/releases/uk/"],
+  ["how-to/index.html", "/how-to"],
+  ["how-to/uk/index.html", "/how-to/uk/"],
+];
 const MARKUP = new Set([
   "HeaderMark",
   "EmphasisMark",
@@ -324,4 +332,25 @@ export async function buildPublicPages(root) {
     }
   }
   return pages;
+}
+
+/**
+ * GitHub Pages hosts the Standard Notes editor and its `ext.json` manifest.
+ * Its old documentation paths must lead to the public AIC site instead of
+ * presenting a second privacy or release surface.
+ */
+export function buildGitHubLegacyRedirects() {
+  return new Map(
+    LEGACY_REDIRECTS.map(([fileName, path]) => {
+      const target = `${ORIGIN}${path}`;
+      const locale = path.includes("/uk/") ? "uk" : "en";
+      const title = locale === "uk" ? "Перехід до AIC" : "Redirecting to AIC";
+      const link =
+        locale === "uk" ? "Відкрити сторінку AIC" : "Open the AIC page";
+      return [
+        fileName,
+        `<!doctype html>\n<html lang="${locale}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta http-equiv="refresh" content="0;url=${target}"><link rel="canonical" href="${target}"><title>${title}</title></head><body><p><a href="${target}">${link}</a></p></body></html>\n`,
+      ];
+    }),
+  );
 }

@@ -20,13 +20,14 @@
   "components": [
     {
       "id": "button",
-      "purpose": "Named native action control with consistent geometry, focus, disabled state, variant, size, and optional icon. Icon-only copy feedback keeps the accessible action name stable, announces status, briefly shows a success checkmark or failure cross, and restores its original icon. Unsaved changes accent and softly pulse only the save button, with a static reduced-motion cue.",
+      "purpose": "Named native action control with consistent geometry, focus, disabled state, variant, size, and optional custom SVG mask icon with a separate text label. Primary actions use the semantic accent and on-accent tokens. Icon-only copy feedback keeps the accessible action name stable, announces status, briefly shows a success checkmark or failure cross, and restores its original icon. Unsaved changes accent and softly pulse only the save button, with a static reduced-motion cue.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode", "pwa"],
       "bem": {
         "block": "aic-button",
         "elements": ["icon", "label"],
         "modifiers": [
           "default",
+          "primary",
           "ghost",
           "danger",
           "normal",

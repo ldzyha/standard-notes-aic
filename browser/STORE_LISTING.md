@@ -2,6 +2,16 @@
 
 [English](#english) · [Українська](#українська)
 
+## Current dashboard check — October 1, 2026
+
+The existing Chrome item `mokndlkbkhnemhhcahddhdgihgdckbhp` is published at
+**0.9.3**. Its saved update draft now uses [AIC](https://aic.dzyha.com/) as the
+homepage and [Terms and privacy](https://aic.dzyha.com/terms) as the privacy-policy
+URL. The bilingual description also points to the canonical English and
+Ukrainian Terms pages. Saving a draft is separate from submitting an update or
+obtaining store approval. The September record below describes the earlier
+submission and is retained as history.
+
 ## English
 
 ### Submission status — September 24, 2026

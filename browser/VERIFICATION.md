@@ -626,3 +626,18 @@ were committed at that revision. The public prompt matched the reviewed source,
 SHA-256 `d3c8f51c98ea8d5b940f15d47bb7b758d097c9abb062e2a22e3820eacd08b1ca`.
 The older sibling Core block-writing prompt was not treated as the current DDK
 contract. The updated AIC guides preserve Markdown and fenced `aic` fields.
+
+# Mobile workflow and Terms routing — October 1, 2026
+
+The release refresh reviewed the current local DDK
+`playground/document/DOCUMENT-GUIDE.en.md` and the live
+[DDK writing prompt](https://ddk.dzyha.com/prompt.html). The local source remains
+the `c152359`-based worktree with authoring changes. Both describe a reader's next
+action, a meaningful title, the necessary questions and the first sufficient
+document. This UI change preserves AIC Markdown and fenced `aic` blocks.
+
+Synthetic browser checks use a separate localhost origin. They cover direct
+note creation, a 320-pixel landing page, the 390-pixel editor, the native Notes
+drawer and returning to the same saved draft. Production user notes are not
+used as test fixtures. Store draft link changes are verified independently of
+package publication and approval.

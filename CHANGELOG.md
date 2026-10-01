@@ -2,6 +2,35 @@
 
 [English](CHANGELOG.md) · [Українська](CHANGELOG.uk.md)
 
+## 49.1.2 — 2026-10-01
+
+Release sequence 49 · 1 feature outcome · 2 fixed-bug outcomes. Coordinates
+AIC Notes for VS Code 57.1.2, experimental browser 0.11.1 and shared core 7.5.1.
+
+### F01 — A shorter mobile writing workflow
+
+The PWA starts a local note directly from **New note**. **Open files** and
+**Open folder** are direct actions. A mobile Notes drawer reuses the existing
+list and editor, keeping text, selection and Undo while browsing. The title
+opens Rename; compact header actions expose browsing, a new note and note options.
+VS Code bundles the coordinated shared UI and portable runtime changes.
+
+### B01 — Compact controls and bounded menus
+
+Shared outline icons and touch targets keep mobile controls readable. Primary
+writing actions stay visible; secondary workspace actions use a contextual menu.
+The editor shows a concise save state with the full destination in accessible
+text and retains a recoverable draft when saving fails.
+
+### B02 — Terms routes reach the canonical public page
+
+Terms links use **aic.dzyha.com/terms**. Redirects preserve the public terms entry
+point across release hosting, without changing the document storage contract.
+
+These are prepared release inputs. GitHub assets, checksums, hosted manifests
+and deployment need independent verification. Store submissions and approval
+are separate; this changelog does not claim a new Marketplace or browser-store approval.
+
 ## 48.4.5 — 2026-10-01
 
 Release sequence 48 · 4 feature outcomes · 5 fixed-bug outcomes. Coordinates

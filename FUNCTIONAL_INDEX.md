@@ -697,10 +697,12 @@ activation; usage and setup are in [extension updates](pwa/EXTENSION_UPDATES.md)
 
 ## Mobile Notes navigation
 
-Mobile shows the searchable Notes browser or a full-height editor. Back to notes,
-filtering, contextual menus and responsive layout changes retain the same mounted
-editor, selection and Undo history. New note creates a unique `.md` draft without
-a naming dialog. Note options owns validated Rename note, advanced relative path,
+Mobile shows a full-height editor with a modal Notes drawer that reuses the
+existing sidebar. Browsing, filtering, contextual menus and responsive layout
+changes retain the mounted editor, selection and Undo history. New note creates
+a unique `.md` draft in one action, including the first local workspace. Open files
+and Open folder are direct actions. Compact SVG buttons retain native accessible
+names and 44-pixel touch targets; Escape and Back restore the editor. Note options owns validated Rename note, advanced relative path,
 Export Markdown and details; Workspace options owns additions, full export,
 protection, Close/Lock and separate removal. Local autosave, save boundaries and
 Retry invoke the existing save owner and revision checks. Saved on this device

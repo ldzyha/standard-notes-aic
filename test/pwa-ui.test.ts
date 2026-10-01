@@ -160,7 +160,7 @@ function control(label: string): HTMLButtonElement {
   );
   if (!found && !["Note options", "Workspace options"].includes(label)) {
     const menu = opens.includes(label)
-      ? "Open notes"
+      ? "Workspace options"
       : [
             "Rename note",
             "Advanced note path",
@@ -452,9 +452,7 @@ describe("PWA UI draft and lock ownership", () => {
     });
     control("Open encrypted file").click();
     await idle();
-    expect(document.querySelector(".pwa-status")?.textContent).toBe(
-      "Saved to encrypted file",
-    );
+    expect(document.querySelector(".pwa-status")?.textContent).toBe("Saved");
     const reopened = parsePayload(
       (await unlockVault(JSON.parse(ciphertext), password)).plaintext,
     );
@@ -488,9 +486,7 @@ describe("PWA UI draft and lock ownership", () => {
     release!();
     await idle();
     expect(editorField().readOnly).toBe(false);
-    expect(document.querySelector(".pwa-status")?.textContent).toBe(
-      "Saved to encrypted file",
-    );
+    expect(document.querySelector(".pwa-status")?.textContent).toBe("Saved");
     const payload = parsePayload(
       (await unlockVault(JSON.parse(ciphertext), password)).plaintext,
     );
@@ -521,9 +517,7 @@ describe("PWA UI draft and lock ownership", () => {
     if (saved?.kind !== "workspace")
       throw new Error("Expected saved workspace");
     expect(saved.files.map((file) => file.path)).toEqual(["old.md"]);
-    expect(document.querySelector(".pwa-status")?.textContent).toBe(
-      "Unsaved changes",
-    );
+    expect(document.querySelector(".pwa-status")?.textContent).toBe("Unsaved");
   });
 
   it("exports acknowledged shared-file content when the secondary device cache failed", async () => {
@@ -543,9 +537,7 @@ describe("PWA UI draft and lock ownership", () => {
     expect(document.querySelector(".pwa-notice")?.textContent).toContain(
       "could not store",
     );
-    expect(document.querySelector(".pwa-status")?.textContent).toBe(
-      "Saved to encrypted file",
-    );
+    expect(document.querySelector(".pwa-status")?.textContent).toBe("Saved");
     const payload = await exportedPayload();
     expect(fileText(payload.files[0]!)).toBe("# Acknowledged file data");
     const saved = (await state.repository!.list())[0]!;
@@ -725,9 +717,7 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     expect(document.querySelectorAll(".pwa-files__item")).toHaveLength(1);
     expect(editorField()).toBe(editor);
     expect(editor.value).toBe("# Draft preserved while browsing");
-    expect(document.querySelector(".pwa-status")?.textContent).toBe(
-      "Unsaved changes",
-    );
+    expect(document.querySelector(".pwa-status")?.textContent).toBe("Unsaved");
     control("Open project/note-249.md").click();
     await idle();
     expect(editorField().value).toBe("Note 249");
@@ -773,9 +763,7 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     expect(editorField()).toBe(editor);
     expect(editor.value).toBe("# Existing unsaved draft");
     expect(editor.readOnly).toBe(false);
-    expect(document.querySelector(".pwa-status")?.textContent).toBe(
-      "Unsaved changes",
-    );
+    expect(document.querySelector(".pwa-status")?.textContent).toBe("Unsaved");
     expect(await state.repository!.listLocal()).toHaveLength(1);
     expect(
       fileText((await state.repository!.listLocal())[0]!.payload.files[0]!),
@@ -939,6 +927,129 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     expect(fileText(record.payload.files[0]!)).toBe("");
     expect(editorField().readOnly).toBe(false);
   });
+  it("starts one editable local note directly and exposes file and folder opening without a menu", async () => {
+    const landing = document.querySelector(".pwa-actions")!;
+    expect(
+      [...landing.querySelectorAll("button")].map((button) =>
+        button.getAttribute("aria-label"),
+      ),
+    ).toEqual(["New note", "Open files", "Open folder", "Workspace options"]);
+    expect(document.querySelector('[aria-label="Open notes"]')).toBeNull();
+    expect(
+      document.querySelector(
+        '.pwa-note-header__title[aria-label="Rename note"]',
+      ),
+    ).toBeNull();
+    landing
+      .querySelector<HTMLButtonElement>('[aria-label="New note"]')!
+      .click();
+    await idle();
+    const workspaces = await state.repository!.listLocal();
+    expect(workspaces).toHaveLength(1);
+    expect(workspaces[0]!.payload.files).toHaveLength(1);
+    expect(fileText(workspaces[0]!.payload.files[0]!)).toBe("");
+    expect(editorField().readOnly).toBe(false);
+    expect(document.querySelector("dialog")).toBeNull();
+    expect(document.querySelector("main")?.dataset.hasNote).toBe("true");
+    const status = document.querySelector<HTMLElement>(".pwa-status")!;
+    expect(status.textContent).toBe("Saved");
+    expect(status.dataset.state).toBe("saved");
+    expect(status.getAttribute("aria-label")).toBe("Saved on this device");
+    expect(status.title).toBe("Saved on this device");
+    expect(
+      document.querySelectorAll(
+        '.pwa-browser-actions [aria-label="Open files"], .pwa-browser-actions [aria-label="Open folder"]',
+      ),
+    ).toHaveLength(2);
+  });
+
+  it("moves the single notes browser into a modal and restores it on Escape and browser Back without replacing the editor", async () => {
+    control("New note").click();
+    await idle();
+    const sidebar = document.querySelector(".pwa-sidebar")!;
+    const field = editorField();
+    type("Retained selection");
+    field.setSelectionRange(2, 7);
+    const origin = control("Browse notes");
+    origin.focus();
+    origin.click();
+    const drawer =
+      document.querySelector<HTMLDialogElement>(".pwa-notes-drawer")!;
+    expect(drawer.open).toBe(true);
+    expect(drawer.querySelector(".pwa-sidebar")).toBe(sidebar);
+    expect(document.querySelector(".pwa-layout > .pwa-sidebar")).toBeNull();
+    expect(document.querySelectorAll(".synthetic-editor")).toHaveLength(1);
+    expect(document.querySelector("main")?.dataset.screen).toBe("editor");
+    drawer.dispatchEvent(new Event("cancel", { cancelable: true }));
+    await vi.waitFor(() =>
+      expect(history.state?.aicNotesDrawer).not.toBe(true),
+    );
+    expect(document.querySelector(".pwa-layout > .pwa-sidebar")).toBe(sidebar);
+    expect(document.activeElement).toBe(origin);
+    expect(editorField()).toBe(field);
+    expect(field.selectionStart).toBe(2);
+    expect(field.selectionEnd).toBe(7);
+    origin.click();
+    history.back();
+    await vi.waitFor(() =>
+      expect(document.querySelector(".pwa-notes-drawer")).toBeNull(),
+    );
+    expect(document.querySelector(".pwa-layout > .pwa-sidebar")).toBe(sidebar);
+    expect(editorField()).toBe(field);
+    expect(document.querySelector("main")?.dataset.screen).toBe("editor");
+  });
+
+  it("closes the Notes drawer before Workspace options and returns focus to its editor Back control", async () => {
+    control("New note").click();
+    await idle();
+    const back = control("Browse notes");
+    back.focus();
+    back.click();
+    expect(
+      document.querySelector<HTMLDialogElement>(".pwa-notes-drawer")?.open,
+    ).toBe(true);
+
+    control("Workspace options").click();
+    await idle();
+    const sheet = document.querySelector<HTMLDialogElement>(".pwa-sheet")!;
+    expect(sheet.open).toBe(true);
+    expect(document.querySelector(".pwa-notes-drawer")).toBeNull();
+    expect(document.querySelectorAll("dialog[open]")).toHaveLength(1);
+    await vi.waitFor(() =>
+      expect(history.state?.aicNotesDrawer).not.toBe(true),
+    );
+
+    control("Close menu").click();
+    expect(document.querySelector(".pwa-sheet")).toBeNull();
+    expect(document.activeElement).toBe(back);
+  });
+
+  it("returns a failed selection save to the unchanged editor with its draft and Retry", async () => {
+    control("New note").click();
+    await idle();
+    control("New note").click();
+    await idle();
+    const field = editorField();
+    const id = field.dataset.documentId;
+    type("Recoverable current draft");
+    state.failCache = true;
+    control("Browse notes").click();
+    expect(
+      document.querySelector<HTMLDialogElement>(".pwa-notes-drawer")?.open,
+    ).toBe(true);
+    control("Open note.md").click();
+    await idle();
+    expect(document.querySelector(".pwa-notes-drawer")).toBeNull();
+    expect(editorField()).toBe(field);
+    expect(field.dataset.documentId).toBe(id);
+    expect(field.value).toBe("Recoverable current draft");
+    expect(field.readOnly).toBe(false);
+    expect(control("Retry save").hidden).toBe(false);
+    expect(
+      document.querySelector<HTMLElement>(".pwa-status")?.dataset.state,
+    ).toBe("failed");
+  });
+
   it("preserves the mounted draft and selection through browsing, filtering, menus and rename", async () => {
     control("New workspace").click();
     await idle();
@@ -949,9 +1060,12 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     field.setSelectionRange(2, 8);
     field.scrollTop = 20;
     const id = field.dataset.documentId;
-    control("Back to notes").click();
+    control("Browse notes").click();
     await idle();
-    expect(document.querySelector("main")?.dataset.screen).toBe("browser");
+    expect(document.querySelector("main")?.dataset.screen).toBe("editor");
+    expect(
+      document.querySelector<HTMLDialogElement>(".pwa-notes-drawer")?.open,
+    ).toBe(true);
     const search =
       document.querySelector<HTMLInputElement>(".pwa-files__filter")!;
     search.value = "note";
@@ -1054,9 +1168,7 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     control("Retry save").click();
     await idle();
     expect(editorField()).toBe(field);
-    expect(document.querySelector(".pwa-status")?.textContent).toBe(
-      "Saved on this device",
-    );
+    expect(document.querySelector(".pwa-status")?.textContent).toBe("Saved");
     expect(
       fileText((await state.repository!.listLocal())[0]!.payload.files[0]!),
     ).toBe("Recoverable");

@@ -1,5 +1,7 @@
 # Terms and privacy
 
+> **Public terms and privacy:** <https://aic.dzyha.com/terms>
+
 [Українська](/terms/uk/) · [Open AIC Notes](/) · [Releases and installation](/releases)
 
 This page describes AIC's data handling and the limits of local storage. The

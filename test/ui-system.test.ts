@@ -53,6 +53,36 @@ describe("shared UI primitives", () => {
     expect(remove.classList.contains("aic-button--danger")).toBe(true);
   });
 
+  it("renders decorative SVG mask icons without replacing accessible names or text", () => {
+    const button = createUiButton(document, {
+      label: "Create a note",
+      text: "New note",
+      icon: "note-add",
+      variant: "primary",
+    });
+    expect(button.getAttribute("aria-label")).toBe("Create a note");
+    expect(
+      button.querySelector(".aic-button__icon")?.getAttribute("aria-hidden"),
+    ).toBe("true");
+    expect(
+      button.querySelector<HTMLElement>(".aic-button__icon")?.dataset.aicIcon,
+    ).toBe("note-add");
+    expect(button.querySelector(".aic-button__label")?.textContent).toBe(
+      "New note",
+    );
+    expect(button.classList.contains("aic-button--primary")).toBe(true);
+    const iconOnly = createUiButton(document, {
+      label: "Browse notes",
+      icon: "folder",
+      iconOnly: true,
+    });
+    expect(iconOnly.textContent).toBe("");
+    expect(iconOnly.getAttribute("aria-label")).toBe("Browse notes");
+    expect(() =>
+      createUiButton(document, { label: "Unsafe", icon: "folder injected" }),
+    ).toThrow(TypeError);
+  });
+
   it("treats button labels and text as plain text", () => {
     const markup = '<img src=x onerror="alert(1)">';
     const button = createUiButton(document, { label: markup, text: markup });

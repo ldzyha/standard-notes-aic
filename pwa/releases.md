@@ -1,5 +1,7 @@
 # Releases and installation
 
+> **Public releases and installation:** <https://aic.dzyha.com/releases>
+
 [Українська](/releases/uk/) · [Open AIC Notes](/) · [Terms and privacy](/terms)
 
 Use the PWA for local Markdown workspaces with optional encryption, the browser

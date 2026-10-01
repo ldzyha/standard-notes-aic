@@ -103,8 +103,19 @@ function button(
   label: string,
   action: () => void | Promise<unknown>,
   text = label,
+  options: {
+    icon?: string;
+    iconOnly?: boolean;
+    variant?: "default" | "ghost" | "danger" | "primary";
+  } = {},
 ) {
-  const control = createUiButton(document, { label, text });
+  const control = createUiButton(document, {
+    label,
+    variant: "ghost",
+    text: options.iconOnly ? "" : text,
+    size: options.iconOnly ? "touch" : "normal",
+    ...options,
+  });
   control.addEventListener("click", () => {
     if (
       [
@@ -114,6 +125,8 @@ function button(
         "Note details",
         "Open notes",
         "Close menu",
+        "Browse notes",
+        "Close notes browser",
       ].includes(label)
     ) {
       void action();
@@ -173,7 +186,8 @@ header.append(
         "Help and about",
         [...help.children].map((link) => link.cloneNode(true) as HTMLElement),
       ),
-    "Help",
+    "",
+    { icon: "help", iconOnly: true },
   ),
   updateButton,
   installButton,
@@ -191,7 +205,10 @@ sidebar.setAttribute("aria-label", "Notes browser");
 const entityHeader = element("div", "pwa-sidebar__heading");
 entityHeader.append(
   element("strong", "", "Workspaces"),
-  button("New workspace", createLocalWorkspace, "+"),
+  button("Workspace options", openWorkspaceOptions, "", {
+    icon: "workspace",
+    iconOnly: true,
+  }),
 );
 const workspaceSelect = applyUiComponent(
   element("select", "pwa-workspace-select"),
@@ -253,30 +270,41 @@ const actions = element("div", "pwa-actions");
 const title = element("h1", "pwa-title", "Your notes, on your devices");
 const details = element("p", "pwa-details");
 const noteHeader = element("div", "pwa-note-header");
-const backButton = button(
-  "Back to notes",
-  async () => {
-    if (!(await save())) return;
-    screen = "browser";
-    reflectScreen();
-    if (history.state?.aicNotesScreen === "editor") history.back();
-    fileFilter.focus();
-  },
-  "‹ Notes",
-);
+const backButton = button("Browse notes", showNotesBrowser, "", {
+  icon: "folder",
+  iconOnly: true,
+});
+const titleButton = button("Rename note", renameNote, "");
+titleButton.classList.add("pwa-note-header__title");
+titleButton.append(title);
+const headerNewNote = button("New note", newNote, "", {
+  icon: "note-add",
+  iconOnly: true,
+});
 const retryButton = button("Retry save", save, "Retry");
 retryButton.hidden = true;
-const noteMore = button("Note options", () => showNoteOptions(), "More");
-noteHeader.append(backButton, title, status, retryButton, noteMore);
+const noteMore = button("Note options", () => showNoteOptions(), "", {
+  icon: "more",
+  iconOnly: true,
+});
+noteHeader.append(
+  backButton,
+  titleButton,
+  status,
+  retryButton,
+  headerNewNote,
+  noteMore,
+);
 const browserActions = element("div", "pwa-browser-actions");
 browserActions.append(
-  button("New note", newNote),
-  button("Open notes", showOpenOptions, "Open…"),
-  button(
-    "Workspace options",
-    () => showWorkspaceOptions(),
-    "Workspace options",
-  ),
+  button("New note", newNote, "New note", {
+    icon: "note-add",
+    variant: "primary",
+  }),
+  button("Open files", () => openFiles(), "Files", { icon: "document" }),
+  button("Open folder", () => openFiles(true), "Folder", {
+    icon: "folder",
+  }),
 );
 sidebar.append(browserActions);
 const editorContainer = element("div", "pwa-editor");
@@ -284,6 +312,67 @@ content.append(noteHeader, details, actions, editorContainer);
 layout.append(sidebar, content);
 app.append(header, notice, layout);
 root.append(app);
+
+const phoneLayout = window.matchMedia("(max-width: 700px)");
+let notesDrawer: HTMLDialogElement | null = null;
+let drawerOrigin: HTMLElement | null = null;
+let drawerHistoryClosing = false;
+function retireNotesDrawer() {
+  closeNotesDrawer(false, false);
+}
+function closeNotesDrawer(restoreFocus = true, consumeHistory = true) {
+  const dialog = notesDrawer;
+  if (!dialog) return;
+  notesDrawer = null;
+  cancelDialogs.delete(retireNotesDrawer);
+  layout.insertBefore(sidebar, content);
+  dialog.close();
+  dialog.remove();
+  if (consumeHistory && history.state?.aicNotesDrawer) {
+    drawerHistoryClosing = true;
+    history.back();
+  }
+  if (restoreFocus && drawerOrigin?.isConnected) drawerOrigin.focus();
+  drawerOrigin = null;
+  editor?.view?.requestMeasure();
+}
+function showNotesBrowser() {
+  if (!phoneLayout.matches) {
+    screen = "browser";
+    reflectScreen();
+    if (!fileFilter.hidden) fileFilter.focus();
+    else if (!workspaceSelect.hidden) workspaceSelect.focus();
+    return;
+  }
+  if (notesDrawer) return;
+  drawerOrigin = document.activeElement as HTMLElement | null;
+  const dialog = element("dialog", "pwa-notes-drawer");
+  dialog.setAttribute("aria-label", "Notes browser");
+  const heading = element("div", "pwa-notes-drawer__heading");
+  const close = button("Close notes browser", () => closeNotesDrawer(), "", {
+    icon: "close",
+    iconOnly: true,
+  });
+  close.classList.add("pwa-notes-drawer__close");
+  heading.append(element("h2", "", "Notes"), close);
+  dialog.append(heading, sidebar);
+  notesDrawer = dialog;
+  cancelDialogs.add(retireNotesDrawer);
+  dialog.addEventListener("cancel", (event) => {
+    event.preventDefault();
+    closeNotesDrawer();
+  });
+  document.body.append(dialog);
+  history.pushState({ aicNotesScreen: screen, aicNotesDrawer: true }, "");
+  dialog.showModal();
+  if (!fileFilter.hidden) fileFilter.focus();
+  else if (!workspaceSelect.hidden && workspaceSelect.options.length)
+    workspaceSelect.focus();
+  else close.focus();
+}
+phoneLayout.addEventListener("change", () => {
+  if (!phoneLayout.matches) closeNotesDrawer(false);
+});
 
 function notify(message: string, error = false) {
   notice.textContent = message;
@@ -295,14 +384,27 @@ function reflectScreen() {
   if (screen === "editor" && app.dataset.screen === "browser" && selectedId)
     history.pushState({ aicNotesScreen: "editor" }, "");
   app.dataset.screen = screen;
+  app.dataset.hasNote = String(!!selectedId);
   backButton.hidden = !selectedId;
   noteMore.hidden = !selectedId;
+  headerNewNote.hidden = !selectedId || payload?.kind !== "workspace";
+  titleButton.disabled = !selectedFile();
+  if (selectedFile()) {
+    titleButton.setAttribute("aria-label", "Rename note");
+    titleButton.title = "Rename note";
+  } else {
+    titleButton.removeAttribute("aria-label");
+    titleButton.removeAttribute("title");
+  }
   browserActions.hidden = !payload && app.dataset.hasWorkspaces !== "true";
   for (const control of browserActions.querySelectorAll<HTMLButtonElement>(
     "button",
   ))
     control.hidden =
-      !payload && control.getAttribute("aria-label") !== "Open notes";
+      !payload &&
+      !["New note", "Open files", "Open folder", "Workspace options"].includes(
+        control.getAttribute("aria-label") ?? "",
+      );
   if (screen === "editor") editor?.view?.requestMeasure();
 }
 function reflectSave() {
@@ -311,21 +413,41 @@ function reflectSave() {
     !!saveTask,
     saveTask ? "saving" : saveFailed ? "failed" : dirty ? "dirty" : "none",
   );
+  const destination = localWorkspace
+    ? "Saved on this device"
+    : activeId && sources.has(activeId)
+      ? "Saved to encrypted file"
+      : "Saved on this device";
+  status.dataset.state = saveTask
+    ? "saving"
+    : saveFailed
+      ? "failed"
+      : dirty
+        ? "dirty"
+        : "saved";
   status.textContent = saveTask
     ? "Saving…"
     : saveFailed
       ? "Save failed"
       : dirty
+        ? "Unsaved"
+        : "Saved";
+  status.title = saveTask
+    ? "Saving…"
+    : saveFailed
+      ? "Save failed"
+      : dirty
         ? "Unsaved changes"
-        : localWorkspace
-          ? "Saved on this device"
-          : activeId && sources.has(activeId)
-            ? "Saved to encrypted file"
-            : "Saved on this device";
+        : destination;
+  status.setAttribute("aria-label", status.title);
   retryButton.hidden = !saveFailed;
 }
-function showSheet(heading: string, controls: HTMLElement[]) {
-  const origin = document.activeElement as HTMLElement | null;
+function showSheet(
+  heading: string,
+  controls: HTMLElement[],
+  focusOrigin = document.activeElement as HTMLElement | null,
+) {
+  const origin = focusOrigin;
   const dialog = element("dialog", "pwa-dialog pwa-sheet");
   dialog.setAttribute("aria-label", heading);
   dialog.append(element("h2", "", heading), ...controls);
@@ -338,25 +460,21 @@ function showSheet(heading: string, controls: HTMLElement[]) {
   cancelDialogs.add(cancel);
   dialog.append(button("Close menu", cancel, "Done"));
   dialog.addEventListener("cancel", cancel);
-  dialog.addEventListener("click", (event) => {
-    if (
-      (event.target as HTMLElement)
-        .closest("button")
-        ?.getAttribute("aria-label") !== "Close menu" &&
-      (event.target as HTMLElement).closest("button")
-    )
-      cancel();
-  });
+  dialog.addEventListener(
+    "click",
+    (event) => {
+      if (
+        (event.target as HTMLElement)
+          .closest("button")
+          ?.getAttribute("aria-label") !== "Close menu" &&
+        (event.target as HTMLElement).closest("button")
+      )
+        cancel();
+    },
+    { capture: true },
+  );
   document.body.append(dialog);
   dialog.showModal();
-}
-function showOpenOptions() {
-  showSheet("Open notes", [
-    button("Open files", () => openFiles()),
-    button("Open folder", () => openFiles(true)),
-    importButton,
-    protectedButton,
-  ]);
 }
 function showNoteOptions() {
   const file = selectedFile();
@@ -384,44 +502,67 @@ function showNoteOptions() {
     ),
   ]);
 }
-function showWorkspaceOptions() {
-  if (!payload) return;
-  showSheet("Workspace options", [
-    button("Rename workspace", renameEntity),
-    ...(payload.kind === "workspace"
-      ? [
-          button("Add files", () => addFiles()),
-          button("Add folder", () => addFiles(true)),
-          button("Export all notes", restore),
-        ]
-      : []),
-    ...(localWorkspace
-      ? [button("Save encrypted copy", encryptWorkspace)]
-      : [
-          button(
-            "Export encrypted copy",
-            encryptedExport,
-            "Export encrypted copy",
-          ),
-          ...(!hostSource
-            ? [button("Save encrypted file", saveEncryptedAs)]
-            : []),
-          ...(activeId && sources.has(activeId)
-            ? [button("Reopen shared file", reloadSource)]
-            : []),
-        ]),
-    button(localWorkspace ? "Close workspace" : "Lock workspace", lockAll),
-    ...(localWorkspace
-      ? [
-          element("hr"),
-          button(
-            "Remove local workspace",
-            removeLocalWorkspace,
-            "Remove from this device…",
-          ),
-        ]
-      : []),
-  ]);
+function openWorkspaceOptions() {
+  const openedFromDrawer = !!notesDrawer;
+  if (openedFromDrawer) closeNotesDrawer(false);
+  showWorkspaceOptions(openedFromDrawer ? backButton : undefined);
+}
+function showWorkspaceOptions(focusOrigin?: HTMLElement | null) {
+  const workspaceActions = !hostSource
+    ? [
+        button("New workspace", createLocalWorkspace, "New workspace", {
+          icon: "workspace",
+        }),
+        importButton,
+        protectedButton,
+      ]
+    : [];
+  if (!payload) {
+    showSheet("Workspace options", workspaceActions, focusOrigin);
+    return;
+  }
+  showSheet(
+    "Workspace options",
+    [
+      ...workspaceActions,
+      button("Rename workspace", renameEntity),
+      ...(payload.kind === "workspace"
+        ? [
+            button("Add files", () => addFiles()),
+            button("Add folder", () => addFiles(true)),
+            button("Export all notes", restore),
+          ]
+        : []),
+      ...(localWorkspace
+        ? [button("Save encrypted copy", encryptWorkspace)]
+        : [
+            button(
+              "Export encrypted copy",
+              encryptedExport,
+              "Export encrypted copy",
+            ),
+            ...(!hostSource
+              ? [button("Save encrypted file", saveEncryptedAs)]
+              : []),
+            ...(activeId && sources.has(activeId)
+              ? [button("Reopen shared file", reloadSource)]
+              : []),
+          ]),
+      button(localWorkspace ? "Close workspace" : "Lock workspace", lockAll),
+      ...(localWorkspace
+        ? [
+            element("hr"),
+            button(
+              "Remove local workspace",
+              removeLocalWorkspace,
+              "Remove from this device…",
+              { variant: "danger" },
+            ),
+          ]
+        : []),
+    ],
+    focusOrigin,
+  );
 }
 async function run(action: () => void | Promise<unknown>) {
   if (working) return;
@@ -585,6 +726,7 @@ function activateLocal(
   payload = next;
   selectedId = selection;
   screen = selection ? "editor" : "browser";
+  if (selection) closeNotesDrawer(false);
   saveFailed = false;
   dirty = false;
 }
@@ -741,6 +883,7 @@ async function removeLocalWorkspace() {
   );
   if (!answer) return;
   await repository.removeLocal(activeId);
+  closeNotesDrawer(false);
   activeId = null;
   localWorkspace = false;
   payload = null;
@@ -1170,6 +1313,7 @@ async function lockAll() {
   lifecycle++;
   repository.lockAll();
   payload = null;
+  closeNotesDrawer(false);
   activeId = null;
   localWorkspace = false;
   selectedId = null;
@@ -1180,6 +1324,7 @@ async function lockAll() {
   notify(closingLocal ? "Workspace closed." : "Protected workspaces locked.");
 }
 async function newNote() {
+  if (!payload && !hostSource) await createLocalWorkspace();
   if (!payload || payload.kind !== "workspace" || !(await save())) return;
   let path = "note.md";
   const occupied = new Set(
@@ -1207,6 +1352,7 @@ async function newNote() {
   dirty = true;
   renderContent();
   await save();
+  closeNotesDrawer(false);
   editor?.view?.focus();
 }
 async function renameNote(advanced = false) {
@@ -1434,10 +1580,15 @@ function renderFileNavigation() {
     const row = button(
       `Open ${file.path}`,
       async () => {
-        if (!(await save())) return;
+        if (!(await save())) {
+          closeNotesDrawer();
+          return;
+        }
         if (selectedId !== file.id) selectedId = file.id;
         screen = "editor";
         renderContent();
+        closeNotesDrawer(false);
+        editor?.view?.focus();
       },
       query ? file.path : segments[segments.length - 1],
     );
@@ -1472,11 +1623,23 @@ function renderContent() {
     title.textContent = "Your notes, on your devices";
     details.textContent = hostSource
       ? "Open this encrypted file with its passphrase."
-      : "Open Markdown files or a folder without a password. Encryption is optional.";
+      : "";
     if (!hostSource)
       actions.append(
-        button("New workspace", createLocalWorkspace),
-        button("Open notes", showOpenOptions, "Open…"),
+        button("New note", newNote, "New note", {
+          icon: "note-add",
+          variant: "primary",
+        }),
+        button("Open files", () => openFiles(), "Files", {
+          icon: "document",
+        }),
+        button("Open folder", () => openFiles(true), "Folder", {
+          icon: "folder",
+        }),
+        button("Workspace options", openWorkspaceOptions, "", {
+          icon: "more",
+          iconOnly: true,
+        }),
       );
     if (hostSource)
       actions.append(
@@ -1489,7 +1652,7 @@ function renderContent() {
         "pwa-empty",
         hostSource
           ? "Encrypted notes use the same format and passphrase as the PWA and browser extension."
-          : "Folders show only .md files, including nested notes. Work locally, then export Markdown copies or choose encryption.",
+          : "Markdown notes stay on this device. Export files for your own sync.",
       ),
     );
     return;
@@ -1546,9 +1709,14 @@ function renderContent() {
       const row = button(
         `Open ${note.title || note.url}`,
         async () => {
-          if (!(await save())) return;
+          if (!(await save())) {
+            closeNotesDrawer();
+            return;
+          }
           selectedId = note.id;
+          screen = "editor";
           renderContent();
+          closeNotesDrawer(false);
         },
         note.title || note.url,
       );
@@ -1560,10 +1728,14 @@ function renderContent() {
       const row = button(
         `Open shared notes for ${shared.origin}`,
         async () => {
-          if (!(await save())) return;
+          if (!(await save())) {
+            closeNotesDrawer();
+            return;
+          }
           selectedId = shared.id;
           screen = "editor";
           renderContent();
+          closeNotesDrawer(false);
         },
         `Shared · ${shared.origin}`,
       );
@@ -1575,10 +1747,14 @@ function renderContent() {
       const row = button(
         "Open Global notes",
         async () => {
-          if (!(await save())) return;
+          if (!(await save())) {
+            closeNotesDrawer();
+            return;
+          }
           selectedId = globalId;
           screen = "editor";
           renderContent();
+          closeNotesDrawer(false);
         },
         "Global",
       );
@@ -1711,6 +1887,14 @@ function mountEditor(id: string) {
 }
 
 window.addEventListener("popstate", () => {
+  if (drawerHistoryClosing) {
+    drawerHistoryClosing = false;
+    return;
+  }
+  if (notesDrawer) {
+    closeNotesDrawer(true, false);
+    return;
+  }
   if (screen !== "editor") return;
   void run(async () => {
     if (!(await save())) {
@@ -1719,7 +1903,13 @@ window.addEventListener("popstate", () => {
     }
     screen = "browser";
     reflectScreen();
-    fileFilter.focus();
+    if (!fileFilter.hidden) fileFilter.focus();
+    else if (!workspaceSelect.hidden && workspaceSelect.options.length)
+      workspaceSelect.focus();
+    else
+      browserActions
+        .querySelector<HTMLButtonElement>("button:not([hidden])")
+        ?.focus();
   });
 });
 
@@ -1740,6 +1930,7 @@ window.addEventListener("pagehide", () => {
   repository.lockAll();
   clearEditor();
   payload = null;
+  closeNotesDrawer(false);
   activeId = null;
   localWorkspace = false;
   selectedId = null;

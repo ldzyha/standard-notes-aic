@@ -159,3 +159,39 @@
 .cm-aic-icon-button[data-aic-icon="export-file"] {
   --aic-icon: url("data:image/svg+xml,%3Csvg%20xmlns='http%3A//www.w3.org/2000/svg'%20viewBox='0%200%2016%2016'%3E%3Cg%20fill='none'%20stroke='black'%20stroke-width='1.4'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M8%2014H2V2h6l3%203v2M7%202v4h4M7%2011h7m-3-3%203%203-3%203'/%3E%3C/g%3E%3C/svg%3E");
 }
+
+.cm-aic-icon-button[data-aic-icon="folder"] {
+  --aic-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2016%2016'%3E%3Cpath%20d%3D'M2%204V3h4l2%202h6v8H2z'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.4'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%2F%3E%3C%2Fsvg%3E");
+}
+
+.cm-aic-icon-button[data-aic-icon="document"] {
+  --aic-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2016%2016'%3E%3Cpath%20d%3D'M4%202h5l3%203v9H4zM9%202v4h3M6%209h4M6%2011h3'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.4'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%2F%3E%3C%2Fsvg%3E");
+}
+
+.cm-aic-icon-button[data-aic-icon="note-add"] {
+  --aic-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2016%2016'%3E%3Cpath%20d%3D'M8%202H3v12h10V9M11%201v6M8%204h6M5%209h3M5%2011h5'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.4'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%2F%3E%3C%2Fsvg%3E");
+}
+
+.cm-aic-icon-button[data-aic-icon="chevron-left"] {
+  --aic-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2016%2016'%3E%3Cpath%20d%3D'm10%203-5%205%205%205'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.4'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%2F%3E%3C%2Fsvg%3E");
+}
+
+.cm-aic-icon-button[data-aic-icon="search"] {
+  --aic-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2016%2016'%3E%3Cpath%20d%3D'M10.5%2010.5%2014%2014M11.5%206.5a5%205%200%201%201-10%200%205%205%200%200%201%2010%200'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.4'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%2F%3E%3C%2Fsvg%3E");
+}
+
+.cm-aic-icon-button[data-aic-icon="download"] {
+  --aic-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2016%2016'%3E%3Cpath%20d%3D'M8%202v8M5%207l3%203%203-3M2%2010v4h12v-4'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.4'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%2F%3E%3C%2Fsvg%3E");
+}
+
+.cm-aic-icon-button[data-aic-icon="workspace"] {
+  --aic-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2016%2016'%3E%3Cpath%20d%3D'M2%202h5v5H2zM9%202h5v5H9zM2%209h5v5H2zM9%209h5v5H9z'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.4'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%2F%3E%3C%2Fsvg%3E");
+}
+
+.cm-aic-icon-button[data-aic-icon="settings"] {
+  --aic-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2016%2016'%3E%3Cpath%20d%3D'M2%204h12M2%2012h12M5%202v4M11%2010v4'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'1.4'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%2F%3E%3C%2Fsvg%3E");
+}
+
+.cm-aic-icon-button[data-aic-icon="more"] {
+  --aic-icon: url("data:image/svg+xml,%3Csvg%20xmlns%3D'http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg'%20viewBox%3D'0%200%2016%2016'%3E%3Cpath%20d%3D'M3%208h.01M8%208h.01M13%208h.01'%20fill%3D'none'%20stroke%3D'black'%20stroke-width%3D'2.6'%20stroke-linecap%3D'round'%20stroke-linejoin%3D'round'%2F%3E%3C%2Fsvg%3E");
+}

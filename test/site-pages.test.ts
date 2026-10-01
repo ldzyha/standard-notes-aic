@@ -4,8 +4,10 @@ import { mkdtemp, mkdir, writeFile, rm, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
-// @ts-expect-error Build-only JavaScript modules are outside browser type declarations.
-import { buildPublicPages } from "../scripts/site-pages.mjs";
+import {
+  buildGitHubLegacyRedirects,
+  buildPublicPages,
+} from "../scripts/site-pages.mjs";
 
 const fixtures: string[] = [];
 afterEach(async () => {
@@ -33,6 +35,37 @@ function documentFor(pages: Map<string, string>, path: string): Document {
 }
 
 describe("public documentation build", () => {
+  it("redirects legacy GitHub Pages document routes to the public AIC site", () => {
+    const redirects = buildGitHubLegacyRedirects();
+    expect([...redirects.keys()]).toEqual([
+      "terms/index.html",
+      "terms/uk/index.html",
+      "releases/index.html",
+      "releases/uk/index.html",
+      "how-to/index.html",
+      "how-to/uk/index.html",
+    ]);
+    for (const [fileName, target] of [
+      ["terms/index.html", "https://aic.dzyha.com/terms"],
+      ["terms/uk/index.html", "https://aic.dzyha.com/terms/uk/"],
+      ["releases/index.html", "https://aic.dzyha.com/releases"],
+      ["releases/uk/index.html", "https://aic.dzyha.com/releases/uk/"],
+      ["how-to/index.html", "https://aic.dzyha.com/how-to"],
+      ["how-to/uk/index.html", "https://aic.dzyha.com/how-to/uk/"],
+    ] as const) {
+      const html = redirects.get(fileName)!;
+      const doc = new DOMParser().parseFromString(html, "text/html");
+      expect(
+        (doc.querySelector('meta[http-equiv="refresh"]') as HTMLMetaElement)
+          ?.content,
+      ).toBe(`0;url=${target}`);
+      expect(
+        (doc.querySelector('link[rel="canonical"]') as HTMLLinkElement)?.href,
+      ).toBe(target);
+      expect(doc.querySelector("a")?.href).toBe(target);
+    }
+  });
+
   it("emits six static routes, canonical .com metadata and semantic navigation", async () => {
     const root = await fixture(
       "# Terms and privacy\n\n[Open app](/) · [Releases](/releases)",

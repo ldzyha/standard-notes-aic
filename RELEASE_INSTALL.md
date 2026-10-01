@@ -11,9 +11,9 @@ steps and exact download/checksum links for offline use.
 
 ### Prepared release overview — October 1, 2026
 
-This source release coordinates **AIC Notes for VS Code 56.4.5**, **AIC for
-Standard Notes 48.4.5**, and the **experimental Chrome/Edge extension 0.11.0**
-on shared core **7.5.0**. GitHub tags, assets and their checksums must exist and
+This source release coordinates **AIC Notes for VS Code 57.1.2**, **AIC for
+Standard Notes 49.1.2**, and the **experimental Chrome/Edge extension 0.11.1**
+on shared core **7.5.1**. GitHub tags, assets and their checksums must exist and
 be checked before installation; this document does not claim they are live.
 
 - Every extension bundles the same instructions for coding agents. No separate
@@ -30,14 +30,14 @@ experimental; automated tests do not replace Chrome/Edge runtime verification.
 
 ### VS Code / code-server
 
-1. When published, download [AIC Notes 56.4.5 VSIX](https://github.com/ldzyha/aic-notes/releases/download/v56.4.5/aic-notes-56.4.5.vsix)
-   and [its SHA-256 file](https://github.com/ldzyha/aic-notes/releases/download/v56.4.5/aic-notes-56.4.5.vsix.sha256).
+1. When published, download [AIC Notes 57.1.2 VSIX](https://github.com/ldzyha/aic-notes/releases/download/v57.1.2/aic-notes-57.1.2.vsix)
+   and [its SHA-256 file](https://github.com/ldzyha/aic-notes/releases/download/v57.1.2/aic-notes-57.1.2.vsix.sha256).
 2. In VS Code, open the Command Palette and run **Extensions: Install from
    VSIX…**. Select the downloaded file and reload the window. For code-server,
-   run `code-server --install-extension ./aic-notes-56.4.5.vsix --force`.
-3. Confirm that **AIC Notes 56.4.5** appears in Extensions.
+   run `code-server --install-extension ./aic-notes-57.1.2.vsix --force`.
+3. Confirm that **AIC Notes 57.1.2** appears in Extensions.
 
-The intended [VS Code release page](https://github.com/ldzyha/aic-notes/releases/tag/v56.4.5)
+The intended [VS Code release page](https://github.com/ldzyha/aic-notes/releases/tag/v57.1.2)
 contains the VSIX and checksum. This local extension does not require an account
 or Standard Notes synchronization.
 
@@ -49,14 +49,14 @@ or Standard Notes synchronization.
    not need to import it again: the client checks for updates through the same
    manifest. Restart Standard Notes if the previous version remains visible.
 
-When published, the desktop package is [AIC 48.4.5 ZIP](https://github.com/ldzyha/standard-notes-aic/releases/download/v48.4.5/standard-notes-aic-48.4.5.zip)
-with [its SHA-256 file](https://github.com/ldzyha/standard-notes-aic/releases/download/v48.4.5/standard-notes-aic-48.4.5.zip.sha256).
+When published, the desktop package is [AIC 49.1.2 ZIP](https://github.com/ldzyha/standard-notes-aic/releases/download/v49.1.2/standard-notes-aic-49.1.2.zip)
+with [its SHA-256 file](https://github.com/ldzyha/standard-notes-aic/releases/download/v49.1.2/standard-notes-aic-49.1.2.zip.sha256).
 The hosted manifest above is the normal installation method.
 
 ### Chrome / Microsoft Edge — experimental
 
-1. When published, download the [shared Chromium ZIP 0.11.0](https://github.com/ldzyha/standard-notes-aic/releases/download/v48.4.5/aic-browser-chromium-0.11.0.zip)
-   and [its SHA-256 file](https://github.com/ldzyha/standard-notes-aic/releases/download/v48.4.5/aic-browser-chromium-0.11.0.zip.sha256).
+1. When published, download the [shared Chromium ZIP 0.11.1](https://github.com/ldzyha/standard-notes-aic/releases/download/v49.1.2/aic-browser-chromium-0.11.1.zip)
+   and [its SHA-256 file](https://github.com/ldzyha/standard-notes-aic/releases/download/v49.1.2/aic-browser-chromium-0.11.1.zip.sha256).
 2. Extract the ZIP to a permanent folder. `manifest.json` must be at its root.
 3. Open `chrome://extensions` or `edge://extensions`, enable **Developer mode**,
    select **Load unpacked**, and choose the extracted folder rather than the ZIP.
@@ -77,7 +77,7 @@ Each archive or VSIX has a neighboring `.sha256` file. On Linux, run
 use `(Get-FileHash .\FILE -Algorithm SHA256).Hash`.
 
 [AIC Notes](https://marketplace.visualstudio.com/items?itemName=ldzyha.aic-notes)
-may show a different Marketplace version. The 56.4.5 update requires a successful
+may show a different Marketplace version. The 57.1.2 update requires a successful
 publication run. Automatic publication is prepared but awaits repository publishing
 access; see the
 [bilingual publishing guide](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md).
@@ -100,9 +100,9 @@ Chrome Web Store and Microsoft Edge Add-ons publication remains a later step.
 
 ### Підготовлений огляд випуску — 1 жовтня 2026
 
-Цей випуск вихідного коду об’єднує **AIC Notes для VS Code 56.4.5**, **AIC для
-Standard Notes 48.4.5** і **експериментальне розширення Chrome/Edge 0.11.0** на
-спільному ядрі **7.5.0**. Перед встановленням перевірте появу GitHub-тегу,
+Цей випуск вихідного коду об’єднує **AIC Notes для VS Code 57.1.2**, **AIC для
+Standard Notes 49.1.2** і **експериментальне розширення Chrome/Edge 0.11.1** на
+спільному ядрі **7.5.1**. Перед встановленням перевірте появу GitHub-тегу,
 файлів і контрольних сум: цей документ не стверджує, що вони вже опубліковані.
 
 - Кожне розширення містить однакові інструкції для агентів без окремого AIC,
@@ -120,15 +120,15 @@ Markdown, шифрування та правила збереження лиша
 
 ### VS Code / code-server
 
-1. Після публікації завантажте [AIC Notes 56.4.5 VSIX](https://github.com/ldzyha/aic-notes/releases/download/v56.4.5/aic-notes-56.4.5.vsix)
-   і [його SHA-256](https://github.com/ldzyha/aic-notes/releases/download/v56.4.5/aic-notes-56.4.5.vsix.sha256).
+1. Після публікації завантажте [AIC Notes 57.1.2 VSIX](https://github.com/ldzyha/aic-notes/releases/download/v57.1.2/aic-notes-57.1.2.vsix)
+   і [його SHA-256](https://github.com/ldzyha/aic-notes/releases/download/v57.1.2/aic-notes-57.1.2.vsix.sha256).
 2. У VS Code відкрийте палітру команд і виконайте **Extensions: Install from
    VSIX…**, виберіть завантажений файл, потім перезавантажте вікно. Для
    code-server виконайте
-   `code-server --install-extension ./aic-notes-56.4.5.vsix --force`.
-3. У списку Extensions перевірте **AIC Notes 56.4.5**.
+   `code-server --install-extension ./aic-notes-57.1.2.vsix --force`.
+3. У списку Extensions перевірте **AIC Notes 57.1.2**.
 
-[Запланована сторінка випуску VS Code](https://github.com/ldzyha/aic-notes/releases/tag/v56.4.5)
+[Запланована сторінка випуску VS Code](https://github.com/ldzyha/aic-notes/releases/tag/v57.1.2)
 містить VSIX та контрольну суму. Обліковий запис чи синхронізація зі Standard
 Notes цьому локальному розширенню не потрібні.
 
@@ -140,14 +140,14 @@ Notes цьому локальному розширенню не потрібні
    повторний імпорт не потрібний: клієнт перевіряє оновлення за тим самим
    маніфестом. Якщо версія лишилася старою, перезапустіть Standard Notes.
 
-Після публікації для настільного клієнта доступний [архів AIC 48.4.5](https://github.com/ldzyha/standard-notes-aic/releases/download/v48.4.5/standard-notes-aic-48.4.5.zip)
-та [його SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v48.4.5/standard-notes-aic-48.4.5.zip.sha256).
+Після публікації для настільного клієнта доступний [архів AIC 49.1.2](https://github.com/ldzyha/standard-notes-aic/releases/download/v49.1.2/standard-notes-aic-49.1.2.zip)
+та [його SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v49.1.2/standard-notes-aic-49.1.2.zip.sha256).
 Звичайний спосіб встановлення — адреса маніфесту вище.
 
 ### Chrome / Microsoft Edge — експериментально
 
-1. Після публікації завантажте [спільний Chromium ZIP 0.11.0](https://github.com/ldzyha/standard-notes-aic/releases/download/v48.4.5/aic-browser-chromium-0.11.0.zip)
-   і [його SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v48.4.5/aic-browser-chromium-0.11.0.zip.sha256).
+1. Після публікації завантажте [спільний Chromium ZIP 0.11.1](https://github.com/ldzyha/standard-notes-aic/releases/download/v49.1.2/aic-browser-chromium-0.11.1.zip)
+   і [його SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v49.1.2/aic-browser-chromium-0.11.1.zip.sha256).
 2. Розпакуйте ZIP в окрему постійну папку. У її корені має бути `manifest.json`.
 3. Відкрийте `chrome://extensions` або `edge://extensions`, увімкніть
    **Developer mode**, натисніть **Load unpacked** і виберіть розпаковану папку,
@@ -170,7 +170,7 @@ PowerShell — `(Get-FileHash .\ФАЙЛ -Algorithm SHA256).Hash`.
 
 [AIC Notes](https://marketplace.visualstudio.com/items?itemName=ldzyha.aic-notes)
 вже опубліковано у VS Code Marketplace; **53.0.1** — остання підтверджена версія
-магазину. Оновлення 56.4.5 потребує успішного запуску публікації. Автопублікацію
+магазину. Оновлення 57.1.2 потребує успішного запуску публікації. Автопублікацію
 підготовлено, але вона очікує доступу на публікацію для репозиторію; дивіться
 [двомовну інструкцію](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md#українська).
 Встановлення з Marketplace оновлюються за налаштуваннями VS Code; для VSIX можна

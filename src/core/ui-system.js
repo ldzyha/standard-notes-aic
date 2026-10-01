@@ -3,6 +3,7 @@ export const UI_COMPONENTS = Object.freeze({
   button: definition(
     [
       "default",
+      "primary",
       "ghost",
       "danger",
       "normal",
@@ -85,15 +86,17 @@ export function applyUiComponent(element, block, modifiers = [], elementName) {
 /** A named native button; callers attach the action and optional icon content. */
 export function createUiButton(
   document,
-  { label, text, variant = "default", size = "normal", iconOnly = false },
+  { label, text, icon, variant = "default", size = "normal", iconOnly = false },
 ) {
   if (
     typeof label !== "string" ||
     !label.trim() ||
     (text !== undefined && typeof text !== "string") ||
-    !["default", "ghost", "danger"].includes(variant) ||
+    !["default", "primary", "ghost", "danger"].includes(variant) ||
     !["normal", "compact", "touch"].includes(size) ||
-    typeof iconOnly !== "boolean"
+    typeof iconOnly !== "boolean" ||
+    (icon !== undefined &&
+      (typeof icon !== "string" || !/^[a-z][a-z0-9-]*$/.test(icon)))
   )
     throw new TypeError("Invalid AIC button options.");
   const button = document.createElement("button");
@@ -105,6 +108,19 @@ export function createUiButton(
   button.type = "button";
   button.setAttribute("aria-label", label);
   button.title = label;
-  button.textContent = text ?? (iconOnly ? "" : label);
+  if (icon) {
+    const graphic = document.createElement("span");
+    applyUiComponent(graphic, "button", [], "icon");
+    graphic.classList.add("cm-aic-icon-button");
+    graphic.dataset.aicIcon = icon;
+    graphic.setAttribute("aria-hidden", "true");
+    button.append(graphic);
+    if (!iconOnly) {
+      const caption = document.createElement("span");
+      applyUiComponent(caption, "button", [], "label");
+      caption.textContent = text ?? label;
+      button.append(caption);
+    }
+  } else button.textContent = text ?? (iconOnly ? "" : label);
   return button;
 }

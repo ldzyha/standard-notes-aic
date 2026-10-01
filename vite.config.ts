@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { buildGitHubLegacyRedirects } from "./scripts/site-pages.mjs";
 
 export default defineConfig({
   base: "./",
@@ -17,6 +18,15 @@ export default defineConfig({
     target: "es2022",
     chunkSizeWarningLimit: 2000,
   },
+  plugins: [
+    {
+      name: "aic-github-pages-legacy-document-redirects",
+      generateBundle() {
+        for (const [fileName, source] of buildGitHubLegacyRedirects())
+          this.emitFile({ type: "asset", fileName, source });
+      },
+    },
+  ],
   test: {
     environment: "jsdom",
     // Each Mermaid/jsdom worker loads a substantial DOM and parser runtime.

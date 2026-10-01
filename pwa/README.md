@@ -5,12 +5,13 @@
 [Terms and privacy](https://aic.dzyha.com/terms) ·
 [Release notes and installation](https://aic.dzyha.com/releases)
 
-AIC Notes opens Markdown notes, files and project folders locally. From the start
-screen, choose **New workspace**, **Open… → Open files** or **Open… → Open folder** to create a
-local workspace without a password. **Open files/folder** always creates a separate workspace. To merge into the
-current workspace, use **Add files/folder** in **Workspace options**. The list shows `.md`
-files, including uppercase `.MD`; new imports skip other file types and folders
-named `.git` or `node_modules`.
+AIC Notes opens Markdown notes, files and project folders locally. **New note**
+on the start screen immediately creates a local workspace and editable draft,
+without a naming dialog or password. **Open files** and **Open folder** are direct
+actions and always create a separate workspace. Explicit **New workspace** is in
+**Workspace options**. To merge into the current workspace, use **Add files/folder**
+there. The list shows `.md` files, including uppercase `.MD`; new imports skip
+other file types and folders named `.git` or `node_modules`.
 
 Folder opening shows scanning and reading progress. **Cancel opening** stops the
 pending import and keeps your current notes. The file list initially shows up to
@@ -24,8 +25,9 @@ read has a 30-second timeout; the file picker waits for your selection or dismis
 Cancellation discards the partial import. The browser may finish an underlying
 file operation separately, but AIC ignores late results.
 
-Local workspaces autosave through the existing save owner. **Saved on this
-device**, **Saving…**, or **Save failed** with **Retry** reports that local copy.
+Local workspaces autosave through the existing save owner. **Saved**, **Saving…**, **Unsaved**, or **Save failed** with **Retry** reports the
+current state. The status tooltip and accessible label give the full destination:
+**Saved on this device** for local workspaces.
 Ctrl/Cmd+S and leaving the editor also request a save.
 Its notes, paths and labels remain readable after a browser restart. Opening a
 folder imports a snapshot: editing or saving locally does not update the source
@@ -40,10 +42,12 @@ delete original files, exported files or the encrypted copy. Names are optional
 display labels and never determine keys; spaces and Unicode in passphrases remain
 exact. Separate encrypted entities can use different passphrases.
 
-On a phone, the Notes browser and editor occupy separate screens. **Back to
-notes** keeps the current editor, text, selection and Undo history. Search and
-menus also preserve that editor. **New note** creates a unique editable draft
-immediately; use **More → Rename note** afterwards, or **Change relative path**
+On a phone, **Browse notes** opens a modal Notes drawer containing the existing
+list. Choosing a note closes the drawer; Escape or browser Back returns to the
+same editor with text, selection and Undo history preserved. Search and menus
+also preserve that editor. The header provides Browse notes, New note and More.
+**New note** creates a unique editable draft immediately; select its title to
+rename it, or use **More → Rename note**. **Change relative path** remains available
 for an advanced folder path. More also contains **Export Markdown** and details.
 **Workspace options** contains rename, additions, full export, protection and
 **Close workspace** (or **Lock workspace** for protected data). **Remove from

@@ -4,25 +4,25 @@
 
 ## English
 
-**Release targets — October 1, 2026:** AIC Notes 56.4.5, Standard Notes AIC
-48.4.5 and browser 0.11.0. GitHub releases and Standard Notes Pages deployment
+**Release targets — October 1, 2026:** AIC Notes 57.1.2, Standard Notes AIC
+49.1.2 and browser 0.11.1. GitHub releases and Standard Notes Pages deployment
 are separate from store submission. The repository currently has no `VSCE_PAT`
 secret, so automatic VS Code Marketplace publication requires publisher access.
 See the [publishing guide](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md).
 
 The last recorded Chrome submission was 0.9.3 on September 24, 2026, pending
 review at that time. That record does not establish approval or submission of
-0.11.0. Chrome/Edge dashboard access and final runtime verification are still
+0.11.1. Chrome/Edge dashboard access and final runtime verification are still
 needed for this candidate. Older store submissions and GitHub assets are unchanged.
 
 | Destination            | Submission file                                          | Target version          |
 | ---------------------- | -------------------------------------------------------- | ----------------------- |
-| VS Code Marketplace    | `aic-notes-56.4.5.vsix`                                  | AIC Notes 56.4.5        |
-| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.11.0.zip` | AIC — Page notes 0.11.0 |
-| Microsoft Edge Add-ons | **the same** Chromium ZIP                                | AIC — Page notes 0.11.0 |
+| VS Code Marketplace    | `aic-notes-57.1.2.vsix`                                  | AIC Notes 57.1.2        |
+| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.11.1.zip` | AIC — Page notes 0.11.1 |
+| Microsoft Edge Add-ons | **the same** Chromium ZIP                                | AIC — Page notes 0.11.1 |
 
-These are **expected names**, not proof that a file is ready. Standard Notes AIC **48.4.5**
-and shared core **7.5.0** are coordinated with this release; Standard Notes is
+These are **expected names**, not proof that a file is ready. Standard Notes AIC **49.1.2**
+and shared core **7.5.1** are coordinated with this release; Standard Notes is
 not submitted to these stores. That release fixes accordion membership and compact
 headers, and keeps unsaved editor backgrounds unchanged while Save indicates
 pending changes. The 0.9.3 submission candidate additionally removes redundant
@@ -79,13 +79,13 @@ this organization setup.
 
 #### VS Code Marketplace
 
-1. Take the **verified** `aic-notes-56.4.5.vsix` and checksum from
+1. Take the **verified** `aic-notes-57.1.2.vsix` and checksum from
    [AIC Notes Releases](https://github.com/ldzyha/aic-notes/releases).
 2. On the [Marketplace publisher page](https://marketplace.visualstudio.com/manage/publishers/),
    select `ldzyha`, open the existing `aic-notes` extension, and upload the VSIX
    as an update. Do not create a duplicate extension.
 3. Review the description and links, then complete the portal workflow.
-4. After publication, verify version **56.4.5** on `ldzyha.aic-notes` and install
+4. After publication, verify version **57.1.2** on `ldzyha.aic-notes` and install
    it from Extensions in a clean VS Code profile. A VSIX on GitHub supports manual
    installation but does **not** publish the extension to Marketplace.
    [Official guide](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
@@ -98,7 +98,7 @@ this organization setup.
    do not create a duplicate item or repeat the pending submission.
 3. The submission is **Pending review**. Automatic publication after approval is
    enabled; no approval or publication is confirmed yet.
-4. After approval, verify **0.11.0** and install it from the store in a clean Chrome
+4. After approval, verify **0.11.1** and install it from the store in a clean Chrome
    profile. Verify updates separately. Submission alone is not publication.
    [Official guide](https://developer.chrome.com/docs/webstore/publish/).
 
@@ -109,7 +109,7 @@ this organization setup.
    **Create new extension** and upload the ZIP.
 3. Complete **Availability**, **Properties**, **Privacy**, **Store listings**, and
    certification notes. Verify markets, visibility, permissions, and policy URL.
-4. Submit for review. When the status becomes **In the store**, verify **0.11.0**
+4. Submit for review. When the status becomes **In the store**, verify **0.11.1**
    and install it from Edge Add-ons in a clean profile. Chrome submission does
    **not** publish to Edge.
    [Official guide](https://learn.microsoft.com/en-us/microsoft-edge/extensions/publish/publish-extension).
@@ -145,24 +145,24 @@ See [Local data](browser/README.md).
 
 ## Українська
 
-**Цільові версії — 1 жовтня 2026:** AIC Notes 56.4.5, Standard Notes AIC
-48.4.5 та браузер 0.11.0. Випуски GitHub і розгортання Pages відокремлені від
+**Цільові версії — 1 жовтня 2026:** AIC Notes 57.1.2, Standard Notes AIC
+49.1.2 та браузер 0.11.1. Випуски GitHub і розгортання Pages відокремлені від
 подання до магазинів. У репозиторії немає `VSCE_PAT`, тому автоматична публікація
 у VS Code Marketplace потребує доступу видавця.
 
 Останній запис про Chrome стосується подання 0.9.3 від 24 вересня 2026, яке тоді
-очікувало перевірки. Він не підтверджує подання чи схвалення 0.11.0. Для нового
+очікувало перевірки. Він не підтверджує подання чи схвалення 0.11.1. Для нового
 кандидата потрібні доступ до панелей Chrome/Edge та перевірка в цих браузерах.
 Попередні подання та файли GitHub залишаються незмінними.
 
 | Куди                   | Файл для подання                                         | Цільова версія          |
 | ---------------------- | -------------------------------------------------------- | ----------------------- |
-| VS Code Marketplace    | `aic-notes-56.4.5.vsix`                                  | AIC Notes 56.4.5        |
-| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.11.0.zip` | AIC — Page notes 0.11.0 |
-| Microsoft Edge Add-ons | **той самий** Chromium ZIP                               | AIC — Page notes 0.11.0 |
+| VS Code Marketplace    | `aic-notes-57.1.2.vsix`                                  | AIC Notes 57.1.2        |
+| Chrome Web Store       | `dist-browser/artifacts/aic-browser-chromium-0.11.1.zip` | AIC — Page notes 0.11.1 |
+| Microsoft Edge Add-ons | **той самий** Chromium ZIP                               | AIC — Page notes 0.11.1 |
 
-Це **очікувані назви**, не доказ готовності файлів. Standard Notes AIC **48.4.5**
-і спільне ядро **7.5.0** узгоджені з цим випуском; Standard Notes не подається
+Це **очікувані назви**, не доказ готовності файлів. Standard Notes AIC **49.1.2**
+і спільне ядро **7.5.1** узгоджені з цим випуском; Standard Notes не подається
 до цих магазинів. Той випуск виправляє належність вмісту до акордеона й компактність
 заголовків; незбережені зміни не змінюють фон редактора, а Save показує потребу
 збереження. Кандидат 0.9.3 додатково прибирає зайвий дозвіл `activeTab`;
@@ -188,10 +188,10 @@ clipboard лишає source без змін.
 
 ### VS Code Marketplace
 
-1. Візьміть **перевірений** `aic-notes-56.4.5.vsix` і його контрольну суму з [AIC Notes Releases](https://github.com/ldzyha/aic-notes/releases).
+1. Візьміть **перевірений** `aic-notes-57.1.2.vsix` і його контрольну суму з [AIC Notes Releases](https://github.com/ldzyha/aic-notes/releases).
 2. На [сторінці видавців Marketplace](https://marketplace.visualstudio.com/manage/publishers/) виберіть `ldzyha`, відкрийте наявне розширення `aic-notes` і завантажте VSIX як оновлення. Не створюйте дублікат розширення.
 3. Перегляньте опис і посилання, завершіть подання за підказками порталу.
-4. Після публікації перевірте версію **56.4.5** на сторінці `ldzyha.aic-notes` та встановіть її з розділу Extensions у чистому профілі VS Code. Файл VSIX на GitHub дає ручне встановлення, але **не** публікує розширення в Marketplace. [Офіційна інструкція](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
+4. Після публікації перевірте версію **57.1.2** на сторінці `ldzyha.aic-notes` та встановіть її з розділу Extensions у чистому профілі VS Code. Файл VSIX на GitHub дає ручне встановлення, але **не** публікує розширення в Marketplace. [Офіційна інструкція](https://code.visualstudio.com/api/working-with-extensions/publishing-extension).
 
 ### Chrome Web Store
 
