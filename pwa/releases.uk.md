@@ -7,11 +7,11 @@
 у VS Code. Захищені файлові редактори працюють з однаковими `.aicnotes`;
 синхронізуйте експортовані файли через керований вами сервіс.
 
-## PWA та переносні файли — 48.4.4 / браузер 0.11.0
+## PWA та переносні файли — 48.4.5 / браузер 0.11.0
 
 Цей випуск поєднує встановлювану PWA на [aic.dzyha.com](https://aic.dzyha.com/)
-з [AIC для Standard Notes 48.4.4](https://github.com/ldzyha/standard-notes-aic/releases/tag/v48.4.4),
-[AIC Notes 56.4.4](https://github.com/ldzyha/aic-notes/releases/tag/v56.4.4),
+з [AIC для Standard Notes 48.4.5](https://github.com/ldzyha/standard-notes-aic/releases/tag/v48.4.5),
+[AIC Notes 56.4.5](https://github.com/ldzyha/aic-notes/releases/tag/v56.4.5),
 експериментальним браузером 0.11.0 та ядром 7.5.0.
 
 - На початковому екрані виберіть **New workspace**, потім **New note**, або
@@ -26,6 +26,8 @@
   файл як точку повернення.
 - Підтверджене видалення наявного файла відхиляє пізніше збереження замість
   відтворення файла; навмисний новий placeholder і далі може створити файл.
+- Файли переносного runtime зберігають перевірені побайтові хеші у Windows
+  checkout: перетворення завершень рядків Git не змінює байти пакета.
 - Захищені `.aicnotes` відкриваються в PWA, файловому поданні Chrome/Edge та
   VS Code. Їхній кеш містить шифротекст, а необов'язкові назви не визначають
   ключів. Наявні немаркдаунові файли з наборів зберігаються й входять до експорту
@@ -70,10 +72,10 @@
 від API браузера, пристрою та підтримуваної мови; звичайне редагування лишається
 доступним офлайн в інших браузерах. Дивіться [поточні вимоги Prompt API Chrome](https://developer.chrome.com/docs/ai/prompt-api).
 
-## Узгоджений випуск вихідного коду — 48.4.4 / 56.4.4 — 1 жовтня 2026
+## Узгоджений випуск вихідного коду — 48.4.5 / 56.4.5 — 1 жовтня 2026
 
-Цей випуск поєднує [AIC Notes для VS Code 56.4.4](https://github.com/ldzyha/aic-notes/releases/tag/v56.4.4),
-[AIC для Standard Notes 48.4.4](https://github.com/ldzyha/standard-notes-aic/releases/tag/v48.4.4)
+Цей випуск поєднує [AIC Notes для VS Code 56.4.5](https://github.com/ldzyha/aic-notes/releases/tag/v56.4.5),
+[AIC для Standard Notes 48.4.5](https://github.com/ldzyha/standard-notes-aic/releases/tag/v48.4.5)
 та експериментальний Chrome/Edge 0.11.0 на ядрі 7.5.0.
 
 - Зосереджені вкладки **Current**, **Shared** і **Global** переходять між
@@ -85,6 +87,7 @@
   Chrome; переглянуті правки використовують звичайний Undo.
 - Захист видалення не дає пізньому Save відтворити підтверджено видалений файл,
   але свідомо створений placeholder і далі створює файл.
+- Файли переносного runtime зберігають перевірені байти у Windows checkout.
 
 ### VS Code та code-server
 

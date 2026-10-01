@@ -13,7 +13,7 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
-Release 48.4.4 pairs with AIC Notes 56.4.4, experimental browser 0.11.0 and
+Release 48.4.5 pairs with AIC Notes 56.4.5, experimental browser 0.11.0 and
 shared core 7.5.0.
 
 The new local-file PWA opens Markdown files and folders, keeps device-local copies,
@@ -200,7 +200,7 @@ Legacy YAML Properties remain ordinary authored Markdown. They are not rendered 
 fields, interpreted as metadata, rewritten on save, or automatically migrated. Source
 mode keeps that text accessible for manual repair.
 
-## Release 48.4.4
+## Release 48.4.5
 
 The new local-file PWA opens Markdown files and folders, keeps device-local copies,
 and offers optional encrypted exports. Current, Shared and Global tabs focus on
@@ -581,8 +581,8 @@ release must update `package.json`, `public/ext.json`, and `public/ext.local.jso
 tagging.
 
 This project follows the AIC `R.F.B` release convention: successful release sequence,
-release-local feature outcomes, and release-local fixed-bug outcomes. `48.4.4` is sequence 48 with
-four feature outcomes and four fixed-bug outcomes; it is not a SemVer compatibility claim. See
+release-local feature outcomes, and release-local fixed-bug outcomes. `48.4.5` is sequence 48 with
+four feature outcomes and five fixed-bug outcomes; it is not a SemVer compatibility claim. See
 [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Bundled instructions for coding agents
