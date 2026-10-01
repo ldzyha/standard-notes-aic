@@ -8,6 +8,7 @@ import {
   retainEmptyDirectories,
   restoreFolder,
   type FileSelectionProgress,
+  type PickedFiles,
 } from "../src/pwa/files";
 import {
   createPwaFile,
@@ -532,6 +533,234 @@ describe("portable filesystem adapter", () => {
       expect(config.arrayBuffer).toHaveBeenCalledOnce();
     });
   });
+  describe("incremental folder checkpoints", () => {
+    it.each(["native", "fallback"] as const)(
+      "awaits durable %s batch commits, then releases candidates and continues beyond two batches",
+      async (host) => {
+        const files = Array.from({ length: 150 }, (_, i) =>
+          browserFile(
+            `note-${i}.md`,
+            encode(`Note ${i}`),
+            `project/note-${i}.md`,
+          ),
+        );
+        let enumerated = 0;
+        if (host === "native") {
+          const root = directory("project");
+          root.values = async function* () {
+            for (const file of files) {
+              enumerated++;
+              yield nativeFile(file);
+            }
+          };
+          installPicker(
+            "showDirectoryPicker",
+            vi.fn(async () => root),
+          );
+        } else
+          vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(
+            () => {},
+          );
+        const saved = new Map<string, string>();
+        const sizes: number[] = [];
+        const checkpoints: number[] = [];
+        let release!: () => void;
+        const onBatch = vi.fn(
+          async (
+            batch: PickedFiles,
+            checkpoint: { batchIndex: number; done: boolean },
+          ) => {
+            sizes.push(batch.files.length);
+            checkpoints.push(checkpoint.batchIndex);
+            for (const file of batch.files)
+              saved.set(file.path, new TextDecoder().decode(fileBytes(file)));
+            if (checkpoint.batchIndex === 1)
+              await new Promise<void>((resolve) => {
+                release = resolve;
+              });
+          },
+        );
+        const pending = pickFolder({ markdownOnly: true, onBatch });
+        if (host === "fallback") chooseInputFiles(files);
+        await vi.waitFor(() => expect(onBatch).toHaveBeenCalledOnce());
+        expect(saved.size).toBe(64);
+        expect(files[64]!.arrayBuffer).not.toHaveBeenCalled();
+        if (host === "native") expect(enumerated).toBeLessThanOrEqual(65);
+        release();
+        const result = await pending;
+        expect(result).toEqual({
+          files: [],
+          directories: [],
+          committedFiles: 150,
+        });
+        expect(sizes).toEqual([64, 64, 22]);
+        expect(checkpoints).toEqual([1, 2, 3]);
+        expect(saved.size).toBe(150);
+        expect(saved.get("project/note-149.md")).toBe("Note 149");
+        expect(onBatch).toHaveBeenLastCalledWith(
+          expect.anything(),
+          expect.objectContaining({ done: true, selected: 150, read: 150 }),
+        );
+      },
+    );
+
+    it("commits six sparse Markdown notes while continuing the same native cursor past many scan batches", async () => {
+      const root = directory("project");
+      let enumerated = 0;
+      const unrelated = vi.fn(async () => {
+        throw new Error("Unrelated bytes read");
+      });
+      root.values = async function* () {
+        for (let i = 0; i < 12000; i++) {
+          enumerated++;
+          yield i % 2000 === 0
+            ? nativeFile(browserFile(`note-${i}.md`, encode(`Note ${i}`)))
+            : {
+                kind: "file" as const,
+                name: `${i}.ts`,
+                getFile: unrelated,
+                createWritable: vi.fn(),
+              };
+        }
+      };
+      installPicker(
+        "showDirectoryPicker",
+        vi.fn(async () => root),
+      );
+      const saved: string[] = [];
+      const observed: { scanned: number; batchIndex: number; done: boolean }[] =
+        [];
+      const result = await pickFolder({
+        markdownOnly: true,
+        onBatch: async (batch, checkpoint) => {
+          saved.push(...batch.files.map((file) => file.path));
+          observed.push(checkpoint);
+          if (checkpoint.batchIndex === 1) {
+            expect(saved).toEqual(["project/note-0.md"]);
+            expect(enumerated).toBeLessThanOrEqual(1001);
+          }
+        },
+      });
+      expect(result?.committedFiles).toBe(6);
+      expect(saved).toEqual(
+        Array.from({ length: 6 }, (_, i) => `project/note-${i * 2000}.md`),
+      );
+      expect(observed).toHaveLength(12);
+      expect(observed.at(-1)).toEqual(
+        expect.objectContaining({ scanned: 12000, batchIndex: 12, done: true }),
+      );
+      expect(enumerated).toBe(12000);
+      expect(unrelated).not.toHaveBeenCalled();
+    });
+
+    it("keeps an already committed batch when canceled and never reads the next batch", async () => {
+      const root = directory("project");
+      const files = Array.from({ length: 150 }, (_, i) =>
+        browserFile(`${i}.md`, encode("note")),
+      );
+      for (const file of files) root.files.set(file.name, nativeFile(file));
+      installPicker(
+        "showDirectoryPicker",
+        vi.fn(async () => root),
+      );
+      const controller = new AbortController();
+      const saved: string[] = [];
+      const onBatch = vi.fn(async (batch: PickedFiles) => {
+        saved.push(...batch.files.map((file) => file.path));
+        controller.abort();
+      });
+      expect(
+        await pickFolder({
+          markdownOnly: true,
+          signal: controller.signal,
+          onBatch,
+        }),
+      ).toBeNull();
+      expect(saved).toHaveLength(64);
+      expect(onBatch).toHaveBeenCalledOnce();
+      expect(
+        files
+          .slice(64)
+          .every((file) => vi.mocked(file.arrayBuffer).mock.calls.length === 0),
+      ).toBe(true);
+    });
+
+    it("stops on a failed commit without traversing or reading another batch", async () => {
+      const root = directory("project");
+      const files = Array.from({ length: 150 }, (_, i) =>
+        browserFile(`${i}.md`, encode("note")),
+      );
+      for (const file of files) root.files.set(file.name, nativeFile(file));
+      installPicker(
+        "showDirectoryPicker",
+        vi.fn(async () => root),
+      );
+      const onBatch = vi.fn(async () => {
+        throw new Error("Synthetic checkpoint save failure");
+      });
+      await expect(pickFolder({ markdownOnly: true, onBatch })).rejects.toThrow(
+        "checkpoint save failure",
+      );
+      expect(onBatch).toHaveBeenCalledOnce();
+      expect(
+        files
+          .slice(64)
+          .every((file) => vi.mocked(file.arrayBuffer).mock.calls.length === 0),
+      ).toBe(true);
+    });
+
+    it("commits the valid remainder at the note quota without reading note2001", async () => {
+      const root = directory("project");
+      const files = Array.from({ length: 2001 }, (_, i) =>
+        browserFile(`${i}.md`, new Uint8Array()),
+      );
+      for (const file of files) root.files.set(file.name, nativeFile(file));
+      installPicker(
+        "showDirectoryPicker",
+        vi.fn(async () => root),
+      );
+      const saved: string[] = [];
+      await expect(
+        pickFolder({
+          markdownOnly: true,
+          onBatch: async (batch) => {
+            saved.push(...batch.files.map((file) => file.path));
+          },
+        }),
+      ).rejects.toThrow("Choose at most 2000 Markdown files");
+      expect(saved).toHaveLength(2000);
+      expect(saved.at(-1)).toBe("project/1999.md");
+      expect(files[2000]!.arrayBuffer).not.toHaveBeenCalled();
+    });
+
+    it("enforces the encoded budget across batches before allocating the overflowing batch", async () => {
+      const root = directory("project");
+      const files = Array.from({ length: 96 }, (_, i) =>
+        browserFile(`${i}.md`, new Uint8Array(64 * 1024)),
+      );
+      for (const file of files) root.files.set(file.name, nativeFile(file));
+      installPicker(
+        "showDirectoryPicker",
+        vi.fn(async () => root),
+      );
+      const saved: string[] = [];
+      await expect(
+        pickFolder({
+          markdownOnly: true,
+          onBatch: async (batch) => {
+            saved.push(...batch.files.map((file) => file.path));
+          },
+        }),
+      ).rejects.toThrow("6 MiB encoded");
+      expect(saved).toHaveLength(64);
+      expect(
+        files
+          .slice(64)
+          .every((file) => vi.mocked(file.arrayBuffer).mock.calls.length === 0),
+      ).toBe(true);
+    });
+  });
+
   it("scans over 10k unrelated native files and retains all six Markdown notes", async () => {
     const root = directory("project");
     let inspected = 0;
@@ -786,7 +1015,7 @@ describe("portable filesystem adapter", () => {
     );
 
     it.each(["native", "fallback"] as const)(
-      "rejects 2,001 Markdown notes through %s selection before allocating file bytes",
+      "stops %s batches at the 2,000-note quota without reading an over-quota file",
       async (host) => {
         const files = Array.from({ length: MAX_PWA_ENTRIES + 1 }, (_, index) =>
           browserFile(
@@ -814,11 +1043,12 @@ describe("portable filesystem adapter", () => {
         await expect(pending).rejects.toThrow(
           "Choose at most 2000 Markdown files",
         );
-        expect(
-          files.every(
-            (file) => vi.mocked(file.arrayBuffer).mock.calls.length === 0,
-          ),
-        ).toBe(true);
+        expect(files.at(-1)!.arrayBuffer).not.toHaveBeenCalled();
+        const readCount = files.filter(
+          (file) => vi.mocked(file.arrayBuffer).mock.calls.length > 0,
+        ).length;
+        expect(readCount).toBeGreaterThan(0);
+        expect(readCount).toBeLessThanOrEqual(MAX_PWA_ENTRIES);
       },
     );
 

@@ -15,12 +15,28 @@ import {
 export interface PickedFiles {
   files: PwaFile[];
   directories: string[];
+  /** Present for streaming imports; notes were delivered to onBatch, not retained here. */
+  committedFiles?: number;
 }
 
 export interface FileSelectionOptions {
   markdownOnly?: boolean;
   signal?: AbortSignal;
   onProgress?: (progress: FileSelectionProgress) => void;
+  /** Await the host's existing save owner before continuing the live scan cursor. */
+  onBatch?: (
+    batch: PickedFiles,
+    checkpoint: FolderScanCheckpoint,
+  ) => Promise<void>;
+}
+
+export interface FolderScanCheckpoint {
+  root: string;
+  batchIndex: number;
+  scanned: number;
+  selected: number;
+  read: number;
+  done: boolean;
 }
 
 export interface FileSelectionProgress {
@@ -166,9 +182,15 @@ class SelectionProgress {
     await this.checkpoint();
   }
 
+  scanning(): void {
+    this.value.phase = "scanning";
+    delete this.value.total;
+    this.emit(true);
+  }
+
   reading(total: number): void {
     this.value.phase = "reading";
-    this.value.total = total;
+    this.value.total = Math.max(total, this.value.selected);
     this.emit(true);
   }
 
@@ -454,6 +476,7 @@ async function readFiles(
   directories: string[],
   options: FileSelectionOptions,
   progress: SelectionProgress,
+  finish = true,
 ): Promise<PickedFiles> {
   checkAbort(options);
   if (selected.length + directories.length > MAX_PWA_ENTRIES) {
@@ -497,11 +520,130 @@ async function readFiles(
     );
     await progress.checkpoint();
     const selection = validateSelection({ files, directories });
-    progress.finish();
+    if (finish) progress.finish();
     return selection;
   } catch (error) {
     progress.stop();
     throw error;
+  }
+}
+
+type FolderCandidate =
+  { handle: NativeFileHandle; path: string } | { file: File; path: string };
+
+/** The iterator/index lives in the caller; only this bounded read batch is retained. */
+class FolderScanBatches {
+  private candidates: FolderCandidate[] = [];
+  private readonly retained: PwaFile[] = [];
+  private scanned = 0;
+  private selected = 0;
+  private delivered = 0;
+  private boundary = 0;
+  private batchIndex = 0;
+  private encodedBytes = 0;
+  private jsonBytes = new TextEncoder().encode(
+    serializePayload(createWorkspace()),
+  ).length;
+
+  constructor(
+    private readonly options: FileSelectionOptions,
+    private readonly progress: SelectionProgress,
+  ) {}
+
+  async inspect(root: string): Promise<void> {
+    if (this.boundary >= 1000) await this.flush(root, false);
+    this.scanned++;
+    this.boundary++;
+  }
+
+  async add(candidate: FolderCandidate, root: string): Promise<void> {
+    if (this.selected >= MAX_PWA_ENTRIES) {
+      // Preserve the valid remainder before reporting a genuine payload quota.
+      await this.flush(root, false);
+      selectionLimit(this.options);
+    }
+    this.selected++;
+    this.candidates.push(candidate);
+    if (this.candidates.length >= 64) await this.flush(root, false);
+  }
+
+  private async flush(root: string, done: boolean): Promise<void> {
+    checkAbort(this.options);
+    const candidates = this.candidates;
+    this.candidates = [];
+    this.boundary = 0;
+    let files: PwaFile[] = [];
+    if (candidates.length) {
+      const metadata = await mapBounded(
+        candidates,
+        async (candidate, options) => {
+          const file =
+            "file" in candidate
+              ? candidate.file
+              : await readOperation(
+                  () => candidate.handle.getFile(),
+                  options,
+                  candidate.path,
+                );
+          return { file, path: candidate.path };
+        },
+        this.options,
+      );
+      for (const { file } of metadata) {
+        if (file.size > MAX_PWA_FILE_BYTES)
+          throw new Error("Each file must be 4 MiB or smaller.");
+        this.encodedBytes += 4 * Math.ceil(file.size / 3);
+        if (this.encodedBytes > MAX_VAULT_PLAINTEXT_BYTES)
+          throw new Error(
+            "The selection exceeds the 6 MiB encoded bundle limit.",
+          );
+      }
+      files = (
+        await readFiles(metadata, [], this.options, this.progress, false)
+      ).files;
+      for (const file of files) {
+        this.jsonBytes +=
+          new TextEncoder().encode(JSON.stringify(file)).length +
+          (this.delivered ? 1 : 0);
+        // Count separators inside this batch too, without retaining earlier file bytes.
+        this.delivered++;
+      }
+      if (this.jsonBytes > MAX_VAULT_PLAINTEXT_BYTES)
+        throw new Error(
+          "The selection exceeds the 6 MiB encoded bundle limit including paths and metadata.",
+        );
+    }
+    checkAbort(this.options);
+    if (this.options.onBatch)
+      await this.options.onBatch(
+        { files, directories: [] },
+        {
+          root,
+          batchIndex: ++this.batchIndex,
+          scanned: this.scanned,
+          selected: this.selected,
+          read: this.delivered,
+          done,
+        },
+      );
+    else this.retained.push(...files);
+    checkAbort(this.options);
+    if (!done) this.progress.scanning();
+  }
+
+  async finish(root: string, emptyDirectories: string[]): Promise<PickedFiles> {
+    await this.flush(root, true);
+    this.progress.finish();
+    return this.options.onBatch
+      ? {
+          files: [],
+          directories: this.selected ? [] : emptyDirectories,
+          committedFiles: this.delivered,
+        }
+      : validateSelection({
+          files: this.retained,
+          directories: this.selected ? [] : emptyDirectories,
+        });
   }
 }
 
@@ -600,6 +742,10 @@ function pickWithInput(
               ? await inputFolderRules(inputFiles, options, progress)
               : new Map<string, FolderIgnore>();
           const defaults = new FolderIgnore();
+          const batches =
+            folder && options.markdownOnly
+              ? new FolderScanBatches(options, progress)
+              : null;
           for (const file of inputFiles ?? []) {
             await progress.checkpoint();
             const relative = file.webkitRelativePath;
@@ -607,6 +753,7 @@ function pickWithInput(
             if (folder && relative)
               roots.add(validateRelativePath(relative.split("/")[0]!));
             const entry = folder ? folderPath(relative) : null;
+            await batches?.inspect(entry?.root ?? "");
             if (
               options.markdownOnly &&
               entry &&
@@ -623,6 +770,10 @@ function pickWithInput(
             await progress.scanned(allowed);
             if (!allowed) continue;
             if (folder && relative) validateRelativePath(relative);
+            if (batches) {
+              await batches.add({ file, path }, entry?.root ?? "");
+              continue;
+            }
             if (selected.length >= MAX_PWA_ENTRIES) selectionLimit(options);
             selected.push({
               file,
@@ -636,6 +787,8 @@ function pickWithInput(
             progress.stop();
             return null;
           }
+          if (batches)
+            return await batches.finish([...roots][0] ?? "", [...roots]);
           // Markdown paths already retain their root and every parent. Explicit
           // directory records are needed only by generic imports/empty roots.
           const directories = !folder
@@ -733,6 +886,9 @@ export async function pickFolder(
     const directories: string[] = options.markdownOnly ? [] : [rootPath];
     const rules = new FolderIgnore();
     const ignoreReader = new IgnoreReader();
+    const batches = options.markdownOnly
+      ? new FolderScanBatches(options, progress)
+      : null;
     const walk = async (directory: NativeDirectoryHandle, prefix: string) => {
       const iterator = directory.values()[Symbol.asyncIterator]();
       try {
@@ -770,6 +926,7 @@ export async function pickFolder(
         }
         while (true) {
           let handle = buffered[bufferIndex++];
+          delete buffered[bufferIndex - 1];
           if (!handle) {
             if (complete) break;
             // Abort releases the UI even while a platform directory iterator waits.
@@ -781,6 +938,7 @@ export async function pickFolder(
             if (item.done) break;
             handle = item.value;
           }
+          await batches?.inspect(rootPath);
           if (
             options.markdownOnly &&
             handle.kind === "file" &&
@@ -814,9 +972,12 @@ export async function pickFolder(
             }
             await walk(handle, `${path}/`);
           } else {
-            if (selected.length + directories.length >= MAX_PWA_ENTRIES)
-              selectionLimit(options);
-            selected.push({ handle, path });
+            if (batches) await batches.add({ handle, path }, rootPath);
+            else {
+              if (selected.length + directories.length >= MAX_PWA_ENTRIES)
+                selectionLimit(options);
+              selected.push({ handle, path });
+            }
           }
         }
       } catch (error) {
@@ -829,6 +990,7 @@ export async function pickFolder(
       }
     };
     await walk(root, `${rootPath}/`);
+    if (batches) return await batches.finish(rootPath, [rootPath]);
     return await readHandles(
       selected,
       options.markdownOnly && !selected.length ? [rootPath] : directories,

@@ -654,11 +654,14 @@ is in `pwa-files` and `pwa-data`.
 Folder opening uses the existing import owner to report scanning/reading progress
 and expose **Cancel opening**. The file adapter accepts an AbortSignal and
 scanning/reading callbacks, throttles progress with forced task-yield updates,
-and reports completed reads against the full total. Metadata and byte reads each
-use four lanes; all selected-file size/aggregate checks precede byte reads.
+and reports completed reads. Batches contain at most 1,000 inspected entries or
+64 notes. Each awaits a storage commit, releases temporary candidates and bytes,
+and continues the same live iterator/index. Metadata and byte reads each use four
+lanes; per-batch sizes and the cumulative budget are checked before byte reads.
 Per-directory and per-file I/O has a 30-second deadline; the human picker has none.
-Cancellation stops scheduling/progress, discards partial selections and ignores
-late results without changing existing workspace data. Markdown navigation
+Cancellation stops scheduling/progress and ignores late results. Already
+committed batches remain available; only the pending batch is discarded. The
+scan cursor is in memory for this operation, while committed notes persist. Markdown navigation
 initially renders 100 matching
 rows and offers filename search and **Show more**. Filtering/paging updates only
 the file navigation; the active editor and unsaved draft retain their owner.

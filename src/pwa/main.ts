@@ -40,6 +40,7 @@ import {
   exportPlainFile,
   restoreFolder,
   type PickedFiles,
+  type FileSelectionOptions,
 } from "./files";
 import "../styles.css";
 import "../core/ui-system.css";
@@ -765,7 +766,10 @@ async function selectLocalWorkspace(id: string) {
   if (!(await refreshEntities())) return;
   renderContent();
 }
-async function chooseMarkdown(folder: boolean): Promise<PickedFiles | null> {
+async function chooseMarkdown(
+  folder: boolean,
+  onBatch?: FileSelectionOptions["onBatch"],
+): Promise<PickedFiles | null> {
   const controller = new AbortController();
   const started = lifecycle;
   opening = controller;
@@ -779,6 +783,7 @@ async function chooseMarkdown(folder: boolean): Promise<PickedFiles | null> {
     const options = {
       markdownOnly: true,
       signal: controller.signal,
+      onBatch,
       onProgress: (progress: {
         phase: "scanning" | "reading";
         scanned: number;
@@ -813,41 +818,131 @@ async function chooseMarkdown(folder: boolean): Promise<PickedFiles | null> {
     if (opening === controller) {
       opening = null;
       cancelOpenButton.hidden = true;
-      if (controller.signal.aborted && started === lifecycle)
-        notify("Opening canceled. Your current notes are unchanged.");
     }
   }
 }
 async function openFiles(folder = false) {
-  const started = lifecycle;
   if (hostSource) return;
-  // Picker invocation must happen before any async save/dialog.
-  const picked = await chooseMarkdown(folder);
-  if (!picked || !(await save()) || started !== lifecycle) return;
-  if (!picked.files.length) {
-    notify("This selection contains no .md files.");
-    return;
-  }
-  const candidate = {
-    ...createWorkspace(
-      folder
-        ? (picked.directories[0] ?? picked.files[0]?.path.split("/")[0])
-        : undefined,
-    ),
-    ...picked,
+  await importMarkdown(folder, false);
+}
+
+/** Commit each bounded scan batch before the picker advances its cursor. */
+async function importMarkdown(folder: boolean, adding: boolean) {
+  const started = lifecycle;
+  let committed = 0;
+  let prepared = false;
+  let destination = adding ? activeId : null;
+  const current = () => {
+    if (started !== lifecycle || opening?.signal.aborted)
+      throw new DOMException("Opening canceled.", "AbortError");
   };
-  notify("Saving the Markdown workspace on this device…");
-  await new Promise<void>((resolve) => setTimeout(resolve, 0));
-  if (started !== lifecycle) return;
-  serializePayload(candidate);
-  const record = await repository.createLocal(undefined, candidate);
-  if (started !== lifecycle) return;
-  activateLocal(record.id, record.payload, picked.files[0]?.id ?? null);
-  if (!(await refreshEntities())) return;
-  renderContent();
-  notify(
-    "Markdown files opened without encryption. Changes save on this device; export copies to update your files.",
-  );
+  const commit = async (batch: PickedFiles, root?: string) => {
+    current();
+    if (!batch.files.length) return;
+    if (!prepared) {
+      if (!(await save()))
+        throw new Error("Save the current note before opening more files.");
+      current();
+      prepared = true;
+    }
+    if (!destination) {
+      const candidate = {
+        ...createWorkspace(
+          folder ? (root ?? batch.files[0]?.path.split("/")[0]) : undefined,
+        ),
+        files: batch.files,
+        directories: batch.directories,
+      };
+      serializePayload(candidate);
+      const record = await repository.createLocal(undefined, candidate);
+      committed += batch.files.length;
+      destination = record.id;
+      if (started !== lifecycle) return;
+      activateLocal(record.id, record.payload, batch.files[0]?.id ?? null);
+      if (!(await refreshEntities())) return;
+    } else {
+      if (activeId !== destination || payload?.kind !== "workspace")
+        throw new Error(
+          "The destination workspace changed. Open the folder again.",
+        );
+      const paths = new Set(payload.files.map((file) => file.path));
+      if (batch.files.some((file) => paths.has(file.path)))
+        throw new Error(
+          "An imported path already exists. Open a separate workspace or rename the source first.",
+        );
+      const candidate = {
+        ...payload,
+        files: [...payload.files, ...batch.files],
+        directories: retainEmptyDirectories(
+          [...payload.files, ...batch.files],
+          [...new Set([...payload.directories, ...batch.directories])],
+        ),
+      };
+      serializePayload(candidate);
+      const next = validatePayload(candidate);
+      if (next.kind !== "workspace") return;
+      // Plaintext imports can acknowledge the existing repository transaction
+      // before changing the mounted document. Encrypted sources keep the single
+      // save owner, including source permissions and conflict acknowledgement.
+      if (localWorkspace) {
+        await repository.updateLocal(destination, next);
+        committed += batch.files.length;
+        if (started !== lifecycle) return;
+        payload = next;
+      } else {
+        payload = next;
+        dirty = true;
+        if (!(await save()))
+          throw new Error(
+            "The current batch could not be saved. Use Retry save to keep these notes.",
+          );
+        committed += batch.files.length;
+        if (started !== lifecycle) return;
+      }
+      if (!committed || committed === batch.files.length)
+        selectedId = batch.files[0]?.id ?? selectedId;
+    }
+    renderContent();
+  };
+  try {
+    // The picker starts synchronously; saving waits until its first real batch.
+    const picked = await chooseMarkdown(folder, (batch, checkpoint) =>
+      commit(batch, checkpoint.root),
+    );
+    if (started !== lifecycle) return;
+    if (!picked) {
+      notify(
+        committed
+          ? `Opening stopped. ${committed} notes are saved on this device.`
+          : "Opening canceled. Your current notes are unchanged.",
+      );
+      return;
+    }
+    // Pickers without batch support (including explicit file selections) retain
+    // the same commit path, so a completed streaming receipt is never imported twice.
+    if (picked.files.length) await commit(picked, picked.directories[0]);
+    if (started !== lifecycle) return;
+    notify(
+      committed
+        ? `${committed} Markdown notes saved on this device. Original files are unchanged.`
+        : "This selection contains no .md files.",
+    );
+  } catch (error) {
+    if (started !== lifecycle) return;
+    const canceled =
+      error instanceof DOMException && error.name === "AbortError";
+    const detail = canceled
+      ? "Opening canceled."
+      : error instanceof Error
+        ? error.message
+        : "Opening could not finish.";
+    notify(
+      committed
+        ? `${detail} ${committed} notes already saved on this device are available.`
+        : detail,
+      !canceled,
+    );
+  }
 }
 async function encryptWorkspace() {
   const started = lifecycle;
@@ -1439,45 +1534,8 @@ async function renameNote(advanced = false) {
   await save();
 }
 async function addFiles(folder = false) {
-  const started = lifecycle;
   if (!payload || payload.kind !== "workspace") return;
-  // Open the picker before awaiting save to preserve browser user activation.
-  const picked = await chooseMarkdown(folder);
-  if (
-    !picked ||
-    !(await save()) ||
-    started !== lifecycle ||
-    payload?.kind !== "workspace"
-  )
-    return;
-  if (!picked.files.length) {
-    notify("This selection contains no .md files.");
-    return;
-  }
-  const paths = new Set(payload.files.map((file) => file.path));
-  if (picked.files.some((file) => paths.has(file.path)))
-    throw new Error(
-      "An imported path already exists. Add files did not change this workspace. Open a separate workspace or rename the source first.",
-    );
-  const candidate = structuredClone(payload);
-  candidate.files.push(...picked.files);
-  // Existing imports may store parents that the file paths already preserve.
-  // Retain actual empty folders without charging redundant parents to the quota.
-  candidate.directories = retainEmptyDirectories(candidate.files, [
-    ...new Set([...candidate.directories, ...picked.directories]),
-  ]);
-  serializePayload(candidate);
-  payload = validatePayload(candidate);
-  dirty = true;
-  selectedId = picked.files[0]?.id ?? null;
-  renderContent();
-  if (await save()) {
-    notify(
-      localWorkspace
-        ? "Markdown files stored without encryption on this device. Original files are unchanged."
-        : "Markdown files encrypted and stored on this device. Original files are unchanged.",
-    );
-  }
+  await importMarkdown(folder, true);
 }
 async function renameEntity() {
   if (!payload || !(await save())) return;

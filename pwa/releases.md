@@ -9,10 +9,25 @@ extension for encrypted page notes, or AIC Notes in VS Code. Protected file
 editors share the same `.aicnotes` data; synchronize exported files through a
 service you manage.
 
+## AIC Notes 58.1.1 — VS Code desktop and web
+
+AIC Notes now includes a browser host for vscode.dev and github.dev alongside
+its desktop host. Both use the same editor, files, linked notes and encrypted
+`.aicnotes` format. Read-only repositories support viewing; saving requires a
+writable filesystem provider. Confirmed saves also clear stale failure notices
+after rapid Undo/Redo.
+
+Download the [58.1.1 VSIX](https://github.com/ldzyha/aic-notes/releases/download/v58.1.1/aic-notes-58.1.1.vsix)
+and [SHA-256](https://github.com/ldzyha/aic-notes/releases/download/v58.1.1/aic-notes-58.1.1.vsix.sha256).
+Run **Extensions: Install from VSIX…** in VS Code or vscode.dev, select the file,
+and reload. Marketplace updates become available after store validation.
+
 ## Web update — October 1, 2026
 
 Opening a large project no longer fails after 10,000 inspected entries: AIC scans
-the selected tree and imports its Markdown notes, with progress and cancellation.
+the selected tree in bounded batches, saves found notes before continuing from
+the current position, and releases temporary buffers between batches. Canceling
+or a later scan error keeps the notes already saved on this device.
 The interface now uses compact editor-style headers, an explorer sidebar, neutral
 light/dark surfaces and touch-sized controls on phones.
 

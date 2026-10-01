@@ -782,6 +782,210 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     expect(document.querySelector(".pwa-notice")?.textContent).toBe("");
   });
 
+  it("persists and displays scan batches before the folder traversal finishes", async () => {
+    let continueScan!: () => void;
+    const checkpoint = {
+      root: "project",
+      batchIndex: 1,
+      scanned: 1000,
+      selected: 1,
+      read: 1,
+      done: false,
+    };
+    state.pickSelection = async (options) => {
+      await options.onBatch!(
+        {
+          files: [
+            createPwaFile(
+              "project/first.md",
+              new TextEncoder().encode("First saved batch"),
+            ),
+          ],
+          directories: [],
+        },
+        checkpoint,
+      );
+      await new Promise<void>((resolve) => {
+        continueScan = resolve;
+      });
+      await options.onBatch!(
+        {
+          files: [
+            createPwaFile(
+              "project/second.md",
+              new TextEncoder().encode("Second saved batch"),
+            ),
+          ],
+          directories: [],
+        },
+        { ...checkpoint, batchIndex: 2, scanned: 2000, selected: 2, read: 2 },
+      );
+      await options.onBatch!(
+        { files: [], directories: [] },
+        {
+          ...checkpoint,
+          batchIndex: 3,
+          scanned: 2500,
+          selected: 2,
+          read: 2,
+          done: true,
+        },
+      );
+      return { files: [], directories: [], committedFiles: 2 };
+    };
+    control("Open folder").click();
+    await vi.waitFor(() => expect(continueScan).toBeTypeOf("function"));
+    expect(editorField().value).toBe("First saved batch");
+    const first = (await state.repository!.listLocal())[0]!;
+    expect(first.payload.files).toHaveLength(1);
+    expect(first.payload.label).toBe("project");
+    expect(document.querySelector("main")?.getAttribute("aria-busy")).toBe(
+      "true",
+    );
+    continueScan();
+    await idle();
+    const final = (await state.repository!.listLocal())[0]!;
+    expect(final.id).toBe(first.id);
+    expect(final.payload.files.map((file) => file.path)).toEqual([
+      "project/first.md",
+      "project/second.md",
+    ]);
+    expect(editorField().value).toBe("First saved batch");
+    expect(document.querySelector(".pwa-notice")?.textContent).toContain(
+      "2 Markdown notes saved",
+    );
+  });
+
+  it("keeps committed notes when the user cancels the remaining folder scan", async () => {
+    state.pickSelection = async (options) => {
+      await options.onBatch!(
+        {
+          files: [
+            createPwaFile(
+              "project/saved.md",
+              new TextEncoder().encode("Saved before cancellation"),
+            ),
+          ],
+          directories: [],
+        },
+        {
+          root: "project",
+          batchIndex: 1,
+          scanned: 1000,
+          selected: 1,
+          read: 1,
+          done: false,
+        },
+      );
+      return new Promise((resolve) =>
+        options.signal!.addEventListener("abort", () => resolve(null), {
+          once: true,
+        }),
+      );
+    };
+    control("Open folder").click();
+    await vi.waitFor(() =>
+      expect(document.querySelector(".synthetic-editor")).not.toBeNull(),
+    );
+    control("Cancel folder opening").click();
+    await idle();
+    expect(
+      (await state.repository!.listLocal())[0]!.payload.files,
+    ).toHaveLength(1);
+    expect(editorField().value).toBe("Saved before cancellation");
+    expect(editorField().readOnly).toBe(false);
+    expect(document.querySelector(".pwa-notice")?.textContent).toContain(
+      "1 notes are saved",
+    );
+  });
+
+  it("keeps earlier committed batches when a later device write fails", async () => {
+    const checkpoint = {
+      root: "project",
+      batchIndex: 1,
+      scanned: 1000,
+      selected: 1,
+      read: 1,
+      done: false,
+    };
+    state.pickSelection = async (options) => {
+      await options.onBatch!(
+        {
+          files: [
+            createPwaFile(
+              "project/saved.md",
+              new TextEncoder().encode("Committed"),
+            ),
+          ],
+          directories: [],
+        },
+        checkpoint,
+      );
+      state.failCache = true;
+      await options.onBatch!(
+        {
+          files: [createPwaFile("project/failed.md", new Uint8Array())],
+          directories: [],
+        },
+        { ...checkpoint, batchIndex: 2, scanned: 2000 },
+      );
+      throw new Error("The failed save must stop traversal");
+    };
+    control("Open folder").click();
+    await idle();
+    expect(
+      (await state.repository!.listLocal())[0]!.payload.files.map(
+        (file) => file.path,
+      ),
+    ).toEqual(["project/saved.md"]);
+    expect(editorField().value).toBe("Committed");
+    expect(document.querySelector(".pwa-notice")?.textContent).toContain(
+      "1 notes already saved",
+    );
+  });
+
+  it("does not commit a late scan batch after the page closes", async () => {
+    let continueScan!: () => void;
+    const checkpoint = {
+      root: "project",
+      batchIndex: 1,
+      scanned: 1000,
+      selected: 1,
+      read: 1,
+      done: false,
+    };
+    state.pickSelection = async (options) => {
+      await options.onBatch!(
+        {
+          files: [createPwaFile("project/saved.md", new Uint8Array())],
+          directories: [],
+        },
+        checkpoint,
+      );
+      await new Promise<void>((resolve) => {
+        continueScan = resolve;
+      });
+      await options.onBatch!(
+        {
+          files: [createPwaFile("project/late.md", new Uint8Array())],
+          directories: [],
+        },
+        { ...checkpoint, batchIndex: 2 },
+      );
+      return { files: [], directories: [], committedFiles: 2 };
+    };
+    control("Open folder").click();
+    await vi.waitFor(() => expect(continueScan).toBeTypeOf("function"));
+    window.dispatchEvent(new Event("pagehide"));
+    continueScan();
+    await idle();
+    expect((await state.persistence!.listLocal())[0]).toMatchObject({
+      payload: { files: [{ path: "project/saved.md" }] },
+    });
+    expect(document.querySelector(".synthetic-editor")).toBeNull();
+    expect(document.querySelector(".pwa-notice")?.textContent).toBe("");
+  });
+
   it("does not create a workspace when file selection is canceled or has no Markdown files", async () => {
     control("Open files").click();
     await idle();
