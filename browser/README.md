@@ -32,6 +32,13 @@ and manual reordering do not trigger sorting.
 
 All three installation paths are in the [release and installation page](https://aic.dzyha.com/releases).
 
+## 0.11.2 — prepared Mermaid update
+
+Mermaid keeps a full-width canvas and centers the diagram at its natural size.
+Diagrams shrink to fit narrow panels, long flowchart labels wrap, and the preview
+uses all content height without internal scrollbars or zoom buttons. Copy and Edit
+remain. Mermaid loads only when a diagram is rendered. Store approval is separate.
+
 ## Supported design
 
 Supported browser targets are desktop **Google Chrome and Microsoft Edge only**, using Chromium 140 or newer. Both use one Manifest V3 package, one side-panel adapter and the **same canonical AIC editor**, without forks of AIC fields, Mermaid or Markdown behavior. Build and release gates cover these two browsers only.

@@ -81,7 +81,6 @@
           ".aic-toolbar",
           ".aic-toolbar-group",
           ".cm-md-preview-header",
-          ".cm-aic-mermaid-controls",
           ".aic-db-toolbar"
         ],
         "browser": [".browser-toolbar", ".browser-page-identity"],

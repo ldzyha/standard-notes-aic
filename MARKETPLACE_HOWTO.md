@@ -6,20 +6,18 @@
 
 ### Current release and store status — October 1, 2026
 
-[AIC Notes 57.1.2](https://github.com/ldzyha/aic-notes/releases/tag/v57.1.2)
-and [Standard Notes AIC 49.1.2](https://github.com/ldzyha/standard-notes-aic/releases/tag/v49.1.2)
-passed their Linux and Windows release workflows. The exact release assets and
-SHA-256 values were verified. This confirms the GitHub release artifacts; it does
-not confirm installation or publication by a store.
+[AIC Notes 59.0.2](https://github.com/ldzyha/aic-notes/releases/tag/v59.0.2)
+and [Standard Notes AIC 50.0.1](https://github.com/ldzyha/standard-notes-aic/releases/tag/v50.0.1)
+are prepared with browser 0.11.2 and core 7.5.2. Verify final GitHub assets,
+SHA-256 values and installation before claiming a release or store approval.
 
-| Destination            | Current state                                                                                 | Package or version                            |
-| ---------------------- | --------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| VS Code Marketplace    | `aic-notes` 57.1.2 upload accepted; **Verifying**                                             | `aic-notes-57.1.2.vsix`                       |
-| Chrome Web Store       | 0.11.1 submitted; **Pending review**                                                          | `aic-browser-chromium-0.11.1.zip` from 49.1.2 |
-| Microsoft Edge Add-ons | This session's authenticated Partner Center exposed no Edge workspace; no submission was made | None                                          |
+| Destination            | Current verified state                                   | Prepared update                     |
+| ---------------------- | -------------------------------------------------------- | ----------------------------------- |
+| VS Code Marketplace    | 58.1.1 public                                            | 59.0.2, submission not yet verified |
+| Chrome Web Store       | 0.9.3 public; 0.11.1 pending review; new upload disabled | `aic-browser-chromium-0.11.2.zip`   |
+| Microsoft Edge Add-ons | Partner Center has no available Edge workspace           | No confirmed submission             |
 
-Chrome's published baseline remains **0.9.3**. A pending Chrome review and a
-verifying Marketplace upload are not publications. Do not claim a store install,
+Chrome's published baseline remains **0.9.3**. A pending Chrome review is not publication. Do not claim a store install,
 update, or runtime acceptance until the relevant store exposes the released
 version and it has been installed and checked in a clean profile.
 
@@ -61,9 +59,10 @@ local Markdown, optional encryption, or explicit export model.
 
 #### VS Code Marketplace
 
-1. Retain the accepted 57.1.2 upload while Marketplace reports **Verifying**.
-2. When the portal makes the version available, confirm `ldzyha.aic-notes` shows
-   **57.1.2**, then install it from Extensions in a clean VS Code profile.
+1. Verify the 59.0.2 GitHub VSIX and checksum, then upload those exact bytes to
+   the existing listing. The current public version is 58.1.1.
+2. Wait for Microsoft verification, confirm `ldzyha.aic-notes` publicly shows
+   **59.0.2**, then install it in a clean VS Code profile.
 3. A GitHub VSIX supports manual installation but does not publish the extension.
    See the [Marketplace publishing guide](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md).
 
@@ -116,20 +115,19 @@ See [Local data](browser/README.md).
 
 ### Поточний реліз і стан магазинів — 1 жовтня 2026
 
-Випуски [AIC Notes 57.1.2](https://github.com/ldzyha/aic-notes/releases/tag/v57.1.2)
-і [Standard Notes AIC 49.1.2](https://github.com/ldzyha/standard-notes-aic/releases/tag/v49.1.2)
-пройшли релізні перевірки в Linux та Windows. Точні файли релізів і SHA-256
-перевірено. Це підтверджує артефакти GitHub, але не встановлення чи публікацію в
-магазині.
+Підготовлено [AIC Notes 59.0.2](https://github.com/ldzyha/aic-notes/releases/tag/v59.0.2)
+і [Standard Notes AIC 50.0.1](https://github.com/ldzyha/standard-notes-aic/releases/tag/v50.0.1)
+із браузерним пакетом 0.11.2 та ядром 7.5.2. Перед заявою про випуск або схвалення
+перевірте остаточні файли GitHub, SHA-256 та встановлення.
 
-| Призначення            | Поточний стан                                                                   | Пакет або версія                            |
-| ---------------------- | ------------------------------------------------------------------------------- | ------------------------------------------- |
-| VS Code Marketplace    | завантаження `aic-notes` 57.1.2 прийнято; **Verifying**                         | `aic-notes-57.1.2.vsix`                     |
-| Chrome Web Store       | 0.11.1 подано; **Pending review**                                               | `aic-browser-chromium-0.11.1.zip` із 49.1.2 |
-| Microsoft Edge Add-ons | У цій сесії Partner Center не показав робочого простору Edge; подання не робили | Немає                                       |
+| Призначення            | Поточний перевірений стан                                        | Підготовлене оновлення             |
+| ---------------------- | ---------------------------------------------------------------- | ---------------------------------- |
+| VS Code Marketplace    | 58.1.1 публічно доступна                                         | 59.0.2, подання ще не підтверджене |
+| Chrome Web Store       | 0.9.3 доступна; 0.11.1 перевіряється; нове завантаження вимкнено | `aic-browser-chromium-0.11.2.zip`  |
+| Microsoft Edge Add-ons | У Partner Center немає доступного простору Edge                  | Подання не підтверджене            |
 
 Опублікованою базовою версією Chrome лишається **0.9.3**. Pending review у Chrome
-і Verifying у Marketplace не є публікацією. Не заявляйте про встановлення,
+ще не є публікацією. Не заявляйте про встановлення,
 оновлення чи перевірену працездатність, доки відповідний магазин не покаже
 випущену версію і її не буде встановлено та перевірено в чистому профілі.
 
@@ -172,9 +170,10 @@ PWA, що входить до Standard Notes AIC 49.1.2, має компактн
 
 #### VS Code Marketplace
 
-1. Залиште прийняте завантаження 57.1.2, поки Marketplace показує **Verifying**.
-2. Коли портал зробить версію доступною, переконайтеся, що `ldzyha.aic-notes`
-   показує **57.1.2**, і встановіть її через Extensions у чистому профілі VS Code.
+1. Перевірте VSIX 59.0.2 із GitHub та контрольну суму, потім завантажте ті самі
+   байти до наявного запису. Поточна публічна версія — 58.1.1.
+2. Дочекайтеся перевірки Microsoft, підтвердьте публічну **59.0.2** у
+   `ldzyha.aic-notes` і встановіть її у чистому профілі VS Code.
 3. VSIX на GitHub дозволяє ручне встановлення, але не публікує розширення.
    Див. [інструкцію публікації Marketplace](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md).
 

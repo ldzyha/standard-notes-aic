@@ -1,103 +1,96 @@
-import { createIconButton } from "./structured-preview.js";
-
-export const MERMAID_VIEW = Object.freeze({
-  minZoom: 50,
-  maxZoom: 400,
-  zoomStep: 25,
-});
-
-function positive(value, fallback) {
-  const number = Number(value);
-  return Number.isFinite(number) && number > 0 ? number : fallback;
+function positive(value) {
+  return Number.isFinite(value) && value > 0;
 }
 
-function svgAspectRatio(svg) {
-  const viewBox = String(svg?.getAttribute?.("viewBox") || "")
+function svgSize(svg) {
+  const viewBox = String(svg.getAttribute("viewBox") || "")
     .trim()
     .split(/[\s,]+/u)
     .map(Number);
   if (
     viewBox.length === 4 &&
-    Number.isFinite(viewBox[2]) &&
-    Number.isFinite(viewBox[3]) &&
-    viewBox[2] > 0 &&
-    viewBox[3] > 0
-  ) {
-    return viewBox[2] / viewBox[3];
-  }
-  const width = Number.parseFloat(svg?.getAttribute?.("width") || "");
-  const height = Number.parseFloat(svg?.getAttribute?.("height") || "");
-  return positive(width, 1) / positive(height, 1);
+    viewBox.every(Number.isFinite) &&
+    positive(viewBox[2]) &&
+    positive(viewBox[3])
+  )
+    return { width: viewBox[2], height: viewBox[3] };
+
+  // Percentages describe the host, not the diagram's intrinsic dimensions.
+  const length = (name) => {
+    const value = String(svg.getAttribute(name) || "").trim();
+    return /^(?:\d+(?:\.\d+)?|\.\d+)(?:px)?$/u.test(value)
+      ? Number.parseFloat(value)
+      : 0;
+  };
+  const width = length("width");
+  const height = length("height");
+  return positive(width) && positive(height)
+    ? { width, height, needsViewBox: true }
+    : null;
 }
 
 function viewportWidth(viewport, document) {
   const measured =
     viewport.clientWidth || viewport.getBoundingClientRect?.().width || 0;
-  const win = document.defaultView;
-  if (!win?.getComputedStyle) return positive(measured, 1);
-  const style = win.getComputedStyle(viewport);
-  const horizontalPadding =
-    Number.parseFloat(style.paddingLeft || "0") +
-    Number.parseFloat(style.paddingRight || "0");
-  return positive(measured - horizontalPadding, 1);
+  const style = document.defaultView?.getComputedStyle?.(viewport);
+  const padding =
+    (Number.parseFloat(style?.paddingLeft) || 0) +
+    (Number.parseFloat(style?.paddingRight) || 0);
+  return Math.max(0, measured - padding);
 }
 
 function pixels(value) {
-  return `${Math.max(1, Math.round(value * 1000) / 1000)}px`;
+  return `${Math.round(value * 1000) / 1000}px`;
 }
 
-// Dependency-free viewport behavior shared byte-for-byte by the VS Code and
-// Standard Notes adapters. The stage owns the transformed diagram's real
-// layout bounds, so browser scrolling remains correct after zoom.
-export function createMermaidViewport(document, options = {}) {
+// Shared by every host: preserve the SVG's natural size, shrink only when the
+// editor is narrower, and let the document own all vertical scrolling.
+export function createMermaidViewport(document) {
   if (!document?.createElement)
     throw new TypeError("createMermaidViewport requires a document");
-
-  const minZoom = positive(options.minZoom, MERMAID_VIEW.minZoom);
-  const maxZoom = Math.max(
-    minZoom,
-    positive(options.maxZoom, MERMAID_VIEW.maxZoom),
-  );
-  const zoomStep = positive(options.zoomStep, MERMAID_VIEW.zoomStep);
   const viewport = document.createElement("div");
   viewport.className = "cm-aic-mermaid-viewport";
-  viewport.tabIndex = 0;
-  viewport.setAttribute("aria-label", "Scrollable Mermaid diagram");
+  viewport.setAttribute("role", "region");
+  viewport.setAttribute("aria-label", "Rendered Mermaid diagram");
   const stage = document.createElement("div");
   stage.className = "cm-aic-mermaid-stage";
   viewport.appendChild(stage);
-  const controls = document.createElement("span");
-  controls.className = "cm-aic-mermaid-controls";
-
-  let zoom = 100;
   let destroyed = false;
   let frame = 0;
   const win = document.defaultView;
-
+  const reset = () => {
+    stage.style.removeProperty("width");
+    stage.style.removeProperty("height");
+    stage.style.removeProperty("--aic-mermaid-source-width");
+    stage.style.removeProperty("--aic-mermaid-source-height");
+  };
   const layout = () => {
     if (destroyed) return false;
     const svg = stage.querySelector("svg");
-    stage.dataset.zoom = String(zoom);
-    if (!svg) {
-      stage.style.width = "100%";
-      stage.style.height = "auto";
-      stage.style.removeProperty("--aic-mermaid-source-width");
-      stage.style.removeProperty("--aic-mermaid-source-height");
+    const size = svg && svgSize(svg);
+    // Loading and error content have no intrinsic diagram to fit. Avoid forcing
+    // an editor layout while the renderer is still working or showing a failure.
+    if (!size) {
+      reset();
       return false;
     }
-
-    const ratio = positive(svgAspectRatio(svg), 1);
-    const fitted = viewportWidth(viewport, document) * (zoom / 100);
-    stage.style.width = pixels(fitted);
-    stage.style.height = pixels(fitted / ratio);
-    stage.style.setProperty("--aic-mermaid-source-width", pixels(fitted));
-    stage.style.setProperty(
-      "--aic-mermaid-source-height",
-      pixels(fitted / ratio),
-    );
+    // CSS dimensions alone crop SVGs without a viewBox. Establish the validated
+    // intrinsic coordinates so the fallback scales the entire drawing too.
+    if (size.needsViewBox)
+      svg.setAttribute("viewBox", `0 0 ${size.width} ${size.height}`);
+    const available = viewportWidth(viewport, document);
+    if (!available) {
+      reset();
+      return false;
+    }
+    const width = Math.min(size.width, available);
+    const height = size.height * (width / size.width);
+    stage.style.width = pixels(width);
+    stage.style.height = pixels(height);
+    stage.style.setProperty("--aic-mermaid-source-width", pixels(width));
+    stage.style.setProperty("--aic-mermaid-source-height", pixels(height));
     return true;
   };
-
   const scheduleLayout = () => {
     if (destroyed || frame) return;
     if (win?.requestAnimationFrame) {
@@ -105,65 +98,33 @@ export function createMermaidViewport(document, options = {}) {
         frame = 0;
         layout();
       });
-      return;
+    } else {
+      frame = -1;
+      queueMicrotask(() => {
+        frame = 0;
+        layout();
+      });
     }
-    frame = -1;
-    queueMicrotask(() => {
-      frame = 0;
-      layout();
-    });
   };
-
-  let zoomOut;
-  let zoomIn;
-  let reset;
-  const reflectControls = () => {
-    zoomOut.disabled = zoom <= minZoom;
-    zoomIn.disabled = zoom >= maxZoom;
-    reset.disabled = zoom === 100;
-  };
-  const apply = (nextZoom) => {
-    zoom = Math.min(maxZoom, Math.max(minZoom, nextZoom));
-    reflectControls();
-    layout();
-    scheduleLayout();
-  };
-  const button = (label, icon, onActivate) =>
-    createIconButton(document, {
-      label,
-      icon,
-      className: "cm-aic-mermaid-control cm-md-edit-source",
-      onActivate,
-    });
-  zoomOut = button("Zoom out", "zoom-out", () => apply(zoom - zoomStep));
-  zoomIn = button("Zoom in", "zoom-in", () => apply(zoom + zoomStep));
-  reset = button("Reset diagram view", "reset", () => apply(100));
-  controls.append(zoomOut, zoomIn, reset);
-  reflectControls();
-
   const ResizeObserver = win?.ResizeObserver;
-  const observer = ResizeObserver
-    ? new ResizeObserver(() => scheduleLayout())
-    : null;
+  const observer = ResizeObserver ? new ResizeObserver(scheduleLayout) : null;
   observer?.observe(viewport);
-
+  if (!observer) win?.addEventListener("resize", scheduleLayout);
   return Object.freeze({
     viewport,
     stage,
-    controls,
     replaceContent(node) {
+      if (destroyed) return;
       stage.replaceChildren(...(node ? [node] : []));
       layout();
       scheduleLayout();
     },
     refresh: layout,
-    get state() {
-      return Object.freeze({ zoom });
-    },
     destroy() {
       if (destroyed) return false;
       destroyed = true;
       observer?.disconnect();
+      if (!observer) win?.removeEventListener("resize", scheduleLayout);
       if (frame > 0 && win?.cancelAnimationFrame)
         win.cancelAnimationFrame(frame);
       frame = 0;

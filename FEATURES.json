@@ -524,7 +524,7 @@
     {
       "id": "core.diagrams",
       "group": "diagrams",
-      "purpose": "Edit Mermaid as source with a live preview, copy or cut the complete fence, preview-only zoom, cancellation, and stale-result isolation.",
+      "purpose": "Edit Mermaid as source with a live preview, copy or cut the complete fence, intrinsic-size previews that shrink to fit with full content height and no internal scrolling, cancellation, and stale-result isolation.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/mermaid-extension.ts",
@@ -555,7 +555,8 @@
         "standard-notes-aic/test/mermaid-edit-preview.test.ts",
         "standard-notes-aic/test/mermaid-runtime.test.ts",
         "standard-notes-aic/test/mermaid-viewport.test.ts",
-        "aic-notes/test/diagram-core.test.js"
+        "aic-notes/test/diagram-core.test.js",
+        "aic-notes/test/mermaid-theme.test.js"
       ]
     },
     {

@@ -13,8 +13,10 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
-Release 48.4.5 pairs with AIC Notes 56.4.5, experimental browser 0.11.0 and
-shared core 7.5.0.
+Prepared release 50.0.1 pairs with AIC Notes 59.0.2, experimental browser 0.11.2
+and shared core 7.5.2. Mermaid uses a full-width canvas with a naturally sized,
+centered diagram, bounded flowchart labels and content-driven height without
+internal scrolling. Release assets and store availability require separate verification.
 
 The new local-file PWA opens Markdown files and folders, keeps device-local copies,
 and offers optional encrypted exports. Current, Shared and Global tabs focus on
@@ -386,8 +388,9 @@ clients or a live Linux session.
   Each list item holds one idea; no heading or metadata is imposed. Specialized `/mapping-table`,
   `/comparison` and `/tasks` remain separate choices in Tables & lists.
 - Insert `/flowchart`, `/class-diagram`, `/sequence` or `/entity-map`. **Edit** reveals the
-  Markdown source and a live preview below it. **Copy** copies the Mermaid source. Zoom and
-  scrolling affect only the preview; there is no visual builder or drag-and-drop editing.
+  Markdown source and a live preview below it. **Copy** copies the Mermaid source. The diagram
+  keeps its natural size, shrinks to fit narrow panels, and uses its full content height. There
+  are no internal scrollbars or zoom controls.
 - Mermaid supports its normal flowchart, class and sequence syntax in the source. The preview
   reports syntax errors without changing the authored text. **Ctrl/Cmd+S** saves through the host.
   `/class` filters to `/class-diagram`; there is no duplicate command.
@@ -469,9 +472,9 @@ and focuses the Markdown source, and native selection inside the card remains st
 `Ctrl+A`/`Cmd+A` reveals the full source without changing it. Unknown languages remain readable and
 copyable.
 
-Mermaid previews keep Copy, Edit, Zoom out, Zoom in and Reset visible. Reset restores 100% scale.
-The diagram viewport scrolls on both axes after zoom and can receive keyboard focus without
-exposing the Mermaid source.
+Mermaid previews keep Copy and Edit visible. The canvas spans the editor; the diagram stays
+centered at its natural width or shrinks proportionally to fit. Long flowchart labels wrap within
+bounded nodes. Height follows all content, without internal scrollbars or zoom controls.
 
 AIC details use this exact non-nested grammar:
 

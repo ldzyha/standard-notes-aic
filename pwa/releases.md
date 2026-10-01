@@ -9,6 +9,21 @@ extension for encrypted page notes, or AIC Notes in VS Code. Protected file
 editors share the same `.aicnotes` data; synchronize exported files through a
 service you manage.
 
+## Prepared: Standard Notes 50.0.1 / VS Code 59.0.2 / browser 0.11.2
+
+Shared core 7.5.2 centers Mermaid diagrams at their natural size within a full-width
+canvas. Wider diagrams shrink to fit, long labels wrap, and height follows all
+content without internal scrollbars. Copy and Edit remain; zoom controls are
+removed. Mermaid loads only when needed. VS Code also refreshes diagram colors
+when its theme changes, without reopening the note.
+
+After publication: [59.0.2 VSIX](https://github.com/ldzyha/aic-notes/releases/download/v59.0.2/aic-notes-59.0.2.vsix)
+and [SHA-256](https://github.com/ldzyha/aic-notes/releases/download/v59.0.2/aic-notes-59.0.2.vsix.sha256),
+[Standard Notes 50.0.1](https://github.com/ldzyha/standard-notes-aic/releases/tag/v50.0.1).
+Package verification, PWA deployment and store approval are separate steps.
+The confirmed Marketplace version is 58.1.1. Chrome publishes 0.9.3 while 0.11.1
+remains pending review; uploading 0.11.2 is currently unavailable.
+
 ## AIC Notes 58.1.1 — VS Code desktop and web
 
 AIC Notes now includes a browser host for vscode.dev and github.dev alongside

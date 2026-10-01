@@ -2,6 +2,20 @@
 
 [English](#english) · [Українська](#українська)
 
+## Prepared package 0.11.2
+
+This candidate adds natural Mermaid sizing in a full-width canvas, bounded
+flowchart labels and content-driven height without internal scrolling. Copy and
+Edit remain; zoom controls are removed. Local storage, encryption and the six
+required permissions are unchanged. Chrome 0.11.1 is still pending review, and
+the dashboard disables uploading a new package. No 0.11.2 submission is claimed.
+
+Пакет 0.11.2 підготовлено: природний розмір Mermaid на полотні повної ширини,
+обмежені підписи flowchart і висота за вмістом без внутрішніх скролів. Copy та
+Edit збережено; кнопки масштабу прибрано. Локальне зберігання, шифрування та
+шість дозволів не змінені. Chrome 0.11.1 ще перевіряється; завантаження нового
+пакета вимкнено. Подання 0.11.2 не підтверджене.
+
 ## Current dashboard check — October 1, 2026
 
 The existing Chrome item `mokndlkbkhnemhhcahddhdgihgdckbhp` has **0.11.1 pending

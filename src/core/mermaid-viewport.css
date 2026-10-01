@@ -1,43 +1,24 @@
-.cm-aic-mermaid-controls {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.12rem;
-  flex: 0 0 auto;
-}
-
-.cm-aic-mermaid-control:disabled {
-  cursor: default;
-  opacity: 0.42;
-}
-
 .cm-aic-mermaid-viewport {
   box-sizing: border-box;
   width: 100%;
   min-width: 0;
   max-width: 100%;
-  max-height: min(70vh, 720px);
-  overflow: auto;
-  overscroll-behavior: contain;
-  scrollbar-width: thin;
+  height: auto;
+  max-height: none;
+  overflow: visible;
 }
 
 .cm-aic-mermaid-stage {
-  position: relative;
-  min-width: 1px;
-  min-height: 1px;
+  max-width: 100%;
   margin-inline: auto;
 }
 
 .cm-aic-mermaid-stage > svg {
-  position: absolute;
-  top: 50%;
-  left: 50%;
   display: block;
-  width: var(--aic-mermaid-source-width) !important;
-  max-width: none !important;
-  height: var(--aic-mermaid-source-height) !important;
-  transform: translate(-50%, -50%);
-  transform-origin: center;
+  margin-inline: auto;
+  width: var(--aic-mermaid-source-width, auto) !important;
+  max-width: 100% !important;
+  height: var(--aic-mermaid-source-height, auto) !important;
   pointer-events: none;
   user-select: none;
 }

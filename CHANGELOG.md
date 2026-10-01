@@ -2,6 +2,21 @@
 
 [English](CHANGELOG.md) · [Українська](CHANGELOG.uk.md)
 
+## 50.0.1 — 2026-10-01
+
+Release sequence 50 · 0 feature outcomes · 1 fixed-bug outcome.
+Coordinates Standard Notes AIC 50.0.1, AIC Notes 59.0.2, experimental browser
+0.11.2 and shared core 7.5.2. Prepared release; publication is verified separately.
+
+### B01 — Readable Mermaid previews
+
+The preview canvas fills the available width while the diagram keeps its natural
+size, centered without enlargement. Wider diagrams shrink proportionally; height
+follows the complete content without internal scrollbars. Long flowchart labels
+wrap in bounded nodes. Copy and Edit remain available; redundant zoom controls
+are removed. Layout observation avoids repeated work, and Mermaid loads only
+when a diagram needs rendering. Authored source, Save and Undo remain unchanged.
+
 ## 49.1.2 — 2026-10-01
 
 Release sequence 49 · 1 feature outcome · 2 fixed-bug outcomes. Coordinates

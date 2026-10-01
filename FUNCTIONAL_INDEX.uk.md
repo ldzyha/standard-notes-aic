@@ -7,6 +7,15 @@
 [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md). Реєстри `FEATURES.json` і
 `COMPONENTS.json` є машинними контрактами й не дублюються перекладом.
 
+## Підготовлений контракт Mermaid — core 7.5.2
+
+Полотно має 100% ширини, діаграма центрована у природному розмірі й за потреби
+пропорційно зменшується. Довгі підписи flowchart переносяться в обмежених вузлах;
+висота відповідає всьому вмісту без внутрішніх скролів чи кнопок масштабу.
+Спостереження за геометрією уникає повторної роботи; Mermaid завантажується лише
+за потреби. У VS Code зміна теми оновлює кольори в обох редакторах без повторного
+відкриття. Перевірки: `mermaid-viewport`, `mermaid`, `diagram-core`, `mermaid-theme`.
+
 ## Межі продуктів
 
 - `src/core` — єдине джерело поведінки редактора, parser, previews, AIC fields,
@@ -147,7 +156,7 @@ Invalid preview показує source line/column і безпечну repair adv
 - parser-backed Markdown links;
 - AIC field copy/paste, one-time state, password generation, recovery codes;
 - Authenticator JSON conversion із all-or-nothing validation;
-- bounded Mermaid queue й sanitized strict SVG;
+- bounded Mermaid queue й sanitized strict SVG; природний розмір діаграми, автоматичне вписування в ширину та повна висота без внутрішніх скролів;
 - light/dark, keyboard focus, narrow/coarse-pointer layouts;
 - clipboard requests, які host звіряє з identity, generation і surface state.
 

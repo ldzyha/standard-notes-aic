@@ -2,6 +2,15 @@
 
 [English](FUNCTIONAL_INDEX.md) · [Українська](FUNCTIONAL_INDEX.uk.md)
 
+## Prepared Mermaid contract — core 7.5.2
+
+The canvas spans 100% width; the diagram is centered at its natural size and
+shrinks proportionally when needed. Long flowchart labels wrap within bounded
+nodes. Height follows all content without internal scrolling or zoom buttons.
+Geometry observation avoids repeated work; Mermaid loads only when required.
+VS Code theme changes refresh both editor previews without reopening the note.
+Checks: `mermaid-viewport`, `mermaid`, `diagram-core`, `mermaid-theme`.
+
 ## Canonical registries and UI rules
 
 This release-oriented narrative is indexed by the machine-readable
@@ -442,15 +451,16 @@ The release includes these shared contracts. Mermaid source editing keeps a live
 Windows browser checks; authenticated Standard Notes clients and live Linux sessions remain
 unverified environments.
 
-| Area / owner                                       | Implemented contract                                                                                                                                                 | Explicit limitation                                                                       |
-| -------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Core templates (`slash-snippets`, `note-template`) | Questions, early answers, contextual section levels; `/noise`, `/wave`, `/implementation`, `/context`, `/entity-map`; no compulsory Purpose/Proposal or new metadata | Prompts do not classify tasks, group notes or create cross-scale navigation               |
-| Mermaid source and preview                         | The Markdown fence is editable directly; an adjacent live preview renders flowchart, class and sequence syntax. Preview offers Copy, Edit, Cut and zoom.             | Mermaid syntax errors remain visible in the preview; source stays intact.                 |
-| Shared formatting (`formatting`)                   | Heading/paragraph and numbered/bullet/checkbox-list commands preserve selection and protected structures; one operation is one Undo                                  | Applies inside AIC editors; not a new native-editor or operating-system shortcut          |
-| Stability                                          | Geometry-safe preview spacing; identity-bound history/popovers; exact host save acknowledgement and metadata-aware locking                                           | Host acknowledgement means local pre-sync acceptance, not confirmed cloud synchronization |
+| Area / owner                                       | Implemented contract                                                                                                                                                                                                      | Explicit limitation                                                                       |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Core templates (`slash-snippets`, `note-template`) | Questions, early answers, contextual section levels; `/noise`, `/wave`, `/implementation`, `/context`, `/entity-map`; no compulsory Purpose/Proposal or new metadata                                                      | Prompts do not classify tasks, group notes or create cross-scale navigation               |
+| Mermaid source and preview                         | The Markdown fence is editable directly; an adjacent live preview renders flowchart, class and sequence syntax. Preview offers Copy, Edit and Cut; diagrams retain their natural size and shrink to fit the editor width. | Mermaid syntax errors remain visible in the preview; source stays intact.                 |
+| Shared formatting (`formatting`)                   | Heading/paragraph and numbered/bullet/checkbox-list commands preserve selection and protected structures; one operation is one Undo                                                                                       | Applies inside AIC editors; not a new native-editor or operating-system shortcut          |
+| Stability                                          | Geometry-safe preview spacing; identity-bound history/popovers; exact host save acknowledgement and metadata-aware locking                                                                                                | Host acknowledgement means local pre-sync acceptance, not confirmed cloud synchronization |
 
 Usage: `/` inserts a template; Mermaid **Edit** reveals its Markdown source and a live preview.
-Ctrl/Cmd+S saves through the host. Preview zoom and scrolling do not rewrite content.
+Ctrl/Cmd+S saves through the host. Automatic sizing does not rewrite content; the
+preview uses its full height without internal scrollbars.
 Entity-map links are ordinary Markdown references, not implemented drill-down.
 
 ## Global invariants
@@ -490,7 +500,7 @@ Entity-map links are ordinary Markdown references, not implemented drill-down.
 | Details                                        | Summary/chevron toggles independently from checkbox and body; Cut copies and removes the complete accordion            | exact open/closed marker; one cut transaction                                         | Fence-contained terminators do not close a card                                              | details                                                    |
 | Code fences                                    | Same preview card, language label, and permanent Copy/Edit/Cut icons as VS Code                                        | exact fenced body; explicit source reveal; whole-fence cut                            | Unknown language remains readable and copyable                                               | code-fence/core/editor                                     |
 | Slash templates                                | `/` opens a compact grouped catalog in both shared editor surfaces without delayed activation                          | snippet fields; Tab advances                                                          | Disabled in code and read-only notes                                                         | slash-snippets/editor                                      |
-| Mermaid                                        | Render, copy, edit, cut, zoom, reset and two-axis scroll                                                               | cut removes the complete fence; zoom/reset affect viewport only                       | Render error exposes recoverable source; failed copy preserves source                        | mermaid/viewport                                           |
+| Mermaid                                        | Render, copy, edit, cut and intrinsic-size responsive previews                                                         | cut removes the complete fence; preview fits width and keeps full height              | Render error exposes recoverable source; failed copy preserves source                        | mermaid/viewport                                           |
 | Tables                                         | Content-sized columns, horizontal grid scroll, whole-block Cut and preservation of extra authored cells                | one transient textarea popover; typed row/column DnD                                  | Invalid/stale/unrelated mutations are rejected                                               | blocks, structured-preview, editor                         |
 | AIC fields                                     | One bounded fenced `aic` document with independently typed pipe values, including explicit unused/used one-time states | Empty-value actions and supported field/section mutations remain local Markdown edits | Legacy YAML Properties stay raw and editable without automatic conversion                    | security-model, properties-block-ui, properties-retirement |
 | Security (`core/security-*`, `src/preview.ts`) | Star-controlled masking, independent sections, field/code/block Copy, whole-block Cut and source Edit                  | plaintext Markdown; local in-memory TOTP; one cut transaction                         | Bounded fixed-error parsing, HTTP(S)-only opening, preview redaction, retired refresh guards | security-model, security-block-ui, security-otp, preview   |
@@ -516,7 +526,7 @@ navigation and lifecycle checks. They are separate from authenticated host verif
 | `details-model`                                                | One-pass non-nested details grammar, fence exclusion and immutable-document cache                                                        | details, shared-controls-regression                                          |
 | `mermaid-runtime`                                              | One strict bundled renderer and SVG sanitization; source cannot override protected security configuration                                | mermaid-runtime, mermaid-runtime-directives, mermaid                         |
 | `render-queue`                                                 | Bounded engine work; pending cancellation releases payload while active work retains its slot until completion                           | mermaid, lifecycle-regression                                                |
-| `mermaid-viewport`                                             | Preview-only zoom, bidirectional overflow and disposable event ownership                                                                 | mermaid-viewport, mermaid, mermaid-edit-preview                              |
+| `mermaid-viewport`                                             | Intrinsic-size fit, full content height without internal scrollbars and disposable resize ownership                                      | mermaid-viewport, mermaid, mermaid-edit-preview                              |
 | `security-model`, `security-templates`                         | One bounded `aic` document, typed next-value separators, masking, one-time states, stable serialization, safe URLs and canonical presets | security-model, security-templates, preview, properties-retirement           |
 | `security-block`, `properties-block-ui`                        | Shared AIC rows and typed parts, local mutations, value feedback and Field/Row/Section insertion                                         | security-block-ui, properties-block-ui, lifecycle-regression                 |
 | `security-otp`                                                 | In-memory Base32/otpauth parsing and WebCrypto TOTP; fixed non-secret diagnostics                                                        | security-otp: RFC 6238 SHA-1/SHA-256/SHA-512 vectors and rejected inputs     |
@@ -546,7 +556,7 @@ explicit distribution manifest, not maintained independently in the extension.
   below it and Section inserts after the current section.
 - Mermaid Copy: exact fenced body. Edit: reveal the complete fence. Cut copies
   and removes the complete fenced block as one operation.
-- Mermaid Zoom/Reset: change preview only; never rewrite diagram source.
+- Mermaid previews fit the available width without enlarging small diagrams; document scrolling owns their full height. Source stays unchanged.
 - Table, AIC/Properties and details Cut follow the same clipboard-first rule;
   stale or failed clipboard operations leave Markdown unchanged.
 - Table value activation opens one positioned textarea popover; Enter/explicit action
@@ -593,7 +603,7 @@ explicit distribution manifest, not maintained independently in the extension.
 - Host regression tests include the actual pinned message bridge, null-context invalidation,
   partial metadata, locks, UUID checks, explicit ACK/error/timeout handling and stale HTML-preview removal.
 - Browser QA covers real layout, popovers, persistent actions, table overflow,
-  selection reveal, details checkbox, and Mermaid scrolling after transforms.
+  selection reveal, details checkbox, and Mermaid intrinsic bounds at narrow and wide editor widths.
 - `scripts/browser-lifecycle-regression.mjs` exercises 200 synthetic lifecycle iterations
   and measures collectible roots and bounded DOM/listener counts. It is not a proof
   that every long-running workload is leak-free.

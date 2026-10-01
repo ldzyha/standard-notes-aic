@@ -119,12 +119,7 @@ export function createMermaidPreview({
       })
     : null;
   const viewportController = createMermaidViewport(document);
-  actions.append(
-    copy,
-    ...(edit ? [edit] : []),
-    ...(cut ? [cut] : []),
-    viewportController.controls,
-  );
+  actions.append(copy, ...(edit ? [edit] : []), ...(cut ? [cut] : []));
   caption.append(label, actions);
   const canvas = viewportController.viewport;
   canvas.classList.add("cm-mermaid-canvas");
