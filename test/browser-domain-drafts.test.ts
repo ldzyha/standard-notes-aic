@@ -35,6 +35,77 @@ describe("domain Properties drafts", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
+  it("accepts lower file revision tokens and blocks changed remote tokens while dirty", async () => {
+    const stored = {
+      ...domain("file-shared", first.origin, "Original", 900),
+      filePath: "shared/site.md",
+    };
+    const save = vi.fn(async (_id: string, markdown: string) => ({
+      ...stored,
+      markdown,
+      revision: 7,
+    }));
+    const drafts = new DomainDrafts(save);
+    drafts.activate(stored);
+    expect(
+      drafts.activate({ ...stored, markdown: "External", revision: 20 }).text,
+    ).toBe("External");
+    drafts.edit(stored.id, "Local");
+    const conflict = drafts.activate({
+      ...stored,
+      markdown: "Another external",
+      revision: 3,
+    });
+    expect(conflict).toMatchObject({
+      text: "Local",
+      dirty: true,
+      record: { markdown: "External", revision: 20 },
+    });
+    expect(conflict.error).toContain("Another window");
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS * 2);
+    expect(save).not.toHaveBeenCalled();
+    expect(await drafts.flush(stored.id)).toBe(true);
+    expect(save).toHaveBeenLastCalledWith(stored.id, "Local", 20);
+    expect(drafts.get(stored.id)).toMatchObject({
+      dirty: false,
+      record: { revision: 7 },
+    });
+    drafts.dispose();
+  });
+
+  it("keeps exact file identity, origin and submitted text checks for opaque ACKs", async () => {
+    const original = {
+      ...domain("shared-file", first.origin, "Original", 90),
+      filePath: "shared/site.md",
+    };
+    for (const patch of [
+      { id: "other" },
+      { origin: second.origin },
+      { filePath: "other.md" },
+      { filePath: undefined },
+      { markdown: "Other text" },
+      { revision: 90 },
+      { revision: 0 },
+      { revision: 1.5 },
+    ]) {
+      const drafts = new DomainDrafts(async () => ({
+        ...original,
+        markdown: "Submitted",
+        revision: 3,
+        ...patch,
+      }));
+      drafts.activate(original);
+      drafts.edit(original.id, "Submitted");
+      expect(await drafts.flush(original.id)).toBe(false);
+      expect(drafts.get(original.id)).toMatchObject({
+        text: "Submitted",
+        dirty: true,
+        record: original,
+      });
+      drafts.dispose();
+    }
+  });
+
   it("keeps exact origins isolated and returns detached snapshots", () => {
     const drafts = new DomainDrafts(vi.fn());
     const a = drafts.activatePlaceholder(first, seed);

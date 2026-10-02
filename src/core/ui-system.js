@@ -46,12 +46,12 @@ export const UI_COMPONENTS = Object.freeze({
     ],
   ),
   tree: definition(
-    ["compact", "ancestors"],
-    ["group", "item", "row", "label", "actions"],
+    ["compact", "ancestors", "connected"],
+    ["group", "item", "row", "label", "actions", "icon", "toggle"],
   ),
   context: definition(
-    ["compact", "empty", "editing", "tabs"],
-    ["title", "path", "item", "link", "current", "tab", "panel"],
+    ["compact", "empty", "editing", "tabs", "document"],
+    ["title", "path", "item", "link", "current", "tab", "panel", "status"],
   ),
 });
 

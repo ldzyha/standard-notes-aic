@@ -13,7 +13,6 @@ on:
       - tsconfig.json
       - vite.pwa.config.mjs
       - scripts/sync-editor-core.mjs
-      - scripts/sync-portable-runtime.mjs
       - .github/workflows/sync-core.yml
   workflow_dispatch:
 
@@ -63,15 +62,9 @@ jobs:
           cache-dependency-path: |
             source/package-lock.json
             target/package-lock.json
-      - name: Build the canonical portable editor
-        working-directory: source
-        run: |
-          npm ci
-          npm run build:pwa
-      - name: Mirror the declared core and exact portable build
+      - name: Mirror the declared core
         run: |
           node source/scripts/sync-editor-core.mjs --snapshot --target "$GITHUB_WORKSPACE/target"
-          node source/scripts/sync-portable-runtime.mjs --target "$GITHUB_WORKSPACE/target"
           node --input-type=module <<'NODE'
           import { readFile, writeFile } from 'node:fs/promises';
           const source = JSON.parse(await readFile('source/package.json', 'utf8'));
@@ -80,7 +73,6 @@ jobs:
           await writeFile('target/package.json', JSON.stringify(target, null, 2) + '\n');
           NODE
           node source/scripts/sync-editor-core.mjs --check --target "$GITHUB_WORKSPACE/target"
-          node source/scripts/sync-portable-runtime.mjs --check --target "$GITHUB_WORKSPACE/target"
       - name: Verify VS Code distribution
         working-directory: target
         run: |
@@ -92,30 +84,30 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
         run: |
           SYNC_BRANCH=codex/sync-editor-core
-          if git diff --quiet -- vendor/aic-editor-core vendor/portable-runtime CORE_SNAPSHOT.json PORTABLE_SNAPSHOT.json package.json && \
-             [[ -z "$(git ls-files --others --exclude-standard -- vendor/aic-editor-core vendor/portable-runtime CORE_SNAPSHOT.json PORTABLE_SNAPSHOT.json)" ]]; then
-            echo "Shared editor and portable runtime already match."
+          if git diff --quiet -- vendor/aic-editor-core CORE_SNAPSHOT.json package.json && \
+             [[ -z "$(git ls-files --others --exclude-standard -- vendor/aic-editor-core CORE_SNAPSHOT.json)" ]]; then
+            echo "Shared editor already match."
             exit 0
           fi
           OLD_SHA="$(git rev-parse --verify "refs/remotes/origin/$SYNC_BRANCH" 2>/dev/null || true)"
           git switch -C "$SYNC_BRANCH"
           git config user.name 'aic-core-sync[bot]'
           git config user.email 'aic-core-sync[bot]@users.noreply.github.com'
-          git add vendor/aic-editor-core vendor/portable-runtime CORE_SNAPSHOT.json PORTABLE_SNAPSHOT.json package.json
-          git commit -m 'Synchronize committed AIC editor and portable runtime'
+          git add vendor/aic-editor-core CORE_SNAPSHOT.json package.json
+          git commit -m 'Synchronize committed AIC editor'
           git -c credential.helper= -c 'credential.helper=!gh auth git-credential' \
             push --force-with-lease="$SYNC_BRANCH:$OLD_SHA" origin "$SYNC_BRANCH"
           BODY_FILE="$RUNNER_TEMP/core-sync-pr.md"
           cat > "$BODY_FILE" <<'BODY'
-          Updates the VS Code host to the committed canonical editor core declared in CORE_FILES.json and the exact canonical portable editor build. Both snapshots record the source commit and exact file hashes.
+          Updates the VS Code host to the committed canonical editor core declared in CORE_FILES.json. The snapshot records the source commit and exact file hashes.
 
-          Validation: core parity, portable runtime parity, and the VS Code release gate passed, including tests, package verification, and checksum checks. This pull request does not change the host version or publish a store release.
+          Validation: core parity, and the VS Code release gate passed, including tests, package verification, and checksum checks. This pull request does not change the host version or publish a store release.
           BODY
           PR_NUMBER="$(gh pr list --repo ldzyha/aic-notes --head "$SYNC_BRANCH" --base main --state open --json number --jq '.[0].number // empty')"
           if [[ -n "$PR_NUMBER" ]]; then
             gh pr edit "$PR_NUMBER" --repo ldzyha/aic-notes \
-              --title 'Synchronize AIC shared editor and portable runtime' --body-file "$BODY_FILE"
+              --title 'Synchronize AIC shared editor' --body-file "$BODY_FILE"
           else
             gh pr create --repo ldzyha/aic-notes --base main --head "$SYNC_BRANCH" \
-              --title 'Synchronize AIC shared editor and portable runtime' --body-file "$BODY_FILE"
+              --title 'Synchronize AIC shared editor' --body-file "$BODY_FILE"
           fi

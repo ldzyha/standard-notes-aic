@@ -1,29 +1,110 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createVault, unlockVault } from "../src/browser/vault-crypto";
 import {
   createPwaFile,
+  fileBytes,
   fileText,
-  parsePayload,
   type WorkspacePayload,
 } from "../src/pwa/model";
 import type { PwaRepository } from "../src/pwa/controller";
 import type { MemoryPwaPersistence } from "../src/pwa/storage";
-import type { EncryptedSource } from "../src/pwa/source";
 import type { FileSelectionOptions, PickedFiles } from "../src/pwa/files";
+import type { MarkdownFileHandle, MarkdownSelection } from "../src/pwa/disk";
 
 const state = vi.hoisted(() => ({
   repository: null as PwaRepository | null,
   persistence: null as MemoryPwaPersistence | null,
   failCache: false,
+  failDisk: false,
+  nativeAccess: true,
+  pauseDiskWrite: null as (() => Promise<void>) | null,
+  saveAsName: null as string | null,
+  diskBindings: new Map<string, MarkdownSelection>(),
+  diskFiles: new Map<string, { handle: MarkdownFileHandle; text(): string }>(),
   pauseLocalWrite: null as (() => Promise<void>) | null,
   pauseLocalList: null as (() => Promise<void>) | null,
-  source: null as EncryptedSource | null,
   pickedFiles: null as PickedFiles | null,
   pickSelection: null as
     ((options: FileSelectionOptions) => Promise<PickedFiles | null>) | null,
-  unavailableRememberedSource: false,
   downloads: [] as Blob[],
 }));
+
+function nativeFile(
+  path: string,
+  initial = new Uint8Array(),
+): MarkdownFileHandle {
+  let bytes = Uint8Array.from(initial);
+  let modified = 1;
+  const handle: MarkdownFileHandle = {
+    kind: "file",
+    name: path.split("/").at(-1)!,
+    queryPermission: async () => "granted",
+    requestPermission: async () => "granted",
+    getFile: async () => {
+      const snapshot = Uint8Array.from(bytes);
+      return {
+        size: snapshot.length,
+        type: "text/markdown",
+        lastModified: modified,
+        arrayBuffer: async () => snapshot.buffer,
+      };
+    },
+    createWritable: async () => {
+      let pending = bytes;
+      return {
+        write: async (next) => {
+          pending = Uint8Array.from(next);
+        },
+        close: async () => {
+          await state.pauseDiskWrite?.();
+          if (state.failDisk)
+            throw new Error("Synthetic original-file write failure");
+          bytes = pending;
+          modified += 1;
+        },
+        abort: async () => {},
+      };
+    },
+  };
+  state.diskFiles.set(path, {
+    handle,
+    text: () => new TextDecoder().decode(bytes),
+  });
+  return handle;
+}
+
+function bindSelection(selection: PickedFiles | null): PickedFiles | null {
+  if (!selection || selection.disk || !state.nativeAccess) return selection;
+  return {
+    ...selection,
+    disk: {
+      files: selection.files.map((file) => ({
+        id: file.id,
+        path: file.path,
+        handle: nativeFile(file.path, fileBytes(file)),
+      })),
+    },
+  };
+}
+
+vi.mock("../src/pwa/disk", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../src/pwa/disk")>();
+  return {
+    ...actual,
+    MarkdownDisk: class extends actual.MarkdownDisk {
+      constructor() {
+        super({
+          read: async (id) => state.diskBindings.get(id) ?? null,
+          write: async (id, selection) => {
+            state.diskBindings.set(id, selection);
+          },
+          remove: async (id) => {
+            state.diskBindings.delete(id);
+          },
+        });
+      }
+    },
+  };
+});
 
 vi.mock("../src/pwa/controller", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/pwa/controller")>();
@@ -34,12 +115,6 @@ vi.mock("../src/pwa/controller", async (importOriginal) => {
       constructor() {
         const persistence = new MemoryPwaPersistence();
         super({
-          list: () => persistence.list(),
-          read: (id) => persistence.read(id),
-          write: (entity, expected) =>
-            state.failCache
-              ? Promise.reject(new Error("Synthetic device cache failure"))
-              : persistence.write(entity, expected),
           listLocal: async () => {
             await state.pauseLocalList?.();
             return persistence.listLocal();
@@ -60,34 +135,27 @@ vi.mock("../src/pwa/controller", async (importOriginal) => {
   };
 });
 
-vi.mock("../src/pwa/source", () => ({
-  openEncryptedSource: async () => state.source,
-  createEncryptedSource: async () => state.source,
-  rememberSource: async () => true,
-  reopenSource: async () => {
-    if (state.unavailableRememberedSource)
-      throw new Error("Synthetic missing file");
-    return null;
-  },
-  requestSourcePermission: async () => true,
-  IndexedDbSourceBindings: class {
-    async read() {
-      return null;
-    }
-  },
-}));
-vi.mock("../src/pwa/vscode-host", () => ({ getVsCodeSource: () => null }));
 vi.mock("../src/pwa/ai-controls", () => ({
   attachLocalAI: () => ({ cancel() {}, dispose() {} }),
 }));
 vi.mock("../src/pwa/files", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../src/pwa/files")>();
+  const pick = async (options: FileSelectionOptions) =>
+    bindSelection(
+      state.pickSelection
+        ? await state.pickSelection({
+            ...options,
+            onBatch:
+              options.onBatch &&
+              ((batch, checkpoint) =>
+                options.onBatch!(bindSelection(batch)!, checkpoint)),
+          })
+        : state.pickedFiles,
+    );
   return {
     ...actual,
-    pickFiles: async (options: FileSelectionOptions) =>
-      state.pickSelection ? state.pickSelection(options) : state.pickedFiles,
-    pickFolder: async (options: FileSelectionOptions) =>
-      state.pickSelection ? state.pickSelection(options) : state.pickedFiles,
+    pickFiles: pick,
+    pickFolder: pick,
   };
 });
 vi.mock("../src/editor", () => ({
@@ -128,7 +196,6 @@ vi.mock("../src/editor", () => ({
 
 const cryptoModule = "node:crypto";
 const { webcrypto } = (await import(cryptoModule)) as { webcrypto: Crypto };
-const password = "synthetic UI device passphrase";
 const listeners: {
   target: EventTarget;
   type: string;
@@ -147,14 +214,8 @@ const dialogClose = Object.getOwnPropertyDescriptor(
 );
 
 function control(label: string): HTMLButtonElement {
-  if (label === "Encrypt workspace") label = "Save encrypted copy";
   if (label === "Rename entity") label = "Rename workspace";
-  const opens = [
-    "Open files",
-    "Open folder",
-    "Open encrypted file",
-    "Create protected workspace",
-  ];
+  const opens = ["Open files", "Open folder"];
   let found = [...document.querySelectorAll("button")].find(
     (element) => element.getAttribute("aria-label") === label,
   );
@@ -166,6 +227,8 @@ function control(label: string): HTMLButtonElement {
             "Advanced note path",
             "Export Markdown",
             "Note details",
+            "Save to file",
+            "Save a copy",
           ].includes(label)
         ? "Note options"
         : "Workspace options";
@@ -201,16 +264,13 @@ async function answer(values: Record<string, string>) {
   form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
 }
 
-async function createEntity(label = "Synthetic private entity") {
-  control("Create protected workspace").click();
-  await answer({ label, password, confirm: password });
-  await idle();
-}
-
 async function newNote(path: string) {
+  state.saveAsName = path;
   control("New note").click();
   await idle();
-  if (document.querySelector(".pwa-title")?.textContent !== path) {
+  state.saveAsName = null;
+  const title = document.querySelector(".pwa-title");
+  if ((title?.getAttribute("title") ?? title?.textContent) !== path) {
     control("Advanced note path").click();
     await answer({ name: path });
     await idle();
@@ -253,29 +313,21 @@ async function readBlob(blob: Blob): Promise<string> {
   });
 }
 
-async function exportedPayload(): Promise<WorkspacePayload> {
-  control("Export encrypted copy").click();
-  await idle();
-  const blob = state.downloads.at(-1);
-  if (!blob) throw new Error("No encrypted download");
-  const opened = await unlockVault(JSON.parse(await readBlob(blob)), password);
-  const payload = parsePayload(opened.plaintext);
-  if (payload.kind !== "workspace")
-    throw new Error("Expected workspace fixture");
-  return payload;
-}
-
 beforeEach(async () => {
   vi.resetModules();
   state.repository = null;
   state.persistence = null;
   state.failCache = false;
+  state.failDisk = false;
+  state.nativeAccess = true;
+  state.pauseDiskWrite = null;
+  state.saveAsName = null;
+  state.diskBindings.clear();
+  state.diskFiles.clear();
   state.pauseLocalWrite = null;
   state.pauseLocalList = null;
-  state.source = null;
   state.pickedFiles = null;
   state.pickSelection = null;
-  state.unavailableRememberedSource = false;
   state.downloads = [];
   document.body.innerHTML = '<div id="app"></div>';
   vi.stubGlobal("crypto", webcrypto);
@@ -315,7 +367,8 @@ beforeEach(async () => {
   });
   Object.defineProperty(window, "showSaveFilePicker", {
     configurable: true,
-    value: () => {},
+    value: async ({ suggestedName }: { suggestedName: string }) =>
+      nativeFile(state.saveAsName ?? suggestedName),
   });
   const addWindow = window.addEventListener.bind(window);
   const addDocument = document.addEventListener.bind(document);
@@ -358,247 +411,82 @@ afterEach(() => {
   document.body.replaceChildren();
 });
 
-describe("PWA UI draft and lock ownership", () => {
-  it("rejects an oversized UTF-8 label without making the existing entity unsaveable", async () => {
-    await createEntity("Synthetic valid label");
-    await newNote("note.md");
-    type("# Existing recoverable note");
-    await saveShortcut();
-    control("Rename entity").click();
-    await answer({ label: "🔐".repeat(300) });
-    await idle();
-    expect(document.querySelector(".pwa-notice")?.textContent).toContain(
-      "Invalid",
-    );
-    const exported = await exportedPayload();
-    expect(exported.label).toBe("Synthetic valid label");
-    expect(fileText(exported.files[0]!)).toBe("# Existing recoverable note");
-    expect(editorField().readOnly).toBe(false);
-  });
-
-  it("rejects case and parent-path additions while retaining a valid editable draft", async () => {
-    await createEntity();
-    await newNote("note.md");
-    type("# Original valid note");
-    await saveShortcut();
-    const identity = editorField().dataset.documentId;
-    control("Advanced note path").click();
-    await answer({ name: "../invalid.md" });
-    await idle();
-    expect(document.querySelector(".pwa-title")?.textContent).toBe("note.md");
-    expect(editorField().dataset.documentId).toBe(identity);
-    expect(editorField().value).toBe("# Original valid note");
-    expect(document.querySelector(".pwa-notice")?.textContent).toContain(
-      "Invalid",
-    );
-    type("# Valid edit after rejected addition");
-    state.pickedFiles = {
-      files: [
-        createPwaFile(
-          "note.md/child.md",
-          new TextEncoder().encode("Synthetic imported child"),
-        ),
-      ],
-      directories: ["note.md"],
-    };
-    control("Add files").click();
-    await idle();
-    expect(document.querySelector(".pwa-title")?.textContent).toBe("note.md");
-    expect(editorField().dataset.documentId).toBe(identity);
-    const exported = await exportedPayload();
-    expect(exported.files.map((file) => [file.path, fileText(file)])).toEqual([
-      ["note.md", "# Valid edit after rejected addition"],
-    ]);
-  });
-
-  it("reconnects a missing remembered source and retries an earlier failed save", async () => {
-    await createEntity();
-    await newNote("note.md");
-    type("# Original cached data");
-    await saveShortcut();
-    const record = (await state.repository!.list())[0]!;
-    let ciphertext = await state.repository!.exportEncrypted(record.id);
-    window.dispatchEvent(new Event("pagehide"));
-    const restored = new Event("pageshow");
-    Object.defineProperty(restored, "persisted", { value: true });
-    window.dispatchEvent(restored);
-    await vi.waitFor(() =>
-      expect(
-        document.querySelector(".pwa-entities__item")?.textContent,
-      ).toContain("Protected workspace 1"),
-    );
-    state.unavailableRememberedSource = true;
-    control("Open Protected workspace 1").click();
-    await answer({ password });
-    await idle();
-    control("Open note.md").click();
-    await idle();
-    type("# Draft while source was disconnected");
-    await saveShortcut();
-    expect(document.querySelector(".pwa-notice")?.textContent).toContain(
-      "Reconnect",
-    );
-    state.source = {
-      read: async () => ciphertext,
-      write: async (next, expected) => {
-        if (ciphertext !== expected)
-          throw new Error("Synthetic source conflict");
-        ciphertext = next;
-      },
-    };
-    Object.defineProperty(window, "showOpenFilePicker", {
-      configurable: true,
-      value: () => {},
-    });
-    control("Open encrypted file").click();
-    await idle();
-    expect(document.querySelector(".pwa-status")?.textContent).toBe("Saved");
-    const reopened = parsePayload(
-      (await unlockVault(JSON.parse(ciphertext), password)).plaintext,
-    );
-    if (reopened.kind !== "workspace") throw new Error("Expected workspace");
-    expect(fileText(reopened.files[0]!)).toBe(
-      "# Draft while source was disconnected",
-    );
-  });
-
-  it("freezes editing until the shared file acknowledges an asynchronous save", async () => {
-    await createEntity();
-    await newNote("project/note.md");
-    expect(type("# Synthetic saved note")).toBe(true);
-    let ciphertext = "";
-    let release: (() => void) | undefined;
-    state.source = {
-      read: async () => ciphertext,
-      write: async (next, expected) => {
-        if (ciphertext !== expected)
-          throw new Error("Synthetic source conflict");
-        await new Promise<void>((resolve) => {
-          release = resolve;
-        });
-        ciphertext = next;
-      },
-    };
-    control("Save encrypted file").click();
-    await vi.waitFor(() => expect(release).toBeTypeOf("function"));
-    expect(editorField().readOnly).toBe(true);
-    expect(type("Unacknowledged text")).toBe(false);
-    release!();
-    await idle();
-    expect(editorField().readOnly).toBe(false);
-    expect(document.querySelector(".pwa-status")?.textContent).toBe("Saved");
-    const payload = parsePayload(
-      (await unlockVault(JSON.parse(ciphertext), password)).plaintext,
-    );
-    if (payload.kind !== "workspace") throw new Error("Expected workspace");
-    expect(fileText(payload.files[0]!)).toBe("# Synthetic saved note");
-  });
-
-  it("mounts a failed new note under its own identity and exports its unsaved recovery draft", async () => {
-    await createEntity();
-    await newNote("old.md");
-    type("# Original note");
-    await saveShortcut();
-    const oldIdentity = editorField().dataset.documentId;
-    state.failCache = true;
+describe("PWA direct Markdown workspaces", () => {
+  it("edits and downloads Markdown when native writable files are unavailable without claiming a disk save", async () => {
+    Reflect.deleteProperty(window, "showSaveFilePicker");
     control("New note").click();
     await idle();
-    expect(document.querySelector(".pwa-title")?.textContent).toBe("note.md");
-    expect(editorField().dataset.documentId).not.toBe(oldIdentity);
     expect(editorField().value).toBe("");
-    type("# Recovery draft");
-    const payload = await exportedPayload();
-    expect(payload.files.map((file) => [file.path, fileText(file)])).toEqual([
-      ["old.md", "# Original note"],
-      ["note.md", "# Recovery draft"],
-    ]);
-    const record = (await state.repository!.list())[0]!;
-    const saved = state.repository!.snapshot(record.id);
-    if (saved?.kind !== "workspace")
-      throw new Error("Expected saved workspace");
-    expect(saved.files.map((file) => file.path)).toEqual(["old.md"]);
-    expect(document.querySelector(".pwa-status")?.textContent).toBe("Unsaved");
-  });
-
-  it("exports acknowledged shared-file content when the secondary device cache failed", async () => {
-    await createEntity();
-    await newNote("note.md");
-    type("# Acknowledged file data");
-    let ciphertext = "";
-    state.source = {
-      read: async () => ciphertext,
-      write: async (next) => {
-        ciphertext = next;
-      },
-    };
-    state.failCache = true;
-    control("Save encrypted file").click();
-    await idle();
-    expect(document.querySelector(".pwa-notice")?.textContent).toContain(
-      "could not store",
-    );
-    expect(document.querySelector(".pwa-status")?.textContent).toBe("Saved");
-    const payload = await exportedPayload();
-    expect(fileText(payload.files[0]!)).toBe("# Acknowledged file data");
-    const saved = (await state.repository!.list())[0]!;
-    const cache = parsePayload(
-      (await unlockVault(saved.envelope, password)).plaintext,
-    );
-    if (cache.kind !== "workspace")
-      throw new Error("Expected cached workspace");
-    expect(fileText(cache.files[0]!)).toBe("");
-    expect(
-      parsePayload(
-        (await unlockVault(JSON.parse(ciphertext), password)).plaintext,
-      ),
-    ).toEqual(payload);
-  });
-
-  it("scrubs pending passphrases and decrypted metadata before a BFCache restore", async () => {
-    await createEntity("Synthetic private label");
-    await newNote("private-path.md");
-    type("Synthetic private note");
+    expect(editorField().readOnly).toBe(false);
+    expect(type("# Download-only note")).toBe(true);
     await saveShortcut();
-    const record = (await state.repository!.list())[0]!;
-    control("Create protected workspace").click();
-    await vi.waitFor(() =>
-      expect(document.querySelector("dialog [name=password]")).not.toBeNull(),
+    expect(document.querySelector(".pwa-status")?.textContent).toBe(
+      "Browser draft · download to save",
     );
-    const field = document.querySelector<HTMLInputElement>(
-      "dialog [name=password]",
-    )!;
-    field.value = "Synthetic pending passphrase";
-    window.dispatchEvent(new Event("pagehide"));
-    expect(field.value).toBe("");
-    expect(document.querySelector("dialog")).toBeNull();
-    for (const privateValue of [
-      "Synthetic private label",
-      "private-path.md",
-      "Synthetic private note",
-    ])
-      expect(document.body.textContent).not.toContain(privateValue);
-    expect(state.repository!.snapshot(record.id)).toBeNull();
-    const restored = new Event("pageshow");
-    Object.defineProperty(restored, "persisted", { value: true });
-    window.dispatchEvent(restored);
+    expect(state.diskFiles.size).toBe(0);
+    const record = (await state.repository!.listLocal())[0]!;
+    expect(fileText(record.payload.files[0]!)).toBe("# Download-only note");
+    control("Save a copy").click();
     await idle();
-    await vi.waitFor(() =>
-      expect(
-        document.querySelector(".pwa-entities__item")?.textContent,
-      ).toContain("Protected workspace 1"),
+    expect(await readBlob(state.downloads.at(-1)!)).toBe(
+      "# Download-only note",
     );
-    control("Open Protected workspace 1").click();
-    await vi.waitFor(() =>
-      expect(document.querySelector("dialog h2")?.textContent).toBe(
-        "Unlock workspace",
-      ),
+    expect(document.querySelector(".pwa-status")?.textContent).not.toBe(
+      "Saved to file",
     );
-    control("Cancel").click();
-    await idle();
+    expect(document.querySelector('input[type="password"]')).toBeNull();
   });
-});
 
-describe("PWA optional encryption and Markdown workspaces", () => {
+  it("keeps imported copies read-only until Save to file selects an original destination", async () => {
+    state.nativeAccess = false;
+    state.pickedFiles = {
+      files: [
+        createPwaFile("copy.md", new TextEncoder().encode("Imported copy")),
+      ],
+      directories: [],
+    };
+    control("Open files").click();
+    await idle();
+    expect(editorField().readOnly).toBe(true);
+    expect(type("Must not silently save in browser storage")).toBe(false);
+    expect(document.querySelector(".pwa-status")?.textContent).toBe(
+      "Browser copy · choose a file",
+    );
+    control("Save to file").click();
+    await idle();
+    expect(editorField().readOnly).toBe(false);
+    expect(state.diskFiles.get("copy.md")?.text()).toBe("Imported copy");
+    expect(type("Written to selected file")).toBe(true);
+    await saveShortcut();
+    expect(state.diskFiles.get("copy.md")?.text()).toBe(
+      "Written to selected file",
+    );
+    expect(document.querySelector(".pwa-status")?.textContent).toBe(
+      "Saved to file",
+    );
+  });
+
+  it("acknowledges the original file when its secondary cache cannot be updated", async () => {
+    await newNote("original.md");
+    state.failCache = true;
+    expect(type("Durable original-file content")).toBe(true);
+    await saveShortcut();
+    expect(state.diskFiles.get("original.md")?.text()).toBe(
+      "Durable original-file content",
+    );
+    expect(document.querySelector(".pwa-status")?.textContent).toBe(
+      "Saved to file",
+    );
+    expect(document.querySelector(".pwa-notice")?.textContent).toContain(
+      "browser cache could not be updated",
+    );
+    const cached = (await state.persistence!.listLocal())[0] as {
+      payload: WorkspacePayload;
+    };
+    expect(fileText(cached.payload.files[0]!)).toBe("");
+    expect(control("Retry save").hidden).toBe(true);
+  });
+
   it("opens a folder without a passphrase and displays only Markdown files", async () => {
     state.pickedFiles = {
       files: [
@@ -614,28 +502,33 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     await idle();
     expect(document.querySelector("dialog")).toBeNull();
     expect(editorField().value).toBe("# Folder note");
-    expect(document.querySelector(".pwa-details")?.textContent).toContain(
-      "Unencrypted",
+    expect(document.querySelector(".pwa-details")?.textContent).toBe(
+      "project/nested/README.MD",
+    );
+    expect(document.querySelector(".pwa-status")?.textContent).toBe(
+      "Saved to file",
     );
     expect(
       [...document.querySelectorAll(".pwa-files__item")].map(
         (row) => row.textContent,
       ),
     ).toEqual(["README.MD"]);
-    expect(await state.repository!.list()).toEqual([]);
     const records = await state.repository!.listLocal();
     expect(records).toHaveLength(1);
     expect(records[0]!.payload.files[0]!.path).toBe("project/nested/README.MD");
     expect(records[0]!.payload.label).toBe("project");
-    expect(control("Encrypt workspace")).toBeDefined();
+    control("Workspace options").click();
+    expect(document.querySelector('input[type="password"]')).toBeNull();
+    expect(
+      document.querySelector('[aria-label="Save encrypted copy"]'),
+    ).toBeNull();
+    expect(
+      document.querySelector('[aria-label="Create protected workspace"]'),
+    ).toBeNull();
   });
 
   it("adds Markdown notes without charging existing implied parents to the workspace quota", async () => {
-    control("New workspace").click();
-    await idle();
-    const record = (await state.repository!.listLocal())[0]!;
-    const existing = {
-      ...record.payload,
+    state.pickedFiles = {
       files: Array.from({ length: 900 }, (_, index) =>
         createPwaFile(
           `project/folder-${index}/note.md`,
@@ -648,8 +541,7 @@ describe("PWA optional encryption and Markdown workspaces", () => {
         "project/empty",
       ],
     };
-    await state.repository!.updateLocal(record.id, existing);
-    control("Open Workspace 1").click();
+    control("Open files").click();
     await idle();
     state.pickedFiles = {
       files: Array.from({ length: 1100 }, (_, index) =>
@@ -676,7 +568,8 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     expect(accepted.payload.files).toHaveLength(1999);
     expect(accepted.payload.directories).toEqual(["project/empty"]);
     expect(fileText(accepted.payload.files[0]!)).toBe("Note 0");
-    expect(document.querySelector(".pwa-title")?.textContent).toBe(
+    expect(document.querySelector(".pwa-title")?.textContent).toBe("note.md");
+    expect(document.querySelector(".pwa-title")?.getAttribute("title")).toBe(
       "second/folder-0/note.md",
     );
     state.pickedFiles = {
@@ -732,8 +625,6 @@ describe("PWA optional encryption and Markdown workspaces", () => {
   });
 
   it("cancels folder opening promptly and ignores late progress without changing the current draft", async () => {
-    control("New workspace").click();
-    await idle();
     await newNote("draft.md");
     type("# Existing unsaved draft");
     const editor = editorField();
@@ -852,7 +743,7 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     ]);
     expect(editorField().value).toBe("First saved batch");
     expect(document.querySelector(".pwa-notice")?.textContent).toContain(
-      "2 Markdown notes saved",
+      "2 Markdown notes opened",
     );
   });
 
@@ -1000,8 +891,6 @@ describe("PWA optional encryption and Markdown workspaces", () => {
   });
 
   it("saves and reopens an unencrypted note without asking for a password", async () => {
-    control("New workspace").click();
-    await idle();
     await newNote("draft.md");
     type("# Local saved content");
     await saveShortcut();
@@ -1021,33 +910,7 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     control("Open draft.md").click();
     await idle();
     expect(editorField().value).toBe("# Local saved content");
-    expect(await state.repository!.list()).toEqual([]);
-  });
-
-  it("creates a protected copy and explicitly removes only the local plaintext workspace", async () => {
-    control("New workspace").click();
-    await idle();
-    await newNote("draft.md");
-    type("# Optional encrypted copy");
-    control("Encrypt workspace").click();
-    await answer({ password, confirm: password });
-    await idle();
-    expect(fileText((await exportedPayload()).files[0]!)).toBe(
-      "# Optional encrypted copy",
-    );
     expect(await state.repository!.listLocal()).toHaveLength(1);
-    await vi.waitFor(() =>
-      expect(
-        document.querySelector(".pwa-entities__item")?.textContent,
-      ).toContain("Workspace 1"),
-    );
-    control("Open Workspace 1").click();
-    await idle();
-    control("Remove local workspace").click();
-    await answer({});
-    await idle();
-    expect(await state.repository!.listLocal()).toEqual([]);
-    expect(await state.repository!.list()).toHaveLength(1);
   });
 
   it("does not remount a workspace when its initial save completes after pagehide", async () => {
@@ -1056,7 +919,7 @@ describe("PWA optional encryption and Markdown workspaces", () => {
       new Promise<void>((resolve) => {
         release = resolve;
       });
-    control("New workspace").click();
+    control("New note").click();
     await vi.waitFor(() => expect(release).toBeTypeOf("function"));
     window.dispatchEvent(new Event("pagehide"));
     release!();
@@ -1115,11 +978,9 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     expect(document.querySelector(".synthetic-editor")).toBeNull();
   });
 
-  it("retains the editable plaintext draft if local persistence fails", async () => {
-    control("New workspace").click();
-    await idle();
+  it("retains the editable plaintext draft if the original file write fails", async () => {
     await newNote("draft.md");
-    state.failCache = true;
+    state.failDisk = true;
     type("# Unsaved local recovery");
     await saveShortcut();
     expect(editorField().value).toBe("# Unsaved local recovery");
@@ -1137,7 +998,7 @@ describe("PWA optional encryption and Markdown workspaces", () => {
       [...landing.querySelectorAll("button")].map((button) =>
         button.getAttribute("aria-label"),
       ),
-    ).toEqual(["New note", "Open files", "Open folder", "Workspace options"]);
+    ).toEqual(["New note", "Open files", "Open folder"]);
     expect(document.querySelector('[aria-label="Open notes"]')).toBeNull();
     expect(
       document.querySelector(
@@ -1156,10 +1017,10 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     expect(document.querySelector("dialog")).toBeNull();
     expect(document.querySelector("main")?.dataset.hasNote).toBe("true");
     const status = document.querySelector<HTMLElement>(".pwa-status")!;
-    expect(status.textContent).toBe("Saved");
+    expect(status.textContent).toBe("Saved to file");
     expect(status.dataset.state).toBe("saved");
-    expect(status.getAttribute("aria-label")).toBe("Saved on this device");
-    expect(status.title).toBe("Saved on this device");
+    expect(status.getAttribute("aria-label")).toBe("Saved to file");
+    expect(status.title).toBe("Saved to file");
     expect(
       document.querySelectorAll(
         '.pwa-browser-actions [aria-label="Open files"], .pwa-browser-actions [aria-label="Open folder"]',
@@ -1236,7 +1097,7 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     const field = editorField();
     const id = field.dataset.documentId;
     type("Recoverable current draft");
-    state.failCache = true;
+    state.failDisk = true;
     control("Browse notes").click();
     expect(
       document.querySelector<HTMLDialogElement>(".pwa-notes-drawer")?.open,
@@ -1254,9 +1115,7 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     ).toBe("failed");
   });
 
-  it("preserves the mounted draft and selection through browsing, filtering, menus and rename", async () => {
-    control("New workspace").click();
-    await idle();
+  it("preserves the mounted draft and selection through browsing, filtering and menus before saving an explicit copy", async () => {
     control("New note").click();
     await idle();
     const field = editorField();
@@ -1279,12 +1138,16 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     expect(editorField()).toBe(field);
     expect(field.selectionStart).toBe(2);
     expect(field.selectionEnd).toBe(8);
-    control("Rename note").click();
-    await answer({ name: "Renamed" });
+    state.saveAsName = "Renamed.md";
+    control("Save a copy").click();
     await idle();
     expect(editorField()).toBe(field);
-    expect(field.dataset.documentId).toBe(id);
-    expect(field.value).toBe("# Retained draft");
+    expect(field.selectionStart).toBe(2);
+    expect(field.selectionEnd).toBe(8);
+    expect(editorField().dataset.documentId).toBe(id);
+    expect(editorField().value).toBe("# Retained draft");
+    expect(state.diskFiles.get("note.md")?.text()).toBe("# Retained draft");
+    expect(state.diskFiles.get("Renamed.md")?.text()).toBe("# Retained draft");
     expect(
       (await state.repository!.listLocal())[0]!.payload.files[0]!.path,
     ).toBe("Renamed.md");
@@ -1296,8 +1159,6 @@ describe("PWA optional encryption and Markdown workspaces", () => {
   });
 
   it("creates uniquely named drafts without a path dialog and keeps Open separate from Add", async () => {
-    control("New workspace").click();
-    await idle();
     control("New note").click();
     await idle();
     expect(document.querySelector("dialog")).toBeNull();
@@ -1308,11 +1169,11 @@ describe("PWA optional encryption and Markdown workspaces", () => {
       "note.md",
       "note-2.md",
     ]);
-    control("Rename note").click();
-    await answer({ name: "note" });
+    state.saveAsName = "note.md";
+    control("Save a copy").click();
     await idle();
     expect(document.querySelector(".pwa-notice")?.textContent).toContain(
-      "already exists",
+      "already open",
     );
     expect(
       (await state.repository!.listLocal())[0]!.payload.files.map(
@@ -1345,8 +1206,6 @@ describe("PWA optional encryption and Markdown workspaces", () => {
   });
 
   it("autosaves through the local owner, retains failed drafts and retries explicitly", async () => {
-    control("New workspace").click();
-    await idle();
     control("New note").click();
     await idle();
     type("Autosaved");
@@ -1357,7 +1216,7 @@ describe("PWA optional encryption and Markdown workspaces", () => {
         ).toBe("Autosaved"),
       { timeout: 2000 },
     );
-    state.failCache = true;
+    state.failDisk = true;
     type("Recoverable");
     await vi.waitFor(
       () =>
@@ -1368,19 +1227,19 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     );
     const field = editorField();
     expect(field.value).toBe("Recoverable");
-    state.failCache = false;
+    state.failDisk = false;
     control("Retry save").click();
     await idle();
     expect(editorField()).toBe(field);
-    expect(document.querySelector(".pwa-status")?.textContent).toBe("Saved");
+    expect(document.querySelector(".pwa-status")?.textContent).toBe(
+      "Saved to file",
+    );
     expect(
       fileText((await state.repository!.listLocal())[0]!.payload.files[0]!),
     ).toBe("Recoverable");
   });
 
   it("restores saved workspace choices on return and handles browser Back without replacing the editor", async () => {
-    control("New workspace").click();
-    await idle();
     control("New note").click();
     await idle();
     type("Survives navigation");
@@ -1418,16 +1277,14 @@ describe("PWA optional encryption and Markdown workspaces", () => {
   });
 
   it("does not resurrect a failed save or plaintext UI after pagehide", async () => {
-    control("New workspace").click();
-    await idle();
     control("New note").click();
     await idle();
     let release: (() => void) | undefined;
-    state.pauseLocalWrite = () =>
+    state.pauseDiskWrite = () =>
       new Promise<void>((resolve) => {
         release = resolve;
       });
-    state.failCache = true;
+    state.failDisk = true;
     type("Private draft");
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "s", ctrlKey: true, bubbles: true }),
@@ -1486,7 +1343,7 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     expect(current.closest('[role="tabpanel"]')?.hasAttribute("hidden")).toBe(
       true,
     );
-    state.failCache = true;
+    state.failDisk = true;
     shared.value = "Changed shared folder note";
     shared.dispatchEvent(new Event("input", { bubbles: true }));
     tab("Global").click();
@@ -1496,7 +1353,7 @@ describe("PWA optional encryption and Markdown workspaces", () => {
       ),
     );
     expect(tab("Shared").getAttribute("aria-selected")).toBe("true");
-    state.failCache = false;
+    state.failDisk = false;
     control("Retry save").click();
     await idle();
     tab("Global").click();
@@ -1524,91 +1381,5 @@ describe("PWA optional encryption and Markdown workspaces", () => {
     expect(document.querySelectorAll(".pwa-folder summary")).toHaveLength(2);
     window.dispatchEvent(new Event("pagehide"));
     expect(document.querySelectorAll(".synthetic-editor")).toHaveLength(0);
-  });
-
-  it("edits imported browser Shared and Global records without changing Current", async () => {
-    const empty = `\`\`\`aic\n\`\`\``;
-    const stamp = { createdAt: 1, updatedAt: 1, revision: 1 };
-    const library = {
-      version: 3,
-      notes: [
-        {
-          ...stamp,
-          id: crypto.randomUUID(),
-          url: "https://example.com/page",
-          title: "Page",
-          markdown: "Current page",
-        },
-      ],
-      domains: [
-        {
-          ...stamp,
-          id: crypto.randomUUID(),
-          origin: "https://example.com",
-          markdown: empty,
-        },
-      ],
-      global: {
-        ...stamp,
-        id: crypto.randomUUID(),
-        scope: "global",
-        markdown: empty,
-      },
-      history: [],
-    };
-    const vault = await createVault(password, JSON.stringify(library));
-    let ciphertext = JSON.stringify(vault.envelope);
-    state.source = {
-      read: async () => ciphertext,
-      write: async (value) => {
-        ciphertext = value;
-      },
-    };
-    Object.defineProperty(window, "showOpenFilePicker", {
-      configurable: true,
-      value: () => {},
-    });
-    control("Open encrypted file").click();
-    await answer({ password });
-    await idle();
-    control("Open Page").click();
-    await idle();
-    const tab = (name: string) =>
-      document.querySelector<HTMLButtonElement>(
-        `[role="tab"][aria-label="${name}"]`,
-      )!;
-    tab("Shared").click();
-    await vi.waitFor(() =>
-      expect(tab("Shared").getAttribute("aria-selected")).toBe("true"),
-    );
-    const field = document.querySelector<HTMLTextAreaElement>(
-      '[role="tabpanel"]:not([hidden]) .synthetic-editor',
-    )!;
-    field.value = "Invalid shared data";
-    field.dispatchEvent(new Event("input", { bubbles: true }));
-    tab("Global").click();
-    await vi.waitFor(() =>
-      expect(document.querySelector(".pwa-status")?.textContent).toBe(
-        "Save failed",
-      ),
-    );
-    expect(tab("Shared").getAttribute("aria-selected")).toBe("true");
-    field.value = empty + "\n";
-    field.dispatchEvent(new Event("input", { bubbles: true }));
-    tab("Global").click();
-    await vi.waitFor(() =>
-      expect(tab("Global").getAttribute("aria-selected")).toBe("true"),
-    );
-    expect(
-      document.querySelector<HTMLTextAreaElement>(
-        '[role="tabpanel"]:not([hidden]) .synthetic-editor',
-      )?.value,
-    ).toBe(empty);
-    const opened = JSON.parse(
-      (await unlockVault(JSON.parse(ciphertext), password)).plaintext,
-    );
-    expect(opened.notes[0].markdown).toBe("Current page");
-    expect(opened.domains[0].markdown).toBe(empty + "\n");
-    expect(opened.global.markdown).toBe(empty);
   });
 });

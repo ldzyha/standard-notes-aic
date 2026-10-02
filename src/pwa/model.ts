@@ -1,12 +1,6 @@
-import {
-  validateBrowserLibrary,
-  type BrowserLibrary,
-} from "../browser/library";
-import { MAX_VAULT_PLAINTEXT_BYTES } from "../browser/vault-crypto";
-
 export const MAX_PWA_FILE_BYTES = 4 * 1024 * 1024;
 export const MAX_PWA_ENTRIES = 2000;
-export const MAX_PWA_PAYLOAD_BYTES = MAX_VAULT_PLAINTEXT_BYTES;
+export const MAX_PWA_PAYLOAD_BYTES = 6 * 1024 * 1024;
 
 export interface PwaFile {
   id: string;
@@ -21,7 +15,7 @@ export type PortableFile = PwaFile;
 interface PayloadHeader {
   format: "aic-notes-pwa";
   version: 1;
-  /** A display label only. It never enters password derivation. */
+  /** A display label only; paths identify original files. */
   label?: string;
 }
 
@@ -32,12 +26,7 @@ export interface WorkspacePayload extends PayloadHeader {
   directories: string[];
 }
 
-export interface BrowserLibraryPayload extends PayloadHeader {
-  kind: "browser-library";
-  library: BrowserLibrary;
-}
-
-export type PwaPayload = WorkspacePayload | BrowserLibraryPayload;
+export type PwaPayload = WorkspacePayload;
 
 export class PwaError extends Error {
   constructor(
@@ -60,7 +49,7 @@ const invalid = () =>
 const limit = () =>
   new PwaError(
     "limit",
-    "This entity exceeds the supported 6 MiB encrypted payload.",
+    "This entity exceeds the supported 6 MiB workspace payload.",
   );
 
 function ownRecord(value: unknown): Record<string, unknown> {
@@ -252,26 +241,6 @@ function labelOf(value: Record<string, unknown>): { label?: string } {
     : {};
 }
 
-function copyJson(value: unknown, depth = 0): unknown {
-  if (depth > 16) throw invalid();
-  if (
-    value === null ||
-    typeof value === "string" ||
-    typeof value === "boolean" ||
-    (typeof value === "number" && Number.isFinite(value))
-  )
-    return value;
-  if (Array.isArray(value))
-    return denseArray(value).map((item) => copyJson(item, depth + 1));
-  const record = ownRecord(value);
-  return Object.fromEntries(
-    Object.entries(record).map(([key, item]) => [
-      key,
-      copyJson(item, depth + 1),
-    ]),
-  );
-}
-
 function payloadSize(payload: PwaPayload): void {
   if (encoder.encode(JSON.stringify(payload)).length > MAX_PWA_PAYLOAD_BYTES)
     throw limit();
@@ -287,16 +256,6 @@ export function validatePayload(value: unknown): PwaPayload {
       version: 1 as const,
       ...labelOf(source),
     };
-    if (source.kind === "browser-library") {
-      exactKeys(source, ["format", "version", "kind", "library"], ["label"]);
-      const payload: BrowserLibraryPayload = {
-        ...header,
-        kind: "browser-library",
-        library: validateBrowserLibrary(copyJson(source.library)),
-      };
-      payloadSize(payload);
-      return payload;
-    }
     if (source.kind !== "workspace") throw invalid();
     exactKeys(
       source,
@@ -369,7 +328,7 @@ export function serializePayload(value: unknown): string {
   return JSON.stringify(validatePayload(value));
 }
 
-/** Legacy extension plaintext is adapted without dropping history/domain/global records. */
+/** Read only the plain workspace cache schema. */
 export function parsePayload(text: string): PwaPayload {
   if (typeof text !== "string") throw invalid();
   if (
@@ -379,14 +338,7 @@ export function parsePayload(text: string): PwaPayload {
     throw limit();
   try {
     const parsed: unknown = JSON.parse(text);
-    const source = ownRecord(parsed);
-    if (Object.hasOwn(source, "format")) return validatePayload(source);
-    return validatePayload({
-      format: "aic-notes-pwa",
-      version: 1,
-      kind: "browser-library",
-      library: source,
-    });
+    return validatePayload(parsed);
   } catch (error) {
     if (error instanceof PwaError) throw error;
     throw invalid();

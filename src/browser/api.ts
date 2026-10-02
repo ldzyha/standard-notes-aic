@@ -1,5 +1,6 @@
 import type { PageContext, PageNoteExpectation } from "./library";
 import type { capturePage } from "./capture-page";
+import type { RecoveryDraft } from "./recovery-store";
 
 export type BrowserTab = {
   id?: number;
@@ -14,7 +15,12 @@ type Listener<T extends unknown[]> = {
   addListener(fn: (...args: T) => unknown): void;
   removeListener(fn: (...args: T) => unknown): void;
 };
-export type MessageSender = { id?: string; url?: string; tab?: BrowserTab };
+export type MessageSender = {
+  id?: string;
+  url?: string;
+  frameId?: number;
+  tab?: BrowserTab;
+};
 export type BrowserApi = {
   runtime: {
     id: string;
@@ -76,12 +82,28 @@ export type BrowserApi = {
   };
 };
 
-export type Request =
+export type Request = { sourceId?: string } & (
   | { type: "status" }
-  | { type: "setup"; password: string }
+  | { type: "setup"; password: string; bindingId?: string }
+  | {
+      type: "connect-source";
+      bindingId: string;
+      mode?: "open" | "create" | "migrate";
+    }
   | { type: "unlock"; password: string }
   | { type: "lock" }
   | { type: "load" }
+  | { type: "scan-status"; id?: string; after?: number }
+  | { type: "cancel-scan"; id: string }
+  | { type: "refresh-files" }
+  | {
+      type: "checkpoint-drafts";
+      clientId: string;
+      sequence: number;
+      entries: RecoveryDraft[];
+    }
+  | { type: "list-recovery" }
+  | { type: "dismiss-recovery"; clientId: string; sequence: number }
   | { type: "context"; windowId: number; allowPrivate?: boolean }
   | { type: "visit"; windowId: number; allowPrivate?: boolean }
   | {
@@ -92,6 +114,8 @@ export type Request =
       ifAbsent?: boolean;
     }
   | { type: "save"; id: string; markdown: string; revision: number }
+  | { type: "create-file"; path: string; markdown: string }
+  | { type: "link-file"; id: string; page: ActivePage; allowPrivate?: boolean }
   | { type: "delete-page"; url: string; expectedNote: PageNoteExpectation }
   | {
       type: "create-domain";
@@ -110,7 +134,8 @@ export type Request =
     }
   | { type: "navigate"; windowId: number; url: string; allowPrivate?: boolean }
   | { type: "import"; text: string; password: string }
-  | { type: "export" };
+  | { type: "export" }
+);
 export type Reply<T> =
   { ok: true; value: T } | { ok: false; error: string; code?: string };
 
@@ -121,14 +146,10 @@ export function getBrowserApi(): BrowserApi {
   if (
     typeof chromium.storage?.local?.get !== "function" ||
     typeof chromium.storage?.local?.set !== "function" ||
-    typeof chromium.storage?.local?.setAccessLevel !== "function" ||
-    typeof chromium.storage?.session?.get !== "function" ||
-    typeof chromium.storage?.session?.set !== "function" ||
-    typeof chromium.storage?.session?.remove !== "function" ||
-    typeof chromium.storage?.session?.setAccessLevel !== "function"
+    typeof chromium.storage?.local?.setAccessLevel !== "function"
   )
     throw new Error(
-      "AIC requires trusted-only local storage and in-memory session storage (Chromium 140 or newer). The vault cannot start safely.",
+      "AIC requires trusted-only local storage for file connections and draft recovery (Chromium 140 or newer).",
     );
   if (typeof chromium.sidePanel?.setPanelBehavior !== "function")
     throw new Error("AIC requires the Chromium side panel API.");

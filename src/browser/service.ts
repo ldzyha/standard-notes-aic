@@ -1,5 +1,11 @@
-import { normalizePageUrl } from "./library";
-import { BrowserVault } from "./vault-store";
+import {
+  BrowserMarkdownStorage,
+  type BrowserSourceBindings,
+  type BrowserStatus,
+} from "./markdown-storage";
+import { BrowserFileError } from "./file-errors";
+import { BrowserDraftRecovery } from "./recovery-store";
+import { LibraryStore, normalizePageUrl } from "./library";
 import { capturePage } from "./capture-page";
 import type { ActivePage, BrowserApi, BrowserTab, Request } from "./api";
 
@@ -31,38 +37,72 @@ function pageFromTab(
   }
 }
 
-export function createBrowserService(api: BrowserApi) {
-  let lockGeneration = 0;
+export function createBrowserService(
+  api: BrowserApi,
+  bindings?: BrowserSourceBindings,
+) {
+  const files = new BrowserMarkdownStorage(api.storage.local, bindings);
+  const recovery = new BrowserDraftRecovery(api.storage.local);
+  let sourceGeneration = 0;
   // Only this worker writes the library. Panels never write storage directly.
   // Restrict access before any operation, not only during installation.
-  const ready = Promise.all([
-    api.storage.local.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" }),
-    api.storage.session.setAccessLevel({ accessLevel: "TRUSTED_CONTEXTS" }),
-  ]);
+  const ready = api.storage.local.setAccessLevel({
+    accessLevel: "TRUSTED_CONTEXTS",
+  });
   // Attach a rejection handler immediately; operations still fail closed on ready.
   void ready.catch(() => {});
-  const vault = new BrowserVault({
-    async readLocal() {
-      await ready;
-      return (await api.storage.local.get(LIBRARY_KEY))[LIBRARY_KEY];
-    },
-    async writeLocal(envelope) {
-      await ready;
-      await api.storage.local.set({ [LIBRARY_KEY]: envelope });
-    },
-    async readSession() {
-      await ready;
-      return (await api.storage.session.get(SESSION_KEY))[SESSION_KEY];
-    },
-    async writeSession(session) {
-      await ready;
-      await api.storage.session.set({ [SESSION_KEY]: session });
-    },
-    async clearSession() {
-      await ready;
-      await api.storage.session.remove(SESSION_KEY);
-    },
-  });
+  let tail: Promise<unknown> = Promise.resolve();
+  const queued = <T>(operation: () => Promise<T>): Promise<T> => {
+    const next = tail.then(operation, operation);
+    tail = next.catch(() => {});
+    return next;
+  };
+  const status = async (): Promise<BrowserStatus> => {
+    await ready;
+    const source = await files.location();
+    const scan = files.scanStatus().scan ?? undefined;
+    if (source.kind === "unselected")
+      return { state: "unselected", source, scan };
+    try {
+      let access = await files.access();
+      if (access.read !== "granted")
+        return {
+          state: "unavailable",
+          source,
+          access,
+          sourceErrorCode: "permission",
+          sourceError: "Continue to allow access to your remembered files.",
+        };
+      await files.read(false);
+      access = await files.access();
+      return {
+        state: "ready",
+        source,
+        access,
+        ...(access.write !== "granted"
+          ? {
+              sourceErrorCode: "permission",
+              sourceError:
+                "Allow file editing to save changes. Reconnect files; your draft is unchanged.",
+            }
+          : {}),
+        warnings: [...files.warnings],
+        scan: files.scanStatus().scan ?? undefined,
+      };
+    } catch (error) {
+      return {
+        state: "unavailable",
+        source,
+        sourceErrorCode:
+          error instanceof BrowserFileError ? error.code : "storage",
+        scan: files.scanStatus().scan ?? undefined,
+        sourceError:
+          error instanceof Error
+            ? error.message
+            : "Reconnect the original files.",
+      };
+    }
+  };
   const context = async (windowId: number, allowPrivate = false) => {
     if (!Number.isInteger(windowId) || windowId < 0)
       throw new BrowserActionError("Browser window is unavailable.");
@@ -84,19 +124,97 @@ export function createBrowserService(api: BrowserApi) {
     if (!input || typeof input !== "object" || !("type" in input))
       throw new BrowserActionError("Invalid AIC request.");
     const message = input as Request;
+    const run = <T>(
+      operation: (store: LibraryStore) => Promise<T>,
+      persist = true,
+    ) =>
+      queued(async () => {
+        await ready;
+        await files.assertSource(message.sourceId);
+        let current = await files.read(false);
+        let changed = false;
+        const store = new LibraryStore({
+          read: async () => current,
+          write: async (next) => {
+            if (persist) {
+              await files.write(next);
+              changed = true;
+            }
+            current = next;
+          },
+        });
+        const result = await operation(store);
+        if (changed && result && typeof result === "object" && "id" in result) {
+          const saved = files.snapshot();
+          const record = [
+            ...saved.notes,
+            ...saved.domains,
+            ...(saved.global ? [saved.global] : []),
+          ].find((item) => item.id === result.id);
+          if (record) return record as T;
+        }
+        return result;
+      });
     switch (message.type) {
+      case "scan-status":
+        await ready;
+        return files.scanStatus(message.id, message.after);
+      case "cancel-scan":
+        await ready;
+        return files.cancelScan(message.id);
+      case "refresh-files":
+        return queued(async () => {
+          await ready;
+          await files.assertSource(message.sourceId);
+          await files.read(true);
+          return status();
+        });
       case "status":
-        return vault.status();
+        return queued(status);
+      case "connect-source":
+        return queued(async () => {
+          await ready;
+          await files.assertSource(message.sourceId);
+          if (message.mode === "migrate")
+            throw new BrowserActionError(
+              "Open a Markdown file or folder. Encrypted libraries are not supported.",
+            );
+          await files.connect(message.bindingId);
+          sourceGeneration += 1;
+          return status();
+        });
       case "setup":
-        return vault.setup(message.password);
       case "unlock":
-        return vault.unlock(message.password);
-      case "lock": {
-        lockGeneration += 1;
-        return vault.lock();
-      }
+      case "lock":
+      case "import":
+      case "export":
+        throw new BrowserActionError(
+          "AIC edits Markdown files directly. Passwords and encrypted libraries are not supported.",
+        );
       case "load":
-        return vault.run((store) => store.load());
+        return run((store) => store.load());
+      case "checkpoint-drafts":
+      case "list-recovery":
+      case "dismiss-recovery": {
+        if (!message.sourceId)
+          throw new BrowserFileError(
+            "source",
+            "Choose a notes file before keeping a recovery copy.",
+          );
+        const sourceId = message.sourceId;
+        await ready;
+        await files.assertSource(sourceId);
+        if (message.type === "checkpoint-drafts") {
+          return recovery.checkpoint(
+            sourceId,
+            message.clientId,
+            message.sequence,
+            message.entries,
+          );
+        }
+        if (message.type === "list-recovery") return recovery.list(sourceId);
+        return recovery.dismiss(sourceId, message.clientId, message.sequence);
+      }
       case "context":
         return context(message.windowId, message.allowPrivate === true);
       case "visit": {
@@ -104,10 +222,12 @@ export function createBrowserService(api: BrowserApi) {
           message.windowId,
           message.allowPrivate === true,
         );
-        return vault.run((store) =>
-          page
-            ? store.visit({ url: page.url, title: page.title })
-            : store.load(),
+        return run(
+          (store) =>
+            page
+              ? store.visit({ url: page.url, title: page.title })
+              : store.load(),
+          false,
         );
       }
       case "create": {
@@ -115,7 +235,7 @@ export function createBrowserService(api: BrowserApi) {
           message.page,
           message.allowPrivate === true,
         );
-        return vault.run(async (store) => {
+        return run(async (store) => {
           if (message.ifAbsent === true)
             return store.create(
               { url: page.url, title: page.title },
@@ -143,12 +263,23 @@ export function createBrowserService(api: BrowserApi) {
           );
         });
       }
+      case "create-file":
+        return run((store) => store.createFile(message.path, message.markdown));
+      case "link-file": {
+        const page = await requireCurrent(
+          message.page,
+          message.allowPrivate === true,
+        );
+        return run((store) =>
+          store.linkFile(message.id, { url: page.url, title: page.title }),
+        );
+      }
       case "save":
-        return vault.run((store) =>
+        return run((store) =>
           store.save(message.id, message.markdown, message.revision),
         );
       case "delete-page":
-        return vault.run((store) =>
+        return run((store) =>
           store.deletePage(message.url, message.expectedNote),
         );
       case "create-domain": {
@@ -156,28 +287,23 @@ export function createBrowserService(api: BrowserApi) {
           message.page,
           message.allowPrivate === true,
         );
-        return vault.run((store) =>
+        return run((store) =>
           store.createDomain(new URL(page.url).origin, message.markdown),
         );
       }
       case "save-domain":
-        return vault.run((store) =>
+        return run((store) =>
           store.saveDomain(message.id, message.markdown, message.revision),
         );
       case "create-global":
-        return vault.run((store) => store.createGlobal(message.markdown));
+        return run((store) => store.createGlobal(message.markdown));
       case "save-global":
-        return vault.run((store) =>
+        return run((store) =>
           store.saveGlobal(message.id, message.markdown, message.revision),
         );
-      case "import":
-        return vault.importBackup(message.text, message.password);
-      case "export":
-        return vault.exportBackup();
       case "capture": {
-        const generation = lockGeneration;
-        // Require unlock even though capture only reads an explicitly selected page.
-        await vault.run((store) => store.load());
+        const generation = sourceGeneration;
+        await run((store) => store.load());
         const page = await requireCurrent(
           message.page,
           message.allowPrivate === true,
@@ -201,19 +327,18 @@ export function createBrowserService(api: BrowserApi) {
           throw new BrowserActionError(
             "The page changed during import. Retry on the intended page.",
           );
-        // A Lock while the page was being captured invalidates the operation.
-        await vault.run((store) => store.load());
-        if (generation !== lockGeneration)
+        await run((store) => store.load());
+        if (generation !== sourceGeneration)
           throw new BrowserActionError(
-            "Import cancelled because AIC was locked.",
+            "Import cancelled because the selected files changed.",
           );
         return result.result;
       }
       case "navigate": {
-        const generation = lockGeneration;
+        const generation = sourceGeneration;
         const url = normalizePageUrl(message.url);
         // Only navigate to known library/history URLs, never arbitrary input from a webpage.
-        const library = await vault.run((store) => store.load());
+        const library = await run((store) => store.load());
         if (
           ![...library.notes, ...library.history].some(
             (item) => item.url === url,
@@ -227,11 +352,11 @@ export function createBrowserService(api: BrowserApi) {
         const tabs = await api.tabs.query({ windowId: message.windowId });
         if (tabs.some((tab) => tab.incognito) && message.allowPrivate !== true)
           throw new BrowserActionError(
-            "Allow AIC in this private window before opening saved pages. Its encrypted notes and history persist after the window closes.",
+            "Allow AIC in this private window before opening saved pages. Notes in your files persist after the window closes.",
           );
-        if (generation !== lockGeneration)
+        if (generation !== sourceGeneration)
           throw new BrowserActionError(
-            "Navigation cancelled because AIC was locked.",
+            "Navigation cancelled because the selected files changed.",
           );
         const existing = tabs.find((tab) => tab.url === url);
         if (existing?.id !== undefined)

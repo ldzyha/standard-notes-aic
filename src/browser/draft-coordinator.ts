@@ -35,6 +35,8 @@ export interface DraftContextAdapter<
   contextKey(context: Context): string;
   contextForRecord(record: RecordType): Context;
   pageChangedMessage?: string;
+  /** Return a stable storage identity when revisions are opaque CAS tokens. */
+  opaqueRevisionKey?(record: RecordType): string | undefined;
 }
 
 interface Entry<RecordType extends VersionedDocument, Context extends object> {
@@ -73,6 +75,9 @@ function errorMessage(error: unknown, pageChangedMessage: string): string {
   if (code === "conflict") {
     return "Could not save. Another window may have changed this note. Export your draft before reopening.";
   }
+  if (code === "permission") {
+    return "File editing needs permission. Reconnect access to save; your draft is unchanged.";
+  }
   if (code === "quota") {
     return "Browser storage is full. Your draft is still here; export a backup or free space, then retry.";
   }
@@ -96,6 +101,33 @@ export class DraftCoordinator<
     ) => void = () => undefined,
     private readonly createFn?: CreateDocument<RecordType, Context>,
   ) {}
+
+  private acceptsRevision(
+    current: RecordType | null,
+    incoming: RecordType,
+    acknowledgement: boolean,
+  ): boolean {
+    if (!Number.isSafeInteger(incoming.revision) || incoming.revision < 1)
+      return false;
+    const previousKey = current
+      ? this.adapter.opaqueRevisionKey?.(current)
+      : undefined;
+    const incomingKey = this.adapter.opaqueRevisionKey?.(incoming);
+    if (previousKey !== undefined || (!current && incomingKey !== undefined)) {
+      if (current && incomingKey !== previousKey) return false;
+      // File hashes are equality tokens, never a timestamp or a counter.
+      // Reusing a token for different text is not a valid observation or ACK.
+      return (
+        !current ||
+        incoming.revision !== current.revision ||
+        incoming.markdown === current.markdown
+      );
+    }
+    if (incomingKey !== undefined) return false;
+    return acknowledgement
+      ? incoming.revision === (current ? current.revision + 1 : 1)
+      : incoming.revision >= (current?.revision ?? 0);
+  }
 
   private emit(entry: Entry<RecordType, Context>): void {
     if (this.disposed) return;
@@ -160,7 +192,8 @@ export class DraftCoordinator<
     } else if (
       !entry.draft.dirty &&
       !entry.draft.saving &&
-      incoming.revision >= (entry.draft.record?.revision ?? 0)
+      !entry.inFlight &&
+      this.acceptsRevision(entry.draft.record, incoming, false)
     ) {
       entry.draft.record = incoming;
       entry.draft.context = { ...context };
@@ -177,7 +210,7 @@ export class DraftCoordinator<
 
   activatePlaceholder(
     context: Context,
-    seed: string,
+    seed = "",
   ): DraftState<RecordType, Context> {
     if (this.disposed) throw new Error("Draft coordinator has been disposed.");
     const key = placeholderKey(this.adapter.contextKey(context));
@@ -269,10 +302,8 @@ export class DraftCoordinator<
           !saved.id ||
           this.adapter.contextKey(this.adapter.contextForRecord(saved)) !==
             this.adapter.contextKey(entry.draft.context) ||
-          (currentRecord
-            ? saved.id !== currentRecord.id ||
-              saved.revision !== currentRecord.revision + 1
-            : saved.revision !== 1) ||
+          (currentRecord && saved.id !== currentRecord.id) ||
+          !this.acceptsRevision(currentRecord, saved, true) ||
           saved.markdown !== markdown ||
           entry.draft.record !== currentRecord
         ) {
@@ -320,8 +351,13 @@ export class DraftCoordinator<
     if (!entry.draft.dirty || entry.blocked)
       return Promise.resolve(!entry.draft.dirty);
     const operation = this.drain(entry).finally(() => {
-      if (entry.inFlight === operation) entry.inFlight = null;
+      if (entry.inFlight !== operation) return;
+      entry.inFlight = null;
       this.pruneInactive();
+      // Host save indicators also observe the outstanding write promise.
+      // Publish settlement after clearing it, including when an inactive
+      // acknowledged draft has just been pruned.
+      this.emit(entry);
     });
     entry.inFlight = operation;
     return operation;
@@ -380,6 +416,16 @@ export class DraftCoordinator<
   dirtyDrafts(): DraftState<RecordType, Context>[] {
     return [...this.entries.values()]
       .filter((entry) => entry.draft.dirty)
+      .map((entry) => snapshot(entry.draft));
+  }
+
+  /** Include compensating edits while their earlier write is still pending. */
+  pendingDrafts(): DraftState<RecordType, Context>[] {
+    return [...this.entries.values()]
+      .filter(
+        (entry) =>
+          entry.draft.dirty || entry.draft.saving || Boolean(entry.inFlight),
+      )
       .map((entry) => snapshot(entry.draft));
   }
 

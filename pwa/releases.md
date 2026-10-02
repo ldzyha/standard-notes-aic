@@ -4,10 +4,179 @@
 
 [Українська](/releases/uk/) · [Open AIC Notes](/) · [Terms and privacy](/terms)
 
-Use the PWA for local Markdown workspaces with optional encryption, the browser
-extension for encrypted page notes, or AIC Notes in VS Code. Protected file
-editors share the same `.aicnotes` data; synchronize exported files through a
-service you manage.
+AIC uses ordinary Markdown files in the PWA, browser extension and VS Code.
+Choose your files once, edit them directly, and let your own sync service move
+them between devices. There is no app password or encrypted workspace format.
+Standard Notes uses the same editor syntax with its own storage and sync.
+
+## Start here — prepared plain-file update
+
+These instructions describe the new working version. Deployment, signed packages
+and store availability must still be verified. Older release entries below
+record their original behavior and may mention features removed from this version.
+
+| Where to work             | What to open                                        | Where a save goes                                               |
+| ------------------------- | --------------------------------------------------- | --------------------------------------------------------------- |
+| [AIC Notes PWA](/)        | A `.md` file or folder                              | The connected file on disk                                      |
+| Chrome or Edge side panel | A `.md` file or folder; optionally link it to a URL | The connected file; links stay in `.aic/links.json` for folders |
+| VS Code desktop or Web    | A Markdown file through **AIC Markdown**            | The workspace's filesystem provider, using native Save/Undo     |
+| Standard Notes            | A note with the **AIC** editor                      | Standard Notes, under its own storage and sync settings         |
+
+The same file syntax works across the three file-based hosts. Standard Notes
+does not automatically open or synchronize that folder; transfer content there
+explicitly. Old `.aicnotes` files are not opened or converted. Existing files
+remain untouched by this removal.
+
+### Open, create and save
+
+1. In the PWA choose **Files** or **Folder**. In the browser panel choose
+   **Open file** or **Open folder**. Grant access and select a note in the tree.
+   Folder scanning shows Markdown and applies `node_modules`, `.git`, `.gitignore`
+   and `.ignore` exclusions.
+2. Use **New note** in the PWA or **More options → New file** in the browser panel. With direct
+   write access, choose a destination or a name within the connected folder.
+   A new file starts blank; opening an existing file keeps its text.
+3. Write in Preview or Markdown source. **Save** or Ctrl/Cmd+S flushes a pending
+   save. Wait for **Saved to file** in the PWA or **On disk** in the browser;
+   **Unsaved**, **Saving…** or **Reconnect** does not confirm a completed write.
+4. To renew permission use **Note options → Reconnect files** in the PWA or
+   **More options → Reconnect access** in the browser. The visible source shows
+   the filename and relative location; browsers do not expose its absolute OS path.
+5. If another app changed the file, review its content or keep your draft as a
+   separate copy: **Save a copy** in the PWA, **Download copy** in the
+   browser. A deleted source is not recreated automatically.
+6. Removing a workspace connection or uninstalling an app does not delete its
+   original files. Uninstalling or clearing browser data can remove local recovery
+   copies, so those copies do not replace saved files and backups.
+
+Direct write-back needs a supported picker and writable provider. On a browser
+with that support, an old cache-only copy stays read-only until **Save to file**
+connects a destination. On a browser without direct writes, the PWA lets you edit
+browser drafts and download Markdown copies. **Browser draft · download to save**
+means the original was not updated: choose **Save a copy** or **Export Markdown**
+to keep the text as a file.
+
+In the browser extension, a folder scan shows entries checked, notes ready and
+the current path, without guessing a percentage. **Use found notes** stops the
+scan and keeps notes already read. **Scan again** or **More options → Refresh
+folder** explicitly rescans; ordinary loads, tab changes and saves reuse the
+connected folder's index. When notes are found, **Notes** opens automatically.
+The tree expands lazily, 100 rows per level; **Show more** reveals more rows,
+while search includes every indexed note.
+
+### Keep one note in focus
+
+For a remembered browser location, **Continue** restores access to the selected
+files. Other locations and **New file** are in **More options**. If no permission
+prompt appears in the side panel, use **More options → Open AIC in tab** and
+continue there. The original panel checks access when you return.
+
+**Current**, **Shared** and **Global** show one scope at a time. For files, Current
+is the selected document, Shared is its nearest existing folder note, and Global
+is its project note. For `project/src/page.md`, the sidecars are `project/src.note.md`
+and `project/project.note.md`. A scope switch does not copy inherited content.
+
+For browser URL associations, open a **folder**, select a file, then choose
+**More options → Link file to current page**. Choose **Follow active tab** to resume
+page-based navigation after browsing files. Current follows the exact URL, Shared
+belongs to its exact origin, and Global belongs to the selected folder. A single
+file connection opens only that file, without folder scopes or URL linking.
+All three browser scopes edit ordinary Markdown and AIC blocks directly, without
+an additional Edit/Done step. The source path and Download copy follow the active
+scope; Global stays selected when you change browser pages.
+
+A page visit by itself does not create a note. Links live in `.aic/links.json`;
+content stays in `.md` files that other editors can read. Selecting a file from
+the tree lets you work independently of the active website.
+
+### Reuse project context with a coding agent
+
+Keep existing answers, decisions and previews in auxiliary `.note.md` documents.
+For `project/src/parser.ts`, inspect `project/project.note.md`,
+`project/src.note.md` and `project/src/parser.note.md` in the project's declared
+context order. Include sidecars in the agent's available semantic or text search;
+check the current source before treating an old note or preview as implemented.
+Owner notes remain read-only without an explicit request to change them.
+
+The local AIC guide's **Instructions for coding agents** carries these rules.
+VS Code also has **Copy Agent Instructions** and trusted-workspace **Enable AIC
+Agent Workflow → Copy handoff**; **Sync Agent Instructions** refreshes the handoff
+after an update. Send the text or path to the agent yourself. This does not add a
+search service, auto-share notes or override project instructions.
+See [agent context and path examples](/how-to#give-coding-agents-the-existing-context).
+
+### Write, copy and reuse blocks
+
+Use `/` to choose a document or block template. Keep only the parts the reader
+needs: ordinary paragraphs, headings, ordered or bullet lists, tables, code,
+Mermaid, details and AIC typed fields. The [How to guide](/how-to) links the current
+[DDK writing method](https://ddk.dzyha.com/prompt.html) and a reusable AIC addendum.
+DDK's structured JSON is a separate format, not a Markdown import.
+
+An empty AIC secret field looks like this in Markdown source:
+
+````markdown
+```aic
+## Account
+Login | name@example.invalid
+Password *|
+```
+````
+
+Secret values stay masked in Preview. Use their copy button without revealing
+them; source mode and copied text contain the actual value. Masking is display
+behavior, not encryption. Copying an unused one-time value changes `1|` to `0|`
+and saves that change. Password generation fills only empty editable fields.
+
+In the PWA, **Fix grammar** or **Improve** offers optional on-device assistance.
+Select prose, review the proposal, then choose **Apply** or **Cancel**. Undo reverses
+an applied change. Code and secret fences stay out of the model input. The browser
+may need an initial model download; ordinary editing does not depend on AI.
+
+### Sync and work offline
+
+Place the folder in Google Drive, OneDrive, Dropbox, Git or another location you
+manage, then open that local folder in each app. AIC saves files; your chosen tool
+transfers them. Wait for both file-save and sync completion before switching
+devices. Concurrent changes must be reviewed rather than overwritten silently.
+
+Open the PWA online once so its interface is cached. Install it from the browser's
+app menu, or **Share → Add to Home Screen** where available. The cached interface
+works offline with available files; external sync needs a connection. Updates wait
+for safe draft handling. If saving fails, keep the app open and save a copy first.
+
+### Install extensions and update
+
+- **VS Code:** use the [Marketplace listing](https://marketplace.visualstudio.com/items?itemName=ldzyha.aic-notes)
+  or a verified VSIX from [GitHub releases](https://github.com/ldzyha/aic-notes/releases).
+  Run **Extensions: Install from VSIX…** for a downloaded file. In code-server:
+  `code-server --install-extension ./aic-notes-VERSION.vsix --force`.
+- **Chrome/Edge:** use the available store release or extract the verified
+  Chromium ZIP from [GitHub releases](https://github.com/ldzyha/standard-notes-aic/releases).
+  In `chrome://extensions` or `edge://extensions`, enable Developer mode and
+  **Load unpacked** from the folder containing `manifest.json`. For updates, replace
+  files in that same directory and choose Reload after notes are saved.
+- **Standard Notes:** in **Preferences → Plugins → Install Custom Plugin**, use
+  `https://ldzyha.github.io/standard-notes-aic/ext.json`, then choose **AIC** as the
+  note editor. Updates use the same manifest.
+
+Store versions can lag behind source releases. For a downloaded ZIP or VSIX,
+verify its neighboring `.sha256`: `sha256sum -c FILE.sha256` on Linux,
+`shasum -a 256 FILE` on macOS, or `(Get-FileHash .\FILE -Algorithm SHA256).Hash`
+in PowerShell. Build success, publication and installed behavior are separate checks.
+
+The writing guidance was reviewed on October 2 against local Core revision
+`c152359c05f572b701651baebca09a49594114bf`, its document guide, format rules and
+templates, and the current public DDK guide. [The review record](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/VERIFICATION.md)
+identifies the sources and differences. AIC reuses the writing method in Markdown;
+this does not claim a merge of DDK's editor runtime or JSON format.
+
+[Open notes](/) · [Document writing](/how-to) · [Data and permissions](/terms)
+
+## Earlier releases
+
+The entries below preserve their original release context. Use the guide above
+for the prepared plain-file version.
 
 ## Prepared update: Standard Notes 51.0.1 / VS Code 60.0.2 / browser 0.11.3
 

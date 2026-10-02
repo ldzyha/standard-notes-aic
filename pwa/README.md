@@ -1,186 +1,100 @@
-# AIC Notes on your devices
+# AIC Notes: Markdown files on your devices
 
 [Українська](README.uk.md)
 
 [Terms and privacy](https://aic.dzyha.com/terms) ·
-[Release notes and installation](https://aic.dzyha.com/releases)
+[Releases and installation](https://aic.dzyha.com/releases) ·
+[How to write documents](https://aic.dzyha.com/how-to)
 
-AIC Notes opens Markdown notes, files and project folders locally. **New note**
-on the start screen immediately creates a local workspace and editable draft,
-without a naming dialog or password. **Open files** and **Open folder** are direct
-actions and always create a separate workspace. Explicit **New workspace** is in
-**Workspace options**. To merge into the current workspace, use **Add files/folder**
-there. The list shows `.md` files, including uppercase `.MD`; new imports skip
-other file types and folders named `.git` or `node_modules`.
+AIC is an editor and viewer for your files. **New note** creates a blank `.md`
+file at a chosen destination. **Open files** and **Open folder** open existing
+Markdown in separate workspaces; **Add files/folder** adds to the current one.
+There is no encryption setup, password, Lock, encrypted export or legacy bundle
+import. File protection and synchronization belong to your device and storage
+service. Standard Notes continues to own its own storage and encryption.
 
-Native Markdown folder import prunes nested `.git` and `node_modules`, then
-applies `.gitignore` and `.ignore` in every traversed folder; `.ignore` wins when
-both are in one folder. A `!` rule cannot revive an excluded parent. The
-explicitly chosen root remains eligible, and rules apply only inside that selected
-root—not outside it or from global Git configuration. Generic binary folder import
-keeps its existing behavior and does not apply these rules.
+## Editing and saving
 
-Folder opening shows scanning and reading progress. **Cancel opening** stops the
-remaining scan and keeps all batches already saved on this device. The file list initially shows up to
-100 matching Markdown notes; **Show more** reveals the next group. Use **Search notes…** to filter filenames. Filtering and showing more keep the current
-note and its unsaved changes open.
+On browsers with writable-file support, edits save directly to the selected
+original files. The location strip shows the relative path and **Saved to file**,
+**Saving…**, **Unsaved**, or the failed operation. Autosave, Ctrl/Cmd+S and editor
+Save share one owner. Acknowledgement follows the file commit; a secondary browser
+cache failure does not undo that commit.
 
-AIC scans in batches of at most 1,000 inspected entries or 64 selected notes.
-Each batch checks file sizes and the remaining aggregate budget before reading
-contents, waits for the existing storage owner to commit, releases temporary
-file buffers, and continues from the same directory iterator or selection index.
-Found notes appear before the full scan finishes. The scan cursor lasts for this
-opening operation; saved notes survive a reload, but the scan itself does not resume
-automatically after closing the app.
-Metadata and content reads each run at most four at a time; scanning and reading
-yield periodically so the browser can respond. An individual directory or file
-read has a 30-second timeout; the file picker waits for your selection or dismissal.
-Cancellation discards only the uncommitted batch; earlier batches stay available. The browser may finish an underlying
-file operation separately, but AIC ignores late results.
+Handles are remembered locally outside file content. Reopening reads originals
+again and may need renewed browser permission. Observed external changes, missing
+files and denied access stop the save while preserving the draft. Autosave never
+recreates a deleted original. **Save a copy** chooses another destination and
+leaves the old file untouched; rename original files in your filesystem.
 
-Local workspaces autosave through the existing save owner. **Saved**, **Saving…**, **Unsaved**, or **Save failed** with **Retry** reports the
-current state. The status tooltip and accessible label give the full destination:
-**Saved on this device** for local workspaces.
-Ctrl/Cmd+S and leaving the editor also request a save.
-Its notes, paths and labels remain readable after a browser restart. Opening a
-folder imports a snapshot: editing or saving locally does not update the source
-folder. Use **Export Markdown** for the selected file or **Export all notes** to
-write readable files to disk. Put exported files in a folder synchronized by
-Google Drive or another service you manage; AIC does not connect to that service.
+Browsers without writable-file support edit browser drafts and download Markdown
+copies. The status says **Browser draft · download to save**, never **Saved to
+file**. Choose **Save a copy** or **Export Markdown** to download the current
+text. Browser storage can be cleared or evicted; downloaded files are the copies
+you control. Existing cache-only workspaces on writable-file browsers remain
+readable until **Save to file** chooses a destination.
 
-**Save encrypted copy** makes a separate protected copy with a passphrase of at
-least 12 characters. The original unencrypted workspace remains in local storage
-until you confirm **Remove local workspace**. Removing it from the app does not
-delete original files, exported files or the encrypted copy. Names are optional
-display labels and never determine keys; spaces and Unicode in passphrases remain
-exact. Separate encrypted entities can use different passphrases.
+**Remove from this device…** disconnects the workspace and removes its app cache,
+not original files. Closing a workspace keeps its remembered entry. Existing
+unsupported data stores and files are not automatically deleted or converted.
+Secret-field syntax still masks values on screen and supports explicit copying;
+it does not encrypt the Markdown file.
 
-On a phone, **Browse notes** opens a modal Notes drawer containing the existing
-list. Choosing a note closes the drawer; Escape or browser Back returns to the
-same editor with text, selection and Undo history preserved. Search and menus
-also preserve that editor. The header provides Browse notes, New note and More.
-**New note** creates a unique editable draft immediately; select its title to
-rename it, or use **More → Rename note**. **Change relative path** remains available
-for an advanced folder path. More also contains **Export Markdown** and details.
-**Workspace options** contains rename, additions, full export, protection and
-**Close workspace** (or **Lock workspace** for protected data). **Remove from
-this device…** is a separate confirmed action. App **Help** contains Terms,
-Releases and How to. Built-in AI appears only when available and remains optional.
+## Folders and navigation
 
-The same `.aicnotes` file opens in the PWA, Chrome/Edge file-notes view and the
-VS Code encrypted-file editor. **Save encrypted file** selects the durable file
-in your own sync folder; **Open encrypted file** opens it on another device with
-its original passphrase. A connected save compares the encrypted contents with
-the last read version and refuses an observed external change. Reopen after your
-sync service changes it. AIC does not merge concurrent edits across devices.
+The explorer shows `.md` files case-insensitively. Native scanning skips `.git`
+and `node_modules` and applies `.gitignore` and `.ignore` within each selected
+folder; `.ignore` wins in the same directory. A negation cannot revive an excluded
+parent. The chosen root stays eligible; global Git configuration is not read.
+Fallback folder pickers enumerate before the app can filter their results.
 
-Encrypted entities keep ciphertext in the browser cache and keys and unlocked
-content in memory. A restart locks those entities; five minutes without interaction
-locks saved encrypted entities. Unsaved encrypted drafts remain unlocked until
-saved or closed. Local unencrypted workspaces do not auto-lock. Browser storage
-can be cleared or evicted, so keep exported backups of either kind.
+Scanning continues in batches of at most 1,000 inspected entries or 64 notes,
+with progress, cooperative yielding and **Cancel opening**. Committed batches
+remain available when scanning stops. The cursor lives for that opening operation
+and does not resume after the app closes. At most four metadata/content reads
+run together; each read has a 30-second timeout.
 
-**Export encrypted** downloads a protected copy. **Export Markdown**,
-**Export all notes** and **Restore folder** produce readable files. Desktop Chromium
-browsers support writable files and folders after permission; other browsers use
-file selection and downloads. Folder export refuses existing files. ZIP fallback
-keeps paths. Markdown imports keep the hierarchy in each note's full path and
-omit separate empty-folder records. Folder export reconstructs parent directories;
-interrupted export can leave newly created files.
+Only retained notes count toward the 2,000-file import limit. Files are limited to
+4 MiB each and the cached JSON workspace to 6 MiB; editable UTF-8 text is limited
+to 512 KiB. The initial list shows 100 matching notes; **Show more** and **Search
+notes…** preserve the editor and its draft. Ignore files are limited to 64 KiB
+each, 1 MiB total, 256 applicable files and 10,000 lines. Unreadable rules stop
+that folder instead of silently importing excluded data.
 
-Existing `.aicnotes` bundles retain every file type as bytes; non-Markdown files
-are hidden from the file list and remain included in folder export. Editable UTF-8
-text is limited to 512 KiB. A Markdown import allows up to 2,000 selected `.md`
-files; their parent directories do not consume that note quota. Existing bundles
-retain a combined limit of 2,000 stored records, counting files and explicitly
-recorded folders, including empty folders. Imports also allow 4 MiB per file and 6 MiB of total JSON
-payload including base64 and metadata. The number of inspected files and folders
-does not limit a Markdown import: a large code tree with a few notes is scanned
-fully, with progress and cancellation. Only retained notes count toward the
-2,000 Markdown-file limit.
-Fallback browser folder selection enumerates files before AIC can filter them;
-it permits `.gitignore` and `.ignore` only to read rules and never imports them as
-notes. Ignore rules are limited to 64 KiB each, 1 MiB total, 256 applicable files
-and 10,000 lines. An invalid or unreadable rule file stops traversal before processing that
-folder. Earlier committed batches remain available; the failed folder is not
-imported with its rules silently omitted.
+On mobile, **Browse notes** opens a drawer. Selecting a note, Escape or browser
+Back returns to the editor without replacing its selection or Undo history.
+Compact SVG actions and the shared scope tabs leave room for content.
 
-Folder export has a separate limit of 60,000 physical files and folders, including
-reconstructed parents. ZIP fallback also has a 12 MiB archive-size limit. These
-export limits do not reduce the Markdown import quota.
+**Current**, **Shared** and **Global** each show one existing file. For
+`app/src/page.md`, Shared resolves the nearest existing `app/src.note.md` ancestor
+sidecar, and Global resolves `app/app.note.md`. Loose files have no project Global.
+Switching waits for saving; a failure keeps the current editor open. Missing
+sidecars stay disabled and selecting a tab never creates them.
 
-Chrome/Edge's page-notes library remains encrypted. Its existing encrypted
-backups also open here: page notes can be edited, while domain, Global and history
-records are preserved. Library export uses its existing backup format and
-passphrase. File bundles use the same authenticated envelope with a versioned
-file payload; the older page-library view cannot import them. Use **Open file
-notes** in the updated extension for those files. The VS Code encrypted-file host
-continues to require a passphrase.
+**Export all notes** writes a selected folder or downloads a ZIP preserving paths.
+Folder export refuses existing destination files. An interrupted export may leave
+newly written files. Export has a separate 60,000-file/folder physical limit;
+ZIP fallback has a 12 MiB archive limit.
 
-Install the PWA through your browser. Its interface is cached for offline use.
-**Update app** appears when a downloaded update is ready. It saves the current
-draft, shows **Updating…**, and disappears after the new version opens. Failed
-saves or new edits keep the draft open; finish saving before reloading. A stalled
-activation offers a retry. **Install AIC Notes** is a separate browser install
-action and disappears when its one-use prompt has been used or dismissed.
-The app sends no notes, keys or passwords to a server.
+## Offline use and updates
 
-Build with `npm run build:pwa`; serve `dist-pwa/` over HTTPS at `aic.dzyha.com`.
+The interface works offline after its first successful load and cache installation.
+**Update app** appears when a downloaded update is ready, saves the current draft
+and reloads. Failed saves or new edits keep the draft open. **Install AIC Notes**
+is the separate browser install action. Built-in on-device AI is optional; normal
+editing works without it. AIC sends no notes to a server and performs no file sync.
+Place your files in a Google Drive or other folder you manage when you want sync.
+
+Build with `npm run build:pwa` and serve `dist-pwa/` over HTTPS at `aic.dzyha.com`.
 Serve `sw.js`, `index.html` and the manifest with revalidation, and hashed assets
-with immutable caching. `pwa/_headers` provides headers for hosts that support
-that convention. Configure equivalent headers on another host. Domain/DNS and
-deployment credentials must be supplied by the domain owner; no deployment is
-implied by a local build.
-
-Extension update automation is described in [EXTENSION_UPDATES.md](EXTENSION_UPDATES.md).
-
-## Document authoring
-
-[How to create a document](https://aic.dzyha.com/how-to).
-
-## Firebase Hosting deployment
-
-The PWA and public documents use the separate `aic-dzyha-com` site in the
-`dzyha-com` Firebase project. Build the app, then deploy only that site:
+with immutable caching. `pwa/_headers` and `firebase.pwa.json` document this setup.
+The latter targets the separate `aic-dzyha-com` Firebase Hosting site:
 
 ```sh
 npm run build:pwa
 firebase deploy --only hosting --project dzyha-com --config firebase.pwa.json --non-interactive
 ```
 
-The build generates the complete offline precache inventory; `firebase.pwa.json`
-selects only this Hosting site and supplies its response headers. The default
-site address is [aic-dzyha-com.web.app](https://aic-dzyha-com.web.app/).
-
-DNS for `aic.dzyha.com` is managed through Squarespace Domains. Add the records
-returned by Firebase custom-domain setup, then wait for domain verification and
-HTTPS provisioning. The default site address works independently while the
-custom domain is being connected.
-
-## Focused note scopes
-
-**Current**, **Shared**, and **Global** show one note scope at a time. Switching
-waits for the active draft to save; a failed save keeps that scope open. The
-shared tab control supports arrow keys, Home/End and Enter/Space, and hides
-inactive panels from focus and assistive technology. Switching scopes never
-copies inherited text into the Current note.
-
-In the browser, Current belongs to the exact URL, Shared to its origin, and
-Global to the browser profile. In VS Code, Current stays anchored to the
-original file, Shared opens its nearest existing folder note, and Global opens
-the existing project note. Native TextDocument ownership and Undo remain in
-VS Code; scope navigation reuses the owning editor. Missing sidecars are
-disabled and selecting a tab never creates a file.
-
-The PWA explores imported Markdown files as folders. For `app/src/page.md`,
-Shared resolves `app/src.note.md` (or the nearest existing ancestor sidecar),
-and Global resolves `app/app.note.md`. These paths follow the VS Code sidecar
-convention. Loose files without an identifiable project folder have no Global
-file scope. Workspace labels do not determine note identity or encryption.
-Browser-library bundles use their existing URL, origin and Global records,
-including orphan Shared records and Global without a page note. Scope editors
-retain independent Undo until the selected context closes or changes.
-
-PWA saves still update the local workspace or its explicitly connected encrypted
-file. Importing a folder does not grant write-back or background synchronization;
-export copies to your own sync folder when needed.
+A local build does not deploy. DNS belongs to Squarespace Domains and the site's
+Firebase custom-domain configuration. Extension update automation is documented
+in [EXTENSION_UPDATES.md](EXTENSION_UPDATES.md).

@@ -1,4 +1,5 @@
-import { parseSecurityDocument } from "../core/security-model.js";
+import { BrowserFileError } from "./file-errors";
+import { AIC_EMPTY_DOCUMENT } from "../core/security-model.js";
 
 /** Local-only browser notes. The extension's background worker must be the sole writer. */
 export interface BrowserNote {
@@ -9,6 +10,7 @@ export interface BrowserNote {
   createdAt: number;
   updatedAt: number;
   revision: number;
+  filePath?: string;
 }
 
 export interface PageVisit {
@@ -33,6 +35,7 @@ export interface BrowserGlobal {
   createdAt: number;
   updatedAt: number;
   revision: number;
+  filePath?: string;
 }
 
 /** Shared Properties have their own identity and never own a page's Markdown. */
@@ -43,6 +46,7 @@ export interface BrowserDomain {
   createdAt: number;
   updatedAt: number;
   revision: number;
+  filePath?: string;
 }
 
 export interface PageContext {
@@ -152,6 +156,41 @@ function timestamp(value: unknown): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
+export function validateMarkdownPath(value: unknown): string {
+  if (
+    typeof value !== "string" ||
+    !value ||
+    bytes(value) > 2048 ||
+    !/\.md$/iu.test(value) ||
+    value.includes("\\") ||
+    [...value].some((char) => char.charCodeAt(0) < 32) ||
+    value
+      .split("/")
+      .some(
+        (part) =>
+          !part ||
+          part === "." ||
+          part === ".." ||
+          /^(?:\.git|\.aic|node_modules)$/iu.test(part),
+      )
+  )
+    throw invalid();
+  return value;
+}
+
+function documentKeys(
+  value: unknown,
+  keys: string[],
+): value is Record<string, unknown> {
+  return record(value, keys) || record(value, [...keys, "filePath"]);
+}
+
+function filePath(value: Record<string, unknown>): { filePath?: string } {
+  return Object.hasOwn(value, "filePath")
+    ? { filePath: validateMarkdownPath(value.filePath) }
+    : {};
+}
+
 export function normalizePageUrl(input: string): string {
   if (
     typeof input !== "string" ||
@@ -183,17 +222,16 @@ export function normalizeDomainOrigin(input: string): string {
   return origin;
 }
 
-/** New shared writes use only aic; unsupported legacy source remains repairable. */
+/** All scopes store bounded Markdown; AIC blocks use the shared editor syntax. */
 export function validateDomainProperties(markdown: string): string {
   if (typeof markdown !== "string") throw invalid();
   if (bytes(markdown) > MAX_NOTE_BYTES) throw quota();
-  if (!parseSecurityDocument(markdown).ok) throw invalid();
   return markdown;
 }
 
 function validDomain(value: unknown): BrowserDomain {
   if (
-    !record(value, [
+    !documentKeys(value, [
       "id",
       "origin",
       "markdown",
@@ -216,9 +254,10 @@ function validDomain(value: unknown): BrowserDomain {
   });
   return {
     id: note.id,
+    ...filePath(value),
     origin,
     // Read validation checks structure/size only. An old or unfinished record
-    // must not lock the entire encrypted library; syntax is gated at write/preview.
+    // must not prevent opening other files in the selected folder.
     markdown: note.markdown,
     createdAt: note.createdAt,
     updatedAt: note.updatedAt,
@@ -228,7 +267,7 @@ function validDomain(value: unknown): BrowserDomain {
 
 function validGlobal(value: unknown): BrowserGlobal {
   if (
-    !record(value, [
+    !documentKeys(value, [
       "id",
       "scope",
       "markdown",
@@ -242,6 +281,7 @@ function validGlobal(value: unknown): BrowserGlobal {
   if (!validDocumentFields(value)) throw invalid();
   return {
     id: value.id as string,
+    ...filePath(value),
     scope: "global",
     markdown: value.markdown as string,
     createdAt: value.createdAt as number,
@@ -282,7 +322,7 @@ function validPage(value: unknown): PageContext {
 
 function validNote(value: unknown): BrowserNote {
   if (
-    !record(value, [
+    !documentKeys(value, [
       "id",
       "url",
       "title",
@@ -298,10 +338,15 @@ function validNote(value: unknown): BrowserNote {
     !stringWithin(value.title, MAX_TITLE_BYTES)
   )
     throw invalid();
-  const url = normalizePageUrl(value.url as string);
+  const path = filePath(value);
+  const url =
+    value.url === "" && path.filePath
+      ? ""
+      : normalizePageUrl(value.url as string);
   if (url !== value.url) throw invalid();
   return {
     id: value.id as string,
+    ...path,
     url,
     title: value.title,
     markdown: value.markdown as string,
@@ -323,6 +368,14 @@ function validVisit(value: unknown): PageVisit {
   return { url, title: value.title, visitedAt: value.visitedAt };
 }
 
+/** Whitespace and the old untouched Properties scaffold are not a saved page note. */
+export function hasBrowserNoteContent(
+  note: Pick<BrowserNote, "markdown">,
+): boolean {
+  const text = note.markdown.replace(/\r\n?/gu, "\n").trim();
+  return text.length > 0 && text !== AIC_EMPTY_DOCUMENT.trim();
+}
+
 /** Validate and copy decrypted or imported data before it enters the store. */
 export function validateBrowserLibrary(value: unknown): BrowserLibrary {
   try {
@@ -338,14 +391,16 @@ export function validateBrowserLibrary(value: unknown): BrowserLibrary {
       ) ||
       !denseArray(value.notes) ||
       !denseArray(value.history) ||
-      value.notes.length > MAX_NOTES ||
       value.history.length > MAX_HISTORY ||
-      (!legacy &&
-        (!denseArray(value.domains) || value.domains.length > MAX_DOMAINS))
+      (!legacy && !denseArray(value.domains))
     )
       throw invalid();
     const notes = value.notes.map(validNote);
-    const history = value.history.map(validVisit);
+    const visits = value.history.map(validVisit);
+    const notedUrls = new Set(
+      notes.filter(hasBrowserNoteContent).map((note) => note.url),
+    );
+    const history = visits.filter((visit) => notedUrls.has(visit.url));
     const domains = legacy ? [] : (value.domains as unknown[]).map(validDomain);
     const global =
       value.version === 3 && value.global !== null
@@ -356,11 +411,16 @@ export function validateBrowserLibrary(value: unknown): BrowserLibrary {
         (item) => item.id,
       ),
     );
-    const urls = new Set(notes.map((note) => note.url));
+    const linkedNotes = notes.filter((note) => note.url);
+    const urls = new Set(linkedNotes.map((note) => note.url));
+    const filePaths = notes
+      .filter((note) => note.filePath)
+      .map((note) => note.filePath);
     const origins = new Set(domains.map((domain) => domain.origin));
     if (
       ids.size !== notes.length + domains.length + Number(!!global) ||
-      urls.size !== notes.length ||
+      urls.size !== linkedNotes.length ||
+      new Set(filePaths).size !== filePaths.length ||
       origins.size !== domains.length
     )
       throw invalid();
@@ -371,7 +431,23 @@ export function validateBrowserLibrary(value: unknown): BrowserLibrary {
       domains,
       global,
     };
-    if (bytes(JSON.stringify(library)) > MAX_LIBRARY_BYTES) throw quota();
+    // Files already selected on disk are not a browser vault. Do not turn a
+    // large folder into an all-or-nothing library-count/cache-size failure.
+    const portableNotes = notes.filter((note) => !note.filePath);
+    const portableDomains = domains.filter((note) => !note.filePath);
+    if (
+      portableNotes.length > MAX_NOTES ||
+      portableDomains.length > MAX_DOMAINS ||
+      bytes(
+        JSON.stringify({
+          ...library,
+          notes: portableNotes,
+          domains: portableDomains,
+          global: global?.filePath ? null : global,
+        }),
+      ) > MAX_LIBRARY_BYTES
+    )
+      throw quota();
     return library;
   } catch (error) {
     if (error instanceof LibraryError) throw error;
@@ -408,7 +484,8 @@ export class LibraryStore {
     let raw: unknown;
     try {
       raw = await this.persistence.read();
-    } catch {
+    } catch (error) {
+      if (error instanceof BrowserFileError) throw error;
       throw storage();
     }
     return raw === null || raw === undefined
@@ -420,7 +497,8 @@ export class LibraryStore {
     const validated = validateBrowserLibrary(library);
     try {
       await this.persistence.write(snapshot(validated));
-    } catch {
+    } catch (error) {
+      if (error instanceof BrowserFileError) throw error;
       throw storage();
     }
   }
@@ -433,6 +511,12 @@ export class LibraryStore {
     return this.queued(async () => {
       const safePage = validPage(page);
       const current = await this.read();
+      if (
+        !current.notes.some(
+          (note) => note.url === safePage.url && hasBrowserNoteContent(note),
+        )
+      )
+        return snapshot(current);
       const now = Date.now();
       const latest = current.history[0];
       if (
@@ -469,7 +553,8 @@ export class LibraryStore {
         if (options.ifAbsent) throw conflict();
         return { ...existing };
       }
-      if (current.notes.length >= MAX_NOTES) throw quota();
+      if (current.notes.filter((note) => !note.filePath).length >= MAX_NOTES)
+        throw quota();
       const now = Date.now();
       const note: BrowserNote = {
         id: crypto.randomUUID(),
@@ -482,6 +567,55 @@ export class LibraryStore {
       };
       await this.write({ ...current, notes: [...current.notes, note] });
       return { ...note };
+    });
+  }
+
+  createFile(path: string, markdown = ""): Promise<BrowserNote> {
+    return this.queued(async () => {
+      const safePath = validateMarkdownPath(path);
+      if (!stringWithin(markdown, MAX_NOTE_BYTES)) throw quota();
+      const current = await this.read();
+      if (current.notes.some((note) => note.filePath === safePath))
+        throw conflict();
+      const now = Date.now();
+      const note: BrowserNote = {
+        id: crypto.randomUUID(),
+        url: "",
+        title: safePath.split("/").at(-1)!,
+        filePath: safePath,
+        markdown,
+        createdAt: now,
+        updatedAt: now,
+        revision: 1,
+      };
+      await this.write({ ...current, notes: [...current.notes, note] });
+      return { ...note };
+    });
+  }
+
+  linkFile(id: string, page: PageContext): Promise<BrowserNote> {
+    return this.queued(async () => {
+      const safePage = validPage(page);
+      const current = await this.read();
+      const note = current.notes.find((item) => item.id === id);
+      if (!note?.filePath) throw invalid();
+      if (
+        current.notes.some(
+          (item) => item.id !== id && item.url === safePage.url,
+        )
+      )
+        throw conflict();
+      const updated = {
+        ...note,
+        ...safePage,
+        updatedAt: Math.max(Date.now(), note.updatedAt),
+        revision: note.revision + 1,
+      };
+      await this.write({
+        ...current,
+        notes: current.notes.map((item) => (item.id === id ? updated : item)),
+      });
+      return updated;
     });
   }
 
@@ -556,7 +690,13 @@ export class LibraryStore {
         );
       const next: BrowserLibrary = {
         ...current,
-        notes: current.notes.filter((candidate) => candidate.url !== safeUrl),
+        notes: current.notes.flatMap((candidate) => {
+          if (candidate.url !== safeUrl) return [candidate];
+          // Unlinking a page never hides or deletes its connected Markdown file.
+          return candidate.filePath
+            ? [{ ...candidate, url: "", revision: candidate.revision + 1 }]
+            : [];
+        }),
         history: current.history.filter((visit) => visit.url !== safeUrl),
       };
       if (note || next.history.length !== current.history.length)
@@ -572,7 +712,10 @@ export class LibraryStore {
       const current = await this.read();
       if (current.domains.some((domain) => domain.origin === safeOrigin))
         throw conflict();
-      if (current.domains.length >= MAX_DOMAINS) throw quota();
+      if (
+        current.domains.filter((note) => !note.filePath).length >= MAX_DOMAINS
+      )
+        throw quota();
       const now = Date.now();
       const domain: BrowserDomain = {
         id: crypto.randomUUID(),
@@ -772,6 +915,7 @@ export function buildDomainTree(notes: readonly BrowserNote[]): DomainNode[] {
   const domains = new Map<string, DomainNode>();
   for (const raw of notes) {
     const note = validNote(raw);
+    if (!note.url) continue;
     const url = new URL(note.url);
     const host = url.host;
     let domain = domains.get(host);

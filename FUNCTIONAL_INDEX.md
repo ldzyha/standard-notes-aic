@@ -2,6 +2,44 @@
 
 [English](FUNCTIONAL_INDEX.md) · [Українська](FUNCTIONAL_INDEX.uk.md)
 
+## Prepared plain-file workflow — unreleased
+
+AIC is a Markdown editor and viewer. PWA and browser extensions open ordinary
+`.md` files and folders; VS Code uses its native document and filesystem provider.
+Standard Notes owns authentication, encryption and synchronization for its notes.
+AIC does not add encryption, passwords, encrypted backups or legacy conversion.
+Masking and copy-without-reveal remain shared display behavior for typed fields.
+External storage, such as a user-managed Drive folder, owns protection and sync.
+
+Browser notes use real Markdown files. `.aic/links.json` in a selected folder
+records only file/URL/scope metadata. Files without URL links open directly in the
+connected file tree. Current follows the active URL until a file is selected;
+Shared belongs to the origin and Global to the selected folder. Selecting an
+empty context does not create a file; new documents have no automatic AIC block.
+All three scopes directly edit ordinary Markdown with optional AIC blocks, using
+the same editor and acknowledged save barrier. Source path and Download copy
+follow the active scope; Global stays selected across browser page changes.
+Remembered unavailable locations show one Continue action after the handle is
+ready. Reconnect is only offered when access needs renewal; an explicit AIC tab
+can obtain the same browser grant, which the original panel rechecks on return.
+
+The selected disk files are authoritative. Save acknowledgement follows the disk
+commit; lost permissions, missing files and observed external edits retain drafts
+and require reconnect/review. App removal does not delete external files. PWA
+fallback browsers explicitly download a copy when direct writing is unavailable.
+
+The browser worker keeps source-bound plain draft recovery independently of disk
+writes. Acknowledged checkpoints survive Reload without a password. Recovery
+exports an explicit Markdown copy and never recreates a deleted file. Disk ACK
+clears the active checkpoint; confirmed dismissal checks the reviewed sequence.
+A forced shutdown before checkpoint ACK is not guaranteed recoverable. Browser
+storage is secondary and is cleared by uninstall; ordinary disk files remain.
+
+Checks: browser storage/service/recovery and panel suites, PWA disk/file/UI suites,
+VS Code native and web provider suites, and shared registry/core parity. Builds
+and source tests are separate from publication. The practical cross-host guide
+is [Releases and installation](RELEASE_INSTALL.md).
+
 ## Prepared Mermaid contract — core 7.5.2
 
 The canvas spans 100% width; the diagram is centered at its natural size and
@@ -60,7 +98,7 @@ order. Unlabelled rows remain in their original order at the end. Section order,
 value order and exact authored values are preserved. Opening a preview, copying
 and manual reordering do not trigger sorting.
 
-## Current host boundary — 2026-09-15
+## Historical host boundary — 2026-09-15
 
 The experimental browser release component 0.10.0 targets Chrome and Edge only, using one
 Chromium package and this repository's `AicEditor`, with
@@ -69,10 +107,10 @@ page/selection/Markdown import. Current, Shared and Global use focused tabs;
 saved Shared and Global data retain their masked previews and explicit Edit actions. See [browser/README.md](browser/README.md) and its verification record.
 It accompanies this GitHub release; browser-store publication remains a future step.
 
-New pages mount a memory-only AIC placeholder immediately. The draft
+New pages mount a memory-only blank draft immediately, without an AIC scaffold. The draft
 coordinator creates a note on first edit, retains editor identity through the
-acknowledgment, and keeps failed writes exportable. Untouched placeholders do not
-create note records; first imports preserve their exact Markdown. Shared AIC add
+acknowledgment, and keeps failed writes exportable. Untouched blank drafts do not
+create note or history records; first imports preserve their exact Markdown. Shared AIC add
 menus are bounded by the visible editor and viewport, with
 internal scrolling and disposal-owned positioning listeners. The menu fix is
 mirrored into the VS Code release core snapshot.
@@ -81,37 +119,24 @@ instead of the hidden native caret, with host-aware color and a 2 px stroke.
 Focus visibility remains owned by CodeMirror; reduced motion stops blinking and
 forced colors use the system text color.
 
-Browser navigation projects saved pages into domain/title groups and only retains
-paths that group several notes. It does not rewrite URLs or persist display trees.
-Visible history labels are bounded and omit raw query/fragment text; the exact stored
-URL remains the navigation target and note identity.
-The encrypted browser library v3 contains separate exact-origin AIC records and
-one nullable explicit `global` record (`scope: "global"`, identity, Markdown,
-timestamps and revision). Global Shared appears before domain properties across
-all origins, including history-only or unavailable web-page contexts. Its empty
-Global action stays compact; an untouched `AIC_EMPTY_DOCUMENT` placeholder creates
-no record. All scopes reuse the masked canonical renderer and draft/save coordinator;
-their values are never copied into page Markdown. The current browser profile's
-encrypted vault is the boundary: this feature adds no server, synchronization or
-generated-key `.aic` storage architecture.
-
-Reading library v1/v2 preserves all authored page/domain text and history, adds
-`global: null`, and does not write storage. The next acknowledged mutation writes
-v3 inside the existing encrypted envelope. Older browser builds do not understand
-v3; backward read compatibility is not claimed. Encrypted export/restore includes
-Global, and merge preserves an existing Global record while reporting the skipped
-incoming Global record, which remains in the original backup file. Singleton
-creation, saves, remote conflicts, pending acknowledgments and Lock share the
-worker queue and revision guards. Synthetic storage, encrypted restart/restore,
-cross-origin/no-page panel and draft tests cover this contract; package/browser QA
-and publication are separate release acceptance steps.
+Browser **Notes** projects saved pages into one connected domain/path tree with
+expandable folders and SVG folder/document icons. It retains useful path groups
+without single-page ladders and has no separate recent-page list. It does not
+rewrite URLs or persist display trees. Visible note labels are bounded and omit
+raw query/fragment text; the exact stored URL remains the navigation target and
+note identity. Existing blank note records stay visible in the tree.
+Browser Current, Shared and Global records refer to separate plain Markdown files.
+All scopes reuse the editor and draft coordinator; structured values stay masked
+and inherited fields are not copied into the current note. The worker owns file
+commits and URL metadata. There is no AIC account, encryption or synchronization.
 
 Above the current editor, a compact chain exposes only metadata links for saved
 same-origin path-segment ancestors. Query-bearing lookalikes and siblings are not
 parents; ancestor Markdown and secret values are never copied into this projection.
 Confirmed local deletion is revision-guarded and removes only the selected note and
 its AIC history entry. Other notes and exact-origin shared AIC data remain intact;
-deleting the active note restores an unsaved placeholder.
+deleting the active note restores a blank unsaved draft without an AIC block.
+Revisiting that URL alone creates neither a note nor a recent-page entry.
 
 This release also compacts card parts into the shared inline composite-field row.
 Independent masked copy feedback, empty-part Paste, deletion and ordering semantics
@@ -619,7 +644,8 @@ explicit distribution manifest, not maintained independently in the extension.
 
 `src/browser/panel.ts` owns the panel-local pin and separately tracks the active
 page. Pinned tab changes preserve the editor, selection and Undo history. Pin and
-unpin use the existing draft save coordinator; lock/disposal clears the pin.
+unpin use the existing draft save coordinator; changing the connected source or
+disposing the panel clears the pin.
 `src/browser/related-links.ts` adds deduplicated, escaped active-page links to a
 Related links section only on editor input transactions. Generated links share
 Undo and persistence with the edit. Shared core and storage schema are unchanged.
@@ -635,17 +661,23 @@ rules or change an existing `AGENTS.md`. Optional full-kernel operations remain
 separate and require that runtime. Tests cover guide parity, fresh setup, legacy
 marker migration, untrusted copy, modified-file preservation and failed writes.
 
-Browser header transfer actions use shared `import-page`, `import-file` and
-`export-file` outline icons from `src/core/icons.css`, with existing accessible
-labels, tooltips, focus styles and touch targets.
+Browser transfer actions live in the bounded More options menu and use shared
+`import-page`, `import-file` and `export-file` outline icons from
+`src/core/icons.css`. The menu uses left-aligned compact rows, concise visible
+labels and a narrow width cap. File and folder actions replace encrypted backups. Accessible
+labels retain the complete action, and shared primitives preserve focus styles
+and coarse-pointer touch targets. Navigation, help and confirmation surfaces
+retain their own width and lifecycle. Coverage: `browser-panel-actions`,
+`browser-panel-ux` and responsive browser validation.
 
 ## Portable file notes
 
-The PWA, browser file-notes view and VS Code `.aicnotes` custom editor use one
-canonical bundled runtime. From the PWA start screen, **New workspace**, **Open… → Open
-files** and **Open… → Open folder** create a local workspace without a password. **Open files/folder** always creates a separate workspace. **Add files/folder**
-in Workspace options merges into the current workspace using its storage mode.
-New imports and file navigation show only `.md`
+The PWA and browser extension open plain Markdown files and folders. VS Code
+uses its native Markdown provider with the same shared editor core. **New file**,
+**Open file** and **Open folder** in the browser require no password. The PWA uses
+**New note**, **Files** and **Folder**. In the PWA, opening creates
+a separate local workspace; adding files or folders merges into the current one.
+PWA imports and file navigation show only `.md`
 (case-insensitive). Native Markdown folder imports retain the selected root, prune
 nested `.git` and `node_modules`, and apply scoped `.gitignore`/`.ignore` rules
 before descent; `.ignore` wins in one folder and negation cannot revive a pruned
@@ -677,26 +709,17 @@ rows and offers filename search and **Show more**. Filtering/paging updates only
 the file navigation; the active editor and unsaved draft retain their owner.
 The search field uses the shared `field` primitive, with host CSS handling
 placement. Unchanged in-memory file data reuse canonical byte validation while
-metadata and descriptors remain validated; payload and encryption formats are
-unchanged. Coverage: `pwa-files`, `pwa-ui` and `pwa-data`.
+metadata and descriptors remain validated; Markdown source bytes are preserved. Coverage: `pwa-files`, `pwa-ui` and `pwa-data`.
 
-**Save** persists local workspace snapshots as explicitly unencrypted device data
-through the existing controller and IndexedDB storage adapter. Local workspaces
-reopen without a password. Revision conflicts reject stale cross-tab saves or
-removal; failed saves keep the prior durable snapshot. **Save encrypted copy**
-creates a separate protected copy and retains the original plaintext workspace.
-Confirmed **Remove local workspace** removes only its app record.
+**Save** commits to connected original files before updating secondary browser
+snapshots. Revision and byte comparisons reject stale or conflicting writes.
+Removing a local workspace disconnects it without deleting its files. Browsers
+without writable file handles offer explicit download copies and distinguish
+browser drafts from files saved to disk. No protected entity, key or encrypted
+export is part of the runtime.
 
-Encrypted entities still use passphrases, ciphertext caches and guarded connected
-file saves. Optional names never participate in key derivation. The browser's
-page-notes library and VS Code encrypted-file host retain their encryption
-boundary. Existing non-Markdown files remain in bundles and full folder exports.
-
-Folder import is a snapshot; local saves do not write back to the source folder.
-Explicit plaintext file/folder exports and encrypted `.aicnotes` files are the
-copies users synchronize through their own filesystem service. Coverage includes
-`pwa-local-workspaces`, `pwa-data`, `pwa-files` and `pwa-ui`.
-See [PWA usage](pwa/README.md) and [extension updates](pwa/EXTENSION_UPDATES.md).
+Coverage includes `pwa-local-workspaces`, `pwa-data`, `pwa-disk`, `pwa-files` and
+`pwa-ui`. See [PWA usage](pwa/README.md) and [extension updates](pwa/EXTENSION_UPDATES.md).
 
 Public pages are part of the same offline shell. `src/pwa/sw.js` maps directory,
 HTML and extensionless document URLs to their built pages. When Hosting redirects
@@ -714,8 +737,8 @@ once, including dismissal. Coverage: `pwa-app-lifecycle` and `pwa-ui`.
 ## Extension update distribution
 
 Exact release archives and checksums are verified before store submission.
-Canonical core and portable builds reach VS Code through a reviewed update PR;
-source commits and complete file hashes remain in separate snapshots. Local
+The canonical shared core reaches VS Code through a reviewed update PR;
+the snapshot records the source commit and exact file hashes. Local
 working-tree previews are permitted, while release proof requires committed
 source. Publisher listings, credentials and explicit enable variables complete
 activation; usage and setup are in [extension updates](pwa/EXTENSION_UPDATES.md).
@@ -724,15 +747,20 @@ activation; usage and setup are in [extension updates](pwa/EXTENSION_UPDATES.md)
 
 Mobile shows a full-height editor with a modal Notes drawer that reuses the
 existing sidebar. Browsing, filtering, contextual menus and responsive layout
-changes retain the mounted editor, selection and Undo history. New note creates
-a unique `.md` draft in one action, including the first local workspace. Open files
-and Open folder are direct actions. Compact SVG buttons retain native accessible
-names and 44-pixel touch targets; Escape and Back restore the editor. Note options owns validated Rename note, advanced relative path,
-Export Markdown and details; Workspace options owns additions, full export,
-protection, Close/Lock and separate removal. Local autosave, save boundaries and
-Retry invoke the existing save owner and revision checks. Saved on this device
-never means original imported files or Drive were updated. Coverage: `pwa-ui`,
-`pwa-ai-controls` and real responsive browser validation.
+changes retain the mounted editor, selection and Undo history. **New note** chooses
+an original file destination when native writes are available; download-only
+browsers create a clearly labeled browser draft. Open files and Open folder are
+direct actions. Compact SVG buttons retain native accessible names and 44-pixel
+touch targets; Escape and Back restore the editor.
+
+Note options owns **Save to file** for an unconnected cached copy, **Save a copy**
+for a connected file or download draft, **Reconnect files**, Export Markdown and
+details. Workspace options owns additions, full export, Close workspace and
+separate removal of the local connection/cache. Rename original files through
+the filesystem. Local autosave, explicit Save and Retry use one save owner and
+revision checks. **Saved to file** confirms the original write; **Browser draft ·
+download to save** does not. Neither status confirms completion of external sync.
+Coverage: `pwa-ui`, `pwa-ai-controls` and separate responsive-browser validation.
 
 ## Focused note scopes
 
@@ -742,8 +770,10 @@ shared tab control supports arrow keys, Home/End and Enter/Space, and hides
 inactive panels from focus and assistive technology. Switching scopes never
 copies inherited text into the Current note.
 
-In the browser, Current belongs to the exact URL, Shared to its origin, and
-Global to the browser profile. In VS Code, Current stays anchored to the
+With a connected browser folder, Current follows the exact URL, Shared its origin,
+and Global the folder. Selecting a file opens it independently; **Follow active
+tab** returns to URL navigation. **Link file to current page** is available for
+selected folder files. A single-file connection has no Shared/Global tabs. In VS Code, Current stays anchored to the
 original file, Shared opens its nearest existing folder note, and Global opens
 the existing project note. Native TextDocument ownership and Undo remain in
 VS Code; scope navigation reuses the owning editor. Missing sidecars are
@@ -753,11 +783,14 @@ The PWA explores imported Markdown files as folders. For `app/src/page.md`,
 Shared resolves `app/src.note.md` (or the nearest existing ancestor sidecar),
 and Global resolves `app/app.note.md`. These paths follow the VS Code sidecar
 convention. Loose files without an identifiable project folder have no Global
-file scope. Workspace labels do not determine note identity or encryption.
-Browser-library bundles use their existing URL, origin and Global records,
-including orphan Shared records and Global without a page note. Scope editors
-retain independent Undo until the selected context closes or changes.
+file scope. Workspace labels do not determine file identity.
+The browser folder index holds only file/URL/scope metadata; document content
+stays in Markdown. Shared records can exist without a Current note, and Global
+is available without an active web page. Scope editors retain independent Undo
+until the selected context closes or changes.
 
-PWA saves still update the local workspace or its explicitly connected encrypted
-file. Importing a folder does not grant write-back or background synchronization;
-export copies to your own sync folder when needed.
+PWA saves update connected original Markdown files. On browsers with native
+write support, cached copies remain read-only until a destination is connected.
+Download-only browsers edit local drafts and explicitly download Markdown copies.
+Neither opening a folder nor saving confirms background cloud synchronization;
+the user’s sync client owns that step.

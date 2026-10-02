@@ -1,30 +1,14 @@
-import { validateEnvelope, type VaultEnvelope } from "../browser/vault-crypto";
 import { PwaError, validatePayload, type WorkspacePayload } from "./model";
 
-/** Device persistence contains only an opaque local id, revision and ciphertext. */
-export interface StoredPwaEntity {
-  id: string;
-  revision: number;
-  envelope: VaultEnvelope;
-}
-
-export interface PwaPersistence {
-  list(): Promise<unknown[]>;
-  read(id: string): Promise<unknown | null>;
-  /** null creates; an integer compares and swaps an existing revision atomically. */
-  write(
-    entity: StoredPwaEntity,
-    expectedRevision: number | null,
-  ): Promise<void>;
-}
-
-/** This explicit opt-in record is plaintext. It never belongs in the encrypted entities store. */
+/** Plain file workspace cache. Original files remain authoritative. */
 export interface StoredLocalWorkspace {
   format: "aic-local-workspace";
   version: 1;
   id: string;
   revision: number;
   payload: WorkspacePayload;
+  /** Original files are authoritative; missing capabilities must never downgrade to cache saves. */
+  storage?: "disk";
 }
 
 export interface LocalWorkspacePersistence {
@@ -37,49 +21,11 @@ export interface LocalWorkspacePersistence {
   removeLocal(id: string, expectedRevision: number): Promise<void>;
 }
 
-export type PwaDevicePersistence = PwaPersistence &
-  Partial<LocalWorkspacePersistence>;
-
 export function validateEntityId(value: unknown): string {
   if (typeof value !== "string" || !/^[A-Za-z0-9_-]{1,128}$/u.test(value)) {
     throw new PwaError("invalid", "Invalid local entity identity.");
   }
   return value;
-}
-
-export function validateStoredEntity(value: unknown): StoredPwaEntity {
-  try {
-    if (
-      value === null ||
-      typeof value !== "object" ||
-      (Object.getPrototypeOf(value) !== Object.prototype &&
-        Object.getPrototypeOf(value) !== null) ||
-      Reflect.ownKeys(value).length !== 3
-    )
-      throw new Error();
-    const values: Record<string, unknown> = {};
-    for (const key of ["id", "revision", "envelope"]) {
-      const descriptor = Object.getOwnPropertyDescriptor(value, key);
-      if (!descriptor || !("value" in descriptor)) throw new Error();
-      values[key] = descriptor.value;
-    }
-    if (
-      typeof values.revision !== "number" ||
-      !Number.isSafeInteger(values.revision) ||
-      values.revision < 1
-    )
-      throw new Error();
-    return {
-      id: validateEntityId(values.id),
-      revision: values.revision,
-      envelope: validateEnvelope(values.envelope),
-    };
-  } catch {
-    throw new PwaError(
-      "invalid",
-      "Device storage contains unsupported or damaged entity data.",
-    );
-  }
 }
 
 export function validateStoredLocalWorkspace(
@@ -91,7 +37,7 @@ export function validateStoredLocalWorkspace(
       typeof value !== "object" ||
       (Object.getPrototypeOf(value) !== Object.prototype &&
         Object.getPrototypeOf(value) !== null) ||
-      Reflect.ownKeys(value).length !== 5
+      ![5, 6].includes(Reflect.ownKeys(value).length)
     )
       throw new Error();
     const fields: Record<string, unknown> = {};
@@ -108,6 +54,23 @@ export function validateStoredLocalWorkspace(
       fields.revision < 1
     )
       throw new Error();
+    const storage = Object.getOwnPropertyDescriptor(value, "storage");
+    if (storage && (!("value" in storage) || storage.value !== "disk"))
+      throw new Error();
+    if (
+      Reflect.ownKeys(value).some(
+        (key) =>
+          ![
+            "format",
+            "version",
+            "id",
+            "revision",
+            "payload",
+            "storage",
+          ].includes(String(key)),
+      )
+    )
+      throw new Error();
     const payload = validatePayload(fields.payload);
     if (payload.kind !== "workspace") throw new Error();
     return {
@@ -116,6 +79,7 @@ export function validateStoredLocalWorkspace(
       id: validateEntityId(fields.id),
       revision: fields.revision,
       payload,
+      ...(storage ? { storage: "disk" as const } : {}),
     };
   } catch {
     throw new PwaError(
@@ -133,29 +97,6 @@ function expectedRevisionIsValid(value: number | null): void {
       value >= Number.MAX_SAFE_INTEGER)
   )
     throw new PwaError("invalid", "Invalid save revision.");
-}
-
-function assertWrite(
-  entity: StoredPwaEntity,
-  expectedRevision: number | null,
-  current: unknown | null,
-): void {
-  expectedRevisionIsValid(expectedRevision);
-  if (
-    entity.revision !== (expectedRevision === null ? 1 : expectedRevision + 1)
-  )
-    throw new PwaError("invalid", "Invalid save revision.");
-  const existing = current === null ? null : validateStoredEntity(current);
-  if (
-    expectedRevision === null
-      ? existing !== null
-      : existing?.revision !== expectedRevision || existing.id !== entity.id
-  ) {
-    throw new PwaError(
-      "conflict",
-      "This entity changed in another tab. Unlock it again before saving.",
-    );
-  }
 }
 
 function assertLocalRevision(
@@ -197,9 +138,7 @@ const storageFailure = () =>
   );
 
 /** IndexedDB's readwrite transaction owns the revision comparison and ciphertext write. */
-export class IndexedDbPwaPersistence
-  implements PwaPersistence, LocalWorkspacePersistence
-{
+export class IndexedDbPwaPersistence implements LocalWorkspacePersistence {
   private connection: Promise<IDBDatabase> | null = null;
 
   constructor(
@@ -214,8 +153,6 @@ export class IndexedDbPwaPersistence
       let settled = false;
       const request = this.factory!.open(this.name, 2);
       request.onupgradeneeded = () => {
-        if (!request.result.objectStoreNames.contains("entities"))
-          request.result.createObjectStore("entities", { keyPath: "id" });
         if (!request.result.objectStoreNames.contains("local-workspaces"))
           request.result.createObjectStore("local-workspaces", {
             keyPath: "id",
@@ -252,7 +189,7 @@ export class IndexedDbPwaPersistence
 
   private async readTransaction<T>(
     operation: (store: IDBObjectStore) => IDBRequest<T>,
-    storeName = "entities",
+    storeName = "local-workspaces",
   ): Promise<T> {
     const database = await this.database();
     return new Promise<T>((resolve, reject) => {
@@ -266,46 +203,6 @@ export class IndexedDbPwaPersistence
         transaction.oncomplete = () => resolve(result);
         transaction.onerror = transaction.onabort = () =>
           reject(storageFailure());
-      } catch {
-        reject(storageFailure());
-      }
-    });
-  }
-
-  list(): Promise<unknown[]> {
-    return this.readTransaction((store) => store.getAll());
-  }
-
-  async read(id: string): Promise<unknown | null> {
-    validateEntityId(id);
-    return (await this.readTransaction((store) => store.get(id))) ?? null;
-  }
-
-  async write(
-    value: StoredPwaEntity,
-    expectedRevision: number | null,
-  ): Promise<void> {
-    const entity = validateStoredEntity(value);
-    expectedRevisionIsValid(expectedRevision);
-    const database = await this.database();
-    return new Promise<void>((resolve, reject) => {
-      let failure: unknown;
-      try {
-        const transaction = database.transaction("entities", "readwrite");
-        const store = transaction.objectStore("entities");
-        const request = store.get(entity.id);
-        request.onsuccess = () => {
-          try {
-            assertWrite(entity, expectedRevision, request.result ?? null);
-            store.put(entity);
-          } catch (error) {
-            failure = error;
-            transaction.abort();
-          }
-        };
-        transaction.oncomplete = () => resolve();
-        transaction.onerror = transaction.onabort = () =>
-          reject(failure instanceof PwaError ? failure : storageFailure());
       } catch {
         reject(storageFailure());
       }
@@ -380,29 +277,8 @@ export class IndexedDbPwaPersistence
 }
 
 /** Deterministic adapter for model tests; uses the same compare-and-swap contract. */
-export class MemoryPwaPersistence
-  implements PwaPersistence, LocalWorkspacePersistence
-{
-  private readonly entities = new Map<string, StoredPwaEntity>();
+export class MemoryPwaPersistence implements LocalWorkspacePersistence {
   private readonly localWorkspaces = new Map<string, StoredLocalWorkspace>();
-
-  async list(): Promise<unknown[]> {
-    return [...this.entities.values()].map(validateStoredEntity);
-  }
-
-  async read(id: string): Promise<unknown | null> {
-    const entity = this.entities.get(validateEntityId(id));
-    return entity ? validateStoredEntity(entity) : null;
-  }
-
-  async write(
-    value: StoredPwaEntity,
-    expectedRevision: number | null,
-  ): Promise<void> {
-    const entity = validateStoredEntity(value);
-    assertWrite(entity, expectedRevision, this.entities.get(entity.id) ?? null);
-    this.entities.set(entity.id, entity);
-  }
 
   async listLocal(): Promise<unknown[]> {
     return [...this.localWorkspaces.values()].map(validateStoredLocalWorkspace);

@@ -7,6 +7,16 @@ Public [releases and installation](https://aic.dzyha.com/releases) and
 
 ## English
 
+### Current usage guide
+
+The [complete getting-started guide](https://aic.dzyha.com/releases) keeps file
+opening, direct saving, URL links, scopes, AIC blocks, copy controls, offline use,
+external sync and extension installation together. The prepared working version
+uses plain `.md` files in the PWA, browser extension and VS Code, without an app
+password or `.aicnotes` support. Existing old files are left untouched.
+Standard Notes keeps its own storage and sync. The version entries below are
+release records; publication of the new working changes is not implied.
+
 ### Prepared release — October 2, 2026
 
 **Standard Notes AIC 51.0.1**, **AIC Notes 60.0.2**, and experimental
@@ -17,8 +27,7 @@ store submission and approval are separate steps.
 Vertical scrolling over a code preview continues through the document instead
 of stopping inside the block. Previews use their full content height and retain
 horizontal scrolling for long lines across Standard Notes, PWA, browser notes,
-and VS Code main and linked-note editors. Markdown, editing, encryption, local
-storage and Save/Undo ownership remain compatible.
+and VS Code main and linked-note editors. Markdown syntax and Save/Undo ownership remain compatible.
 
 VS Code also restores scrolling through long linked notes in the sidebar. The
 active Current, Shared or Global pane constrains the editor to the available
@@ -65,9 +74,10 @@ exposed no Edge workspace.
 Recheck these conditions before submitting 0.11.3; no new submission or approval
 is claimed by this prepared release.
 
-For an existing unpacked installation, wait for **Note saved**, export a backup,
-keep its password, replace files in the same folder, then choose **Reload** on
-its existing card. Removing a populated extension can remove local data.
+For an existing unpacked installation, wait for the disk-save confirmation, keep
+a file backup, replace the extension files in the same folder, then choose
+**Reload** on its existing card. Uninstalling clears browser-local recovery data
+and remembered access, but not saved external files.
 Installed-store updates and account configuration are described in the
 [publishing guide](https://github.com/ldzyha/standard-notes-aic/blob/main/pwa/EXTENSION_UPDATES.md).
 
@@ -78,6 +88,16 @@ compare `shasum -a 256 FILE` on macOS, or use `(Get-FileHash .\FILE -Algorithm S
 in PowerShell. Test an installed package separately from its build and checksum.
 
 ## Українська
+
+### Поточна інструкція використання
+
+[Повна інструкція](https://aic.dzyha.com/releases/uk/) збирає в одному місці
+відкриття й запис файлів, URL-зв’язки, області нотаток, блоки AIC, копіювання,
+офлайн-роботу, зовнішню синхронізацію та встановлення. Підготовлена робоча версія
+використовує звичайні `.md` у PWA, браузері й VS Code без пароля застосунку та
+підтримки `.aicnotes`. Наявні старі файли не змінюються. Standard Notes зберігає
+власне сховище й синхронізацію. Записи версій нижче є історією релізу, а не
+підтвердженням публікації нових робочих змін.
 
 ### Підготовлений випуск — 2 жовтня 2026 року
 
@@ -91,7 +111,7 @@ in PowerShell. Test an installed package separately from its build and checksum.
 блокування всередині блока. Прев’ю займає повну висоту вмісту та зберігає
 горизонтальне прокручування довгих рядків у Standard Notes, PWA, браузерних
 нотатках, основному редакторі й пов’язаних нотатках VS Code. Markdown,
-редагування, шифрування, локальне зберігання та Save/Undo лишаються сумісними.
+редагування та власник Save/Undo лишаються сумісними.
 
 VS Code також відновлює прокручування довгих пов’язаних нотаток у бічній
 панелі. Активне подання Current, Shared або Global обмежує редактор доступною
@@ -138,7 +158,7 @@ VS Code також відновлює прокручування довгих п
 не означає нового подання чи схвалення.
 
 Для наявної unpacked-інсталяції дочекайтеся **Note saved**, експортуйте резервну
-копію та збережіть пароль, замініть файли в тій самій папці й натисніть **Reload**
+копію файлів, замініть файли розширення в тій самій папці й натисніть **Reload**
 на наявній картці. Видалення заповненого розширення може видалити локальні дані.
 [Інструкція публікації](https://github.com/ldzyha/standard-notes-aic/blob/main/pwa/EXTENSION_UPDATES.uk.md).
 

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { getBrowserApi } from "../src/browser/api";
 import { initializeSidebar } from "../src/browser/platform";
 import { createBrowserService } from "../src/browser/service";
+import { FILE_SOURCE_KEY } from "../src/browser/markdown-storage";
 import chromiumManifest from "../browser/manifest.json";
 
 afterEach(() => vi.unstubAllGlobals());
@@ -57,14 +58,13 @@ describe("Chromium browser boundary", () => {
     const api = getBrowserApi();
     expect(api).toBe(h.chrome);
     expect(await createBrowserService(api).handle({ type: "status" })).toEqual({
-      state: "setup",
+      state: "unselected",
+      source: { kind: "unselected" },
     });
     expect(h.chrome.storage.local.setAccessLevel).toHaveBeenCalledWith({
       accessLevel: "TRUSTED_CONTEXTS",
     });
-    expect(h.chrome.storage.session.setAccessLevel).toHaveBeenCalledWith({
-      accessLevel: "TRUSTED_CONTEXTS",
-    });
+    expect(h.chrome.storage.session.setAccessLevel).not.toHaveBeenCalled();
   });
 
   it("does not accept the browser namespace as a substitute for Chrome", () => {
@@ -88,29 +88,18 @@ describe("Chromium browser boundary", () => {
     expect(() => getBrowserApi()).toThrow("Chromium 140 or newer");
   });
 
-  it("fails closed without session storage or its trusted-only restriction", () => {
+  it("works without in-memory unlock session storage", () => {
     const h = chromiumHarness();
-    vi.stubGlobal("chrome", {
+    const chrome = {
       ...h.chrome,
       storage: { ...h.chrome.storage, session: undefined },
-    });
-    expect(() => getBrowserApi()).toThrow("in-memory session storage");
-    vi.stubGlobal("chrome", {
-      ...h.chrome,
-      storage: {
-        ...h.chrome.storage,
-        session: {
-          get: h.chrome.storage.session.get,
-          set: h.chrome.storage.session.set,
-          remove: h.chrome.storage.session.remove,
-        },
-      },
-    });
-    expect(() => getBrowserApi()).toThrow("Chromium 140 or newer");
+    };
+    vi.stubGlobal("chrome", chrome);
+    expect(getBrowserApi()).toBe(chrome);
   });
 
-  it("does not silently continue when either storage restriction fails", async () => {
-    for (const area of ["local", "session"] as const) {
+  it("does not silently continue when the trusted local storage restriction fails", async () => {
+    for (const area of ["local"] as const) {
       const h = chromiumHarness();
       h.chrome.storage[area].setAccessLevel.mockRejectedValue(
         new Error("restriction unavailable"),
@@ -118,7 +107,7 @@ describe("Chromium browser boundary", () => {
       vi.stubGlobal("chrome", h.chrome);
       await expect(
         createBrowserService(getBrowserApi()).handle({ type: "status" }),
-      ).rejects.toThrow("browser could not store this change");
+      ).rejects.toThrow("restriction unavailable");
       expect(h.chrome.storage.local.set).not.toHaveBeenCalled();
       expect(h.chrome.storage.session.set).not.toHaveBeenCalled();
     }
@@ -143,7 +132,7 @@ describe("Chromium browser boundary", () => {
     expect(h.installed.count()).toBe(0);
   });
 
-  it("accepts only an exact internal panel sender in the worker", async () => {
+  it("accepts the exact editor in a side panel or normal tab and rejects spoofed, private, and framed senders", async () => {
     const h = chromiumHarness();
     vi.stubGlobal("chrome", h.chrome);
     vi.resetModules();
@@ -155,6 +144,23 @@ describe("Chromium browser boundary", () => {
       { id: h.chrome.runtime.id, url: "https://example.test/" },
       { id: h.chrome.runtime.id, url: `${panel}?extra=1` },
       { id: h.chrome.runtime.id, url: panel, tab: { id: 1 } },
+      { id: h.chrome.runtime.id, url: panel, frameId: 2 },
+      {
+        id: h.chrome.runtime.id,
+        url: panel,
+        tab: { id: 1, windowId: 1, incognito: true },
+      },
+      {
+        id: h.chrome.runtime.id,
+        url: panel,
+        tab: { id: 1, windowId: 1, url: "https://example.test/" },
+      },
+      {
+        id: h.chrome.runtime.id,
+        url: "https://example.test/",
+        tab: { id: 1, windowId: 1, url: panel },
+      },
+      { id: "foreign", url: panel, tab: { id: 1, windowId: 1, url: panel } },
     ]) {
       expect(h.messages.fire({ type: "status" }, sender, respond)).toEqual([
         false,
@@ -171,9 +177,62 @@ describe("Chromium browser boundary", () => {
     await vi.waitFor(() =>
       expect(respond).toHaveBeenCalledWith({
         ok: true,
-        value: { state: "setup" },
+        value: { state: "unselected", source: { kind: "unselected" } },
       }),
     );
+    respond.mockClear();
+    expect(
+      h.messages.fire(
+        { type: "status" },
+        {
+          id: h.chrome.runtime.id,
+          url: panel,
+          frameId: 0,
+          tab: { id: 1, windowId: 1, url: panel, incognito: false },
+        },
+        respond,
+      ),
+    ).toEqual([true]);
+    await vi.waitFor(() =>
+      expect(respond).toHaveBeenCalledWith({
+        ok: true,
+        value: { state: "unselected", source: { kind: "unselected" } },
+      }),
+    );
+  });
+
+  it("retains source binding checks for the full-tab permission fallback", async () => {
+    const h = chromiumHarness();
+    h.chrome.storage.local.get.mockResolvedValue({
+      [FILE_SOURCE_KEY]: {
+        id: "browser-current",
+        kind: "directory",
+        name: "Current folder",
+      },
+    });
+    vi.stubGlobal("chrome", h.chrome);
+    vi.resetModules();
+    await import("../src/browser/worker");
+    const respond = vi.fn();
+    const panel = h.chrome.runtime.getURL("browser/index.html");
+    expect(
+      h.messages.fire(
+        { type: "load", sourceId: "browser-previous" },
+        {
+          id: h.chrome.runtime.id,
+          url: panel,
+          frameId: 0,
+          tab: { id: 1, windowId: 1, url: panel, incognito: false },
+        },
+        respond,
+      ),
+    ).toEqual([true]);
+    await vi.waitFor(() =>
+      expect(respond).toHaveBeenCalledWith(
+        expect.objectContaining({ ok: false, code: "source" }),
+      ),
+    );
+    expect(h.chrome.storage.local.set).not.toHaveBeenCalled();
   });
 
   it("keeps the Chrome/Edge manifest narrow and disallows incognito", () => {

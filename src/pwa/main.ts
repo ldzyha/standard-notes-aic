@@ -9,20 +9,13 @@ import { scopedNotes, type NoteScope, type ScopedNote } from "./note-scopes";
 import { attachLocalAI, type LocalAIControls } from "./ai-controls";
 import logoUrl from "../../public/aic-logo.svg?url";
 import { createUiButton, applyUiComponent } from "../core/ui-system.js";
-import { PwaRepository } from "./controller";
-import { MemoryPwaPersistence } from "./storage";
-import { validateEnvelope } from "../browser/vault-crypto";
-import { validateDomainProperties } from "../browser/library";
-import { getVsCodeSource } from "./vscode-host";
 import {
-  openEncryptedSource,
-  createEncryptedSource,
-  rememberSource,
-  reopenSource,
-  requestSourcePermission,
-  IndexedDbSourceBindings,
-  type EncryptedSource,
-} from "./source";
+  MarkdownDisk,
+  chooseMarkdownDestination,
+  writeMarkdownDestination,
+  type MarkdownFileHandle,
+} from "./disk";
+import { PwaRepository } from "./controller";
 import {
   createPwaFile,
   createWorkspace,
@@ -54,15 +47,9 @@ import "./styles.css";
 
 const root = document.querySelector<HTMLElement>("#app");
 if (!root) throw new Error("AIC Notes root is missing.");
-const hostSource = getVsCodeSource();
-const repository = new PwaRepository(
-  hostSource ? new MemoryPwaPersistence() : undefined,
-);
-const sources = new Map<
-  string,
-  { source: EncryptedSource; expected: string }
->();
-const disconnectedSources = new Set<string>();
+const repository = new PwaRepository();
+const markdownDisk = new MarkdownDisk();
+const downloadOnly = () => !("showSaveFilePicker" in window);
 const cancelDialogs = new Set<() => void>();
 let activeId: string | null = null;
 let localWorkspace = false;
@@ -93,7 +80,7 @@ let fileQuery = "";
 let visibleFileCount = 100;
 let listedWorkspace: string | null = null;
 let appUpdates: AppUpdateLifecycle | null = null;
-let lastUsed = Date.now();
+let noticeTimer: ReturnType<typeof setTimeout> | null = null;
 
 function element<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -150,7 +137,13 @@ logo.alt = "";
 logo.width = 28;
 logo.height = 28;
 brand.append(logo, element("strong", "", "AIC Notes"));
-const status = element("span", "pwa-status", "On this device");
+const status = applyUiComponent(
+  element("span", "pwa-status", ""),
+  "context",
+  [],
+  "status",
+);
+status.setAttribute("role", "status");
 const updateButton = button("Update app", async () => {
   if (!(await save())) return;
   if (dirty) return;
@@ -188,6 +181,8 @@ for (const [label, path] of [
   link.href = new URL(path!, publicOrigin).href;
   link.target = "_blank";
   link.rel = "noopener noreferrer";
+  applyUiComponent(link, "button", ["ghost"]);
+  applyUiComponent(link, "menu", [], "item");
   help.append(link);
 }
 header.append(
@@ -231,21 +226,12 @@ const workspaceSelect = applyUiComponent(
 );
 workspaceSelect.setAttribute("aria-label", "Choose workspace");
 workspaceSelect.addEventListener("change", () => {
-  const [kind, id] = workspaceSelect.value.split(":");
-  if (id)
-    void run(() =>
-      kind === "local" ? selectLocalWorkspace(id) : selectEntity(id),
-    );
+  const [, id] = workspaceSelect.value.split(":");
+  if (id) void run(() => selectLocalWorkspace(id));
 });
 const entities = element("nav", "pwa-entities");
 entities.hidden = true;
 entities.setAttribute("aria-label", "Workspaces");
-const importButton = button("Open encrypted file", importEncrypted);
-const protectedButton = button(
-  "Create protected workspace",
-  createEntity,
-  "New protected workspace",
-);
 const fileHeading = element("strong", "pwa-file-heading", "Notes");
 const fileFilter = applyUiComponent(
   element("input", "pwa-files__filter"),
@@ -267,7 +253,10 @@ const fileSummary = element("span", "pwa-files__summary");
 fileSummary.hidden = true;
 fileSummary.setAttribute("role", "status");
 fileSummary.setAttribute("aria-live", "polite");
-const fileList = element("nav", "pwa-files");
+const fileList = applyUiComponent(element("nav", "pwa-files"), "tree", [
+  "connected",
+  "compact",
+]);
 fileList.setAttribute("aria-label", "Notes");
 sidebar.append(
   entityHeader,
@@ -281,13 +270,23 @@ sidebar.append(
 const content = element("section", "pwa-content");
 const actions = element("div", "pwa-actions");
 const title = element("h1", "pwa-title", "Start editing");
-const details = element("p", "pwa-details");
+const details = applyUiComponent(
+  element("span", "pwa-details"),
+  "context",
+  [],
+  "path",
+);
+const documentContext = applyUiComponent(
+  element("div", "pwa-document-context"),
+  "context",
+  ["document"],
+);
 const noteHeader = element("div", "pwa-note-header");
 const backButton = button("Browse notes", showNotesBrowser, "", {
   icon: "folder",
   iconOnly: true,
 });
-const titleButton = button("Rename note", renameNote, "");
+const titleButton = button("Save a copy", renameNote, "");
 titleButton.classList.add("pwa-note-header__title");
 titleButton.append(title);
 const headerNewNote = button("New note", newNote, "", {
@@ -300,14 +299,7 @@ const noteMore = button("Note options", () => showNoteOptions(), "", {
   icon: "more",
   iconOnly: true,
 });
-noteHeader.append(
-  backButton,
-  titleButton,
-  status,
-  retryButton,
-  headerNewNote,
-  noteMore,
-);
+noteHeader.append(backButton, titleButton, headerNewNote, noteMore);
 const browserActions = element("div", "pwa-browser-actions");
 browserActions.append(
   button("New note", newNote, "New note", {
@@ -321,7 +313,8 @@ browserActions.append(
 );
 sidebar.insertBefore(browserActions, fileHeading);
 const editorContainer = element("div", "pwa-editor");
-content.append(noteHeader, details, actions, editorContainer);
+documentContext.append(details, status, retryButton);
+content.append(noteHeader, documentContext, actions, editorContainer);
 layout.append(sidebar, content);
 app.append(header, notice, layout);
 root.append(app);
@@ -388,6 +381,8 @@ phoneLayout.addEventListener("change", () => {
 });
 
 function notify(message: string, error = false) {
+  if (noticeTimer) clearTimeout(noticeTimer);
+  noticeTimer = null;
   notice.textContent = message;
   notice.hidden = false;
   notice.classList.toggle("aic-notice--error", error);
@@ -403,8 +398,13 @@ function reflectScreen() {
   headerNewNote.hidden = !selectedId || payload?.kind !== "workspace";
   titleButton.disabled = !selectedFile();
   if (selectedFile()) {
-    titleButton.setAttribute("aria-label", "Rename note");
-    titleButton.title = "Rename note";
+    const action = localWorkspace
+      ? isCurrentCopy()
+        ? "Save to file"
+        : "Save a copy"
+      : "Rename note";
+    titleButton.setAttribute("aria-label", action);
+    titleButton.title = action;
   } else {
     titleButton.removeAttribute("aria-label");
     titleButton.removeAttribute("title");
@@ -426,11 +426,17 @@ function reflectSave() {
     !!saveTask,
     saveTask ? "saving" : saveFailed ? "failed" : dirty ? "dirty" : "none",
   );
-  const destination = localWorkspace
-    ? "Saved on this device"
-    : activeId && sources.has(activeId)
-      ? "Saved to encrypted file"
-      : "Saved on this device";
+  const file = selectedFile();
+  const diskReady = !!(
+    activeId &&
+    file &&
+    markdownDisk.ready(activeId, file.id)
+  );
+  const destination = diskReady
+    ? "Saved to file"
+    : downloadOnly()
+      ? "Browser draft · download to save"
+      : "Browser copy · choose a file";
   status.dataset.state = saveTask
     ? "saving"
     : saveFailed
@@ -444,7 +450,7 @@ function reflectSave() {
       ? "Save failed"
       : dirty
         ? "Unsaved"
-        : "Saved";
+        : destination;
   status.title = saveTask
     ? "Saving…"
     : saveFailed
@@ -454,6 +460,11 @@ function reflectSave() {
         : destination;
   status.setAttribute("aria-label", status.title);
   retryButton.hidden = !saveFailed;
+  if (file && localWorkspace) {
+    details.textContent = diskReady ? file.path : `${file.path} · browser copy`;
+    details.title = details.textContent;
+  }
+  documentContext.hidden = !payload || !selectedId;
 }
 function showSheet(
   heading: string,
@@ -463,7 +474,22 @@ function showSheet(
   const origin = focusOrigin;
   const dialog = element("dialog", "pwa-dialog pwa-sheet");
   dialog.setAttribute("aria-label", heading);
-  dialog.append(element("h2", "", heading), ...controls);
+  applyUiComponent(dialog, "menu", ["compact"]);
+  dialog.dataset.layout = controls.every((control) =>
+    ["BUTTON", "HR"].includes(control.tagName),
+  )
+    ? "actions"
+    : "content";
+  for (const control of controls) {
+    if (control.tagName === "BUTTON")
+      applyUiComponent(control, "menu", [], "item");
+    if (control.tagName === "HR")
+      applyUiComponent(control, "menu", [], "separator");
+  }
+  dialog.append(
+    applyUiComponent(element("h2", "", heading), "menu", ["compact"], "title"),
+    ...controls,
+  );
   const cancel = () => {
     cancelDialogs.delete(cancel);
     dialog.close();
@@ -471,7 +497,9 @@ function showSheet(
     if (origin?.isConnected) origin.focus();
   };
   cancelDialogs.add(cancel);
-  dialog.append(button("Close menu", cancel, "Done"));
+  dialog.append(
+    applyUiComponent(button("Close menu", cancel, "Done"), "menu", [], "item"),
+  );
   dialog.addEventListener("cancel", cancel);
   dialog.addEventListener(
     "click",
@@ -491,27 +519,48 @@ function showSheet(
 }
 function showNoteOptions() {
   const file = selectedFile();
+  const saveLabel = isCurrentCopy() ? "Save to file" : "Save a copy";
   showSheet("Note options", [
     ...(file
       ? [
-          button("Rename note", renameNote),
+          ...(localWorkspace
+            ? [
+                button(saveLabel, saveNoteAs, `${saveLabel}…`, {
+                  icon: "save",
+                }),
+                ...(!downloadOnly()
+                  ? [
+                      button(
+                        "Reconnect files",
+                        reconnectMarkdown,
+                        "Reconnect files",
+                        { icon: "folder" },
+                      ),
+                    ]
+                  : []),
+              ]
+            : []),
           button(
-            "Advanced note path",
-            () => renameNote(true),
-            "Change relative path",
+            "Export Markdown",
+            () => exportPlainFile(file),
+            "Export Markdown",
+            { icon: "export-file" },
           ),
-          button("Export Markdown", () => exportPlainFile(file)),
         ]
       : []),
-    button("Note details", () =>
-      showSheet("Note details", [
-        element("p", "", details.textContent ?? ""),
-        element(
-          "p",
-          "",
-          "Local workspace saves do not update original files or Drive. Export Markdown or all notes to copy changes back. Built-in AI, when available, runs on this device; writing works without it.",
-        ),
-      ]),
+    button(
+      "Note details",
+      () =>
+        showSheet("Note details", [
+          element("p", "", details.textContent ?? ""),
+          element(
+            "p",
+            "",
+            "Connected Markdown files are edited directly. Unsupported browsers download edited copies. Secret-field masking hides values on screen; files remain readable.",
+          ),
+        ]),
+      "Details",
+      { icon: "help" },
     ),
   ]);
 }
@@ -521,49 +570,19 @@ function openWorkspaceOptions() {
   showWorkspaceOptions(openedFromDrawer ? backButton : undefined);
 }
 function showWorkspaceOptions(focusOrigin?: HTMLElement | null) {
-  const workspaceActions = !hostSource
-    ? [
-        button("New workspace", createLocalWorkspace, "New workspace", {
-          icon: "workspace",
-        }),
-        importButton,
-        protectedButton,
-      ]
-    : [];
-  if (!payload) {
-    showSheet("Workspace options", workspaceActions, focusOrigin);
-    return;
-  }
   showSheet(
     "Workspace options",
     [
-      ...workspaceActions,
-      button("Rename workspace", renameEntity),
-      ...(payload.kind === "workspace"
+      button("New workspace", createLocalWorkspace, "Open folder", {
+        icon: "folder",
+      }),
+      ...(payload
         ? [
+            button("Rename workspace", renameEntity),
             button("Add files", () => addFiles()),
             button("Add folder", () => addFiles(true)),
             button("Export all notes", restore),
-          ]
-        : []),
-      ...(localWorkspace
-        ? [button("Save encrypted copy", encryptWorkspace)]
-        : [
-            button(
-              "Export encrypted copy",
-              encryptedExport,
-              "Export encrypted copy",
-            ),
-            ...(!hostSource
-              ? [button("Save encrypted file", saveEncryptedAs)]
-              : []),
-            ...(activeId && sources.has(activeId)
-              ? [button("Reopen shared file", reloadSource)]
-              : []),
-          ]),
-      button(localWorkspace ? "Close workspace" : "Lock workspace", lockAll),
-      ...(localWorkspace
-        ? [
+            button("Close workspace", closeWorkspace),
             element("hr"),
             button(
               "Remove local workspace",
@@ -596,7 +615,7 @@ async function run(action: () => void | Promise<unknown>) {
     );
   } finally {
     working = false;
-    editor?.setReadOnly(false);
+    editor?.setReadOnly(isCurrentCopy());
     if (textArea) textArea.disabled = false;
     app.removeAttribute("aria-busy");
     reflectSave();
@@ -611,7 +630,6 @@ async function run(action: () => void | Promise<unknown>) {
 type FieldSpec = {
   name: string;
   label: string;
-  type?: "text" | "password";
   optional?: boolean;
   value?: string;
 };
@@ -634,13 +652,9 @@ function ask(
       );
       const input = applyUiComponent(element("input"), "field", [], "control");
       input.name = spec.name;
-      input.type = spec.type ?? "text";
+      input.type = "text";
       input.required = !spec.optional;
       input.value = spec.value ?? "";
-      if (spec.type === "password") {
-        input.autocomplete = "off";
-        input.spellcheck = false;
-      }
       label.append(input);
       form.append(label);
     }
@@ -683,12 +697,9 @@ function ask(
 
 async function refreshEntities() {
   const started = lifecycle;
-  const [records, localRecords] = await Promise.all([
-    repository.list(),
-    hostSource ? Promise.resolve([]) : repository.listLocal(),
-  ]);
+  const localRecords = await repository.listLocal();
   if (started !== lifecycle) return false;
-  app.dataset.hasWorkspaces = String(records.length + localRecords.length > 0);
+  app.dataset.hasWorkspaces = String(localRecords.length > 0);
   entities.replaceChildren();
   workspaceSelect.replaceChildren();
   const placeholder = element("option", "", "Choose workspace…");
@@ -699,7 +710,7 @@ async function refreshEntities() {
     const row = button(
       `Open ${name}`,
       () => selectLocalWorkspace(record.id),
-      `${name} · unencrypted`,
+      name,
     );
     row.classList.add("pwa-entities__item");
     row.setAttribute(
@@ -710,25 +721,6 @@ async function refreshEntities() {
     const option = element("option", "", name);
     option.value = `local:${record.id}`;
     option.selected = localWorkspace && record.id === activeId;
-    workspaceSelect.append(option);
-  }
-  for (const [index, record] of records.entries()) {
-    const unlocked = repository.snapshot(record.id);
-    const name = unlocked?.label || `Protected workspace ${index + 1}`;
-    const row = button(
-      `Open ${name}`,
-      () => selectEntity(record.id),
-      `${unlocked ? "◦" : "⌑"} ${name}`,
-    );
-    row.classList.add("pwa-entities__item");
-    row.setAttribute(
-      "aria-current",
-      String(!localWorkspace && record.id === activeId),
-    );
-    entities.append(row);
-    const option = element("option", "", name);
-    option.value = `protected:${record.id}`;
-    option.selected = !localWorkspace && record.id === activeId;
     workspaceSelect.append(option);
   }
   fileHeading.hidden = !payload;
@@ -750,19 +742,28 @@ function activateLocal(
 }
 async function createLocalWorkspace() {
   const started = lifecycle;
-  if (hostSource || !(await save()) || started !== lifecycle) return;
-  const record = await repository.createLocal();
-  if (started !== lifecycle) return;
-  activateLocal(record.id, record.payload);
-  if (!(await refreshEntities())) return;
-  renderContent();
+  if (!(await save()) || started !== lifecycle) return;
+  await openFiles(true);
 }
 async function selectLocalWorkspace(id: string) {
   const started = lifecycle;
   if (!(await save()) || started !== lifecycle) return;
   const next = await repository.readLocal(id);
   if (started !== lifecycle) return;
-  activateLocal(id, next);
+  activateLocal(id, next, next.files[0]?.id ?? null);
+  try {
+    if (await markdownDisk.restore(id)) await refreshMarkdownSelection();
+    else if (repository.isDiskWorkspace(id))
+      notify(
+        "Reconnect the original folder. This is a recovery copy and cannot overwrite your files.",
+        true,
+      );
+  } catch (error) {
+    notify(
+      error instanceof Error ? error.message : "Reconnect your files.",
+      true,
+    );
+  }
   if (!(await refreshEntities())) return;
   renderContent();
 }
@@ -822,7 +823,6 @@ async function chooseMarkdown(
   }
 }
 async function openFiles(folder = false) {
-  if (hostSource) return;
   await importMarkdown(folder, false);
 }
 
@@ -838,7 +838,7 @@ async function importMarkdown(folder: boolean, adding: boolean) {
   };
   const commit = async (batch: PickedFiles, root?: string) => {
     current();
-    if (!batch.files.length) return;
+    if (!batch.files.length && (!batch.disk?.root || destination)) return;
     if (!prepared) {
       if (!(await save()))
         throw new Error("Save the current note before opening more files.");
@@ -854,9 +854,16 @@ async function importMarkdown(folder: boolean, adding: boolean) {
         directories: batch.directories,
       };
       serializePayload(candidate);
-      const record = await repository.createLocal(undefined, candidate);
+      const record = await repository.createLocal(
+        undefined,
+        candidate,
+        !!batch.disk,
+      );
       committed += batch.files.length;
       destination = record.id;
+      if (started !== lifecycle) return;
+      if (batch.disk)
+        await rememberMarkdown(destination, batch.disk, batch.files);
       if (started !== lifecycle) return;
       activateLocal(record.id, record.payload, batch.files[0]?.id ?? null);
       if (!(await refreshEntities())) return;
@@ -881,10 +888,10 @@ async function importMarkdown(folder: boolean, adding: boolean) {
       serializePayload(candidate);
       const next = validatePayload(candidate);
       if (next.kind !== "workspace") return;
-      // Plaintext imports can acknowledge the existing repository transaction
-      // before changing the mounted document. Encrypted sources keep the single
-      // save owner, including source permissions and conflict acknowledgement.
+      // Commit the cache only after the scanner has read these original files.
       if (localWorkspace) {
+        if (batch.disk)
+          await rememberMarkdown(destination, batch.disk, batch.files);
         await repository.updateLocal(destination, next);
         committed += batch.files.length;
         if (started !== lifecycle) return;
@@ -920,13 +927,19 @@ async function importMarkdown(folder: boolean, adding: boolean) {
     }
     // Pickers without batch support (including explicit file selections) retain
     // the same commit path, so a completed streaming receipt is never imported twice.
-    if (picked.files.length) await commit(picked, picked.directories[0]);
+    if (picked.files.length || (!destination && picked.disk?.root))
+      await commit(picked, picked.directories[0]);
     if (started !== lifecycle) return;
     notify(
       committed
-        ? `${committed} Markdown notes saved on this device. Original files are unchanged.`
+        ? `${committed} Markdown notes opened. ${picked.disk ? "Changes save directly to the original files." : downloadOnly() ? "Edit browser drafts and download copies to save them." : "Browser copies are read-only; use Save to file to edit an original."}`
         : "This selection contains no .md files.",
     );
+    if (committed && picked.disk)
+      noticeTimer = setTimeout(() => {
+        notice.hidden = true;
+        noticeTimer = null;
+      }, 4000);
   } catch (error) {
     if (started !== lifecycle) return;
     const canceled =
@@ -944,57 +957,20 @@ async function importMarkdown(folder: boolean, adding: boolean) {
     );
   }
 }
-async function encryptWorkspace() {
-  const started = lifecycle;
-  if (
-    !localWorkspace ||
-    payload?.kind !== "workspace" ||
-    !(await save()) ||
-    started !== lifecycle
-  )
-    return;
-  const answer = await ask(
-    "Create an encrypted copy. The unencrypted workspace stays on this device until you remove it.",
-    [
-      {
-        name: "password",
-        label: "Passphrase (at least 12 characters)",
-        type: "password",
-      },
-      { name: "confirm", label: "Repeat passphrase", type: "password" },
-    ],
-    "Create encrypted copy",
-  );
-  if (!answer) return;
-  if (answer.password !== answer.confirm)
-    throw new Error("The passphrases do not match.");
-  if (started !== lifecycle || payload?.kind !== "workspace") return;
-  const record = await repository.create(
-    answer.password ?? "",
-    payload.label,
-    payload,
-  );
-  if (started !== lifecycle) return;
-  activeId = record.id;
-  localWorkspace = false;
-  payload = repository.snapshot(record.id);
-  dirty = false;
-  saveFailed = false;
-  if (!(await refreshEntities())) return;
-  renderContent();
-  notify(
-    "Encrypted copy created. Save an encrypted file for transfer, or remove the original local workspace from this device.",
-  );
-}
 async function removeLocalWorkspace() {
   if (!localWorkspace || !activeId) return;
   const answer = await ask(
-    "Remove this unencrypted workspace from this device? Unsaved changes will be removed too. Original files are unchanged.",
+    "Disconnect this workspace from this device? Unsaved changes will be removed too. Original files are unchanged.",
     [],
     "Remove workspace",
   );
   if (!answer) return;
   await repository.removeLocal(activeId);
+  try {
+    await markdownDisk.disconnect(activeId);
+  } catch {
+    /* The workspace is disconnected in memory; source files remain untouched. */
+  }
   closeNotesDrawer(false);
   activeId = null;
   localWorkspace = false;
@@ -1005,271 +981,6 @@ async function removeLocalWorkspace() {
   if (!(await refreshEntities())) return;
   renderContent();
 }
-async function createEntity() {
-  if (!(await save())) return;
-  if (hostSource && (await hostSource.read()))
-    throw new Error(
-      "This editor already owns an encrypted file. Reopen it with its passphrase.",
-    );
-  const answer = await ask(
-    "Create a protected workspace",
-    [
-      { name: "label", label: "Name (optional)", optional: true },
-      {
-        name: "password",
-        label: "Passphrase (at least 12 characters)",
-        type: "password",
-      },
-      { name: "confirm", label: "Repeat passphrase", type: "password" },
-    ],
-    "Create protected workspace",
-  );
-  if (!answer) return;
-  if (answer.password !== answer.confirm)
-    throw new Error("The passphrases do not match.");
-  const record = await repository.create(answer.password ?? "", answer.label);
-  activeId = record.id;
-  localWorkspace = false;
-  payload = repository.snapshot(record.id);
-  selectedId = null;
-  dirty = false;
-  if (hostSource) {
-    sources.set(record.id, { source: hostSource, expected: "" });
-    dirty = true;
-    await save();
-  }
-  if (!(await refreshEntities())) return;
-  renderContent();
-  void navigator.storage?.persist?.().catch(() => false);
-}
-async function selectEntity(id: string) {
-  if (!(await save())) return;
-  if (!sources.has(id) && !hostSource) {
-    try {
-      const remembered = await reopenSource(id);
-      if (remembered) {
-        const text = await remembered.read();
-        const saved = await repository.exportEncrypted(id);
-        if (JSON.stringify(validateEnvelope(JSON.parse(text))) !== saved) {
-          await openSource(remembered, text, id);
-          return;
-        }
-        sources.set(id, { source: remembered, expected: text });
-      } else if (await new IndexedDbSourceBindings().read(id)) {
-        disconnectedSources.add(id);
-        notify(
-          "Reconnect this workspace's shared file before saving, or export an encrypted copy.",
-          true,
-        );
-      }
-    } catch {
-      disconnectedSources.add(id);
-      notify(
-        "The shared file is unavailable. You can unlock its cached copy and export an encrypted backup.",
-        true,
-      );
-    }
-  }
-  let next = repository.snapshot(id);
-  if (!next) {
-    const answer = await ask(
-      "Unlock workspace",
-      [{ name: "password", label: "Passphrase", type: "password" }],
-      "Unlock",
-    );
-    if (!answer) return;
-    next = await repository.unlock(id, answer.password ?? "");
-  }
-  activeId = id;
-  localWorkspace = false;
-  payload = next;
-  selectedId = null;
-  dirty = false;
-  saveFailed = false;
-  if (!(await refreshEntities())) return;
-  renderContent();
-}
-async function importEncrypted() {
-  if (hostSource) {
-    await reloadSource();
-    return;
-  }
-  if ("showOpenFilePicker" in window) {
-    const source = await openEncryptedSource();
-    if (!source) return;
-    await requestSourcePermission(source);
-    const text = await source.read();
-    if (
-      activeId &&
-      dirty &&
-      disconnectedSources.has(activeId) &&
-      JSON.stringify(validateEnvelope(JSON.parse(text))) ===
-        JSON.stringify(
-          validateEnvelope(
-            JSON.parse(
-              sources.get(activeId)?.expected ??
-                (await repository.exportEncrypted(activeId)),
-            ),
-          ),
-        )
-    ) {
-      sources.set(activeId, { source, expected: text });
-      disconnectedSources.delete(activeId);
-      await rememberSource(activeId, source);
-      await save();
-      return;
-    }
-    if (!(await prepareOpen())) return;
-    await openSource(source, text);
-    return;
-  }
-  const input = element("input");
-  input.type = "file";
-  input.accept = ".json,.aic,.aicnotes";
-  const file = await new Promise<File | null>((resolve) => {
-    input.addEventListener("change", () => resolve(input.files?.[0] ?? null), {
-      once: true,
-    });
-    input.addEventListener("cancel", () => resolve(null), { once: true });
-    input.click();
-  });
-  if (!file) return;
-  if (!(await prepareOpen())) return;
-  if (file.size > 9 * 1024 * 1024)
-    throw new Error("Encrypted bundles are limited to 9 MiB.");
-  await openSource(null, await file.text());
-}
-async function prepareOpen(): Promise<boolean> {
-  if (await save()) return true;
-  return !!(await ask(
-    "Discard the unsaved draft and open another file? Export an encrypted copy first to keep it.",
-    [],
-    "Discard and open",
-  ));
-}
-async function openSource(
-  source: EncryptedSource | null,
-  text: string,
-  existingId?: string,
-) {
-  const envelope = validateEnvelope(JSON.parse(text));
-  const records = await repository.list();
-  const id =
-    existingId ??
-    records.find((record) => record.envelope.kdf.salt === envelope.kdf.salt)
-      ?.id;
-  const answer = await ask(
-    "Open encrypted file",
-    [{ name: "password", label: "Passphrase", type: "password" }],
-    "Unlock",
-  );
-  if (!answer) return;
-  const record = await repository.importEncrypted(
-    text,
-    answer.password ?? "",
-    id,
-  );
-  if (source) {
-    sources.set(record.id, { source, expected: text });
-    disconnectedSources.delete(record.id);
-    if (!hostSource) {
-      try {
-        await rememberSource(record.id, source);
-      } catch {
-        notify(
-          "The file is connected for this session. Select it again after restarting the browser.",
-        );
-      }
-    }
-  }
-  activeId = record.id;
-  localWorkspace = false;
-  payload = repository.snapshot(record.id);
-  selectedId = null;
-  dirty = false;
-  saveFailed = false;
-  if (!(await refreshEntities())) return;
-  renderContent();
-  notify(
-    record.cacheWarning
-      ? `File opened; device cache could not be updated. ${record.cacheWarning}`
-      : source
-        ? "Shared encrypted file opened. AIC leaves synchronization to you."
-        : "Encrypted content opened in the local cache. Export a file to transfer changes.",
-  );
-}
-async function reloadSource() {
-  const bound = activeId ? sources.get(activeId)?.source : hostSource;
-  if (!bound) return;
-  if (dirty) {
-    const answer = await ask(
-      "Discard unsaved changes and reopen the shared file? Export an encrypted copy first if you need this draft.",
-      [],
-      "Discard and reopen",
-    );
-    if (!answer) return;
-  }
-  const text = await bound.read();
-  if (!text) return;
-  await openSource(bound, text, activeId ?? undefined);
-}
-async function saveEncryptedAs() {
-  const started = lifecycle;
-  if (!activeId || !payload) return;
-  if (!("showSaveFilePicker" in window)) {
-    await encryptedExport();
-    return;
-  }
-  const source = await createEncryptedSource();
-  if (!source || started !== lifecycle || !activeId || !payload) return;
-  const current = await source.read();
-  if (started !== lifecycle || !activeId || !payload) return;
-  if (
-    current &&
-    JSON.stringify(validateEnvelope(JSON.parse(current))) !==
-      JSON.stringify(
-        validateEnvelope(
-          JSON.parse(
-            sources.get(activeId)?.expected ??
-              (await repository.exportEncrypted(activeId)),
-          ),
-        ),
-      )
-  ) {
-    throw new Error(
-      "That file contains different data. Open it to read its latest version, or choose a new empty file.",
-    );
-  }
-  const id = activeId;
-  const next = structuredClone(payload);
-  const savedGeneration = generation;
-  const result = await repository.saveToSource(id, next, (text) =>
-    source.write(text, current),
-  );
-  if (started !== lifecycle) return;
-  sources.set(id, { source, expected: result.ciphertext });
-  disconnectedSources.delete(id);
-  if (
-    activeId === id &&
-    generation === savedGeneration &&
-    JSON.stringify(payload) === JSON.stringify(next)
-  )
-    dirty = false;
-  try {
-    await rememberSource(id, source);
-  } catch {
-    /* The acknowledged source remains authoritative. */
-  }
-  if (started !== lifecycle) return;
-  saveFailed = false;
-  reflectSave();
-  notify(
-    result.cacheWarning
-      ? `Shared file saved; device cache could not be updated. ${result.cacheWarning}`
-      : "Encrypted file saved. Your sync service can now transfer this same file.",
-  );
-}
-
 function clearEditor() {
   generation += 1;
   mountedIdentity = null;
@@ -1299,7 +1010,7 @@ function selectedFile(): PwaFile | undefined {
   return selectedScopeNote()?.file;
 }
 function updateText(text: string, scope: NoteScope = activeScope) {
-  if (!payload || !selectedId) return;
+  if (!payload || !selectedId || isCurrentCopy()) return;
   const scoped = selectedScopeNote(scope);
   if (!scoped) return;
   if (payload.kind === "workspace") {
@@ -1312,17 +1023,6 @@ function updateText(text: string, scope: NoteScope = activeScope) {
       Date.now(),
     );
     Object.assign(file, replacement, { id: file.id });
-  } else {
-    const note =
-      scope === "current"
-        ? payload.library.notes.find((note) => note.id === scoped.id)
-        : scope === "shared"
-          ? payload.library.domains.find((note) => note.id === scoped.id)
-          : payload.library.global;
-    if (!note || note.id !== scoped.id) return;
-    note.markdown = text;
-    note.updatedAt = Date.now();
-    note.revision += 1;
   }
   dirty = true;
   saveFailed = false;
@@ -1345,36 +1045,23 @@ async function save(): Promise<boolean> {
   const savedGeneration = generation;
   const saveLifecycle = lifecycle;
   const savingLocal = localWorkspace;
-  const savingSharedText =
-    payload.kind === "browser-library" && activeScope !== "current"
-      ? selectedScopeNote()?.markdown
-      : undefined;
   const task = Promise.resolve().then(async () => {
     try {
-      if (savingSharedText !== undefined)
-        validateDomainProperties(savingSharedText);
       if (savingLocal && next.kind === "workspace") {
-        await repository.updateLocal(id, next);
-      } else {
-        const bound = sources.get(id);
-        if (disconnectedSources.has(id))
-          throw new Error(
-            "Reconnect the shared file before saving, or export an encrypted copy of this draft.",
-          );
-        if (bound) {
-          if (!(await requestSourcePermission(bound.source)))
-            throw new Error("Allow access to the shared file before saving.");
-          if (saveLifecycle !== lifecycle) return false;
-          const result = await repository.saveToSource(id, next, (text) =>
-            bound.source.write(text, bound.expected),
-          );
-          if (saveLifecycle !== lifecycle) return false;
-          bound.expected = result.ciphertext;
-          if (result.cacheWarning)
-            notify(
-              `Shared file saved; device cache could not be updated. ${result.cacheWarning}`,
+        const result: { cacheWarning?: string } = downloadOnly()
+          ? (await repository.updateLocal(id, next), {})
+          : await repository.saveLocalToDisk(id, next, () =>
+              markdownDisk.save(
+                id,
+                next,
+                repository.localSnapshot(id) ?? undefined,
+              ),
             );
-        } else await repository.update(id, next);
+        if (saveLifecycle !== lifecycle) return false;
+        if (result.cacheWarning)
+          notify(
+            `Files saved; the browser cache could not be updated. ${result.cacheWarning}`,
+          );
       }
       if (saveLifecycle !== lifecycle) return false;
       if (
@@ -1412,18 +1099,17 @@ async function save(): Promise<boolean> {
   reflectSave();
   return task;
 }
-async function lockAll() {
-  const closingLocal = localWorkspace;
+async function closeWorkspace() {
   if (!(await save())) {
     const answer = await ask(
-      "Lock and discard this unsaved draft? Export an encrypted copy first to keep it.",
+      "Close and discard this unsaved draft? Export Markdown first to keep it.",
       [],
-      "Discard and lock",
+      "Discard and close",
     );
     if (!answer) return;
   }
   lifecycle++;
-  repository.lockAll();
+  repository.closeAll();
   payload = null;
   closeNotesDrawer(false);
   activeId = null;
@@ -1433,112 +1119,248 @@ async function lockAll() {
   clearEditor();
   if (!(await refreshEntities())) return;
   renderContent();
-  notify(closingLocal ? "Workspace closed." : "Protected workspaces locked.");
+  notify("Workspace closed.");
 }
-async function newNote() {
-  if (!payload && !hostSource) await createLocalWorkspace();
-  if (!payload || payload.kind !== "workspace" || !(await save())) return;
-  let path = "note.md";
-  const occupied = new Set(
-    [...payload.files.map((file) => file.path), ...payload.directories].map(
-      (path) => path.normalize("NFC").toLowerCase(),
+function isCurrentCopy(): boolean {
+  if (!localWorkspace) return !!payload;
+  if (downloadOnly()) return false;
+  const file = selectedFile();
+  return !!file && (!activeId || !markdownDisk.ready(activeId, file.id));
+}
+async function rememberMarkdown(
+  id: string,
+  selection: import("./disk").MarkdownSelection,
+  files: PwaFile[],
+) {
+  const started = lifecycle;
+  try {
+    await markdownDisk.attach(id, selection, files);
+  } catch {
+    if (started !== lifecycle) return;
+    notify(
+      "Files are connected for this session. Reopen them next time; this browser could not remember access.",
+      true,
+    );
+  }
+}
+async function refreshMarkdownSelection() {
+  if (
+    !localWorkspace ||
+    !activeId ||
+    payload?.kind !== "workspace" ||
+    !selectedId
+  )
+    return;
+  const ids = new Set(
+    Object.values(scopedNotes(payload, selectedId)).flatMap((note) =>
+      note ? [note.id] : [],
     ),
   );
-  for (let suffix = 2; occupied.has(path); suffix++) path = `note-${suffix}.md`;
+  if (!ids.size || ![...ids].some((id) => markdownDisk.has(activeId!, id)))
+    return;
+  const id = activeId;
+  const started = lifecycle;
+  const next = await markdownDisk.refresh(id, payload, ids);
+  if (started !== lifecycle || id !== activeId) return;
+  if (payload?.kind !== "workspace") return;
+  const contentChanged = next.files.some((file) => {
+    const previous =
+      payload?.kind === "workspace"
+        ? payload.files.find((item) => item.id === file.id)
+        : undefined;
+    return (
+      previous && (file.data !== previous.data || file.path !== previous.path)
+    );
+  });
+  payload = next;
+  if (contentChanged) clearEditor();
+}
+async function reconnectMarkdown() {
+  const started = lifecycle;
+  if (!activeId || !localWorkspace) return;
+  await markdownDisk.restore(activeId);
+  await markdownDisk.requestPermission(activeId);
+  if (started !== lifecycle) return;
+  if (dirty) await save();
+  else {
+    await refreshMarkdownSelection();
+    clearEditor();
+    renderContent();
+  }
+}
+async function saveNoteAs() {
+  const started = lifecycle;
+  if (autosaveTimer) clearTimeout(autosaveTimer);
+  autosaveTimer = null;
+  const file = selectedFile();
+  const id = activeId;
+  if (!file || !id || !localWorkspace || payload?.kind !== "workspace") return;
+  if (downloadOnly()) {
+    await exportPlainFile(file);
+    notify(
+      "Markdown download started. Use your browser's download location to keep this copy.",
+    );
+    return;
+  }
+  // Picker is invoked before other I/O so it retains the user's activation.
+  const handle = await chooseMarkdownDestination(file.path);
+  if (!handle || started !== lifecycle || activeId !== id) return;
+  if (saveTask) await saveTask;
+  if (autosaveTimer) clearTimeout(autosaveTimer);
+  autosaveTimer = null;
+  if (started !== lifecycle || activeId !== id || payload?.kind !== "workspace")
+    return;
+  if (
+    payload.files.some(
+      (other) => other.id !== file.id && other.path === handle.name,
+    )
+  )
+    throw new Error(
+      "That filename is already open in this workspace. Choose a different destination.",
+    );
+  const written = await writeMarkdownDestination(handle, structuredClone(file));
+  if (started !== lifecycle || activeId !== id || payload?.kind !== "workspace")
+    return;
+  // Saving a copy changes this note's binding explicitly; the old original remains untouched.
+  written.path = handle.name;
+  const scopeIds = (value: PwaPayload) =>
+    JSON.stringify(
+      Object.values(scopedNotes(value, selectedId!)).map((note) => note?.id),
+    );
+  const previousScopes = scopeIds(payload);
+  const next = structuredClone(payload);
+  next.files[next.files.findIndex((other) => other.id === file.id)] = written;
+  await rememberMarkdown(
+    id,
+    { files: [{ id: file.id, path: written.path, handle }] },
+    [written],
+  );
+  if (started !== lifecycle || activeId !== id) return;
+  payload = next;
+  dirty = true;
+  await save();
+  if (started !== lifecycle) return;
+  if (scopeIds(next) !== previousScopes) clearEditor();
+  renderContent();
+}
+async function newNote() {
+  const started = lifecycle;
+  let path = "note.md";
+  const directory =
+    activeId && localWorkspace ? markdownDisk.root(activeId) : undefined;
+  const occupied = new Set(
+    payload?.kind === "workspace"
+      ? payload.files.map((file) => file.path.normalize("NFC").toLowerCase())
+      : [],
+  );
+  const prefix = directory ? `${directory.name}/` : "";
+  for (let suffix = 2; occupied.has(`${prefix}${path}`.toLowerCase()); suffix++)
+    path = `note-${suffix}.md`;
+  let handle: MarkdownFileHandle | null = null;
+  if (!payload || localWorkspace) {
+    if (directory) {
+      // Ask for a filename before creating; check the real folder, not only its cached listing.
+      const answer = await ask(
+        "New note",
+        [{ name: "name", label: "Filename", value: path }],
+        "Create file",
+      );
+      if (!answer) return;
+      path = answer.name?.trim() ?? "";
+      if (!path || /[\\/]/u.test(path))
+        throw new Error("Choose a filename without folders.");
+      if (!isMarkdownPath(path)) path += ".md";
+      try {
+        await directory.getFileHandle(path);
+        throw new Error(
+          "That file already exists. Open it from the folder instead.",
+        );
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "NotFoundError"))
+          throw error;
+      }
+      if (!(await save()) || started !== lifecycle) return;
+      try {
+        await directory.getFileHandle(path);
+        throw new Error(
+          "That file appeared on disk. Open it instead of creating a new note.",
+        );
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === "NotFoundError"))
+          throw error;
+      }
+      handle = await directory.getFileHandle(path, { create: true });
+    } else if (!downloadOnly()) {
+      handle = await chooseMarkdownDestination(path);
+      if (!handle || !(await save())) return;
+      path = handle.name;
+    } else if (!(await save())) {
+      return;
+    }
+  }
+  if (started !== lifecycle) return;
+  if (
+    payload?.kind === "workspace" &&
+    payload.files.some((file) => file.path === `${prefix}${path}`)
+  )
+    throw new Error("That file is already open in this workspace.");
   const file = createPwaFile(
-    path,
+    `${prefix}${path}`,
     new Uint8Array(),
     "text/markdown",
     Date.now(),
   );
-  const candidate = structuredClone(payload);
-  candidate.files.push(file);
-  candidate.directories = retainEmptyDirectories(
-    candidate.files,
-    candidate.directories,
-  );
-  serializePayload(candidate);
-  payload = validatePayload(candidate);
-  selectedId = file.id;
-  screen = "editor";
+  if (handle) {
+    const written = await writeMarkdownDestination(handle, file, {
+      newOnly: true,
+    });
+    Object.assign(file, written, { path: `${prefix}${path}` });
+  }
+  if (started !== lifecycle) return;
+  if (!payload) {
+    const record = await repository.createLocal(
+      undefined,
+      { ...createWorkspace(), files: [file], directories: [] },
+      !!handle,
+    );
+    if (started !== lifecycle) return;
+    activateLocal(record.id, record.payload, file.id);
+  } else if (payload.kind === "workspace") {
+    payload = {
+      ...payload,
+      files: [...payload.files, file],
+      directories: retainEmptyDirectories(
+        [...payload.files, file],
+        payload.directories,
+      ),
+    };
+    selectedId = file.id;
+  }
+  if (handle && activeId)
+    await rememberMarkdown(
+      activeId,
+      { files: [{ id: file.id, path: file.path, handle }] },
+      [file],
+    );
+  if (started !== lifecycle) return;
   dirty = true;
-  renderContent();
+  screen = "editor";
   await save();
+  if (started !== lifecycle) return;
+  if (!(await refreshEntities())) return;
+  renderContent();
   closeNotesDrawer(false);
   editor?.view?.focus();
 }
-async function renameNote(advanced = false) {
-  const file = selectedFile();
-  if (!file || payload?.kind !== "workspace" || !(await save())) return;
-  const parent = file.path.includes("/")
-    ? file.path.slice(0, file.path.lastIndexOf("/") + 1)
-    : "";
-  const answer = await ask(
-    advanced ? "Change note path" : "Rename note",
-    [
-      {
-        name: "name",
-        label: advanced ? "Relative path (.md)" : "Note name",
-        value: advanced
-          ? file.path
-          : file.path.slice(parent.length).replace(/\.md$/iu, ""),
-      },
-    ],
-    "Rename note",
-  );
-  if (
-    !answer ||
-    !payload ||
-    payload.kind !== "workspace" ||
-    selectedFile()?.id !== file.id
-  )
-    return;
-  const name = answer.name?.trim() ?? "";
-  if (!advanced && (!name || /[\\/]/u.test(name)))
-    throw new Error(
-      "Use a note name without folders. Change relative path for folders.",
-    );
-  const path = advanced
-    ? name
-    : parent + name + (isMarkdownPath(name) ? "" : ".md");
-  if (!isMarkdownPath(path)) throw new Error("Use a .md filename.");
-  const scopeIdentities = (value: PwaPayload) =>
-    JSON.stringify(
-      Object.entries(scopedNotes(value, selectedId!)).map(([scope, note]) => [
-        scope,
-        note?.id,
-      ]),
-    );
-  const priorScopes = scopeIdentities(payload);
-  const candidate = structuredClone(payload);
-  if (
-    candidate.files.some((other) => other.id !== file.id && other.path === path)
-  )
-    throw new Error(
-      "A note with that path already exists. The note was not renamed.",
-    );
-  const renamed = candidate.files.find((other) => other.id === file.id)!;
-  renamed.path = path;
-  candidate.directories = retainEmptyDirectories(
-    candidate.files,
-    candidate.directories,
-  );
-  serializePayload(candidate);
-  payload = validatePayload(candidate);
-  if (scopeIdentities(payload) !== priorScopes) {
-    selectedId = file.id;
-    clearEditor();
-  }
-  dirty = true;
-  renderContent();
-  await save();
+async function renameNote() {
+  if (localWorkspace) await saveNoteAs();
 }
 async function addFiles(folder = false) {
-  if (!payload || payload.kind !== "workspace") return;
+  if (!localWorkspace || payload?.kind !== "workspace") return;
   await importMarkdown(folder, true);
 }
 async function renameEntity() {
-  if (!payload || !(await save())) return;
+  if (!localWorkspace || !payload || !(await save())) return;
   const answer = await ask(
     "Rename workspace",
     [
@@ -1563,34 +1385,37 @@ async function renameEntity() {
     renderContent();
   }
 }
-function download(data: string, name: string) {
-  const url = URL.createObjectURL(
-    new Blob([data], { type: "application/json" }),
-  );
-  const anchor = element("a");
-  anchor.href = url;
-  anchor.download = name;
-  anchor.click();
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
-}
-async function encryptedExport() {
-  if (!activeId || !payload) return;
-  download(
-    await repository.exportDraftEncrypted(activeId, payload),
-    "aic-notes.aicnotes",
-  );
-  notify(
-    "Encrypted file exported. Its filename and workspace name are not needed to unlock it.",
-  );
-}
 async function restore() {
   if (payload?.kind !== "workspace") return;
   if (!(await restoreFolder(payload.files, payload.directories))) return;
-  notify(
-    "Plaintext export completed. Keep your encrypted bundle for protected transfer.",
-  );
+  notify("Files exported. The originals remain unchanged.");
 }
 
+function fileTreeGroup(className = "") {
+  return applyUiComponent(element("ul", className), "tree", [], "group");
+}
+function fileTreeIcon(name: string, part: "icon" | "toggle" = "icon") {
+  const icon = applyUiComponent(
+    element("span", "cm-aic-icon-button"),
+    "tree",
+    [],
+    part,
+  );
+  icon.dataset.aicIcon = name;
+  icon.setAttribute("aria-hidden", "true");
+  return icon;
+}
+function appendFileTreeRow(parent: HTMLElement, row: HTMLButtonElement) {
+  applyUiComponent(row, "tree", [], "row");
+  row.classList.add("pwa-files__item");
+  const label = row.querySelector<HTMLElement>(".aic-button__label");
+  if (label) applyUiComponent(label, "tree", [], "label");
+  const icon = row.querySelector<HTMLElement>(".aic-button__icon");
+  if (icon) applyUiComponent(icon, "tree", [], "icon");
+  const item = applyUiComponent(element("li"), "tree", [], "item");
+  item.append(row);
+  parent.append(item);
+}
 function renderFileNavigation() {
   fileList.replaceChildren();
   if (payload?.kind !== "workspace") {
@@ -1623,9 +1448,11 @@ function renderFileNavigation() {
   const selected = matches.find((file) => file.id === selectedId);
   if (selected && !visible.includes(selected)) visible.unshift(selected);
   fileSummary.textContent = `${visible.length} of ${matches.length} Markdown files`;
+  const tree = fileTreeGroup();
+  fileList.append(tree);
   const folders = new Map<string, HTMLElement>();
   for (const file of visible) {
-    let parent: HTMLElement = fileList;
+    let parent: HTMLElement = tree;
     const segments = file.path.split("/");
     if (!query)
       for (let depth = 1; depth < segments.length; depth++) {
@@ -1633,10 +1460,21 @@ function renderFileNavigation() {
         let group = folders.get(path);
         if (!group) {
           const folder = element("details", "pwa-folder");
-          const summary = element(
-            "summary",
-            "pwa-folder__label",
-            segments[depth - 1],
+          const summary = applyUiComponent(
+            element("summary", "pwa-folder__label"),
+            "tree",
+            [],
+            "row",
+          );
+          summary.append(
+            fileTreeIcon("chevron", "toggle"),
+            fileTreeIcon("folder"),
+            applyUiComponent(
+              element("span", "", segments[depth - 1]),
+              "tree",
+              [],
+              "label",
+            ),
           );
           summary.title = path;
           folder.open =
@@ -1645,9 +1483,11 @@ function renderFileNavigation() {
           folder.addEventListener("toggle", () => {
             if (folder.isConnected) expandedFolders.set(path, folder.open);
           });
-          group = element("div", "pwa-folder__files");
+          group = fileTreeGroup("pwa-folder__files");
           folder.append(summary, group);
-          parent.append(folder);
+          const item = applyUiComponent(element("li"), "tree", [], "item");
+          item.append(folder);
+          parent.append(item);
           folders.set(path, group);
         }
         parent = group;
@@ -1659,18 +1499,25 @@ function renderFileNavigation() {
           closeNotesDrawer();
           return;
         }
-        if (selectedId !== file.id) selectedId = file.id;
+        const previousSelection = selectedId;
+        selectedId = file.id;
+        try {
+          await refreshMarkdownSelection();
+        } catch (error) {
+          selectedId = previousSelection;
+          throw error;
+        }
         screen = "editor";
         renderContent();
         closeNotesDrawer(false);
         editor?.view?.focus();
       },
       query ? file.path : segments[segments.length - 1],
+      { icon: "document" },
     );
     row.title = file.path;
-    row.classList.add("pwa-files__item");
     row.setAttribute("aria-current", String(selectedId === file.id));
-    parent.append(row);
+    appendFileTreeRow(parent, row);
   }
   if (matches.length > visibleFileCount)
     fileList.append(
@@ -1687,6 +1534,7 @@ function renderFileNavigation() {
     fileList.append(element("p", "pwa-empty", "No matching .md files."));
 }
 function renderContent() {
+  title.removeAttribute("title");
   const identity = payload && selectedId ? `${activeId}/${selectedId}` : null;
   if (!identity || identity !== mountedIdentity) clearEditor();
   actions.replaceChildren();
@@ -1696,48 +1544,32 @@ function renderContent() {
   reflectScreen();
   if (!payload) {
     title.textContent = "Start editing";
-    details.textContent = hostSource
-      ? "Open this encrypted file with its passphrase."
-      : "";
-    if (!hostSource)
-      actions.append(
-        button("New note", newNote, "New note", {
-          icon: "note-add",
-          variant: "primary",
-        }),
-        button("Open files", () => openFiles(), "Open files", {
-          icon: "document",
-        }),
-        button("Open folder", () => openFiles(true), "Open folder", {
-          icon: "folder",
-        }),
-        button("Workspace options", openWorkspaceOptions, "", {
-          icon: "more",
-          iconOnly: true,
-        }),
-      );
-    if (hostSource)
-      actions.append(
-        button("Create protected workspace", createEntity),
-        button("Reopen encrypted file", importEncrypted),
-      );
+    details.textContent = "";
+    actions.append(
+      button("New note", newNote, "New note", {
+        icon: "note-add",
+        variant: "primary",
+      }),
+      button("Open files", () => openFiles(), "Open files", {
+        icon: "document",
+      }),
+      button("Open folder", () => openFiles(true), "Open folder", {
+        icon: "folder",
+      }),
+    );
     editorContainer.append(
       element(
         "p",
         "pwa-empty",
-        hostSource
-          ? "Encrypted notes use the same format and passphrase as the PWA and browser extension."
-          : "Markdown notes stay on this device. Export files for your own sync.",
+        downloadOnly()
+          ? "Open Markdown files or create a note. Download edited copies to save them."
+          : "Open a file or folder. Changes save directly to your files.",
       ),
     );
     return;
   }
-  title.textContent =
-    payload.label ||
-    (localWorkspace ? "Unnamed workspace" : "Protected workspace");
-  details.textContent = localWorkspace
-    ? "Unencrypted workspace on this device · export copies to update your files"
-    : `${activeId && sources.has(activeId) ? "Connected to shared encrypted file" : "Local encrypted cache · save a file for your sync folder"} · limit: 6 MiB`;
+  title.textContent = payload.label || "Unnamed workspace";
+  details.textContent = selectedFile()?.path ?? "Choose a Markdown file";
   if (payload.kind === "workspace") {
     const markdownFiles = payload.files.filter((file) =>
       isMarkdownPath(file.path),
@@ -1757,7 +1589,8 @@ function renderContent() {
       );
       return;
     }
-    title.textContent = file.path;
+    title.textContent = file.path.split("/").at(-1)!;
+    title.title = file.path;
     let text: string | null = null;
     try {
       text = fileText(file);
@@ -1775,82 +1608,18 @@ function renderContent() {
       return;
     }
     if (!editor) mountEditor(file.id);
-    else title.textContent = selectedScopeNote()?.title ?? file.path;
-  } else {
-    details.textContent =
-      "Chrome / Edge library · export preserves the extension backup format";
-    const records = payload.library.notes;
-    for (const note of records) {
-      const row = button(
-        `Open ${note.title || note.url}`,
-        async () => {
-          if (!(await save())) {
-            closeNotesDrawer();
-            return;
-          }
-          selectedId = note.id;
-          screen = "editor";
-          renderContent();
-          closeNotesDrawer(false);
-        },
-        note.title || note.url,
-      );
-      row.classList.add("pwa-files__item");
-      row.setAttribute("aria-current", String(note.id === selectedId));
-      fileList.append(row);
-    }
-    for (const shared of payload.library.domains) {
-      const row = button(
-        `Open shared notes for ${shared.origin}`,
-        async () => {
-          if (!(await save())) {
-            closeNotesDrawer();
-            return;
-          }
-          selectedId = shared.id;
-          screen = "editor";
-          renderContent();
-          closeNotesDrawer(false);
-        },
-        `Shared · ${shared.origin}`,
-      );
-      row.classList.add("pwa-files__item");
-      fileList.append(row);
-    }
-    if (payload.library.global) {
-      const globalId = payload.library.global.id;
-      const row = button(
-        "Open Global notes",
-        async () => {
-          if (!(await save())) {
-            closeNotesDrawer();
-            return;
-          }
-          selectedId = globalId;
-          screen = "editor";
-          renderContent();
-          closeNotesDrawer(false);
-        },
-        "Global",
-      );
-      row.classList.add("pwa-files__item");
-      fileList.append(row);
-    }
-    const available = selectedId ? scopedNotes(payload, selectedId) : {};
-    const note = available.current ?? available.shared ?? available.global;
-    if (note) {
-      title.textContent = note.title;
-      if (!editor) mountEditor(selectedId!);
-      else title.textContent = selectedScopeNote()?.title ?? note.title;
-    } else
-      editorContainer.append(
-        element(
-          "p",
-          "pwa-empty",
-          "Select a page note. Domain, Global and history records are preserved in encrypted exports.",
-        ),
+    else
+      setScopeTitle(
+        selectedScopeNote() ?? { id: file.id, title: file.path, file },
       );
   }
+}
+
+function setScopeTitle(note: ScopedNote) {
+  title.textContent = note.file
+    ? note.file.path.split("/").at(-1)!
+    : note.title;
+  title.title = note.title;
 }
 function mountEditor(id: string) {
   if (!payload || !selectedId) return;
@@ -1888,7 +1657,7 @@ function mountEditor(id: string) {
         );
         editor = null;
         aiControls = null;
-        title.textContent = note.title;
+        setScopeTitle(note);
         return;
       }
       const scopedEditor = new AicEditor(panel, {
@@ -1914,7 +1683,11 @@ function mountEditor(id: string) {
         editor: scopedEditor,
         identity: () => `${activeId}/${note.id}/${generation}/${scope}`,
         isReadonly: () =>
-          working || activeScope !== scope || !activeId || !payload,
+          working ||
+          isCurrentCopy() ||
+          activeScope !== scope ||
+          !activeId ||
+          !payload,
         onNotice: notify,
       });
       instance = { editor: scopedEditor, ai, panel };
@@ -1922,8 +1695,8 @@ function mountEditor(id: string) {
     }
     editor = instance.editor;
     aiControls = instance.ai;
-    editor.setReadOnly(working);
-    title.textContent = note.title;
+    editor.setReadOnly(working || isCurrentCopy());
+    setScopeTitle(note);
     reflectSave();
   };
   scopeTabs = createScopeTabs(document, {
@@ -2000,10 +1773,12 @@ window.addEventListener("pagehide", (event) => {
   opening?.abort();
   opening = null;
   cancelOpenButton.hidden = true;
+  if (noticeTimer) clearTimeout(noticeTimer);
+  noticeTimer = null;
   notice.textContent = "";
   notice.hidden = true;
   for (const cancel of cancelDialogs) cancel();
-  repository.lockAll();
+  repository.closeAll();
   clearEditor();
   payload = null;
   closeNotesDrawer(false);
@@ -2023,24 +1798,6 @@ window.addEventListener("pageshow", (event) => {
     renderContent();
   }
 });
-for (const event of ["pointerdown", "keydown"])
-  window.addEventListener(
-    event,
-    () => {
-      lastUsed = Date.now();
-    },
-    { passive: true },
-  );
-setInterval(() => {
-  if (
-    !localWorkspace &&
-    !dirty &&
-    !working &&
-    activeId &&
-    Date.now() - lastUsed >= 5 * 60_000
-  )
-    void run(lockAll);
-}, 30_000);
 window.addEventListener("online", reflectSave);
 window.addEventListener("offline", reflectSave);
 window.addEventListener("beforeinstallprompt", (event) => {
@@ -2059,21 +1816,7 @@ document.addEventListener("keydown", (event) => {
 async function start() {
   if (!(await refreshEntities())) return;
   renderContent();
-  if (hostSource) {
-    importButton.textContent = "Reopen file";
-    entityHeader.querySelector("button")?.setAttribute("hidden", "");
-    protectedButton.hidden = true;
-    hostSource.onDidChange(() =>
-      notify(
-        "The shared encrypted file changed elsewhere. Export any unsaved draft, then reopen the file.",
-        true,
-      ),
-    );
-    const text = await hostSource.read();
-    if (text) await run(() => openSource(hostSource, text));
-  }
   if (
-    !hostSource &&
     /^https?:$/u.test(location.protocol) &&
     "serviceWorker" in navigator &&
     import.meta.env.PROD

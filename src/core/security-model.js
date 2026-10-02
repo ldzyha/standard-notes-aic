@@ -20,6 +20,7 @@ const MAX_SECTIONS = SECURITY_LIMITS.maxSections;
 const MAX_FIELDS = SECURITY_LIMITS.maxFields;
 const MAX_VALUE_LENGTH = SECURITY_LIMITS.maxValueLength;
 const INVALID = Object.freeze({ ok: false, code: "invalid_security_block" });
+/** Explicit Insert AIC template; never prefill a new or empty note with it. */
 export const AIC_EMPTY_DOCUMENT = "```aic\n# Properties\n\n```\n\n";
 
 /** One complete top-level AIC block for shared records; field syntax has one owner. */

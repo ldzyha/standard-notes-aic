@@ -1,8 +1,13 @@
 /** User-selected filesystem access. Note contents remain opaque bytes. */
-import { MAX_VAULT_PLAINTEXT_BYTES } from "../browser/vault-crypto";
+import type {
+  MarkdownFileHandle,
+  MarkdownDirectoryHandle,
+  MarkdownSelection,
+} from "./disk";
 import { FolderIgnore, isHardExcludedPath } from "./folder-ignore";
 import {
   MAX_PWA_ENTRIES,
+  MAX_PWA_PAYLOAD_BYTES,
   MAX_PWA_FILE_BYTES,
   createPwaFile,
   createWorkspace,
@@ -13,10 +18,25 @@ import {
 } from "./model";
 
 export interface PickedFiles {
+  /** Native handles remain local capabilities, outside portable workspace bytes. */
+  disk?: MarkdownSelection;
   files: PwaFile[];
   directories: string[];
   /** Present for streaming imports; notes were delivered to onBatch, not retained here. */
   committedFiles?: number;
+}
+
+/** Capability metadata is intentionally excluded from object spreads and JSON exports. */
+function withDisk<T extends PickedFiles>(
+  selection: T,
+  disk: MarkdownSelection | undefined,
+): T {
+  if (disk)
+    Object.defineProperty(selection, "disk", {
+      value: disk,
+      enumerable: false,
+    });
+  return selection;
 }
 
 export interface FileSelectionOptions {
@@ -388,18 +408,21 @@ async function mapBounded<T, R>(
   return results;
 }
 
-interface NativeFileHandle {
+interface NativeFileHandle extends MarkdownFileHandle {
   kind: "file";
   name: string;
   getFile(): Promise<File>;
-  createWritable(): Promise<{
+  createWritable(options?: {
+    keepExistingData: boolean;
+    mode: "exclusive";
+  }): Promise<{
     write(data: Uint8Array<ArrayBuffer>): Promise<void>;
     close(): Promise<void>;
     abort?(): Promise<void>;
   }>;
 }
 
-interface NativeDirectoryHandle {
+interface NativeDirectoryHandle extends MarkdownDirectoryHandle {
   kind: "directory";
   name: string;
   values(): AsyncIterable<NativeFileHandle | NativeDirectoryHandle>;
@@ -411,8 +434,12 @@ interface NativeDirectoryHandle {
     name: string,
     options?: { create?: boolean },
   ): Promise<NativeFileHandle>;
-  queryPermission?(options: { mode: "readwrite" }): Promise<PermissionState>;
-  requestPermission?(options: { mode: "readwrite" }): Promise<PermissionState>;
+  queryPermission?(options: {
+    mode: "read" | "readwrite";
+  }): Promise<PermissionState>;
+  requestPermission?(options: {
+    mode: "read" | "readwrite";
+  }): Promise<PermissionState>;
 }
 
 interface PickerWindow {
@@ -491,7 +518,7 @@ async function readFiles(
       throw new Error("Each file must be 4 MiB or smaller.");
     }
     encodedBytes += 4 * Math.ceil(file.size / 3);
-    if (encodedBytes > MAX_VAULT_PLAINTEXT_BYTES) {
+    if (encodedBytes > MAX_PWA_PAYLOAD_BYTES) {
       throw new Error("The selection exceeds the 6 MiB encoded bundle limit.");
     }
   }
@@ -535,6 +562,7 @@ type FolderCandidate =
 class FolderScanBatches {
   private candidates: FolderCandidate[] = [];
   private readonly retained: PwaFile[] = [];
+  private readonly retainedBindings: MarkdownSelection["files"] = [];
   private scanned = 0;
   private selected = 0;
   private delivered = 0;
@@ -548,6 +576,7 @@ class FolderScanBatches {
   constructor(
     private readonly options: FileSelectionOptions,
     private readonly progress: SelectionProgress,
+    private readonly rootHandle?: NativeDirectoryHandle,
   ) {}
 
   async inspect(root: string): Promise<void> {
@@ -593,7 +622,7 @@ class FolderScanBatches {
         if (file.size > MAX_PWA_FILE_BYTES)
           throw new Error("Each file must be 4 MiB or smaller.");
         this.encodedBytes += 4 * Math.ceil(file.size / 3);
-        if (this.encodedBytes > MAX_VAULT_PLAINTEXT_BYTES)
+        if (this.encodedBytes > MAX_PWA_PAYLOAD_BYTES)
           throw new Error(
             "The selection exceeds the 6 MiB encoded bundle limit.",
           );
@@ -608,25 +637,38 @@ class FolderScanBatches {
         // Count separators inside this batch too, without retaining earlier file bytes.
         this.delivered++;
       }
-      if (this.jsonBytes > MAX_VAULT_PLAINTEXT_BYTES)
+      if (this.jsonBytes > MAX_PWA_PAYLOAD_BYTES)
         throw new Error(
           "The selection exceeds the 6 MiB encoded bundle limit including paths and metadata.",
         );
     }
+    const bindings = files.flatMap((file, index) => {
+      const candidate = candidates[index];
+      return candidate && "handle" in candidate
+        ? [{ id: file.id, path: file.path, handle: candidate.handle }]
+        : [];
+    });
+    const disk =
+      this.rootHandle || bindings.length
+        ? {
+            files: bindings,
+            ...(this.rootHandle ? { root: this.rootHandle } : {}),
+          }
+        : undefined;
     checkAbort(this.options);
     if (this.options.onBatch)
-      await this.options.onBatch(
-        { files, directories: [] },
-        {
-          root,
-          batchIndex: ++this.batchIndex,
-          scanned: this.scanned,
-          selected: this.selected,
-          read: this.delivered,
-          done,
-        },
-      );
-    else this.retained.push(...files);
+      await this.options.onBatch(withDisk({ files, directories: [] }, disk), {
+        root,
+        batchIndex: ++this.batchIndex,
+        scanned: this.scanned,
+        selected: this.selected,
+        read: this.delivered,
+        done,
+      });
+    else {
+      this.retained.push(...files);
+      this.retainedBindings.push(...bindings);
+    }
     checkAbort(this.options);
     if (!done) this.progress.scanning();
   }
@@ -634,16 +676,29 @@ class FolderScanBatches {
   async finish(root: string, emptyDirectories: string[]): Promise<PickedFiles> {
     await this.flush(root, true);
     this.progress.finish();
+    const disk =
+      this.rootHandle || this.retainedBindings.length
+        ? {
+            files: this.retainedBindings,
+            ...(this.rootHandle ? { root: this.rootHandle } : {}),
+          }
+        : undefined;
     return this.options.onBatch
-      ? {
-          files: [],
-          directories: this.selected ? [] : emptyDirectories,
-          committedFiles: this.delivered,
-        }
-      : validateSelection({
-          files: this.retained,
-          directories: this.selected ? [] : emptyDirectories,
-        });
+      ? withDisk(
+          {
+            files: [],
+            directories: this.selected ? [] : emptyDirectories,
+            committedFiles: this.delivered,
+          },
+          disk,
+        )
+      : withDisk(
+          validateSelection({
+            files: this.retained,
+            directories: this.selected ? [] : emptyDirectories,
+          }),
+          disk,
+        );
   }
 }
 
@@ -669,7 +724,14 @@ async function readHandles(
       options,
     );
     // Every metadata read and aggregate-size check completes before byte allocation.
-    return await readFiles(files, directories, options, progress);
+    const selection = await readFiles(files, directories, options, progress);
+    return withDisk(selection, {
+      files: selection.files.map((file, index) => ({
+        id: file.id,
+        path: file.path,
+        handle: selected[index]!.handle,
+      })),
+    });
   } catch (error) {
     progress.stop();
     throw error;
@@ -860,6 +922,16 @@ export async function pickFiles(
       await progress.scanned(allowed);
       if (!allowed) continue;
       if (selected.length >= MAX_PWA_ENTRIES) selectionLimit(options);
+      // Request writable access as part of the explicit Open action; autosave
+      // itself never opens a permission prompt after the gesture has expired.
+      if (
+        options.markdownOnly &&
+        handle.requestPermission &&
+        handle.queryPermission &&
+        (await handle.queryPermission({ mode: "readwrite" })) !== "granted"
+      ) {
+        await handle.requestPermission({ mode: "readwrite" });
+      }
       selected.push({ handle, path: validateRelativePath(handle.name) });
     }
     return await readHandles(selected, [], options, progress);
@@ -878,7 +950,7 @@ export async function pickFolder(
   const progress = new SelectionProgress(options);
   try {
     const root = await readOperation(
-      () => native.call(window, { mode: "read" }),
+      () => native.call(window, { mode: "readwrite" }),
       options,
     );
     const rootPath = validateRelativePath(root.name);
@@ -887,7 +959,7 @@ export async function pickFolder(
     const rules = new FolderIgnore();
     const ignoreReader = new IgnoreReader();
     const batches = options.markdownOnly
-      ? new FolderScanBatches(options, progress)
+      ? new FolderScanBatches(options, progress, root)
       : null;
     const walk = async (directory: NativeDirectoryHandle, prefix: string) => {
       const iterator = directory.values()[Symbol.asyncIterator]();
@@ -1220,7 +1292,7 @@ export function createStoredZip(
       throw new Error("A folder path is too long for ZIP export.");
     total += 76 + 2 * entry.name.length + entry.bytes.length;
   }
-  if (total > 2 * MAX_VAULT_PLAINTEXT_BYTES) {
+  if (total > 2 * MAX_PWA_PAYLOAD_BYTES) {
     throw new Error("The folder exceeds the supported ZIP export size.");
   }
   const bytes = new Uint8Array(total);

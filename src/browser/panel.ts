@@ -2,8 +2,7 @@ import { createScopeTabs, type ScopeTabs } from "../core/scope-tabs.js";
 import { ChangeSet, EditorState, StateEffect } from "@codemirror/state";
 import { relatedPageLink } from "./related-links";
 import { AicEditor } from "../editor";
-import { AIC_EMPTY_DOCUMENT } from "../core/security-model.js";
-import { request, type ActivePage, type BrowserApi } from "./api";
+import { request, type Request, type ActivePage, type BrowserApi } from "./api";
 import { BrowserDrafts, type Draft } from "./drafts";
 import { DomainDrafts, type DomainDraft } from "./domain-drafts";
 import {
@@ -31,10 +30,19 @@ import {
 } from "./navigation";
 import { importCapturedPage } from "./import-page";
 import type { PageCapture } from "./capture-page";
-import type { VaultStatus } from "./vault-store";
+import type { RecoveryDraft, RecoverySnapshot } from "./recovery-store";
+import {
+  chooseBrowserSource,
+  BrowserSourceAccess,
+  FILE_SOURCE_KEY,
+  type BrowserFileLocation,
+  type BrowserStatus,
+  type BrowserScan,
+  type BrowserScanStatus,
+  type ScanNoteSummary,
+} from "./markdown-storage";
 
-const SESSION_KEY = "aic-browser-unlock";
-const PLACEHOLDER_TEXT = AIC_EMPTY_DOCUMENT;
+const PLACEHOLDER_TEXT = "";
 const emptyLibrary = (): BrowserLibrary => ({
   version: 3,
   notes: [],
@@ -43,13 +51,54 @@ const emptyLibrary = (): BrowserLibrary => ({
   global: null,
 });
 
+/** Compare observation identity, never order an opaque file token. */
+function sameScopeObservation(
+  left: BrowserDomain | BrowserGlobal | null,
+  right: BrowserDomain | BrowserGlobal | null,
+): boolean {
+  return (
+    left === right ||
+    !!(
+      left &&
+      right &&
+      left.id === right.id &&
+      left.filePath === right.filePath &&
+      left.revision === right.revision &&
+      left.markdown === right.markdown
+    )
+  );
+}
+
 /** One panel owns its window context and ephemeral plaintext. The worker owns storage. */
 export class BrowserPanel {
   readonly ready: Promise<void>;
   private generation = 0;
   private contextGeneration = 0;
   private disposed = false;
-  private state: VaultStatus["state"] = "locked";
+  private state: BrowserStatus["state"] = "unselected";
+  private selectedFileId: string | null = null;
+  private source: BrowserFileLocation | undefined;
+  private sourceError = "";
+  private sourceErrorCode = "";
+  private sourceAccessState: BrowserStatus["access"];
+  private readonly sourceAccess = new BrowserSourceAccess();
+  private reconnecting = false;
+  private warmedSourceId: string | null = null;
+  private checkingAccess = false;
+  private selectingSource = false;
+  private sourceWarnings: string[] = [];
+  private sourceChanged = false;
+  private scan: BrowserScan | null = null;
+  private scanNotes: ScanNoteSummary[] = [];
+  private scanOffset = 0;
+  private scanStopping = false;
+  private scanTimer: ReturnType<typeof setTimeout> | null = null;
+  private fileOperation: {
+    label: string;
+    candidateId?: string;
+    poll: Promise<void> | null;
+    finishing: boolean;
+  } | null = null;
   private windowId: number | null = null;
   private privateWindow = false;
   private allowPrivate = false;
@@ -58,6 +107,11 @@ export class BrowserPanel {
   private activePage: ActivePage | null = null;
   private activeGeneration = 0;
   private library = emptyLibrary();
+  private readonly recoveryClientId = crypto.randomUUID();
+  private recoverySequence = 0;
+  private recoverySignature = "";
+  private recoveryError = "";
+  private recovered: RecoverySnapshot[] = [];
   private editor: AicEditor | null = null;
   private editorGeneration = 0;
   private noteId: string | null = null;
@@ -90,6 +144,8 @@ export class BrowserPanel {
   private readonly document: Document;
   private readonly toolbar: HTMLElement;
   private readonly feedback: HTMLElement;
+  private readonly fileLocation: HTMLElement;
+  private readonly scanView: HTMLElement;
   private readonly content: HTMLElement;
   private readonly overlay: HTMLElement;
 
@@ -101,6 +157,12 @@ export class BrowserPanel {
     root.classList.add("browser-panel");
     this.toolbar = this.el("header", "browser-toolbar");
     applyUiComponent(this.toolbar, "toolbar", ["compact"]);
+    this.fileLocation = this.el("div", "browser-file-location");
+    applyUiComponent(this.fileLocation, "context", ["document"]);
+    this.scanView = this.el("section", "browser-scan");
+    applyUiComponent(this.scanView, "notice", ["info"]);
+    this.scanView.setAttribute("aria-label", "Folder scan");
+    this.scanView.hidden = true;
     this.feedback = this.el("div", "browser-feedback");
     applyUiComponent(this.feedback, "notice");
     this.feedback.setAttribute("role", "status");
@@ -110,6 +172,8 @@ export class BrowserPanel {
     applyUiComponent(this.overlay, "menu", ["compact"]);
     root.replaceChildren(
       this.toolbar,
+      this.fileLocation,
+      this.scanView,
       this.feedback,
       this.content,
       this.overlay,
@@ -137,15 +201,32 @@ export class BrowserPanel {
       () => this.document.removeEventListener("pointerdown", outsideOverlay),
     );
     this.listen(api.storage.onChanged, (changes, area) => {
-      const session = changes[SESSION_KEY] as
-        { newValue?: unknown } | undefined;
-      if (area === "session" && session && !session.newValue) {
-        this.clearPlaintext();
-        this.state = "locked";
-        this.render();
-        this.tell("AIC was locked. Unlock to continue.");
+      const changedFile = changes[FILE_SOURCE_KEY] as
+        { newValue?: { id?: string } } | undefined;
+      if (
+        area === "local" &&
+        changedFile &&
+        changedFile.newValue?.id !== this.source?.id
+      )
+        this.sourceChanged = true;
+      if (area === "local" && changedFile) {
+        // The awaited source operation mounts its result once. Its own storage
+        // event must not initialize a second scan or dispose the active monitor.
+        if (this.fileOperation) return;
+        if (this.sourceChanged && this.hasPendingDrafts()) {
+          this.tell(
+            "The selected location changed in another panel. Save or export this draft before reconnecting.",
+            "error",
+          );
+          return;
+        }
+        if (this.sourceChanged) {
+          this.clearPlaintext();
+          void this.initialize();
+          return;
+        }
       }
-      if (area === "local" && changes["aic-browser-library"])
+      if (area === "local" && changes["aic-browser-markdown-change"])
         this.refreshSharedData();
     });
     this.listen(api.tabs.onActivated, (info) => {
@@ -201,6 +282,7 @@ export class BrowserPanel {
         this.domainDrafts?.hasPendingChanges() ||
         this.globalDrafts?.hasPendingChanges()
       ) {
+        this.flushBeforeHide();
         event.preventDefault();
         event.returnValue = "";
       }
@@ -218,7 +300,9 @@ export class BrowserPanel {
         // Retained sidebar documents must not keep tracking browser activity.
         ++this.contextGeneration;
         this.setImporting(false);
+        const selectedScope = this.activeScope;
         this.dropEditor();
+        this.activeScope = selectedScope;
         this.page = null;
         this.activePage = null;
         ++this.activeGeneration;
@@ -226,11 +310,20 @@ export class BrowserPanel {
         this.content.replaceChildren();
         this.tell("");
       } else if (this.canUseLibrary()) {
-        void this.startUnlocked();
+        void this.startEditing();
+        void this.resumeGrantedAccess();
       } else {
         this.render();
+        void this.resumeGrantedAccess();
       }
     };
+    const focus = () => {
+      void this.resumeGrantedAccess();
+    };
+    this.document.defaultView?.addEventListener("focus", focus);
+    this.cleanups.push(() =>
+      this.document.defaultView?.removeEventListener("focus", focus),
+    );
     const pagehide = () => {
       this.flushBeforeHide();
       this.destroy();
@@ -281,8 +374,13 @@ export class BrowserPanel {
   private button(
     label: string,
     action: (button: HTMLButtonElement) => void | Promise<unknown>,
+    options: { text?: string; icon?: string; variant?: "ghost" } = {},
   ): HTMLButtonElement {
-    const button = createUiButton(this.document, { label, size: "compact" });
+    const button = createUiButton(this.document, {
+      label,
+      size: "compact",
+      ...options,
+    });
     button.classList.add("browser-button");
     button.addEventListener("click", () => {
       const generation = this.generation;
@@ -296,6 +394,29 @@ export class BrowserPanel {
       }
     });
     return button;
+  }
+
+  private menuButton(
+    label: string,
+    icon: string,
+    action: (button: HTMLButtonElement) => void | Promise<unknown>,
+    text = label,
+  ): HTMLButtonElement {
+    const button = this.button(label, action, { text, icon, variant: "ghost" });
+    applyUiComponent(button, "menu", [], "item");
+    return button;
+  }
+
+  private menuHeading(text: string): HTMLHeadingElement {
+    const heading = this.el("h2", "browser-menu-group", text);
+    applyUiComponent(heading, "menu", ["compact"], "title");
+    return heading;
+  }
+
+  private menuSeparator(): HTMLHRElement {
+    const separator = this.el("hr");
+    applyUiComponent(separator, "menu", [], "separator");
+    return separator;
   }
 
   private tell(
@@ -360,8 +481,11 @@ export class BrowserPanel {
     this.toolbar.replaceChildren();
     if (this.canUseLibrary()) {
       this.toolbar.append(
-        this.iconButton("Notes and history", "☷", (button) =>
-          this.showNavigation(button),
+        this.iconButton(
+          "Notes",
+          "",
+          (button) => this.showNavigation(button),
+          "folder",
         ),
       );
       const identity = this.el("div", "browser-page-identity");
@@ -372,15 +496,19 @@ export class BrowserPanel {
           ? "Global notes"
           : this.activeScope === "shared"
             ? "Shared notes"
-            : this.contextLoading
-              ? "Loading page…"
-              : this.page
-                ? displayPageTitle(this.page)
-                : "Your notes",
+            : this.selectedFileId
+              ? (this.library.notes.find(
+                  (note) => note.id === this.selectedFileId,
+                )?.filePath ?? "Markdown file")
+              : this.contextLoading
+                ? "Loading page…"
+                : this.page
+                  ? displayPageTitle(this.page)
+                  : "Your notes",
       );
       title.title = title.textContent ?? "Your notes";
       identity.append(title);
-      if (this.page && this.activeScope !== "global") {
+      if (this.page && !this.selectedFileId && this.activeScope !== "global") {
         const source = this.el(
           "small",
           "browser-page-origin",
@@ -397,20 +525,13 @@ export class BrowserPanel {
       this.showMoreMenu(button),
     );
     this.toolbar.append(more);
-    if (this.state === "unlocked") {
-      const lock = this.iconButton("Lock", "", () => this.lock());
-      lock.classList.add("browser-lock-button");
-      lock.title = "Lock all AIC panels. Save other panels first.";
-      lock.setAttribute("aria-description", lock.title);
-      this.toolbar.append(lock);
-    }
     for (const button of this.toolbar.querySelectorAll<HTMLButtonElement>(
       "button",
     )) {
       button.classList.remove("aic-button--compact");
       applyUiComponent(button, "button", ["touch"]);
       if (
-        ["Notes and history", "More options"].includes(
+        ["Notes", "More options"].includes(
           button.getAttribute("aria-label") || "",
         )
       ) {
@@ -441,10 +562,17 @@ export class BrowserPanel {
   private showMoreMenu(trigger: HTMLButtonElement): void {
     const box = this.showPopover("More options", trigger);
     if (!box) return;
-    if (this.page && this.canUseLibrary() && this.activeScope === "current") {
+    this.overlay.dataset.layout = "actions";
+    if (
+      this.page &&
+      !this.selectedFileId &&
+      this.canUseLibrary() &&
+      this.activeScope === "current"
+    ) {
       const noteId = this.noteId;
-      const pin = this.button(
+      const pin = this.menuButton(
         this.pinnedPage ? "Unpin note" : "Pin note",
+        "pin",
         () => {
           this.closeOverlay(true);
           if (this.activeScope === "current" && this.noteId === noteId)
@@ -460,107 +588,145 @@ export class BrowserPanel {
         : this.pinnedPage
           ? "Unpin note and follow the active tab"
           : "Keep this note open and link pages you write about";
-      const capture = this.button("Import current content", () => {
-        this.closeOverlay(true);
-        if (this.activeScope === "current" && this.noteId === noteId)
-          return this.capture("auto");
-      });
+      const capture = this.menuButton(
+        "Import current content",
+        "import-page",
+        () => {
+          this.closeOverlay(true);
+          if (this.activeScope === "current" && this.noteId === noteId)
+            return this.capture("auto");
+        },
+      );
       capture.title =
         "Import selected readable content when available; otherwise import the readable page";
-      const markdown = this.button("Import Markdown file", () => {
-        this.closeOverlay(true);
-        if (this.activeScope === "current" && this.noteId === noteId)
-          return this.chooseMarkdownFile();
-      });
-      markdown.title = "Import a plaintext Markdown file into this note";
+      const markdown = this.menuButton(
+        "Insert from Markdown file",
+        "import-file",
+        () => {
+          this.closeOverlay(true);
+          if (this.activeScope === "current" && this.noteId === noteId)
+            return this.chooseMarkdownFile();
+        },
+        "Insert from file…",
+      );
+      markdown.title = "Append Markdown from another file to this note";
       for (const button of [capture, markdown]) {
         button.dataset.importAction = "true";
         button.disabled = this.importing;
         button.setAttribute("aria-description", button.title);
       }
-      box.append(
-        this.el("h2", "browser-menu-group", "Current note"),
-        pin,
-        capture,
-        markdown,
-      );
-      if (this.editor && noteId) {
-        const exportMarkdown = this.button("Export Markdown file", () => {
-          this.closeOverlay(true);
-          if (this.activeScope === "current" && this.noteId === noteId)
-            this.exportDraft(noteId);
-        });
-        exportMarkdown.title =
-          "Export plaintext Markdown; the file may contain secrets";
-        exportMarkdown.setAttribute("aria-description", exportMarkdown.title);
-        box.append(exportMarkdown);
-      }
-      box.append(this.el("hr"));
-    }
-    if (this.canUseLibrary()) {
-      const guide = this.button("AIC guide", () => {
-        this.closeOverlay();
-        this.showGuide(trigger);
-      });
-      guide.title = "AIC guide";
-      box.append(guide, this.el("hr"));
-    }
-    box.append(
-      this.button("Open file notes", () =>
-        this.openTab(this.api.runtime.getURL("pwa/index.html")),
-      ),
-      this.el("hr"),
-    );
-    if (this.page && this.canUseLibrary() && this.activeScope === "current") {
+      box.append(this.menuHeading("Current note"), pin, capture, markdown);
       const page = { ...this.page };
-      const draft = this.drafts?.getForPage(page.url);
+      const pageDraft = this.drafts?.getForPage(page.url);
       const hasNote =
-        !!draft?.note ||
-        !!draft?.dirty ||
+        !!pageDraft?.note ||
+        !!pageDraft?.dirty ||
         this.library.notes.some((item) => item.url === page.url);
       if (
         hasNote ||
         this.library.history.some((item) => item.url === page.url)
       ) {
-        const remove = this.button(
-          hasNote ? "Delete local note" : "Remove page from history",
+        const remove = this.menuButton(
+          hasNote
+            ? this.source?.kind === "directory"
+              ? "Unlink page"
+              : "Delete local note"
+            : "Remove page from history",
+          "trash",
           () => this.showDeletePage(page.url, page.title, trigger),
         );
         remove.disabled = this.importing || this.deleting;
-        box.append(
-          this.el(
-            "h2",
-            "browser-menu-group",
-            hasNote ? "Local note" : "Recent page",
-          ),
-          remove,
-          this.el("hr"),
-        );
+        box.append(remove);
       }
     }
-    box.append(this.el("h2", "browser-menu-group", "Encrypted backup"));
-    if (this.state === "unlocked")
+    if (this.canUseLibrary()) {
+      if (box.childElementCount) box.append(this.menuSeparator());
+      const guide = this.menuButton("AIC guide", "help", () => {
+        this.closeOverlay();
+        this.showGuide(trigger);
+      });
+      guide.title = "AIC guide";
+      box.append(guide);
+    }
+    if (box.childElementCount) box.append(this.menuSeparator());
+    box.append(
+      this.menuHeading("Files"),
+      this.menuButton("Open file…", "document", () => this.connectFile("file")),
+      this.menuButton("Open folder…", "folder", () =>
+        this.connectFile("folder"),
+      ),
+      this.menuButton("New file", "note-add", () => this.newFile(trigger)),
+    );
+    if (this.source?.id && this.state === "ready" && this.needsFilePermission())
       box.append(
-        this.button("Export encrypted backup", () => {
+        this.menuButton("Reconnect access", "folder", () =>
+          this.reconnectFile(),
+        ),
+      );
+    if (this.needsFilePermission() && this.canOpenInTab())
+      box.append(
+        this.menuButton("Open AIC in tab", "link", () =>
+          this.openTab(this.api.runtime.getURL("browser/index.html")),
+        ),
+      );
+    if (this.source?.kind === "directory" && this.state === "ready")
+      box.append(
+        this.menuButton("Refresh folder", "folder", () => this.refreshFiles()),
+      );
+    if (this.selectedFileId && this.activeScope === "current") {
+      if (this.source?.kind === "directory")
+        box.append(
+          this.menuButton("Follow active tab", "link", async () => {
+            if (!(await this.flushAllDrafts()))
+              throw new Error("Save or export this draft first.");
+            this.selectedFileId = null;
+            this.pinnedPage = null;
+            this.closeOverlay();
+            await this.refreshContext();
+          }),
+        );
+      if (this.source?.kind === "directory")
+        box.append(
+          this.menuButton("Link file to current page", "link", () =>
+            this.linkSelectedFile(),
+          ),
+        );
+    }
+    const exportKey =
+      this.activeScope === "global"
+        ? this.globalKey
+        : this.activeScope === "shared"
+          ? this.domainKey
+          : this.noteId;
+    if (exportKey) {
+      const scope = this.activeScope;
+      box.append(
+        this.menuButton("Download copy", "export-file", () => {
           this.closeOverlay(true);
-          return this.exportBackup();
+          if (scope === "current") this.exportDraft(exportKey);
+          else this.exportDomainDraft(exportKey, scope === "global");
         }),
       );
+    }
     box.append(
-      this.button("Import encrypted backup", () => this.importBackupDialog()),
-      this.el("hr"),
-      this.el("h2", "browser-menu-group", "AIC"),
-      this.button("Terms and privacy", () =>
+      this.menuSeparator(),
+      this.menuButton("Terms and privacy", "lock", () =>
         this.openTab("https://aic.dzyha.com/terms"),
       ),
-      this.button("Releases and installation", () =>
-        this.openTab("https://aic.dzyha.com/releases"),
+      this.menuButton(
+        "Releases and installation",
+        "download",
+        () => this.openTab("https://aic.dzyha.com/releases"),
+        "Releases",
       ),
-      this.button("How to create documents", () =>
-        this.openTab("https://aic.dzyha.com/how-to"),
+      this.menuButton(
+        "How to create documents",
+        "document",
+        () => this.openTab("https://aic.dzyha.com/how-to"),
+        "How to",
       ),
     );
-    box.querySelector<HTMLButtonElement>("button")?.focus();
+    box.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
   }
 
   private async openTab(url: string): Promise<void> {
@@ -600,6 +766,7 @@ export class BrowserPanel {
       ? { id: record.id, revision: record.revision }
       : null;
     const hasNote = !!record || !!draft?.dirty || !!draft?.saving;
+    const unlink = this.source?.kind === "directory";
     this.closeOverlay();
     const box = this.showPopover("Delete local page", trigger);
     if (!box) return;
@@ -608,20 +775,26 @@ export class BrowserPanel {
       this.el(
         "h2",
         "",
-        hasNote ? "Delete this local note?" : "Remove this recent page?",
+        hasNote
+          ? unlink
+            ? "Unlink this page?"
+            : "Delete this local note?"
+          : "Remove this recent page?",
       ),
       this.el("p", "browser-delete-title", displayPageTitle({ url, title })),
       this.el(
         "p",
         "browser-menu-hint",
-        hasNote
-          ? "Delete the local note and its history entry. This cannot be undone without a backup. The website, shared properties, and other notes stay unchanged."
-          : "Remove this page from AIC history. The website, shared properties, and other notes stay unchanged.",
+        unlink
+          ? "Remove the URL connection. The Markdown file stays in the folder and remains available in Files."
+          : hasNote
+            ? "Delete the local note and its history entry. This cannot be undone without a backup. The website, shared properties, and other notes stay unchanged."
+            : "Remove this page from AIC history. The website, shared properties, and other notes stay unchanged.",
       ),
     );
     const cancel = this.button("Cancel", () => this.closeOverlay(true));
     const confirm = this.button(
-      hasNote ? "Delete note" : "Remove page",
+      hasNote ? (unlink ? "Unlink page" : "Delete note") : "Remove page",
       async () => {
         if (!this.valid(generation, context) || this.deleting || this.importing)
           return;
@@ -655,7 +828,7 @@ export class BrowserPanel {
           const expectedNote = saved
             ? { id: saved.id, revision: saved.revision }
             : expected;
-          const library = await request<BrowserLibrary>(this.api, {
+          const library = await this.send<BrowserLibrary>({
             type: "delete-page",
             url,
             expectedNote,
@@ -691,7 +864,9 @@ export class BrowserPanel {
           this.renderPageAncestors();
           this.tell(
             hasNote
-              ? "Local note deleted. The placeholder is not saved until you edit it."
+              ? unlink
+                ? "Page unlinked. The Markdown file is kept in the folder."
+                : "Note deleted. Start a new note on the blank page."
               : "Page removed from AIC history.",
             "success",
           );
@@ -723,27 +898,784 @@ export class BrowserPanel {
 
   private showNavigation(trigger: HTMLButtonElement): void {
     if (!this.canUseLibrary()) return;
-    const box = this.showPopover("Notes and history", trigger);
+    const box = this.showPopover("Notes", trigger);
     if (!box) return;
-    box.append(this.el("h2", "", "Notes and history"));
+    box.append(this.el("h2", "", "Notes"));
     this.appendNavigation(box);
-    box.querySelector<HTMLInputElement>("input")?.focus();
+    const filter = box.querySelector<HTMLInputElement>("input");
+    if (filter && !filter.hidden) filter.focus();
+    else {
+      box.tabIndex = -1;
+      box.focus();
+    }
   }
 
   private appendNavigation(parent: HTMLElement): void {
     const nav = this.el("section", "browser-navigation");
     const filter = this.el("input", "browser-filter");
     filter.type = "search";
-    filter.placeholder = "Find notes or pages";
-    filter.setAttribute("aria-label", "Filter titles and URLs");
+    filter.placeholder = "Find notes";
+    filter.setAttribute("aria-label", "Find notes by title or location");
     filter.value = this.filter;
     filter.addEventListener("input", () => {
       this.filter = filter.value;
       this.renderLibrary();
     });
-    nav.append(filter, this.el("nav", "browser-library"));
+    const tree = this.el("nav", "browser-library");
+    tree.setAttribute("aria-label", "Saved notes");
+    applyUiComponent(tree, "tree", ["compact", "connected"]);
+    nav.append(filter, tree);
     parent.append(nav);
     this.renderLibrary();
+  }
+
+  private hasPendingDrafts(): boolean {
+    return !!(
+      this.drafts?.hasPendingChanges() ||
+      this.domainDrafts?.hasPendingChanges() ||
+      this.globalDrafts?.hasPendingChanges()
+    );
+  }
+
+  private send<T>(message: Request): Promise<T> {
+    if (message.type === "context") return request<T>(this.api, message);
+    return (async () => {
+      const generation = this.generation;
+      const sourceId = this.source?.id;
+      const current = () =>
+        this.valid(generation) && this.source?.id === sourceId;
+      try {
+        const value = await request<T>(this.api, {
+          ...message,
+          ...(sourceId ? { sourceId } : {}),
+        });
+        if (!current()) return value;
+        if (
+          !this.disposed &&
+          value &&
+          typeof value === "object" &&
+          "source" in value
+        ) {
+          const status = value as unknown as BrowserStatus;
+          if (
+            message.type !== "connect-source" &&
+            this.hasPendingDrafts() &&
+            (this.sourceChanged || status.source.id !== sourceId)
+          ) {
+            this.sourceChanged = true;
+            throw Object.assign(
+              new Error(
+                "The selected files changed in another panel. Your draft still belongs to its original files.",
+              ),
+              { code: "source" },
+            );
+          }
+          this.source = status.source;
+          this.sourceError = status.sourceError ?? "";
+          this.sourceErrorCode = status.sourceErrorCode ?? "";
+          this.sourceAccessState = status.access;
+          if (status.source.id && (!this.privateWindow || this.allowPrivate))
+            void this.sourceAccess
+              .warm(status.source.id)
+              .then(() => {
+                if (
+                  !this.disposed &&
+                  this.source?.id === status.source.id &&
+                  !this.sourceChanged &&
+                  !this.selectingSource
+                ) {
+                  this.sourceAccess.select(status.source.id!);
+                  this.warmedSourceId = this.sourceAccess.has(status.source.id!)
+                    ? status.source.id!
+                    : null;
+                  this.reflectContinue();
+                  this.renderFileLocation();
+                }
+              })
+              .catch(() => {
+                if (!this.disposed && this.source?.id === status.source.id)
+                  this.tell(
+                    "This location could not be restored. Use More options to open the file or folder again.",
+                    "error",
+                  );
+              });
+          this.sourceWarnings = status.warnings ?? [];
+          this.sourceChanged = false;
+          this.renderFileLocation();
+        } else if (
+          [
+            "save",
+            "save-domain",
+            "save-global",
+            "create",
+            "create-domain",
+            "create-global",
+            "delete-page",
+            "import",
+          ].includes(message.type)
+        ) {
+          this.sourceError = "";
+          this.sourceErrorCode = "";
+          if (this.sourceAccessState)
+            this.sourceAccessState = { read: "granted", write: "granted" };
+          this.renderFileLocation();
+        }
+        if (message.type === "load" && current())
+          void this.send<BrowserStatus>({ type: "status" }).catch(() => {});
+        return value;
+      } catch (error) {
+        if (
+          current() &&
+          error &&
+          typeof error === "object" &&
+          "code" in error &&
+          ["source", "storage", "conflict", "permission"].includes(
+            String(error.code),
+          )
+        ) {
+          this.sourceError =
+            error instanceof Error ? error.message : "Reopen the notes file.";
+          this.sourceErrorCode = String(error.code);
+          this.renderFileLocation();
+        }
+        throw error;
+      }
+    })();
+  }
+
+  private renderFileLocation(): void {
+    this.fileLocation.hidden = !this.source || this.state !== "ready";
+    if (!this.source) return;
+    // Keep the reconnect target mounted while blur/autosave updates its status.
+    // Replacing it between pointerdown and click would consume the first click.
+    if (!this.fileLocation.childElementCount) {
+      const path = this.el("span", "aic-context__path");
+      const status = this.el("span", "aic-context__status");
+      status.setAttribute("role", "status");
+      const reconnect = this.button(
+        "Reconnect access",
+        () => this.reconnectFile(),
+        { variant: "ghost" },
+      );
+      reconnect.classList.add("browser-reconnect");
+      const notice = this.button("Folder notices", () => {
+        const box = this.showPopover("Folder notices", notice);
+        if (box)
+          for (const message of this.sourceWarnings)
+            box.append(this.el("p", "", message));
+      });
+      notice.classList.add("browser-source-notices");
+      this.fileLocation.append(path, status, reconnect, notice);
+    }
+    const path =
+      this.fileLocation.querySelector<HTMLElement>(".aic-context__path")!;
+    const status = this.fileLocation.querySelector<HTMLElement>(
+      ".aic-context__status",
+    )!;
+    const reconnect =
+      this.fileLocation.querySelector<HTMLButtonElement>(".browser-reconnect")!;
+    const notice = this.fileLocation.querySelector<HTMLButtonElement>(
+      ".browser-source-notices",
+    )!;
+    const selected = ["file", "directory"].includes(this.source.kind);
+    path.textContent = selected
+      ? [
+          this.source.kind === "directory" ? this.source.name : "",
+          this.activeScope === "global"
+            ? this.globalDrafts?.get(this.globalKey ?? "")?.record?.filePath
+            : this.activeScope === "shared"
+              ? this.domainDrafts?.get(this.domainKey ?? "")?.record?.filePath
+              : this.drafts?.get(this.noteId ?? "")?.note?.filePath,
+        ]
+          .filter(Boolean)
+          .join("/") ||
+        this.source.name ||
+        "Markdown files"
+      : "No file or folder selected";
+    path.title = selected
+      ? `Selected ${this.source.kind === "directory" ? "folder" : "file"}: ${this.source.name}. Edits are written directly to disk.`
+      : "Choose a file to keep your notes outside the extension.";
+    const needsPermission = this.needsFilePermission();
+    reconnect.hidden = !needsPermission || !this.source.id;
+    reconnect.disabled =
+      this.reconnecting || this.warmedSourceId !== this.source.id;
+    reconnect.textContent = reconnect.hidden
+      ? ""
+      : this.reconnecting
+        ? "Connecting…"
+        : "Reconnect access";
+    reconnect.title =
+      this.sourceError ||
+      "Allow access to the selected files and retry pending saves.";
+    status.hidden = !reconnect.hidden;
+    status.textContent = status.hidden
+      ? ""
+      : this.sourceError
+        ? this.sourceErrorCode === "conflict"
+          ? "File changed"
+          : "Check file"
+        : !selected
+          ? "Open file or folder"
+          : this.hasPendingDrafts()
+            ? "Unsaved"
+            : this.state === "unavailable"
+              ? "Reconnect"
+              : "On disk";
+    status.dataset.state =
+      this.sourceError || needsPermission
+        ? "reconnect"
+        : !selected || this.hasPendingDrafts()
+          ? "dirty"
+          : "saved";
+    status.title = this.sourceError;
+    notice.hidden = !this.sourceWarnings.length;
+    notice.textContent = notice.hidden
+      ? ""
+      : `${this.sourceWarnings.length} ${this.sourceWarnings.length === 1 ? "notice" : "notices"}`;
+  }
+
+  private renderScan(): void {
+    const running = !!this.fileOperation;
+    this.scanView.hidden = !running && this.scan?.phase !== "cancelled";
+    if (this.scanView.hidden) return;
+    // Progress updates only text. Keep actions mounted so pointer/keyboard input
+    // cannot land on a discarded element while an I/O update arrives.
+    if (!this.scanView.childElementCount) {
+      const row = this.el("div", "browser-scan__row");
+      const text = this.el("div", "browser-scan__text");
+      const counts = this.el("span", "browser-scan__counts");
+      counts.setAttribute("role", "status");
+      counts.setAttribute("aria-live", "polite");
+      text.append(this.el("strong", "browser-scan__title"), counts);
+      const action = this.button(
+        "Cancel scan",
+        () => {
+          if (this.fileOperation) return this.stopScan();
+          return this.source?.id === this.scan?.sourceId
+            ? this.refreshFiles()
+            : this.connectFile("folder");
+        },
+        { variant: "ghost" },
+      );
+      row.append(text, action);
+      const progress = this.el("progress", "browser-scan__progress");
+      progress.setAttribute(
+        "aria-label",
+        "Reading the selected folder; total size is not yet known",
+      );
+      const found = this.el("details", "browser-scan__found");
+      found.append(this.el("summary", "", "Found notes"), this.el("ul"));
+      this.scanView.append(
+        row,
+        progress,
+        this.el("span", "browser-scan__path"),
+        found,
+      );
+    }
+    const setText = (selector: string, value: string) => {
+      const element = this.scanView.querySelector<HTMLElement>(selector)!;
+      if (element.textContent !== value) element.textContent = value;
+      return element;
+    };
+    setText(
+      ".browser-scan__title",
+      !running
+        ? "Scan stopped"
+        : this.scanStopping
+          ? "Stopping scan…"
+          : this.scan?.phase === "reading"
+            ? "Reading notes…"
+            : this.fileOperation!.label,
+    );
+    setText(
+      ".browser-scan__counts",
+      this.scan
+        ? `${this.scan.inspected.toLocaleString("en-US")} entries checked · ${this.scan.loaded.toLocaleString("en-US")} notes ready${this.scan.found > this.scan.loaded ? ` · ${this.scan.found.toLocaleString("en-US")} found` : ""}`
+        : "Preparing file access…",
+    );
+    const action = this.scanView.querySelector<HTMLButtonElement>("button")!;
+    const label = running
+      ? this.scan?.loaded
+        ? "Use found notes"
+        : "Cancel scan"
+      : this.source?.id === this.scan?.sourceId
+        ? "Scan again"
+        : "Open folder";
+    action.setAttribute("aria-label", label);
+    if (action.textContent !== label) action.textContent = label;
+    action.disabled =
+      running &&
+      (!this.scan ||
+        this.scanStopping ||
+        ["complete", "failed", "cancelled"].includes(this.scan.phase));
+    action.title = running
+      ? "Stop scanning. Already read notes remain available."
+      : "Read this folder again for added, changed or removed files.";
+    this.scanView.querySelector<HTMLElement>("progress")!.hidden = !running;
+    const path = setText(".browser-scan__path", this.scan?.path ?? "");
+    path.title = this.scan?.path ?? "";
+    path.hidden = !running || !this.scan?.path;
+    const found = this.scanView.querySelector<HTMLDetailsElement>("details")!;
+    found.hidden = !running || this.scanNotes.length === 0;
+    const signature = JSON.stringify(
+      this.scanNotes.map((note) => note.filePath),
+    );
+    if (found.dataset.paths !== signature) {
+      found.dataset.paths = signature;
+      found.querySelector("ul")!.replaceChildren(
+        ...this.scanNotes.map((note) => {
+          const item = this.el("li", "", note.filePath);
+          item.title = note.filePath;
+          return item;
+        }),
+      );
+    }
+  }
+
+  private async pollScan(
+    operation: NonNullable<BrowserPanel["fileOperation"]>,
+    schedule = true,
+  ): Promise<void> {
+    if (this.disposed || this.fileOperation !== operation) return;
+    if (operation.poll) {
+      await operation.poll;
+      return;
+    }
+    // A tick and the final drain share one cursor. Never ask for the same page
+    // concurrently: an older response could append duplicates or regress progress.
+    const pending = (async () => {
+      try {
+        const result = await request<BrowserScanStatus>(this.api, {
+          type: "scan-status",
+          ...(this.scan ? { id: this.scan.id, after: this.scanOffset } : {}),
+        });
+        if (this.disposed || this.fileOperation !== operation) return;
+        if (
+          result?.scan &&
+          (!operation.candidateId ||
+            result.scan.sourceId === operation.candidateId)
+        ) {
+          if (this.scan?.id !== result.scan.id) {
+            this.scanNotes = [];
+            this.scanOffset = 0;
+          }
+          this.scan = result.scan;
+          this.scanOffset = result.next;
+          this.scanNotes.push(
+            ...result.notes.slice(0, Math.max(0, 8 - this.scanNotes.length)),
+          );
+          this.renderScan();
+        }
+      } catch {
+        // The main operation owns errors. A progress read cannot invalidate it.
+      }
+    })();
+    operation.poll = pending;
+    try {
+      await pending;
+    } finally {
+      if (operation.poll === pending) operation.poll = null;
+    }
+    if (
+      schedule &&
+      !operation.finishing &&
+      !this.disposed &&
+      this.fileOperation === operation
+    )
+      this.scanTimer = setTimeout(() => void this.pollScan(operation), 300);
+  }
+
+  private async withFileProgress<T>(
+    label: string,
+    work: () => Promise<T>,
+    candidateId?: string,
+  ): Promise<T> {
+    const operation: NonNullable<BrowserPanel["fileOperation"]> = {
+      label,
+      candidateId,
+      poll: null,
+      finishing: false,
+    };
+    this.fileOperation = operation;
+    this.scan = null;
+    this.scanOffset = 0;
+    this.scanNotes = [];
+    this.scanStopping = false;
+    this.renderScan();
+    try {
+      const result = work();
+      void this.pollScan(operation);
+      return await result;
+    } finally {
+      operation.finishing = true;
+      if (this.fileOperation === operation) {
+        if (this.scanTimer) clearTimeout(this.scanTimer);
+        this.scanTimer = null;
+      }
+      // Drain the last tick before reading the final page with its advanced cursor.
+      await operation.poll;
+      await this.pollScan(operation, false);
+      if (this.fileOperation === operation) {
+        this.fileOperation = null;
+        if (!this.disposed) this.renderScan();
+      }
+    }
+  }
+
+  private async stopScan(): Promise<void> {
+    if (!this.scan || !this.fileOperation || this.scanStopping) return;
+    this.scanStopping = true;
+    this.renderScan();
+    try {
+      await request(this.api, { type: "cancel-scan", id: this.scan.id });
+    } catch (error) {
+      this.scanStopping = false;
+      this.renderScan();
+      this.fail(error);
+    }
+  }
+
+  private async refreshFiles(): Promise<void> {
+    if (!this.source?.id || this.fileOperation) return;
+    this.closeOverlay();
+    this.content.inert = this.toolbar.inert = true;
+    try {
+      if (!(await this.flushAllDrafts()))
+        throw new Error("Save or export your draft before refreshing files.");
+      const selected = this.selectedFileId;
+      const pinned = this.pinnedPage;
+      const status = await this.withFileProgress(
+        "Scanning folder…",
+        () => this.send<BrowserStatus>({ type: "refresh-files" }),
+        this.source.id,
+      );
+      if (this.disposed) return;
+      this.clearPlaintext();
+      this.state = status.state;
+      this.selectedFileId = selected;
+      this.pinnedPage = pinned;
+      this.render();
+      if (this.canUseLibrary()) await this.startEditing();
+    } finally {
+      this.content.inert = this.toolbar.inert = false;
+    }
+  }
+
+  private needsFilePermission(): boolean {
+    return (
+      this.sourceErrorCode === "permission" ||
+      (!!this.sourceAccessState && this.sourceAccessState.write !== "granted")
+    );
+  }
+
+  private canOpenInTab(): boolean {
+    return (
+      !this.privateWindow &&
+      this.windowId !== null &&
+      typeof this.api.runtime.getURL === "function"
+    );
+  }
+
+  /** A grant made in another AIC surface can resume this source without repicking. */
+  private async resumeGrantedAccess(): Promise<void> {
+    if (
+      this.disposed ||
+      this.checkingAccess ||
+      this.selectingSource ||
+      this.reconnecting ||
+      this.fileOperation ||
+      this.sourceChanged ||
+      !this.source?.id ||
+      this.document.visibilityState === "hidden" ||
+      (this.privateWindow && !this.allowPrivate) ||
+      (this.state !== "unavailable" && !this.needsFilePermission())
+    )
+      return;
+    this.checkingAccess = true;
+    const generation = this.generation;
+    const sourceId = this.source.id;
+    try {
+      const status = await request<BrowserStatus>(this.api, {
+        type: "status",
+        sourceId,
+      });
+      if (
+        !this.valid(generation) ||
+        this.reconnecting ||
+        this.selectingSource ||
+        this.fileOperation ||
+        this.source?.id !== sourceId ||
+        status.source.id !== sourceId ||
+        status.state !== "ready" ||
+        status.access?.write !== "granted"
+      )
+        return;
+      if (
+        !(await this.flushAllDrafts()) ||
+        !this.valid(generation) ||
+        this.source?.id !== sourceId
+      )
+        return;
+      this.sourceError = status.sourceError ?? "";
+      this.sourceErrorCode = status.sourceErrorCode ?? "";
+      this.sourceAccessState = status.access;
+      this.sourceWarnings = status.warnings ?? [];
+      if (this.state !== "ready") {
+        this.state = "ready";
+        this.render();
+        await this.startEditing();
+      }
+      this.renderFileLocation();
+    } catch {
+      // Passive observation must not replace the current draft or prompt the user.
+    } finally {
+      this.checkingAccess = false;
+    }
+  }
+
+  private async reconnectFile(): Promise<void> {
+    if (this.privateWindow && !this.allowPrivate)
+      throw new Error("Read and accept the private-window notice first.");
+    if (!this.source?.id) return this.connectFile("file");
+    if (this.reconnecting || this.fileOperation) return;
+    const sourceId = this.source.id;
+    const generation = this.generation;
+    const current = () =>
+      this.valid(generation) &&
+      this.source?.id === sourceId &&
+      !this.sourceChanged;
+    this.reconnecting = true;
+    this.reflectContinue();
+    try {
+      // Invoke permission on the retained handle inside the trusted click.
+      const permission = this.sourceAccess.reconnect(sourceId);
+      this.renderFileLocation();
+      await permission;
+      if (!current()) return;
+      this.closeOverlay();
+      const status = await this.withFileProgress(
+        "Reconnecting files…",
+        async () => {
+          if (!(await this.flushAllDrafts()))
+            throw new Error(
+              "File access restored. Retry saving the unsaved draft.",
+            );
+          if (!current()) return null;
+          return request<BrowserStatus>(this.api, { type: "status", sourceId });
+        },
+        sourceId,
+      );
+      if (!current() || !status) return;
+      if (status.source.id !== sourceId) {
+        this.sourceChanged = true;
+        throw new Error(
+          "The selected files changed in another panel. Your draft is unchanged.",
+        );
+      }
+      this.sourceError = status.sourceError ?? "";
+      this.sourceErrorCode = status.sourceErrorCode ?? "";
+      this.sourceAccessState = status.access;
+      if (
+        status.state !== "ready" ||
+        (status.access && status.access.write !== "granted")
+      )
+        throw new Error(
+          status.sourceError ||
+            "File access is still unavailable. Your draft is unchanged.",
+        );
+      if (status.state !== this.state) {
+        this.state = status.state;
+        this.render();
+        if (this.canUseLibrary()) await this.startEditing();
+      }
+      if (current()) this.tell("File access restored.");
+    } catch (error) {
+      if (
+        error &&
+        typeof error === "object" &&
+        "code" in error &&
+        error.code === "permission" &&
+        this.canOpenInTab()
+      ) {
+        const message =
+          error instanceof Error
+            ? error.message
+            : "File access was not allowed.";
+        throw new Error(
+          `${message} If the browser does not show a permission prompt here, choose More options → Open AIC in tab.`,
+          { cause: error },
+        );
+      }
+      throw error;
+    } finally {
+      this.reconnecting = false;
+      if (!this.disposed) {
+        this.renderFileLocation();
+        this.reflectContinue();
+      }
+    }
+  }
+
+  private async connectFile(mode: "file" | "folder" | "create"): Promise<void> {
+    if (this.privateWindow && !this.allowPrivate)
+      throw new Error("Read and accept the private-window notice first.");
+    if (this.selectingSource || this.reconnecting || this.fileOperation) return;
+    this.selectingSource = true;
+    const generation = this.generation;
+    // Freeze input until the old draft is acknowledged and the new source is mounted.
+    // A keystroke during the file commit must never be discarded by clearPlaintext().
+    this.content.inert = this.toolbar.inert = this.overlay.inert = true;
+    try {
+      // Start the system picker during the trusted click, before flushing.
+      const id = await chooseBrowserSource(mode, undefined, this.sourceAccess);
+      if (!id || !this.valid(generation)) return;
+      if (!(await this.flushAllDrafts()))
+        throw new Error(
+          "Save or export your unsaved drafts before changing files.",
+        );
+      const status = await this.withFileProgress(
+        mode === "folder" ? "Scanning folder…" : "Opening file…",
+        () =>
+          this.send<BrowserStatus>({
+            type: "connect-source",
+            bindingId: id,
+            mode: mode === "create" ? "create" : "open",
+          }),
+        id,
+      );
+      if (this.disposed) return;
+      this.clearPlaintext();
+      this.source = status.source;
+      this.sourceError = status.sourceError ?? "";
+      this.sourceErrorCode = status.sourceErrorCode ?? "";
+      this.sourceAccessState = status.access;
+      this.sourceChanged = false;
+      this.state = status.state;
+      this.closeOverlay();
+      this.render();
+      if (this.canUseLibrary()) await this.startEditing();
+      if (
+        mode === "folder" &&
+        this.source?.id === id &&
+        this.library.notes.length
+      ) {
+        const navigation = this.toolbar.querySelector<HTMLButtonElement>(
+          '[aria-label="Notes"]',
+        );
+        if (navigation) this.showNavigation(navigation);
+      }
+    } catch (error) {
+      // Refresh the chosen location without discarding a pending draft.
+      if (!this.hasPendingDrafts() && !this.disposed)
+        await this.recoverConnectionFailure(error, this.generation);
+      else throw error;
+    } finally {
+      this.selectingSource = false;
+      if (!this.disposed && this.source?.id) {
+        this.sourceAccess.select(this.source.id);
+        this.warmedSourceId = this.sourceAccess.has(this.source.id)
+          ? this.source.id
+          : null;
+        this.reflectContinue();
+        this.renderFileLocation();
+      }
+      this.content.inert = this.toolbar.inert = this.overlay.inert = false;
+    }
+  }
+
+  private async selectFile(id: string): Promise<void> {
+    const generation = this.generation;
+    this.content.inert = true;
+    try {
+      if (!(await this.flushAllDrafts()))
+        throw new Error("Save or export this draft before switching files.");
+      if (!this.valid(generation)) return;
+      this.dropEditor();
+      ++this.contextGeneration;
+      this.selectedFileId = id;
+      this.pinnedPage = null;
+      this.closeOverlay();
+      this.renderPage();
+      this.renderFileLocation();
+    } finally {
+      this.content.inert = false;
+    }
+  }
+
+  private newFile(trigger: HTMLButtonElement): Promise<void> | void {
+    if (this.source?.kind !== "directory") return this.connectFile("create");
+    this.closeOverlay();
+    const box = this.showPopover("New Markdown file", trigger);
+    if (!box) return;
+    const form = this.el("form");
+    const label = this.el("label", "browser-field", "File name");
+    const path = this.el("input");
+    path.setAttribute("aria-label", "File name");
+    path.placeholder = "note.md";
+    path.value = "note.md";
+    path.required = true;
+    label.append(path);
+    const submit = this.button("Create file", () => {});
+    submit.type = "submit";
+    form.append(label, submit);
+    const generation = this.generation;
+    form.addEventListener("submit", (event) => {
+      event.preventDefault();
+      submit.disabled = true;
+      this.content.inert = true;
+      void (async () => {
+        if (!(await this.flushAllDrafts()))
+          throw new Error("Save or export this draft first.");
+        if (!this.valid(generation)) return;
+        const note = await this.send<BrowserNote>({
+          type: "create-file",
+          path: path.value,
+          markdown: "",
+        });
+        if (!this.valid(generation)) return;
+        this.library.notes.push(note);
+        await this.selectFile(note.id);
+      })()
+        .catch((error: unknown) => {
+          if (this.valid(generation)) this.fail(error);
+        })
+        .finally(() => {
+          if (this.valid(generation)) {
+            submit.disabled = false;
+            this.content.inert = false;
+          }
+        });
+    });
+    box.append(form);
+    path.focus();
+    path.select();
+  }
+
+  private async linkSelectedFile(): Promise<void> {
+    if (!this.selectedFileId || this.windowId === null) return;
+    const generation = this.generation;
+    const id = this.selectedFileId;
+    if (!(await this.flushAllDrafts()))
+      throw new Error("Save this file before linking it.");
+    const page = await this.send<ActivePage | null>({
+      type: "context",
+      windowId: this.windowId,
+      allowPrivate: this.allowPrivate,
+    });
+    if (!this.valid(generation)) return;
+    if (!page) throw new Error("Open a web page to link this file.");
+    const note = await this.send<BrowserNote>({
+      type: "link-file",
+      id,
+      page,
+      allowPrivate: this.allowPrivate,
+    });
+    if (!this.valid(generation)) return;
+    this.library.notes = this.library.notes.map((item) =>
+      item.id === note.id ? note : item,
+    );
+    this.closeOverlay();
+    this.tell("File linked to the current page.");
   }
 
   private async initialize(): Promise<void> {
@@ -755,11 +1687,16 @@ export class BrowserPanel {
         throw new Error("This browser window is unavailable.");
       this.windowId = current.id;
       this.privateWindow = !!current.incognito;
-      const status = await request<VaultStatus>(this.api, { type: "status" });
+      const status =
+        this.privateWindow && !this.allowPrivate
+          ? await this.send<BrowserStatus>({ type: "status" })
+          : await this.withFileProgress("Opening your notes…", () =>
+              this.send<BrowserStatus>({ type: "status" }),
+            );
       if (!this.valid(generation)) return;
       this.state = status.state;
       this.render();
-      if (this.canUseLibrary()) await this.startUnlocked();
+      if (this.canUseLibrary()) await this.startEditing();
     } catch (error) {
       if (this.valid(generation)) this.fail(error);
     }
@@ -767,7 +1704,7 @@ export class BrowserPanel {
 
   private canUseLibrary(): boolean {
     return (
-      this.state === "unlocked" &&
+      this.state === "ready" &&
       this.document.visibilityState !== "hidden" &&
       (!this.privateWindow || this.allowPrivate)
     );
@@ -779,6 +1716,7 @@ export class BrowserPanel {
     this.root.dataset.privateConsent =
       this.privateWindow && !this.allowPrivate ? "required" : "granted";
     this.renderToolbar();
+    this.renderFileLocation();
     this.content.replaceChildren();
     if (this.privateWindow && !this.allowPrivate) {
       const gate = this.el("section", "browser-gate");
@@ -787,122 +1725,79 @@ export class BrowserPanel {
         this.el(
           "p",
           "",
-          "AIC encrypted notes and its own page history persist after private browsing ends. They are stored in your browser profile, separately from browser history.",
+          "Notes stay in the selected files after private browsing ends. Local draft recovery also remains on this device.",
         ),
       );
       gate.append(
         this.button("Use AIC in this private window", async () => {
           this.allowPrivate = true;
           this.render();
-          if (this.state === "unlocked") await this.startUnlocked();
+          if (this.state === "ready") await this.startEditing();
         }),
       );
       this.content.append(gate);
       return;
     }
-    if (this.state !== "unlocked") {
-      this.renderCredentials();
+    if (!this.canUseLibrary()) {
+      const gate = this.el("section", "browser-gate browser-files-gate");
+      const remembered = this.source?.id && this.state === "unavailable";
+      gate.append(
+        this.el("h1", "", remembered ? "Your notes" : "Open your notes"),
+      );
+      if (remembered) {
+        const name = this.el(
+          "p",
+          "browser-source-name",
+          this.source!.name || "Markdown files",
+        );
+        name.title = name.textContent ?? "";
+        const resume = this.button("Continue", () => this.reconnectFile(), {
+          icon: "folder",
+        });
+        resume.dataset.continueSource = "true";
+        gate.append(name, resume);
+      } else {
+        const actions = this.el("div", "browser-file-actions");
+        actions.append(
+          this.button("Open folder", () => this.connectFile("folder"), {
+            icon: "folder",
+          }),
+          this.button("Open file", () => this.connectFile("file"), {
+            icon: "document",
+            variant: "ghost",
+          }),
+        );
+        gate.append(actions);
+      }
+      this.content.append(gate);
+      this.reflectContinue();
       return;
     }
     this.renderPage();
   }
 
-  private passwordField(label: string, parent: HTMLElement): HTMLInputElement {
-    const wrapper = this.el("label", "browser-field", label);
-    const input = this.el("input");
-    input.type = "password";
-    input.autocomplete = "off";
-    input.setAttribute("aria-label", label);
-    input.required = true;
-    wrapper.append(input);
-    parent.append(wrapper);
-    return input;
+  private reflectContinue(): void {
+    const button = this.content.querySelector<HTMLButtonElement>(
+      "[data-continue-source]",
+    );
+    if (!button) return;
+    const ready = this.source?.id === this.warmedSourceId;
+    button.disabled = !ready || this.reconnecting;
+    button.setAttribute("aria-busy", String(!ready || this.reconnecting));
+    button.title = !ready
+      ? "Preparing access to the selected files…"
+      : "Continue with the selected files";
   }
 
-  private renderCredentials(): void {
-    const setup = this.state === "setup";
-    const form = this.el("form", "browser-gate");
-    form.append(
-      this.el(
-        "h1",
-        "",
-        setup ? "Encrypt your local notes" : "Your notes are locked",
-      ),
-    );
-    form.append(
-      this.el(
-        "p",
-        "",
-        setup
-          ? "Choose a master passphrase of at least 12 characters. Keep it safe: there is no password recovery. Notes and AIC page history stay encrypted in this browser profile."
-          : "Enter your master passphrase to open notes in this browser session.",
-      ),
-    );
-    const password = this.passwordField("Master passphrase", form);
-    const confirm = setup
-      ? this.passwordField("Confirm master passphrase", form)
-      : null;
-    const submit = this.button(
-      setup ? "Create encrypted library" : "Unlock",
-      () => {},
-    );
-    submit.type = "submit";
-    form.append(submit);
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      let phrase = password.value;
-      const confirmation = confirm?.value;
-      password.value = "";
-      if (confirm) confirm.value = "";
-      if (
-        setup &&
-        ([...phrase].length < 12 ||
-          new TextEncoder().encode(phrase).length > 1024 ||
-          phrase !== confirmation)
-      ) {
-        // Release the local reference; JavaScript strings cannot be zeroed in place.
-        // eslint-disable-next-line no-useless-assignment
-        phrase = "";
-        this.tell(
-          "Use at least 12 characters (at most 1024 UTF-8 bytes) and enter the same passphrase twice.",
-        );
-        return;
-      }
-      const generation = this.generation;
-      submit.disabled = true;
-      const pending = request<VaultStatus>(this.api, {
-        type: setup ? "setup" : "unlock",
-        password: phrase,
-      });
-      // eslint-disable-next-line no-useless-assignment -- Release our reference after dispatch.
-      phrase = "";
-      void pending
-        .then(async (status) => {
-          if (!this.valid(generation)) return;
-          this.state = status.state;
-          this.tell("");
-          this.render();
-          await this.startUnlocked();
-        })
-        .catch(async (error: unknown) => {
-          if (this.valid(generation))
-            await this.recoverCredentialFailure(error, generation);
-        })
-        .finally(() => {
-          if (this.valid(generation)) submit.disabled = false;
-        });
-    });
-    this.content.append(form);
-  }
-
-  private async startUnlocked(): Promise<void> {
+  private async startEditing(): Promise<void> {
     if (!this.canUseLibrary()) return;
     if (!this.drafts) {
       const generation = this.generation;
       this.drafts = new BrowserDrafts(
         async (id, markdown, revision) => {
-          if (!this.valid(generation)) throw new Error("AIC is locked.");
-          return request<BrowserNote>(this.api, {
+          if (!this.valid(generation))
+            throw new Error("The notes location changed.");
+          return this.send<BrowserNote>({
             type: "save",
             id,
             markdown,
@@ -927,10 +1822,11 @@ export class BrowserPanel {
           this.renderDraftWarnings();
         },
         async (page, markdown) => {
-          if (!this.valid(generation)) throw new Error("AIC is locked.");
+          if (!this.valid(generation))
+            throw new Error("The notes location changed.");
           if (!this.page || this.page.url !== page.url)
             throw { code: "page_changed" };
-          return request<BrowserNote>(this.api, {
+          return this.send<BrowserNote>({
             type: "create",
             page: { ...this.page },
             markdown,
@@ -944,8 +1840,9 @@ export class BrowserPanel {
       const generation = this.generation;
       this.domainDrafts = new DomainDrafts(
         async (id, markdown, revision) => {
-          if (!this.valid(generation)) throw new Error("AIC is locked.");
-          return request<BrowserDomain>(this.api, {
+          if (!this.valid(generation))
+            throw new Error("The notes location changed.");
+          return this.send<BrowserDomain>({
             type: "save-domain",
             id,
             markdown,
@@ -959,10 +1856,7 @@ export class BrowserPanel {
               (item) => item.origin === draft.record!.origin,
             );
             if (index < 0) this.library.domains.push(draft.record);
-            else if (
-              this.library.domains[index]!.id === draft.record.id &&
-              this.library.domains[index]!.revision <= draft.record.revision
-            )
+            else if (!draft.dirty && !draft.saving)
               this.library.domains[index] = draft.record;
           }
           if (this.domainKey === draft.key) this.reflectDomainDraft(draft);
@@ -973,10 +1867,11 @@ export class BrowserPanel {
           }
         },
         async (context, markdown) => {
-          if (!this.valid(generation)) throw new Error("AIC is locked.");
+          if (!this.valid(generation))
+            throw new Error("The notes location changed.");
           if (!this.page || new URL(this.page.url).origin !== context.origin)
             throw { code: "page_changed" };
-          return request<BrowserDomain>(this.api, {
+          return this.send<BrowserDomain>({
             type: "create-domain",
             page: { ...this.page },
             markdown,
@@ -989,8 +1884,9 @@ export class BrowserPanel {
       const generation = this.generation;
       this.globalDrafts = new GlobalDrafts(
         async (id, markdown, revision) => {
-          if (!this.valid(generation)) throw new Error("AIC is locked.");
-          return request<BrowserGlobal>(this.api, {
+          if (!this.valid(generation))
+            throw new Error("The notes location changed.");
+          return this.send<BrowserGlobal>({
             type: "save-global",
             id,
             markdown,
@@ -1001,9 +1897,7 @@ export class BrowserPanel {
           if (!this.valid(generation)) return;
           if (
             draft.record &&
-            (!this.library.global ||
-              (this.library.global.id === draft.record.id &&
-                this.library.global.revision <= draft.record.revision))
+            (!this.library.global || (!draft.dirty && !draft.saving))
           )
             this.library.global = draft.record;
           if (this.globalKey === draft.key)
@@ -1015,8 +1909,9 @@ export class BrowserPanel {
           }
         },
         async (_context, markdown) => {
-          if (!this.valid(generation)) throw new Error("AIC is locked.");
-          return request<BrowserGlobal>(this.api, {
+          if (!this.valid(generation))
+            throw new Error("The notes location changed.");
+          return this.send<BrowserGlobal>({
             type: "create-global",
             markdown,
           });
@@ -1024,20 +1919,25 @@ export class BrowserPanel {
       );
     }
     await this.refreshContext();
+    await this.loadRecoveredDrafts();
   }
 
-  private async recoverCredentialFailure(
+  private async recoverConnectionFailure(
     error: unknown,
     generation: number,
   ): Promise<void> {
     try {
-      const status = await request<VaultStatus>(this.api, { type: "status" });
+      const previousSource = this.source?.id ?? this.source?.kind;
+      const status = await this.send<BrowserStatus>({ type: "status" });
       if (!this.valid(generation)) return;
-      if (status.state !== this.state) {
+      if (
+        status.state !== this.state ||
+        previousSource !== (this.source?.id ?? this.source?.kind)
+      ) {
         this.closeOverlay();
         this.state = status.state;
         this.render();
-        if (this.canUseLibrary()) await this.startUnlocked();
+        if (this.canUseLibrary()) await this.startEditing();
       }
     } catch {
       /* Keep the original actionable error when status is unavailable. */
@@ -1047,7 +1947,10 @@ export class BrowserPanel {
 
   private contextChanged(): void {
     if (!this.canUseLibrary()) return;
-    if (this.pinnedPage) void this.refreshActivePage();
+    if (this.selectedFileId) {
+      void this.refreshActivePage();
+      this.refreshSharedData();
+    } else if (this.pinnedPage) void this.refreshActivePage();
     else void this.refreshContext();
   }
 
@@ -1057,7 +1960,7 @@ export class BrowserPanel {
     if (!this.canUseLibrary() || this.windowId === null) return;
     const generation = this.generation;
     try {
-      const page = await request<ActivePage | null>(this.api, {
+      const page = await this.send<ActivePage | null>({
         type: "context",
         windowId: this.windowId,
         allowPrivate: this.allowPrivate,
@@ -1130,6 +2033,7 @@ export class BrowserPanel {
       this.refreshSharedData();
       return;
     }
+    const selectedScope = this.activeScope;
     this.activePage = null;
     ++this.activeGeneration;
     this.clearMarkdownImport();
@@ -1138,18 +2042,19 @@ export class BrowserPanel {
     this.contextLoading = true;
     this.setImporting(false);
     this.dropEditor();
+    this.activeScope = selectedScope;
     this.page = null;
     this.closeOverlay();
     this.tell("");
     this.renderPage();
     try {
-      const page = await request<ActivePage | null>(this.api, {
+      const page = await this.send<ActivePage | null>({
         type: "context",
         windowId: this.windowId,
         allowPrivate: this.allowPrivate,
       });
       if (!this.valid(generation, context)) return;
-      const library = await request<BrowserLibrary>(this.api, {
+      const library = await this.send<BrowserLibrary>({
         type: "visit",
         windowId: this.windowId,
         allowPrivate: this.allowPrivate,
@@ -1158,6 +2063,8 @@ export class BrowserPanel {
       this.page = page;
       this.activePage = page;
       this.library = library;
+      if (this.source?.kind === "file" && !this.selectedFileId)
+        this.selectedFileId = library.notes[0]?.id ?? null;
       this.contextLoading = false;
       this.renderPage();
     } catch (error) {
@@ -1179,8 +2086,21 @@ export class BrowserPanel {
       );
       return;
     }
-    this.mountGlobalProperties();
-    if (this.page) {
+    if (this.source?.kind !== "file") this.mountGlobalProperties();
+    if (this.selectedFileId) {
+      const note = this.library.notes.find(
+        (item) => item.id === this.selectedFileId,
+      );
+      if (note) this.mountEditor(this.drafts!.activate(note));
+      else
+        this.content.append(
+          this.el(
+            "p",
+            "browser-empty-context",
+            "This file is no longer available. Open its location again.",
+          ),
+        );
+    } else if (this.page && this.source?.kind !== "file") {
       this.mountSharedProperties();
       this.content.append(this.el("nav", "browser-page-ancestors"));
       this.renderPageAncestors();
@@ -1194,20 +2114,13 @@ export class BrowserPanel {
       );
     } else {
       const empty = this.el("section", "browser-empty-context");
-      empty.append(
-        this.el("h1", "", "Your notes and recent pages"),
-        this.el(
-          "p",
-          "",
-          "Open a web page to write or import a note. Choose a saved page below to return to it.",
-        ),
-      );
+      empty.append(this.el("p", "", "Open a web page to start a note."));
       this.content.append(empty);
       this.appendNavigation(this.content);
     }
     const warnings = this.el("div", "browser-draft-warnings");
     this.content.append(warnings);
-    this.mountScopeTabs();
+    if (this.source?.kind !== "file") this.mountScopeTabs();
     this.renderDraftWarnings();
   }
 
@@ -1323,7 +2236,7 @@ export class BrowserPanel {
     this.content.append(host);
     this.shared = new DomainPropertiesView(host, {
       origin,
-      initialText: draft.record?.markdown ?? null,
+      initialText: draft.text,
       onChange: (text) => {
         if (this.valid(generation, context))
           this.domainDrafts?.edit(draft.key, text);
@@ -1333,20 +2246,7 @@ export class BrowserPanel {
         this.domainDrafts!.edit(draft.key, text);
         return this.domainDrafts!.flush(draft.key);
       },
-      onEditingChange: (editing) => {
-        if (!this.valid(generation, context)) return;
-        this.content.dataset.domainEditing = String(
-          editing || this.globalShared?.editing || false,
-        );
-        this.renderToolbar();
-        if (!editing && this.activeScope === "current") this.editor?.focus();
-      },
     });
-    // Retain local domain edits when returning to the originating site; never
-    // render an invalid draft as inherited plaintext in a child page.
-    if (draft.dirty) {
-      this.shared.startEditing(draft.text);
-    }
     this.reflectDomainDraft(draft);
   }
 
@@ -1364,7 +2264,7 @@ export class BrowserPanel {
     this.globalShared = new DomainPropertiesView(host, {
       origin: "Global Shared",
       scope: "global",
-      initialText: draft.record?.markdown ?? null,
+      initialText: draft.text,
       onChange: (text) => {
         if (this.valid(generation, context))
           this.globalDrafts?.edit(draft.key, text);
@@ -1374,21 +2274,14 @@ export class BrowserPanel {
         this.globalDrafts!.edit(draft.key, text);
         return this.globalDrafts!.flush(draft.key);
       },
-      onEditingChange: (editing) => {
-        if (!this.valid(generation, context)) return;
-        this.content.dataset.domainEditing = String(
-          editing || this.shared?.editing || false,
-        );
-        this.renderToolbar();
-        if (!editing && this.activeScope === "current") this.editor?.focus();
-      },
     });
-    if (draft.dirty) this.globalShared.startEditing(draft.text);
     this.reflectDomainDraft(draft, this.globalShared);
   }
 
   private mountScopeTabs(): void {
     this.scopeTabs?.dispose();
+    if (this.activeScope === "shared" && (!this.page || this.selectedFileId))
+      this.activeScope = "current";
     const current = this.el("section", "browser-scope-panel");
     const shared = this.el("section", "browser-scope-panel");
     const global = this.el("section", "browser-scope-panel");
@@ -1403,12 +2296,14 @@ export class BrowserPanel {
         shared.append(child);
       else current.append(child);
     }
-    if (!this.page)
+    if (!this.page || this.selectedFileId)
       shared.append(
         this.el(
           "p",
           "browser-empty-context",
-          "Open a web page to use its Shared notes.",
+          this.selectedFileId
+            ? "Follow the active tab to use Shared notes."
+            : "Open a web page to use its Shared notes.",
         ),
       );
     const generation = this.generation;
@@ -1422,8 +2317,12 @@ export class BrowserPanel {
           id: "shared",
           label: "Shared",
           panel: shared,
-          disabled: !this.page,
-          title: !this.page ? "Open a web page to use Shared notes" : undefined,
+          disabled: !this.page || !!this.selectedFileId,
+          title: this.selectedFileId
+            ? "Follow active tab to use Shared notes"
+            : !this.page
+              ? "Open a web page to use Shared notes"
+              : undefined,
         },
         { id: "global", label: "Global", panel: global },
       ],
@@ -1532,10 +2431,32 @@ export class BrowserPanel {
       ) {
         processed = this.domainReloadRevision;
         const context = this.contextGeneration;
-        const library = await request<BrowserLibrary>(this.api, {
+        const observedDomains = [...this.library.domains];
+        const observedGlobal = this.library.global;
+        const library = await this.send<BrowserLibrary>({
           type: "load",
         });
         if (!this.valid(generation, context)) continue;
+        // A local ACK or a newer reload request may overtake this read. Read
+        // again; content hashes cannot establish which observation came later.
+        if (
+          processed !== this.domainReloadRevision ||
+          !sameScopeObservation(observedGlobal, this.library.global) ||
+          observedDomains.length !== this.library.domains.length ||
+          observedDomains.some(
+            (record) =>
+              !sameScopeObservation(
+                record,
+                this.library.domains.find(
+                  (item) => item.origin === record.origin,
+                ) ?? null,
+              ),
+          )
+        ) {
+          if (processed === this.domainReloadRevision)
+            ++this.domainReloadRevision;
+          continue;
+        }
         if (this.deleting) {
           this.libraryRefreshDeferred = true;
           continue;
@@ -1549,13 +2470,19 @@ export class BrowserPanel {
             (item) => item.origin === record.origin,
           );
           if (index < 0) this.library.domains.push(record);
-          else if (this.library.domains[index]!.revision <= record.revision)
+          else if (
+            record.filePath ||
+            this.library.domains[index]!.filePath ||
+            this.library.domains[index]!.revision <= record.revision
+          )
             this.library.domains[index] = record;
         }
         if (
           library.global &&
           (!this.library.global ||
             library.global.id !== this.library.global.id ||
+            library.global.filePath ||
+            this.library.global.filePath ||
             library.global.revision >= this.library.global.revision)
         )
           this.library.global = library.global;
@@ -1575,7 +2502,7 @@ export class BrowserPanel {
           (item) => item.origin === origin,
         );
         if (!record) continue;
-        // The vault storage event can precede our own write acknowledgment.
+        // The file change event can precede our own write acknowledgment.
         // Let the coordinator consume it before treating a newer revision as remote.
         if (this.domainKey && this.domainDrafts.get(this.domainKey)?.saving) {
           this.domainRefreshDeferred = true;
@@ -1590,7 +2517,7 @@ export class BrowserPanel {
       .catch(() => {
         if (this.valid(generation))
           this.tell(
-            "Shared properties could not refresh. Reopen the panel to retry.",
+            "Shared notes could not refresh. Reopen the panel to retry.",
             "error",
           );
       })
@@ -1609,10 +2536,239 @@ export class BrowserPanel {
     return results.every(Boolean);
   }
 
+  private checkpointDrafts(): void {
+    if (
+      this.disposed ||
+      this.state !== "ready" ||
+      !this.source ||
+      !["file", "directory"].includes(this.source.kind) ||
+      !this.source.id
+    )
+      return;
+    const entries: RecoveryDraft[] = [
+      ...(this.drafts?.pendingDrafts() ?? []).map((draft): RecoveryDraft => ({
+        scope: "current",
+        key: draft.key,
+        context: { ...draft.page },
+        record: draft.note && {
+          id: draft.note.id,
+          revision: draft.note.revision,
+          markdown: draft.note.markdown,
+        },
+        text: draft.text,
+      })),
+      ...(this.domainDrafts?.pendingDrafts() ?? []).map(
+        (draft): RecoveryDraft => ({
+          scope: "shared",
+          key: draft.key,
+          context: { origin: draft.context.origin },
+          record: draft.record && {
+            id: draft.record.id,
+            revision: draft.record.revision,
+            markdown: draft.record.markdown,
+          },
+          text: draft.text,
+        }),
+      ),
+      ...(this.globalDrafts?.pendingDrafts() ?? []).map(
+        (draft): RecoveryDraft => ({
+          scope: "global",
+          key: draft.key,
+          context: {},
+          record: draft.record && {
+            id: draft.record.id,
+            revision: draft.record.revision,
+            markdown: draft.record.markdown,
+          },
+          text: draft.text,
+        }),
+      ),
+    ];
+    if (!entries.length && !this.recoverySignature) return;
+    const signature = JSON.stringify({ sourceId: this.source.id, entries });
+    if (signature === this.recoverySignature) return;
+    this.recoverySignature = signature;
+    const sequence = ++this.recoverySequence;
+    const generation = this.generation;
+    // Dispatch immediately on edit, independently of the disk-save debounce.
+    // Only the worker persists recovery; this is never a disk-save ACK.
+    void request(this.api, {
+      type: "checkpoint-drafts",
+      clientId: this.recoveryClientId,
+      sourceId: this.source.id,
+      sequence,
+      entries,
+    })
+      .then(() => {
+        if (
+          this.valid(generation) &&
+          sequence === this.recoverySequence &&
+          this.recoveryError
+        ) {
+          this.recoveryError = "";
+          this.renderDraftWarnings();
+        }
+      })
+      .catch(() => {
+        if (!this.valid(generation) || sequence !== this.recoverySequence)
+          return;
+        this.recoveryError =
+          "Draft recovery could not be updated. Keep this panel open until the note is saved to disk, or export the draft.";
+        this.renderDraftWarnings();
+      });
+  }
+
+  private async loadRecoveredDrafts(): Promise<void> {
+    if (
+      !this.canUseLibrary() ||
+      !this.source ||
+      !["file", "directory"].includes(this.source.kind)
+    )
+      return;
+    const generation = this.generation;
+    try {
+      const snapshots = await this.send<RecoverySnapshot[]>({
+        type: "list-recovery",
+      });
+      if (!this.valid(generation)) return;
+      this.recovered = Array.isArray(snapshots)
+        ? snapshots.filter(
+            (snapshot) => snapshot.clientId !== this.recoveryClientId,
+          )
+        : [];
+      this.renderDraftWarnings();
+    } catch {
+      if (this.valid(generation))
+        this.tell(
+          "Recovered drafts could not be checked. Reconnect the notes location and try again.",
+          "error",
+        );
+    }
+  }
+
+  private showRecoveredDrafts(trigger: HTMLButtonElement): void {
+    if (!this.canUseLibrary()) return;
+    const generation = this.generation;
+    const context = this.contextGeneration;
+    const sourceId = this.source?.id;
+    const valid = () =>
+      this.valid(generation, context) &&
+      this.canUseLibrary() &&
+      this.source?.id === sourceId;
+    const box = this.showPopover("Recovered drafts", trigger);
+    if (!box) return;
+    box.append(
+      this.el("h2", "", "Recovered drafts"),
+      this.el(
+        "p",
+        "browser-menu-hint",
+        "These edits were not confirmed on disk. Save a Markdown copy to review them; the original notes file is unchanged.",
+      ),
+    );
+    for (const snapshot of this.recovered) {
+      if (snapshot.unavailable)
+        box.append(
+          this.el(
+            "p",
+            "browser-menu-hint",
+            "This recovery copy is unavailable. Its stored contents have been kept unchanged.",
+          ),
+        );
+      for (const [index, draft] of snapshot.entries.entries()) {
+        const label =
+          draft.scope === "current"
+            ? displayPageTitle(draft.context)
+            : draft.scope === "shared"
+              ? `Shared · ${new URL(draft.context.origin).host}`
+              : "Global";
+        box.append(
+          this.menuButton(
+            `Save recovered copy: ${label}`,
+            "download",
+            () => {
+              this.download(
+                draft.text,
+                `aic-recovered-${draft.scope}-${index + 1}.md`,
+                "text/markdown;charset=utf-8",
+              );
+              this.tell(
+                "Recovery copy exported as plaintext Markdown. The recovery copy is kept until you dismiss it.",
+              );
+            },
+            label,
+          ),
+        );
+      }
+      box.append(
+        this.button("Dismiss this recovery copy…", () => {
+          if (!valid()) return;
+          this.closeOverlay();
+          const confirm = this.showPopover("Dismiss recovery copy", trigger);
+          if (!confirm) return;
+          confirm.append(
+            this.el(
+              "p",
+              "",
+              "Delete this recovery copy? Export any drafts you need first. This does not change your notes file.",
+            ),
+            this.button("Keep recovery copy", () => this.closeOverlay(true)),
+            this.button("Delete recovery copy", async () => {
+              if (!valid()) return;
+              await request(this.api, {
+                type: "dismiss-recovery",
+                sourceId,
+                clientId: snapshot.clientId,
+                sequence: snapshot.sequence,
+              });
+              if (!valid()) return;
+              this.recovered = this.recovered.filter(
+                (item) => item.clientId !== snapshot.clientId,
+              );
+              this.closeOverlay();
+              this.renderDraftWarnings();
+            }),
+          );
+          confirm.querySelector<HTMLButtonElement>("button")?.focus();
+        }),
+      );
+    }
+    box.querySelector<HTMLButtonElement>("button")?.focus();
+  }
+
   private renderDraftWarnings(): void {
+    this.checkpointDrafts();
+    this.renderFileLocation();
     const target = this.content.querySelector(".browser-draft-warnings");
     if (!target) return;
     target.replaceChildren();
+    if (this.recoveryError && this.hasPendingDrafts()) {
+      const warning = applyUiComponent(this.el("div"), "notice", ["warning"]);
+      warning.append(this.el("p", "", this.recoveryError));
+      target.append(warning);
+    }
+    const recoveryCount = this.recovered.reduce(
+      (count, snapshot) =>
+        count + Math.max(snapshot.entries.length, snapshot.unavailable ? 1 : 0),
+      0,
+    );
+    if (recoveryCount) {
+      const recovery = applyUiComponent(
+        this.el("div", "browser-recovery"),
+        "notice",
+        ["info"],
+      );
+      recovery.append(
+        this.el(
+          "span",
+          "",
+          `${recoveryCount} draft recovery ${recoveryCount === 1 ? "copy" : "copies"} available.`,
+        ),
+        this.button("Review recovered drafts", (button) =>
+          this.showRecoveredDrafts(button),
+        ),
+      );
+      target.append(recovery);
+    }
     for (const draft of this.activeScope === "current"
       ? (this.drafts?.dirtyDrafts() ?? [])
       : []) {
@@ -1624,7 +2780,11 @@ export class BrowserPanel {
           "",
           `${displayPageTitle(draft.page)} (${displayPageLocation(draft.page.url)}): ${draft.error}`,
         ),
-        this.button("Retry save", () => this.drafts?.flush(draft.key)),
+        this.button("Retry save", () =>
+          this.needsFilePermission()
+            ? this.reconnectFile()
+            : this.drafts?.flush(draft.key),
+        ),
         this.button("Export unsaved draft", () => this.exportDraft(draft.key)),
       );
       target.append(warning);
@@ -1637,9 +2797,11 @@ export class BrowserPanel {
       warning.append(
         this.el("p", "", `${draft.context.origin}: ${draft.error}`),
         this.button("Retry shared save", () =>
-          this.domainDrafts?.flush(draft.key),
+          this.needsFilePermission()
+            ? this.reconnectFile()
+            : this.domainDrafts?.flush(draft.key),
         ),
-        this.button("Export unsaved shared properties", () =>
+        this.button("Export unsaved shared notes", () =>
           this.exportDomainDraft(draft.key),
         ),
       );
@@ -1653,9 +2815,11 @@ export class BrowserPanel {
       warning.append(
         this.el("p", "", `Global: ${draft.error}`),
         this.button("Retry global save", () =>
-          this.globalDrafts?.flush(draft.key),
+          this.needsFilePermission()
+            ? this.reconnectFile()
+            : this.globalDrafts?.flush(draft.key),
         ),
-        this.button("Export unsaved global properties", () =>
+        this.button("Export unsaved global notes", () =>
           this.exportDomainDraft(draft.key, true),
         ),
       );
@@ -1674,36 +2838,65 @@ export class BrowserPanel {
       `${displayPageTitle(item)}\n${displayPageLocation(item.url)}`
         .toLocaleLowerCase()
         .includes(query);
-    const domains = buildDomainTree(this.library.notes.filter(matches));
+    const domains = buildDomainTree(
+      this.library.notes.filter(
+        (note) => !note.filePath && note.url && matches(note),
+      ),
+    );
     const activeHost = this.page ? new URL(this.page.url).host : null;
     domains.sort(
       (a, b) => Number(b.host === activeHost) - Number(a.host === activeHost),
     );
-    const noteLabels = navigationLabels(this.library.notes.filter(matches));
-    const pageLink = (
-      page: { url: string; title: string },
-      label: string,
-      saved: boolean,
-    ): HTMLElement => {
-      const item = this.el("li");
-      const row = this.el("div", "browser-page-row");
+    const noteLabels = navigationLabels(
+      this.library.notes.filter(
+        (note) => !note.filePath && note.url && matches(note),
+      ),
+    );
+    const treeIcon = (name: string, element: "icon" | "toggle" = "icon") => {
+      const icon = this.el("span", "cm-aic-icon-button");
+      applyUiComponent(icon, "tree", [], element);
+      icon.dataset.aicIcon = name;
+      icon.setAttribute("aria-hidden", "true");
+      return icon;
+    };
+    const groupList = () =>
+      applyUiComponent(this.el("ul"), "tree", [], "group");
+    const pageLink = (page: BrowserNote): HTMLElement => {
+      const label = noteLabels.get(page.url) ?? displayPageTitle(page);
+      const item = applyUiComponent(this.el("li"), "tree", [], "item");
+      const row = applyUiComponent(
+        this.el("div", "browser-page-row"),
+        "tree",
+        [],
+        "row",
+      );
       row.dataset.current = String(page.url === this.page?.url);
       const button = this.button(label, () => this.navigate(page.url));
+      applyUiComponent(button, "button", ["ghost"]);
       button.title = displayPageLocation(page.url);
-      button.replaceChildren(this.el("span", "browser-page-label", label));
+      button.replaceChildren(
+        treeIcon("document"),
+        applyUiComponent(
+          this.el("span", "browser-page-label", label),
+          "tree",
+          [],
+          "label",
+        ),
+      );
       if (page.url === this.page?.url)
         button.setAttribute("aria-current", "page");
       const remove = this.iconButton(
-        `${saved ? "Delete local note" : "Remove recent page"}: ${label}`,
-        "×",
+        `Delete local note: ${label}`,
+        "",
         () =>
           this.showDeletePage(
             page.url,
             page.title,
             this.toolbar.querySelector<HTMLButtonElement>(
-              '[aria-label="Notes and history"]',
+              '[aria-label="Notes"]',
             ) ?? button,
           ),
+        "trash",
       );
       remove.classList.add("browser-page-delete");
       remove.disabled = this.importing || this.deleting;
@@ -1711,55 +2904,166 @@ export class BrowserPanel {
       item.append(row);
       return item;
     };
+    const groupHeader = (label: string, className = "") => {
+      const summary = applyUiComponent(this.el("summary"), "tree", [], "row");
+      summary.append(
+        treeIcon("chevron", "toggle"),
+        treeIcon("folder"),
+        applyUiComponent(
+          this.el("span", className, label),
+          "tree",
+          [],
+          "label",
+        ),
+      );
+      return summary;
+    };
     const appendItems = (items: NavigationItem[], parent: HTMLElement) => {
       for (const entry of items) {
         if (entry.kind === "note") {
-          parent.append(
-            pageLink(
-              entry.note,
-              noteLabels.get(entry.note.url) ?? displayPageTitle(entry.note),
-              true,
-            ),
-          );
+          parent.append(pageLink(entry.note));
           continue;
         }
-        const group = this.el("li", "browser-path");
-        group.append(this.el("span", "browser-path-label", entry.label));
-        const children = this.el("ul");
+        const item = applyUiComponent(this.el("li"), "tree", [], "item");
+        const group = this.el("details", "browser-path");
+        group.open = true;
+        group.append(groupHeader(entry.label, "browser-path-label"));
+        const children = groupList();
         appendItems(entry.items, children);
         group.append(children);
-        parent.append(group);
+        item.append(group);
+        parent.append(item);
       }
     };
+    const tree = groupList();
     for (const domain of domains) {
+      const item = applyUiComponent(this.el("li"), "tree", [], "item");
       const group = this.el("details", "browser-domain");
       group.open =
-        !!query || domain.host === activeHost || domains.length === 1;
-      group.append(this.el("summary", "", domain.host));
-      const list = this.el("ul");
+        !!query ||
+        !this.page ||
+        domain.host === activeHost ||
+        domains.length === 1;
+      group.append(groupHeader(domain.host));
+      const list = groupList();
       appendItems(projectDomain(domain), list);
       group.append(list);
-      nav.append(group);
+      item.append(group);
+      tree.append(item);
     }
-    if (!domains.length)
-      nav.append(this.el("p", "browser-empty", "No matching notes."));
-    const history = this.el("ul", "browser-history");
-    const savedUrls = new Set(this.library.notes.map((note) => note.url));
-    const visits = this.library.history.filter(
-      (visit) => !savedUrls.has(visit.url) && matches(visit),
-    );
-    if (visits.length) nav.append(this.el("h2", "", "Recent pages"));
-    const visitLabels = navigationLabels(visits);
-    for (const visit of visits) {
-      const item = pageLink(
-        visit,
-        visitLabels.get(visit.url) ?? displayPageTitle(visit),
-        false,
+    const files = this.library.notes
+      .filter(
+        (note) =>
+          note.filePath &&
+          `${note.filePath}\n${note.title}`.toLocaleLowerCase().includes(query),
+      )
+      .sort((left, right) => left.filePath!.localeCompare(right.filePath!));
+    type FileBranch = {
+      path: string;
+      name: string;
+      folders: Map<string, FileBranch>;
+      notes: BrowserNote[];
+    };
+    const root: FileBranch = {
+      path: "",
+      name: "",
+      folders: new Map(),
+      notes: [],
+    };
+    for (const note of files) {
+      const parts = note.filePath!.split("/");
+      parts.pop();
+      let parent = root;
+      for (const segment of parts) {
+        let branch = parent.folders.get(segment);
+        if (!branch) {
+          branch = {
+            path: parent.path ? `${parent.path}/${segment}` : segment,
+            name: segment,
+            folders: new Map(),
+            notes: [],
+          };
+          parent.folders.set(segment, branch);
+        }
+        parent = branch;
+      }
+      parent.notes.push(note);
+    }
+    const selectedPath = this.library.notes.find(
+      (note) => note.id === this.selectedFileId || note.id === this.noteId,
+    )?.filePath;
+    const appendLevel = (branch: FileBranch, parent: HTMLElement) => {
+      const entries = [...branch.folders.values(), ...branch.notes];
+      let shown = 0;
+      const more = this.button(
+        `Show more in ${branch.path || "this folder"}`,
+        () => appendNext(),
+        { variant: "ghost" },
       );
-      item.append(this.el("small", "browser-url", new URL(visit.url).host));
-      history.append(item);
-    }
-    nav.append(history);
+      const moreItem = applyUiComponent(this.el("li"), "tree", [], "item");
+      moreItem.append(more);
+      const appendNext = () => {
+        moreItem.remove();
+        const end = Math.min(shown + 100, entries.length);
+        for (; shown < end; shown++) {
+          const entry = entries[shown]!;
+          const item = applyUiComponent(this.el("li"), "tree", [], "item");
+          if ("folders" in entry) {
+            const group = this.el("details", "browser-path");
+            group.dataset.folderPath = entry.path;
+            group.open =
+              files.length <= 200 ||
+              !!query ||
+              !!selectedPath?.startsWith(`${entry.path}/`);
+            group.append(groupHeader(entry.name));
+            const children = groupList();
+            let mounted = false;
+            const mount = () => {
+              if (!group.open || mounted) return;
+              mounted = true;
+              appendLevel(entry, children);
+            };
+            mount();
+            group.addEventListener("toggle", mount);
+            group.append(children);
+            item.append(group);
+          } else {
+            const button = this.button(
+              entry.filePath!.split("/").at(-1)!,
+              () => this.selectFile(entry.id),
+              {
+                variant: "ghost",
+                icon: "document",
+              },
+            );
+            applyUiComponent(button, "tree", [], "row");
+            const label =
+              button.querySelector<HTMLElement>(".aic-button__label");
+            if (label) applyUiComponent(label, "tree", [], "label");
+            button.title = entry.filePath!;
+            if (entry.id === this.selectedFileId || entry.id === this.noteId)
+              button.setAttribute("aria-current", "page");
+            item.append(button);
+          }
+          parent.append(item);
+        }
+        if (shown < entries.length) parent.append(moreItem);
+      };
+      appendNext();
+    };
+    appendLevel(root, tree);
+    if (domains.length || files.length) nav.append(tree);
+    else
+      nav.append(
+        this.el(
+          "p",
+          "browser-empty",
+          query ? "No matching notes." : "No notes yet.",
+        ),
+      );
+    const filter =
+      nav.parentElement?.querySelector<HTMLInputElement>(".browser-filter");
+    if (filter) filter.hidden = this.library.notes.length === 0 && !query;
   }
 
   private capture(mode: "auto" | "page" | "selection"): Promise<void> | void {
@@ -1790,7 +3094,7 @@ export class BrowserPanel {
         throw new Error("Site access was not granted. Nothing was imported.");
       if (!this.valid(generation, context) || active !== this.activeGeneration)
         return;
-      const capture = await request<PageCapture>(this.api, {
+      const capture = await this.send<PageCapture>({
         type: "capture",
         page,
         mode,
@@ -1863,7 +3167,7 @@ export class BrowserPanel {
       return;
     }
     if (!this.valid(generation, context)) return;
-    await request(this.api, {
+    await this.send({
       type: "navigate",
       windowId: this.windowId,
       url,
@@ -1919,22 +3223,6 @@ export class BrowserPanel {
     );
   }
 
-  private async exportBackup(): Promise<void> {
-    const generation = this.generation;
-    const context = this.contextGeneration;
-    if (!(await this.flushAllDrafts())) {
-      if (this.valid(generation, context))
-        this.tell(
-          "Backup paused: retry saving or export your unsaved draft first.",
-        );
-      return;
-    }
-    if (!this.valid(generation, context)) return;
-    const text = await request<string>(this.api, { type: "export" });
-    if (this.valid(generation, context))
-      this.download(text, "aic-encrypted-backup.json", "application/json");
-  }
-
   private closeOverlay(restoreFocus = false): void {
     const trigger = this.overlayTrigger;
     this.overlayTrigger = null;
@@ -1942,101 +3230,8 @@ export class BrowserPanel {
     for (const input of this.overlay.querySelectorAll("input"))
       input.value = "";
     this.overlay.replaceChildren();
+    delete this.overlay.dataset.layout;
     if (restoreFocus && trigger?.isConnected) trigger.focus();
-  }
-
-  private importBackupDialog(): void {
-    if (this.state === "locked") {
-      this.tell("Unlock your existing library before importing a backup.");
-      return;
-    }
-    if (this.privateWindow && !this.allowPrivate) {
-      this.tell("Read and accept the private-window notice first.");
-      return;
-    }
-    const trigger = this.overlayTrigger;
-    this.closeOverlay();
-    this.overlayTrigger = trigger;
-    trigger?.setAttribute("aria-expanded", "true");
-    const form = this.el("form", "browser-import");
-    form.setAttribute("role", "dialog");
-    form.setAttribute("aria-label", "Import encrypted backup");
-    form.append(
-      this.el("h2", "", "Import encrypted backup"),
-      this.el(
-        "p",
-        "",
-        this.state === "setup"
-          ? "Restore the library using its original backup passphrase."
-          : "Merge new URLs. Existing notes will not be overwritten.",
-      ),
-    );
-    const file = this.el("input");
-    file.type = "file";
-    file.accept = ".json,application/json";
-    file.required = true;
-    file.setAttribute("aria-label", "Encrypted backup file");
-    form.append(file);
-    const password = this.passwordField("Backup passphrase", form);
-    const submit = this.button("Restore or merge backup", () => {});
-    submit.type = "submit";
-    form.append(
-      submit,
-      this.button("Cancel import", () => this.closeOverlay(true)),
-    );
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const selected = file.files?.[0];
-      if (!selected) return;
-      let phrase = password.value;
-      password.value = "";
-      const generation = this.generation;
-      const context = this.contextGeneration;
-      submit.disabled = true;
-      void (async () => {
-        if (selected.size > 9 * 1024 * 1024)
-          throw new Error("This backup is too large.");
-        const text = await selected.text();
-        if (!this.valid(generation, context) || !form.isConnected) return;
-        if (!(await this.flushAllDrafts()))
-          throw new Error(
-            "Save or export unsaved drafts before merging a backup.",
-          );
-        if (!this.valid(generation, context) || !form.isConnected) return;
-        const pending = request<{
-          created: number;
-          skipped: number;
-          domainsCreated: number;
-          domainsSkipped: number;
-          globalCreated: number;
-          globalSkipped: number;
-        }>(this.api, { type: "import", text, password: phrase });
-        phrase = "";
-        const result = await pending;
-        if (!this.valid(generation, context)) return;
-        this.closeOverlay();
-        this.state = "unlocked";
-        this.render();
-        await this.startUnlocked();
-        if (this.valid(generation))
-          this.tell(
-            `Imported ${result.created} notes and ${result.domainsCreated} domain shared sets; skipped ${result.skipped} existing URLs and ${result.domainsSkipped} existing domain shared sets.${result.globalCreated ? " Imported Global properties." : ""}${result.globalSkipped ? " Kept existing Global properties; the backup’s Global properties were skipped and remain in your backup file." : ""}`,
-            result.globalSkipped ? "progress" : "info",
-          );
-      })()
-        .catch(async (error: unknown) => {
-          if (this.valid(generation, context))
-            await this.recoverCredentialFailure(error, generation);
-        })
-        .finally(() => {
-          phrase = "";
-          password.value = "";
-          file.value = "";
-          if (this.valid(generation, context)) submit.disabled = false;
-        });
-    });
-    this.overlay.append(form);
-    file.focus();
   }
 
   private chooseMarkdownFile(): void {
@@ -2125,57 +3320,6 @@ export class BrowserPanel {
     }
   }
 
-  private async lock(discard = false): Promise<void> {
-    const generation = this.generation;
-    if (!discard && !(await this.flushAllDrafts())) {
-      if (!this.valid(generation)) return;
-      this.tell(
-        "Some changes could not be saved. Export plaintext drafts before discarding and locking.",
-      );
-      this.closeOverlay();
-      for (const draft of this.drafts?.dirtyDrafts() ?? [])
-        this.overlay.append(
-          this.button(
-            `Export unsaved draft: ${displayPageTitle(draft.page)}`,
-            () => this.exportDraft(draft.key),
-          ),
-        );
-      for (const draft of this.domainDrafts?.dirtyDrafts() ?? [])
-        this.overlay.append(
-          this.button(
-            `Export unsaved shared properties: ${draft.context.origin}`,
-            () => this.exportDomainDraft(draft.key),
-          ),
-        );
-      for (const draft of this.globalDrafts?.dirtyDrafts() ?? [])
-        this.overlay.append(
-          this.button("Export unsaved global properties", () =>
-            this.exportDomainDraft(draft.key, true),
-          ),
-        );
-      this.overlay.append(
-        this.button("Discard unsaved changes and lock", () => this.lock(true)),
-        this.button("Keep editing", () => this.closeOverlay()),
-      );
-      return;
-    }
-    if (!this.valid(generation)) return;
-    this.clearPlaintext();
-    this.state = "locked";
-    this.render();
-    const lockedGeneration = this.generation;
-    try {
-      await request(this.api, { type: "lock" });
-    } catch (error) {
-      if (this.valid(lockedGeneration)) {
-        this.fail(error);
-        this.overlay.append(
-          this.button("Retry locking all panels", () => this.lock(true)),
-        );
-      }
-    }
-  }
-
   private clearPlaintext(): void {
     this.clearMarkdownImport();
     ++this.generation;
@@ -2196,7 +3340,11 @@ export class BrowserPanel {
     this.domainRefreshDeferred = false;
     ++this.domainReloadRevision;
     this.library = emptyLibrary();
+    this.recovered = [];
+    this.recoverySignature = "";
+    this.recoveryError = "";
     this.page = null;
+    this.selectedFileId = null;
     this.pinnedPage = null;
     this.activePage = null;
     ++this.activeGeneration;
@@ -2223,14 +3371,21 @@ export class BrowserPanel {
 
   private flushBeforeHide(): void {
     // Dispatch best-effort saves before teardown. Browser shutdown can still
-    // interrupt delivery; only an acknowledged save or export is durable.
-    if (!this.disposed) void this.flushAllDrafts().catch(() => {});
+    // interrupt delivery; pending messages are not a disk or recovery ACK.
+    if (!this.disposed) {
+      this.checkpointDrafts();
+      void this.flushAllDrafts().catch(() => {});
+    }
   }
 
   destroy(): void {
     if (this.disposed) return;
+    if (this.scanTimer) clearTimeout(this.scanTimer);
+    this.scanTimer = null;
+    this.fileOperation = null;
     this.clearPlaintext();
     this.disposed = true;
+    this.sourceAccess.clear();
     for (const cleanup of this.cleanups.splice(0)) cleanup();
     this.root.replaceChildren();
   }

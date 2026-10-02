@@ -1,6 +1,162 @@
-# Chrome / Edge experimental build verification — 2026-09-24
+# Chrome / Edge working build verification — 2026-10-02
 
 [English](VERIFICATION.md) · [Українська](VERIFICATION.uk.md)
+
+## Continue after restart and shared-file refresh — October 2, 2026
+
+The final `npm run check` passed on **Node 22.23.3**: **1,325 tests in 112 files**,
+formatting, ESLint, TypeScript, dependency notices, and Standard Notes/PWA builds.
+`npm run core:check` passed, and the canonical and VS Code `FEATURES.json` copies
+match byte for byte. The three maintained browser adapter commands passed syntax,
+`--list`, `--help` and registered-path checks; their tests ran in the full suite,
+not as an additional native-browser run.
+
+A remembered location now shows one **Continue** action after browser restart or
+extension Reload. The action waits for its native handle to be ready and requests
+permission directly from the click. Startup does not prompt or turn an expected
+missing grant into a failed folder scan. **Open AIC in tab** is an explicit option
+when access needs permission. The worker accepts only the exact internal editor
+page in a normal top-level extension tab; foreign, private, framed and stale-source
+requests remain rejected. A grant made in that tab can resume the original panel
+without selecting the files again or replacing a pending draft.
+
+Current, Shared and Global edit their own Markdown files with the same editor and
+save feedback. Regression tests cover Shared/Global external file changes with
+both lower and higher content tokens, retained dirty drafts, and an old reload
+response arriving after a newer successful save. Content tokens are not treated
+as chronological version numbers.
+
+CUA checked the production panel and service using disposable native OPFS files
+and a controlled permission fixture. At 320 px, light/dark views had no horizontal
+overflow and coarse-pointer actions measured 44 px. One Continue click restored
+access. An ordinary Shared Markdown edit was written to disk and remained after
+permission expiry, panel reload and Continue. Current/Shared/Global displayed
+their correct file paths. Clean screenshots are retained beside the local build.
+This does **not** verify an installed Chrome/Edge profile, a real system permission
+prompt, browser restart, or automatic persistent grants.
+
+Core writing guidance was refreshed from clean revision
+`c152359c05f572b701651baebca09a49594114bf`; the reviewed documents and unavailable
+on-ramp references are recorded below. Shared editor help was synchronized through
+the canonical core owner. The Chromium manifest remains **0.11.3**. The package is
+a local working update; no version bump, publication or store submission is claimed.
+
+## File permission recovery — October 2, 2026
+
+All **1,313 tests in 111 files** passed, together with formatting, ESLint,
+TypeScript, shared-core parity and the Chromium package build. This is a local
+working build; it has not been submitted to a store.
+
+Open panels now retain native source handles independently of the background
+worker. Candidate handles remain retained until pending writes to the previous
+source are acknowledged. Read and write permissions have separate status;
+reconnect runs from a user click without a directory-enumeration probe. Source
+and generation checks reject late responses after switching files or disposal.
+The reconnect button remains mounted across blur/save updates so the first click
+is not lost. A successful single-file save accepts its content revision token
+only when the exact file, submitted text and current save owner match.
+
+Regression coverage includes worker restart, read-only access, denied permission,
+partial permission recovery, candidate retention, delayed source status, stale
+responses, two successive single-file saves, undo during a write and external
+file conflicts. CUA checked the real panel/service and native OPFS writes with a
+controlled permission shim: one reconnect click saved the retained draft; a later
+write succeeded after recreating the worker service. The 320 px panel had no
+horizontal overflow. Real installed Chrome/Edge permission prompts were not part
+of this fixture. Browser-controlled revocation remains authoritative; see
+[Chrome's permission guidance](https://developer.chrome.com/blog/persistent-permissions-for-the-file-system-access-api).
+
+## Folder scanning and agent context update — October 2, 2026
+
+The browser panel now reports inspected entries, found/read Markdown files and
+the current path while opening or refreshing a folder. The user can stop a scan
+and use the notes already read. Native reads have a deadline, cancelled work
+cannot change a newer selection, and ordinary saves use the observed file index
+instead of rescanning the whole folder. Large trees mount children on expansion
+and page long sibling lists; search still covers every indexed note.
+
+All **1,283 tests in 108 files** passed, including slow iterator/read cancellation,
+safe partial results, explicit refresh, timeout, stale response suppression,
+single-flight progress polling and stable controls between progress updates.
+Formatting, ESLint, TypeScript, core parity and Chromium/PWA/Standard Notes builds
+passed. The shared agent guide is version 3: it describes `*.note.md` as searchable
+context, preserves declared resolver precedence and keeps owner notes read-only
+unless an edit is explicitly requested. VS Code bootstrap tests cover safe guide
+upgrades without replacing existing AGENTS, owner notes or `.ai` state.
+
+CUA checked the production panel and service at 390 px with disposable native
+OPFS Markdown files, a Chrome API shim and a deliberately slow directory iterator
+(600 non-Markdown entries with 40 ms delay each). Progress updated during the scan;
+**Use found notes** stopped it at 117 inspected entries with two notes ready. Both
+notes were available, and editing one reached **On disk** without restarting the
+scan. These are local fixture checks; actual installed Chrome/Edge profiles and
+system picker permission prompts were not exercised. The packages remain local
+working builds, not a publication or store submission.
+
+## Plain-file working update and Core review — October 2, 2026
+
+This is source-level preparation, not a release or installed Chrome/Edge check.
+The VS Code adapter no longer registers, builds or packages the encrypted portable
+editor. Its 257 automated tests passed after removal, including real browser-host
+bundle activation, virtual Markdown Save/Undo, read-only provider handling and
+untouched existing legacy-file bytes. Installed Chrome/Edge profile acceptance
+remains separate from the local checks below.
+
+Earlier plain-file checks: all 1,271 canonical tests in 106 files passed; formatting,
+ESLint and TypeScript checks passed. All 91 shared core files match the VS Code
+mirror. Standard Notes, PWA and Chromium builds completed. The local universal
+VSIX includes both desktop and browser bundles and excludes the retired portable
+runtime. The core snapshot is explicitly a working-tree snapshot, not a published
+release. These results do not assert deployment, store submission or approval.
+
+CUA exercised the production browser panel and service with disposable native
+OPFS files and a Chrome API shim. Two successive Markdown edits reached **On disk**
+and survived Reload; the selected folder handle was restored from IndexedDB.
+The file tree and menus were inspected at 390 px and in dark mode at 320 px, where
+the page width and scroll width were both 320 px. System pickers were replaced by
+the fixture's OPFS handles; this does not verify real picker permissions or an
+installed extension. Native exclusive writer semantics were checked against the
+[File System API documentation](https://developer.mozilla.org/en-US/docs/Web/API/FileSystemFileHandle/createWritable).
+
+The source for the public releases page now begins with the plain-file usage guide in both
+languages; earlier release entries are retained as history. Browser README and
+privacy pages describe direct `.md` files/folders, URL metadata, local plain
+recovery copies and external sync rather than an app password or legacy import.
+
+The [canonical pre-release rule](../AGENTS.md) requires a fresh review of writing
+guidance, the block catalogue, document templates and applicable authoring skills.
+External skill connection instructions do not replace the active harness.
+
+Pre-release writing knowledge was refreshed from clean local Core revision
+`c152359c05f572b701651baebca09a49594114bf`: `AGENTS.md`,
+`playground/document/DOCUMENT-GUIDE.md`, `README.md`, `format-guide.js` and
+`templates.js` in that playground. Core's on-ramp points to Windows Desktop/Core
+files unavailable on this host; those files were not read. The accessible
+playground documents describe seven section templates and a block-local AI
+context. Their BlockNote JSON is not AIC's Markdown storage format.
+
+The public [DDK prompt](https://ddk.dzyha.com/prompt.html) redirected to
+`/?system=guide`. Its fetched `assets/index-vz_MQNHW.js` SHA-256 was
+`382a038f351fe2b922199d9e5a24e1eb5a5a3dedb2aac07eff086becb5843d14`;
+[published agent skill](https://ddk.dzyha.com/skills/document-design-kit/SKILL.md)
+SHA-256 was `70f14c6656cb70b772bac91bb7d3b046d0621e49fb07e020a763c9046a787236`.
+That guide has the first-sufficient-document method, reading visibility and
+Technical Study/Technical Specification templates absent from the older local
+playground. Its agent connection still describes a local MCP companion. The
+installed skill's adapter now describes WebMCP instead; these transport revisions
+were not conflated or used to change the active harness.
+
+Compared AIC's `src/core/agent-guide.js` and `slash-snippets.js`: shared writing
+principles and glossary, bibliography, architecture, errors and verification
+formats already align. AIC keeps Markdown headings, lists, tables, fenced Mermaid,
+details and typed `aic` fields. It does not promise native DDK JSON import or
+automatic structured-block completion. This review did not change Core, skills,
+user data, syntax or runtime AI capabilities.
+
+## Historical verification — 0.9.3 and earlier
+
+The following records describe their original versions, including retired encrypted
+features. They are not the acceptance status of the prepared plain-file update.
 
 Status: **0.9.3 experimental submission candidate**, not a store release or an independently
 audited password manager. Supported browser targets are **Chrome and Edge only**,
@@ -567,28 +723,48 @@ the changes and independently ran the complete suite, builds and Edge smoke.
   quotas, draft disposal, cursor preservation, stale capture/clipboard replies,
   bounded read-only import, compact menus and focus restoration.
 
-## Current packaged-runtime acceptance matrix
+## Historical packaged-runtime evidence (not plain-file acceptance)
 
 | Target | Existing evidence                                                                                                                                                                                               | Remaining acceptance checks                                                                                                                              |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Edge   | 0.1.4 genuine worker/sidebar: 12 packaged smoke checks passed, including page/domain encrypted save, immediate Done, restart/unlock/reopen, sender isolation and CSP. Renderer layout/menu/caret checks passed. | Actual user-driven site-access prompt/import, clipboard and cross-panel Lock.                                                                            |
 | Chrome | 0.9.3 manual owner-reported checklist pass on September 24, 2026; explicitly confirmed Lock across two panels and working import/export. Earlier packaged automation did not establish a running worker.        | Exact Chrome version, OS, export type and individual checklist outcomes were not supplied. Store installation and updates require separate verification. |
 
-The host renderer runner is `scripts/browser-panel-regression.mjs`; the installed
-Chromium package runner is `scripts/browser-extension-regression.mjs`; lifecycle
-checks use `scripts/browser-lifecycle-regression.mjs`. The packaged runner creates
-an isolated profile, never attaches to the user's running browser, and reports
-infrastructure limitations rather than substituting an ordinary extension tab for
-the genuine sidebar. Earlier local evidence remains under
+## Current adapter regressions — October 2, 2026
+
+The old encrypted-runtime harnesses have been retired. Their three script names
+now run Vitest suites with simulated browser APIs and DOMs:
+
+| Command                                         | Current verification scope                                                    |
+| ----------------------------------------------- | ----------------------------------------------------------------------------- |
+| `node scripts/browser-panel-regression.mjs`     | Draft saves, panel actions, deletion, navigation and related links            |
+| `node scripts/browser-extension-regression.mjs` | Plain-file adapter/concurrency, service/recovery, build and package contracts |
+| `node scripts/browser-domain-regression.mjs`    | Shared/Global scopes, independent drafts and ancestor navigation              |
+
+All three entrypoints passed on October 2: **93 panel tests**, **54 extension
+adapter tests** and **66 domain tests**. The ancestor fixture now models a connected
+folder and disconnection, retaining its save-before-navigation, export isolation
+and editor-preservation assertions. The current English/Ukrainian release pages
+also rendered successfully, and ten site/package tests passed.
+
+Use `--list` to inspect exact test files or `--help` for the execution boundary.
+These scripts do not launch Chromium, read a browser profile, or verify real
+clipboard/file/site permission prompts. A successful run is not evidence of an
+installed extension or store release. The unrelated editor syntax and lifecycle
+renderer scripts retain their separate scope. Earlier real-browser evidence above
+remains historical; its files were recorded under
 `D:\aic\reviews\browser-extension-20260914`.
 
 ## Safety and release boundaries
 
-Only acknowledged saves and exported files are durable. Shutdown/pagehide saving
-is best effort. Global Lock clears plaintext and discards other panels' uncommitted
-memory drafts; save them first. Lock does not erase the OS clipboard or exports.
+Only acknowledged disk saves are the authoritative saved files. Local draft
+checkpoints provide separate, bounded recovery; shutdown/pagehide handling is
+best effort. Explicitly review recovered text before saving a copy. Recovery never
+automatically replaces an original or recreates a deleted document. Removing the
+extension clears its local recovery data and remembered handles, not external
+files. Masking does not encrypt disk files, recovery text or clipboard copies.
 Capturing visible content is not universal secret detection. Incognito/InPrivate
-are excluded by the manifest; no mobile-browser support is claimed.
+are excluded by the manifest; no mobile-browser extension support is claimed.
 
 Before production distribution, check the current artifact in **both Chrome and
 Edge**, including real clipboard/site-permission behavior, then separately verify

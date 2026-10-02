@@ -2,9 +2,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { undo } from "@codemirror/commands";
 import { EditorView } from "@codemirror/view";
 import { BrowserPanel } from "../src/browser/panel";
-import { AIC_EMPTY_DOCUMENT } from "../src/core/security-model.js";
+import { chooseBrowserSource } from "../src/browser/markdown-storage";
 import type { ActivePage, BrowserApi, Request } from "../src/browser/api";
 import type { BrowserLibrary, BrowserNote } from "../src/browser/library";
+import type { RecoverySnapshot } from "../src/browser/recovery-store";
+
+vi.mock("../src/browser/markdown-storage", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/browser/markdown-storage")>()),
+  chooseBrowserSource: vi.fn(async () => "browser-panel-test"),
+}));
 
 function event<T extends unknown[]>() {
   const listeners = new Set<(...args: T) => unknown>();
@@ -40,12 +46,14 @@ const note = (url: string, markdown = "Private body"): BrowserNote => ({
 
 function fixture(
   options: {
-    state?: "setup" | "locked" | "unlocked";
+    state?: "unselected" | "unavailable" | "ready";
     private?: boolean;
+    fileSource?: boolean;
+    warnings?: string[];
     notes?: BrowserNote[];
   } = {},
 ) {
-  let state = options.state ?? "unlocked";
+  let state = options.state ?? "ready";
   let page: ActivePage | null = {
     tabId: 7,
     windowId: 2,
@@ -73,6 +81,20 @@ function fixture(
   let override:
     ((message: Request) => Promise<unknown> | undefined) | undefined;
   const messages: Request[] = [];
+  const recoveries = new Map<string, RecoverySnapshot>();
+  const status = () => ({
+    state,
+    warnings: options.warnings ?? [],
+    ...(options.fileSource
+      ? {
+          source: {
+            kind: "directory",
+            id: "browser-panel-test",
+            name: "notes.md",
+          },
+        }
+      : {}),
+  });
   const api = {
     runtime: {
       sendMessage: async (message: Request) => {
@@ -82,17 +104,41 @@ function fixture(
         let value: unknown;
         switch (message.type) {
           case "status":
-            value = { state };
+            value = status();
             break;
-          case "setup":
-          case "unlock":
-            state = "unlocked";
-            value = { state };
+          case "scan-status":
+            value = { scan: null, notes: [], next: 0 };
+            break;
+          case "refresh-files":
+            value = status();
+            break;
+          case "connect-source":
+            state = "ready";
+            value = status();
             break;
           case "lock":
-            state = "locked";
+            state = "unavailable";
             changed.emit({ "aic-browser-unlock": { oldValue: {} } }, "session");
-            value = { state };
+            value = status();
+            break;
+          case "checkpoint-drafts":
+            if (message.entries.length)
+              recoveries.set(message.clientId, {
+                clientId: message.clientId,
+                sequence: message.sequence,
+                sourceId: message.sourceId!,
+                entries: structuredClone(message.entries),
+                updatedAt: 1,
+              });
+            else recoveries.delete(message.clientId);
+            value = { sequence: message.sequence };
+            break;
+          case "list-recovery":
+            value = structuredClone([...recoveries.values()]);
+            break;
+          case "dismiss-recovery":
+            recoveries.delete(message.clientId);
+            value = null;
             break;
           case "context":
             value = page;
@@ -105,6 +151,25 @@ function fixture(
             const created = note(message.page.url, message.markdown);
             library.notes.push(created);
             value = structuredClone(created);
+            break;
+          }
+          case "create-file": {
+            const created = {
+              ...note("", message.markdown),
+              id: `file-${library.notes.length}`,
+              filePath: message.path,
+              title: message.path,
+            };
+            library.notes.push(created);
+            value = structuredClone(created);
+            break;
+          }
+          case "link-file": {
+            const existing = library.notes.find(
+              (item) => item.id === message.id,
+            )!;
+            existing.url = message.page.url;
+            value = structuredClone(existing);
             break;
           }
           case "save": {
@@ -151,6 +216,7 @@ function fixture(
   return {
     api,
     messages,
+    recoveries,
     library,
     changed,
     activated,
@@ -179,9 +245,17 @@ function button(root: HTMLElement, label: string) {
       "Pin note",
       "Unpin note",
       "Import current content",
-      "Import Markdown file",
-      "Export Markdown file",
+      "Insert from Markdown file",
+      "Download copy",
       "AIC guide",
+      "Open file",
+      "Open folder",
+      "Open file…",
+      "Open folder…",
+      "New file",
+      "Follow active tab",
+      "Link file to current page",
+      "Refresh folder",
     ].includes(label) &&
     !root.querySelector(`button[aria-label="${label}"]`)
   )
@@ -209,6 +283,252 @@ afterEach(() => {
 });
 
 describe("browser panel", () => {
+  it("opens files and folders without any credentials or encrypted actions", async () => {
+    const fake = fixture({ state: "unselected" });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    expect(root.textContent).toContain("Open your notes");
+    const gate = root.querySelector(".browser-files-gate")!;
+    expect(
+      [...gate.querySelectorAll("button")].map((button) =>
+        button.getAttribute("aria-label"),
+      ),
+    ).toEqual(["Open folder", "Open file"]);
+    expect(gate.querySelector('[aria-label="New file"]')).toBeNull();
+    expect(root.querySelector('input[type="password"]')).toBeNull();
+    button(root, "More options").click();
+    expect(button(root, "New file")).not.toBeNull();
+    expect(root.textContent).not.toMatch(/encrypt|unlock|passphrase|backup/iu);
+    expect(button(root, "Lock")).toBeNull();
+    expect(
+      fake.messages.some((message) =>
+        ["setup", "unlock", "lock"].includes(message.type),
+      ),
+    ).toBe(false);
+  });
+
+  it("keeps available notes editable while showing skipped-file notices", async () => {
+    const fake = fixture({
+      fileSource: true,
+      warnings: [
+        "Skipped archive/large.md: the file exceeds the note size limit.",
+      ],
+      notes: [note("https://example.com/a", "Available note")],
+    });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    expect(editor(root).state.doc.toString()).toBe("Available note");
+    expect(root.querySelector(".aic-context__status")?.textContent).toBe(
+      "On disk",
+    );
+    expect(button(root, "Folder notices").textContent).toBe("1 notice");
+    button(root, "Folder notices").click();
+    expect(root.querySelector(".browser-overlay")?.textContent).toContain(
+      "Skipped archive/large.md",
+    );
+    expect(root.querySelector('input[type="password"]')).toBeNull();
+  });
+
+  it("cancels a new-file picker without selecting or creating anything", async () => {
+    vi.mocked(chooseBrowserSource).mockResolvedValueOnce(null);
+    const fake = fixture({ state: "unselected" });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    button(root, "New file").click();
+    await vi.waitFor(() =>
+      expect(root.querySelector<HTMLElement>(".browser-content")?.inert).toBe(
+        false,
+      ),
+    );
+    expect(
+      fake.messages.some((message) => message.type === "connect-source"),
+    ).toBe(false);
+    expect(root.dataset.state).toBe("unselected");
+  });
+
+  it("opens a plain file directly and keeps it selected across active-tab changes", async () => {
+    const file = {
+      ...note("", "# Plain file"),
+      id: "plain-file",
+      filePath: "project/readme.md",
+      title: "readme.md",
+    };
+    const fake = fixture({ notes: [file] });
+    fake.override((message) =>
+      message.type === "status"
+        ? Promise.resolve({
+            state: "ready",
+            source: { kind: "file", id: "browser-plain", name: "readme.md" },
+          })
+        : undefined,
+    );
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    expect(editor(root).state.doc.toString()).toBe("# Plain file");
+    expect(root.querySelector('[role="tablist"]')).toBeNull();
+    expect(root.querySelector('input[type="password"]')).toBeNull();
+    fake.setPage({
+      tabId: 8,
+      windowId: 2,
+      title: "Other",
+      url: "https://other.example",
+    });
+    fake.activated.emit({ tabId: 8, windowId: 2 });
+    await Promise.resolve();
+    expect(editor(root).state.doc.toString()).toBe("# Plain file");
+    editor(root).dispatch({ changes: { from: 12, insert: " edit" } });
+    const closing = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(closing);
+    await vi.waitFor(() =>
+      expect(fake.library.notes[0]!.markdown).toBe("# Plain file edit"),
+    );
+    expect(fake.messages.some((message) => message.type === "create")).toBe(
+      false,
+    );
+  });
+
+  it("renders a connected folder tree and opens a file without navigating the browser", async () => {
+    const file = {
+      ...note("", "# File"),
+      id: "standalone",
+      filePath: "project/research/note.md",
+      title: "note.md",
+    };
+    const fake = fixture({ fileSource: true, notes: [file] });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    button(root, "Notes").click();
+    const open = button(root, "note.md");
+    expect(
+      open.closest("details")?.querySelector("summary")?.textContent,
+    ).toContain("research");
+    open.click();
+    await vi.waitFor(() =>
+      expect(editor(root).state.doc.toString()).toBe("# File"),
+    );
+    expect(fake.messages.some((message) => message.type === "navigate")).toBe(
+      false,
+    );
+    button(root, "Link file to current page").click();
+    await vi.waitFor(() =>
+      expect(fake.library.notes[0]!.url).toBe("https://example.com/a"),
+    );
+    expect(fake.library.notes[0]!.markdown).toBe("# File");
+  });
+
+  it("creates a blank Markdown file in the selected folder", async () => {
+    const fake = fixture({ fileSource: true });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    button(root, "New file").click();
+    const input = root.querySelector<HTMLInputElement>(
+      'input[aria-label="File name"]',
+    )!;
+    input.value = "projects/start.md";
+    input
+      .closest("form")!
+      .dispatchEvent(new Event("submit", { cancelable: true }));
+    await vi.waitFor(() =>
+      expect(fake.library.notes[0]?.filePath).toBe("projects/start.md"),
+    );
+    expect(fake.library.notes[0]!.markdown).toBe("");
+    await vi.waitFor(() =>
+      expect(root.querySelector(".browser-page-title")?.textContent).toBe(
+        "projects/start.md",
+      ),
+    );
+    expect(editor(root).state.doc.toString()).toBe("");
+  });
+
+  it("renders large project trees lazily while searching all notes", async () => {
+    const notes = Array.from({ length: 360 }, (_, index) => ({
+      ...note("", `Document ${index}`),
+      id: `file-${index}`,
+      title: `note-${index}.md`,
+      filePath: `project-${Math.floor(index / 30)}/note-${index}.md`,
+    }));
+    const fake = fixture({ fileSource: true, notes });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    button(root, "Notes").click();
+    expect(
+      root.querySelectorAll('.browser-library button[title$=".md"]'),
+    ).toHaveLength(0);
+    const project = root.querySelector<HTMLDetailsElement>(
+      '[data-folder-path="project-0"]',
+    )!;
+    project.open = true;
+    project.dispatchEvent(new Event("toggle"));
+    expect(
+      root.querySelectorAll('.browser-library button[title$=".md"]'),
+    ).toHaveLength(30);
+    const search = root.querySelector<HTMLInputElement>(".browser-filter")!;
+    search.value = "note-359.md";
+    search.dispatchEvent(new Event("input"));
+    expect(button(root, "note-359.md")).not.toBeNull();
+    expect(
+      root.querySelectorAll('.browser-library button[title$=".md"]'),
+    ).toHaveLength(1);
+  });
+
+  it("pages a large flat folder without discarding later file matches", async () => {
+    const notes = Array.from({ length: 230 }, (_, index) => ({
+      ...note("", `Document ${index}`),
+      id: `file-${index}`,
+      title: `note-${index}.md`,
+      filePath: `note-${index}.md`,
+    }));
+    const { root, panel } = mount(fixture({ fileSource: true, notes }).api);
+    await panel.ready;
+    button(root, "Notes").click();
+    expect(
+      root.querySelectorAll('.browser-library button[title$=".md"]'),
+    ).toHaveLength(100);
+    button(root, "Show more in this folder").click();
+    expect(
+      root.querySelectorAll('.browser-library button[title$=".md"]'),
+    ).toHaveLength(200);
+    button(root, "Show more in this folder").click();
+    expect(
+      root.querySelectorAll('.browser-library button[title$=".md"]'),
+    ).toHaveLength(230);
+    expect(button(root, "Show more in this folder")).toBeNull();
+  });
+
+  it("retains dirty text when another panel switches the selected file", async () => {
+    const fake = fixture({
+      notes: [note("https://example.com/a", "Original")],
+    });
+    fake.override((message) =>
+      message.type === "status"
+        ? Promise.resolve({
+            state: "ready",
+            source: {
+              kind: "file",
+              id: "browser-first",
+              name: "first.md",
+            },
+          })
+        : undefined,
+    );
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    const view = editor(root);
+    view.dispatch({ changes: { from: 8, insert: " unsaved" } });
+    fake.changed.emit(
+      {
+        "aic-browser-markdown-source": {
+          newValue: { id: "browser-second", name: "second.md" },
+        },
+      },
+      "local",
+    );
+    fake.changed.emit({ "aic-browser-unlock": { oldValue: {} } }, "session");
+    expect(editor(root)).toBe(view);
+    expect(view.state.doc.toString()).toBe("Original unsaved");
+    expect(root.textContent).toContain("Save or export this draft");
+  });
+
   it("switches only scope presentation while retaining Current text, selection and Undo", async () => {
     const fake = fixture({
       notes: [note("https://example.com/a", "Original")],
@@ -299,7 +619,7 @@ describe("browser panel", () => {
     expect(root.querySelector(".browser-page-origin")?.textContent).toContain(
       "Pinned",
     );
-    expect(root.querySelectorAll(".browser-toolbar button")).toHaveLength(3);
+    expect(root.querySelectorAll(".browser-toolbar button")).toHaveLength(2);
     const source = {
       tabId: 8,
       windowId: 2,
@@ -350,7 +670,7 @@ describe("browser panel", () => {
     expect(editor(root)).not.toBe(view);
   });
 
-  it("keeps the pin across hide/show and clears it on lock", async () => {
+  it("keeps the pin across hide/show and ignores obsolete unlock-session changes", async () => {
     const fake = fixture({ notes: [note("https://example.com/a")] });
     const { root, panel } = mount(fake.api);
     await panel.ready;
@@ -373,8 +693,8 @@ describe("browser panel", () => {
     expect(editor(root).state.doc.toString()).toBe("Private body");
     expect(button(root, "Unpin note")).not.toBeNull();
     fake.changed.emit({ "aic-browser-unlock": { oldValue: {} } }, "session");
-    expect(button(root, "Unpin note")).toBeNull();
-    expect(root.querySelector(".cm-editor")).toBeNull();
+    expect(button(root, "Unpin note")).not.toBeNull();
+    expect(root.querySelector(".cm-editor")).not.toBeNull();
   });
 
   it("keeps failed drafts open when unpinning cannot save", async () => {
@@ -471,18 +791,18 @@ describe("browser panel", () => {
     expect(view.state.selection.main.anchor).toBe(view.state.doc.length);
   });
 
-  it("keeps a new Properties placeholder unsaved until the first edit", async () => {
+  it("keeps a new blank document unsaved until the first edit", async () => {
     const fake = fixture();
     const { root, panel } = mount(fake.api);
     await panel.ready;
     const initial = editor(root);
-    const seed = AIC_EMPTY_DOCUMENT;
+    const seed = "";
     expect(initial.state.doc.toString()).toBe(seed);
-    expect(root.querySelector(".cm-aic-security")).not.toBeNull();
+    expect(root.querySelector(".cm-aic-security")).toBeNull();
     expect(
       root.querySelector<HTMLElement>(".aic-editor")?.dataset.saveState,
     ).toBe("placeholder");
-    button(root, "Notes and history").click();
+    button(root, "Notes").click();
     expect(fake.messages.some((message) => message.type === "create")).toBe(
       false,
     );
@@ -631,61 +951,11 @@ describe("browser panel", () => {
     );
   });
 
-  it("requires matching setup passphrases and clears password inputs before sending", async () => {
-    const fake = fixture({ state: "setup" });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    const fields = root.querySelectorAll<HTMLInputElement>(
-      'input[type="password"]',
-    );
-    fields[0]!.value = "long master phrase";
-    fields[1]!.value = "different phrase";
-    root
-      .querySelector("form")!
-      .dispatchEvent(new Event("submit", { cancelable: true }));
-    expect(fake.messages.some((item) => item.type === "setup")).toBe(false);
-    expect(fields[0]!.value).toBe("");
-    fields[0]!.value = fields[1]!.value = "long master phrase";
-    root
-      .querySelector("form")!
-      .dispatchEvent(new Event("submit", { cancelable: true }));
-    expect(fields[0]!.value).toBe("");
-    expect(fields[1]!.value).toBe("");
-    await vi.waitFor(() =>
-      expect(root.querySelector(".cm-editor")).not.toBeNull(),
-    );
-    expect(root.querySelector(".cm-aic-security")).not.toBeNull();
-    expect(fake.messages.some((item) => item.type === "create")).toBe(false);
-    expect(root.dataset.state).toBe("unlocked");
-  });
-
-  it("shows no titles, URLs, or editor until an existing vault is unlocked", async () => {
-    const fake = fixture({
-      state: "locked",
-      notes: [note("https://example.com/a")],
-    });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    expect(root.textContent).not.toContain("example.com");
-    expect(root.querySelector(".cm-editor")).toBeNull();
-    const password = root.querySelector<HTMLInputElement>(
-      'input[type="password"]',
-    )!;
-    password.value = "long master phrase";
-    root
-      .querySelector("form")!
-      .dispatchEvent(new Event("submit", { cancelable: true }));
-    expect(password.value).toBe("");
-    await vi.waitFor(() =>
-      expect(root.querySelector(".cm-editor")).not.toBeNull(),
-    );
-  });
-
   it("gates private windows before context/history access and keeps consent only in the panel", async () => {
     const fake = fixture({ private: true });
     const { root, panel } = mount(fake.api);
     await panel.ready;
-    expect(root.textContent).toContain("persist after private browsing ends");
+    expect(root.textContent).toContain("after private browsing ends");
     expect(fake.messages.map((item) => item.type)).toEqual(["status"]);
     button(root, "Use AIC in this private window").click();
     await vi.waitFor(() =>
@@ -721,7 +991,7 @@ describe("browser panel", () => {
     await vi.waitFor(() =>
       expect(root.querySelector(".cm-editor")).not.toBeNull(),
     );
-    expect(root.querySelector(".cm-aic-security")).not.toBeNull();
+    expect(root.querySelector(".cm-aic-security")).toBeNull();
     expect(root.querySelector(".browser-page-title")!.textContent).toBe(
       "Second",
     );
@@ -759,38 +1029,123 @@ describe("browser panel", () => {
     expect(view.state.selection.main.anchor).toBe(8);
   });
 
-  it("locks every panel immediately and rejects a late plaintext response", async () => {
-    const fake = fixture({ notes: [note("https://example.com/a")] });
-    const one = mount(fake.api);
-    const two = mount(fake.api);
-    await Promise.all([one.panel.ready, two.panel.ready]);
-    const pending = deferred<BrowserLibrary>();
+  it("shows file status through edit, pending disk write, and settled acknowledgement", async () => {
+    const original = note("https://example.com/a", "Text");
+    const fake = fixture({ notes: [original], fileSource: true });
+    const pending = deferred<BrowserNote>();
     fake.override((message) =>
-      message.type === "visit" ? pending.promise : undefined,
+      message.type === "save" ? pending.promise : undefined,
     );
-    fake.setPage({
-      tabId: 9,
-      windowId: 2,
-      title: "Same URL, another tab",
-      url: "https://example.com/a",
-    });
-    fake.activated.emit({ tabId: 9, windowId: 2 });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    const statusText = () =>
+      root.querySelector(".browser-file-location .aic-context__status")
+        ?.textContent;
+    expect(statusText()).toBe("On disk");
+    editor(root).dispatch({ changes: { from: 4, insert: " edited" } });
+    expect(statusText()).toBe("Unsaved");
+    button(root, "Save note").click();
+    await vi.waitFor(() => expect(fake.recoveries.size).toBe(1));
+    expect(statusText()).toBe("Unsaved");
+    pending.resolve({ ...original, markdown: "Text edited", revision: 2 });
+    await vi.waitFor(() => expect(statusText()).toBe("On disk"));
+    await vi.waitFor(() => expect(fake.recoveries.size).toBe(0));
+  });
+
+  it("keeps the newest recovery text when reload interrupts an older save and never replays it to disk", async () => {
+    const original = note("https://example.com/a", "Original");
+    const fake = fixture({ notes: [original], fileSource: true });
+    const firstSave = deferred<BrowserNote>();
+    fake.override((message) =>
+      message.type === "save" ? firstSave.promise : undefined,
+    );
+    const one = mount(fake.api);
+    await one.panel.ready;
+    editor(one.root).dispatch({ changes: { from: 8, insert: " first" } });
+    button(one.root, "Save note").click();
+    editor(one.root).dispatch({ changes: { from: 14, insert: " latest" } });
     await vi.waitFor(() =>
-      expect(fake.messages.filter((item) => item.type === "visit").length).toBe(
-        4,
+      expect([...fake.recoveries.values()][0]?.entries[0]?.text).toBe(
+        "Original first latest",
       ),
     );
-    fake.changed.emit({ "aic-browser-unlock": { oldValue: {} } }, "session");
-    for (const { root } of [one, two]) {
-      expect(root.dataset.state).toBe("locked");
-      expect(root.textContent).not.toContain("example.com");
-      expect(root.querySelector(".cm-editor")).toBeNull();
-    }
-    pending.resolve(structuredClone(fake.library));
+    window.dispatchEvent(new Event("pagehide"));
+    expect(one.root.textContent).toBe("");
+    firstSave.resolve({ ...original, markdown: "Original first", revision: 2 });
     await Promise.resolve();
+    const two = mount(fake.api);
+    await two.panel.ready;
+    expect(two.root.textContent).toContain("1 draft recovery copy available.");
+    expect(editor(two.root).state.doc.toString()).toBe("Original");
+    expect(
+      fake.messages.filter((message) => message.type === "save"),
+    ).toHaveLength(1);
+    button(two.root, "Review recovered drafts").click();
+    expect(two.root.textContent).toContain(
+      "Save a Markdown copy to review them",
+    );
+    expect(two.root.textContent).not.toContain("Original first latest");
+    expect(button(two.root, "Save recovered copy: Note")).not.toBeNull();
+    expect(fake.recoveries.size).toBe(1);
+    button(two.root, "Dismiss this recovery copy…").click();
+    expect(fake.recoveries.size).toBe(1);
+    button(two.root, "Keep recovery copy").click();
+    expect(fake.recoveries.size).toBe(1);
+  });
+
+  it("checkpoints an Undo back to the baseline while an older write is still pending", async () => {
+    const original = note("https://example.com/a", "Original");
+    const fake = fixture({ notes: [original], fileSource: true });
+    const pending = deferred<BrowserNote>();
+    fake.override((message) =>
+      message.type === "save" ? pending.promise : undefined,
+    );
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    const view = editor(root);
+    view.dispatch({
+      changes: { from: 8, insert: " changed" },
+      userEvent: "input.type",
+    });
+    button(root, "Save note").click();
+    expect(undo(view)).toBe(true);
+    expect(view.state.doc.toString()).toBe("Original");
+    await vi.waitFor(() =>
+      expect([...fake.recoveries.values()][0]?.entries[0]?.text).toBe(
+        "Original",
+      ),
+    );
+    window.dispatchEvent(new Event("pagehide"));
+    pending.resolve({ ...original, markdown: "Original changed", revision: 2 });
     await Promise.resolve();
-    expect(one.root.textContent).not.toContain("Private body");
-    expect(two.root.textContent).not.toContain("example.com");
+    expect([...fake.recoveries.values()][0]?.entries[0]?.text).toBe("Original");
+  });
+
+  it("does not recreate a deleted original from a recovery checkpoint", async () => {
+    const fake = fixture({ fileSource: true });
+    fake.recoveries.set("old-panel", {
+      clientId: "old-panel",
+      sourceId: "browser-panel-test",
+      sequence: 1,
+      updatedAt: 1,
+      entries: [
+        {
+          scope: "current",
+          key: "deleted-note",
+          context: { url: "https://example.com/a", title: "Deleted original" },
+          record: { id: "deleted-note", revision: 1, markdown: "Old" },
+          text: "Recovered edit",
+        },
+      ],
+    });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    expect(root.textContent).toContain("1 draft recovery copy available.");
+    expect(editor(root).state.doc.toString()).toBe("");
+    expect(fake.messages.some((message) => message.type === "create")).toBe(
+      false,
+    );
+    expect(fake.library.notes).toEqual([]);
   });
 
   it("requests capture permission inside the click and appends to the existing note", async () => {
@@ -809,29 +1164,6 @@ describe("browser panel", () => {
       ),
     );
     expect(fake.messages.some((item) => item.type === "capture")).toBe(true);
-  });
-
-  it("retains failed drafts and requires deliberate discard before locking", async () => {
-    const fake = fixture({
-      notes: [note("https://example.com/a", "Original")],
-    });
-    fake.override((message) =>
-      message.type === "save"
-        ? Promise.reject(new Error("Storage full"))
-        : undefined,
-    );
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    editor(root).dispatch({ changes: { from: 8, insert: " unsaved" } });
-    button(root, "Lock").click();
-    await vi.waitFor(() =>
-      expect(button(root, "Discard unsaved changes and lock")).not.toBeNull(),
-    );
-    expect(root.dataset.state).toBe("unlocked");
-    expect(editor(root).state.doc.toString()).toBe("Original unsaved");
-    expect(fake.messages.some((item) => item.type === "lock")).toBe(false);
-    button(root, "Discard unsaved changes and lock").click();
-    await vi.waitFor(() => expect(root.dataset.state).toBe("locked"));
   });
 
   it("removes listeners and cancels pending autosave on disposal", async () => {
@@ -872,30 +1204,7 @@ describe("browser panel", () => {
     );
   });
 
-  it("recovers to unlock when initial local encryption persisted but session creation failed", async () => {
-    const fake = fixture({ state: "setup" });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    fake.override((message) =>
-      message.type === "setup"
-        ? Promise.reject(new Error("Session storage failed"))
-        : message.type === "status"
-          ? Promise.resolve({ state: "locked" })
-          : undefined,
-    );
-    for (const field of root.querySelectorAll<HTMLInputElement>(
-      'input[type="password"]',
-    ))
-      field.value = "long master phrase";
-    root
-      .querySelector("form")!
-      .dispatchEvent(new Event("submit", { cancelable: true }));
-    await vi.waitFor(() => expect(root.dataset.state).toBe("locked"));
-    expect(button(root, "Unlock")).not.toBeNull();
-    expect(root.textContent).toContain("Session storage failed");
-  });
-
-  it("retains an import that failed to create a note and blocks silent lock", async () => {
+  it("retains an import that failed to create a note and blocks switching files", async () => {
     const fake = fixture();
     fake.override((message) =>
       message.type === "create"
@@ -908,11 +1217,11 @@ describe("browser panel", () => {
     await vi.waitFor(() =>
       expect(button(root, "Export unsaved draft")).not.toBeNull(),
     );
-    button(root, "Lock").click();
+    button(root, "Open file…").click();
     await vi.waitFor(() =>
-      expect(button(root, "Discard unsaved changes and lock")).not.toBeNull(),
+      expect(root.textContent).toContain("Save or export your unsaved drafts"),
     );
-    expect(root.dataset.state).toBe("unlocked");
+    expect(root.dataset.state).toBe("ready");
     expect(fake.messages.some((message) => message.type === "lock")).toBe(
       false,
     );
@@ -939,7 +1248,7 @@ describe("browser panel", () => {
     expect(editor(root).state.doc.toString()).toContain("Captured content");
   });
 
-  it("describes global lock and dispatches a final save before pagehide clears plaintext", async () => {
+  it("has no lock control and dispatches a final save before pagehide clears plaintext", async () => {
     const original = note("https://example.com/a", "Original");
     const fake = fixture({ notes: [original] });
     const pending = deferred<BrowserNote>();
@@ -948,12 +1257,7 @@ describe("browser panel", () => {
     );
     const { root, panel } = mount(fake.api);
     await panel.ready;
-    expect(button(root, "Lock").title).toMatch(
-      /Lock (?:all|every) AIC panels?/iu,
-    );
-    expect(button(root, "Lock").getAttribute("aria-description")).toMatch(
-      /other panels first/iu,
-    );
+    expect(button(root, "Lock")).toBeNull();
     editor(root).dispatch({ changes: { from: 8, insert: " edited" } });
     window.dispatchEvent(new Event("pagehide"));
     expect(fake.messages).toContainEqual({

@@ -25,6 +25,7 @@ export class GlobalDrafts extends SharedDrafts<BrowserGlobal, GlobalContext> {
     super(
       saveFn,
       {
+        opaqueRevisionKey: (record) => record.filePath,
         contextKey: (context) => context.scope,
         contextForRecord: (record) => ({
           scope: record.scope,

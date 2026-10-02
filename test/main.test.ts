@@ -84,6 +84,27 @@ function save() {
 }
 
 describe("Standard Notes editor bridge", () => {
+  it.each([null, "", "```aic\n# Properties\nStatus | authored\n```\n"])(
+    "starts standalone blank while preserving previously saved bytes: %s",
+    async (saved) => {
+      vi.resetModules();
+      delete window.ReactNativeWebView;
+      const key = "aic-standard-notes-standalone-document";
+      if (saved === null) localStorage.removeItem(key);
+      else localStorage.setItem(key, saved);
+      const root = document.createElement("main");
+      root.id = "app";
+      document.body.append(root);
+      await import("../src/main");
+      const view = EditorView.findFromDOM(
+        root.querySelector<HTMLElement>(".cm-editor")!,
+      )!;
+      expect(view.state.doc.toString()).toBe(saved ?? "");
+      expect(document.documentElement.dataset.environment).toBe("standalone");
+      localStorage.removeItem(key);
+    },
+  );
+
   it("does not automatically retry a failed pending save after a note switch", async () => {
     vi.resetModules();
     bridge.saves.length = 0;

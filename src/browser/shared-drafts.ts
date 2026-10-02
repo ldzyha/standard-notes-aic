@@ -44,22 +44,32 @@ export class SharedDrafts<R extends VersionedDocument, C extends object> {
       this.coordinator.get(record.id) ??
       pending ??
       (known ? this.coordinator.get(known) : undefined);
-    if (
-      existing?.dirty &&
-      (!existing.record ||
-        record.id !== existing.record.id ||
-        record.revision > existing.record.revision ||
-        (record.revision === existing.record.revision &&
-          record.markdown !== existing.record.markdown))
-    ) {
-      this.coordinator.markConflict(existing.key);
-      if (existing.record && record.id !== existing.record.id)
-        return this.remember(scope, this.coordinator.activate(existing.record));
+    if (existing?.dirty) {
+      const current = existing.record;
+      const currentPath = current
+        ? this.adapter.opaqueRevisionKey?.(current)
+        : undefined;
+      const incomingPath = this.adapter.opaqueRevisionKey?.(record);
+      const changed =
+        !current ||
+        record.id !== current.id ||
+        (currentPath !== undefined || incomingPath !== undefined
+          ? currentPath !== incomingPath ||
+            record.revision !== current.revision ||
+            record.markdown !== current.markdown
+          : record.revision > current.revision ||
+            (record.revision === current.revision &&
+              record.markdown !== current.markdown));
+      if (changed) {
+        this.coordinator.markConflict(existing.key);
+        if (current && record.id !== current.id)
+          return this.remember(scope, this.coordinator.activate(current));
+      }
     }
     return this.remember(scope, this.coordinator.activate(record));
   }
 
-  activatePlaceholder(context: C, seed: string): DraftState<R, C> {
+  activatePlaceholder(context: C, seed = ""): DraftState<R, C> {
     const scope = this.adapter.contextKey(context);
     const known = this.keyByScope.get(scope);
     const existing = known ? this.coordinator.get(known) : undefined;
@@ -87,6 +97,9 @@ export class SharedDrafts<R extends VersionedDocument, C extends object> {
   }
   dirtyDrafts() {
     return this.coordinator.dirtyDrafts();
+  }
+  pendingDrafts() {
+    return this.coordinator.pendingDrafts();
   }
   hasPendingChanges() {
     return this.coordinator.hasPendingChanges();

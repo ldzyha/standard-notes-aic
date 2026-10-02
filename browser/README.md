@@ -1,369 +1,137 @@
-# AIC page notes — experimental Chrome / Edge component
+# AIC notes for Chrome and Edge
 
 [English](README.md) · [Українська](README.uk.md)
 
 [Terms and privacy](https://aic.dzyha.com/terms) ·
-[Releases and installation](https://aic.dzyha.com/releases)
-
-Bundled offline policy: [English](PRIVACY.md) · [Українська](PRIVACY.uk.md)
-
-Status: **0.11.3 experimental build**, using the editor from AIC 51.0.1, AIC Notes 60.0.2 and shared core 7.5.3. Package publication and store approval are verified separately.
-
-Empty editable secret (`*|`) parts offer **Generate password** at every panel
-width, regardless of their label. Options wrap to fit narrow screens. Generation
-stays local, never overwrites filled values, and is unavailable in read-only notes.
-
-Icon-only copy buttons briefly show a checkmark after success, with an accessible
-status announcement. Larger section headings, distinct neutral group backgrounds
-and subtle alternating gray rows make records easier to scan.
-
-Labels, email addresses and logins use their natural width. A complete value moves
-to the next line before its text wraps; only text wider than the full available
-line breaks internally. Passwords use compact lock-only copy buttons, while
-short card values and TOTP codes remain readable. The `+` menu follows the last
-value, and subtle separators distinguish records. Touch controls retain 44 px
-targets.
+[Releases and installation](https://aic.dzyha.com/releases) ·
+[How to write documents](https://aic.dzyha.com/how-to)
+
+AIC edits local Markdown files in a browser side panel. The PWA, browser extension
+and VS Code use the same Markdown and fenced `aic` syntax. Browser notes can also
+be linked to page URLs. This page describes the prepared plain-file version;
+package publication and store approval are verified separately.
+
+## Open files and start writing
+
+Choose **Open file** or **Open folder** through the browser's file picker. Notes are
+saved directly to those files. A folder opens a file tree; select a note to edit
+it. **More options → New file** creates a blank document at a selected destination
+or a named path inside the connected folder. Add Markdown or an AIC block when needed.
+
+A remembered location shows its name and one **Continue** button when access needs
+renewal. The button becomes available once the saved file handle is ready; it
+requests access to that same location without choosing it again. Use **More options**
+to open a different file or folder.
+
+Folder scanning shows entries checked, notes ready and the current path; the total
+is unknown, so progress has no percentage. **Use found notes** stops the scan and
+keeps notes already read. Use **Scan again** after stopping, or **More options →
+Refresh folder**, to rescan explicitly. Once connected, ordinary note loads,
+tab changes and saves reuse the indexed files rather than scanning the folder again.
+
+When a folder scan finds notes, the **Notes** tree opens automatically. Large
+trees load child rows on expansion and show 100 rows per level at a time; **Show
+more** reveals the next rows. Search covers all indexed notes, including those
+outside the currently displayed rows.
+
+The selected location and save status stay visible. Wait for the disk-save
+confirmation before closing. If the file changed elsewhere, was deleted or lost
+permission, AIC keeps the draft unsaved and offers recovery or retry; it does not
+silently overwrite newer content or recreate a deleted file. Reconnect access
+when the browser requests it.
+
+An open panel retains its live file handle while the background worker restarts.
+When editing permission expires, **Reconnect access** appears beside the file
+location. It reuses the selected file or folder and retries pending saves without
+replacing your draft. Read access alone is not a saved/write-ready state. A file
+conflict is shown as **File changed**, not a permission problem.
+
+If the browser does not show a permission prompt in the side panel, choose
+**More options → Open AIC in tab**, then **Continue** there. This uses the same
+selected files. Returning to the original panel checks access again and can resume
+without another picker. Declining access keeps the draft unsaved.
+
+The browser controls permission duration. Reconnect uses a normal permission
+request; when Chrome offers **Allow on every visit**, that choice can reduce
+future prompts. See [Chrome's permission guidance](https://developer.chrome.com/blog/persistent-permissions-for-the-file-system-access-api).
+
+Files stay on disk when you remove the extension. Uninstalling does remove
+browser-local recovery copies and remembered file access. After reinstalling,
+choose the same file or folder again. Use your own filesystem, Git, Google Drive
+or other sync software to move files between devices. AIC has no sync server.
+
+There is no app password, encrypted workspace or `.aicnotes` importer. Existing
+old files and unused legacy browser data are left untouched. Secret fields remain
+masked in the editor, but Markdown files and local recovery copies contain plain
+text. File encryption is managed by your device or filesystem.
+
+## Notes and web pages
+
+For a folder connection, **Link file to current page** associates the selected
+file with the exact page URL. Choose **Follow active tab** to resume page-based
+navigation after selecting files. Merely visiting a page does not create a note. A folder stores URL and scope associations in
+`.aic/links.json`; the note content remains in Markdown files.
+
+Current, Shared and Global focus one note at a time. Current is linked to an exact
+URL, Shared to an exact origin, and Global to the selected folder. Switching
+waits for pending saves and does not copy shared content into the current note.
+All three tabs open the same Markdown editor directly: prose, lists, diagrams and
+AIC blocks can be mixed freely. The visible path and **Download copy** action refer
+to the active tab. Global stays selected when the browser page changes. Shared
+follows the page context; after choosing an independent file, **Follow active tab**
+restores that context.
+The file tree remains the way to browse documents independently of the website.
+A single-file connection edits just that file, without folder scopes or URL linking.
+
+Pinning keeps a note selected while navigating. When typing in a pinned note,
+related page links are ordinary Markdown and share the edit's Undo operation.
+Switching pages alone does not add content. Pinning belongs to the open panel.
+
+## Editing and importing
+
+- Use Preview or Markdown source, slash snippets, and shared block controls.
+  The same source opens in the PWA and VS Code.
+- Page or selection import reads content only after your click and site-access
+  approval. It appends to the chosen note; it does not modify the website.
+  Protected pages, forms, editable controls and inaccessible frames are excluded.
+- **Insert from file…** appends another Markdown file to Current. **Open file**
+  changes the selected source; **Download copy** downloads the active note.
+- Copy and Markdown export include the exact chosen content, including masked
+  secrets. Clipboard history and destination applications are outside AIC's control.
+- `|`, `*|`, `#|`, `_|`, `1|` and `0|` retain their ordinary, secret,
+  authenticator, card and one-time-value syntax. Password generation remains local
+  and only fills an empty editable field.
+- **AIC guide** is bundled and works offline. The public How to page explains
+  document writing and the shared DDK method.
+
+Menus use SVG icons, keyboard focus and touch-sized controls. Code and Mermaid
+previews use their content height so scrolling continues through the note.
 
-Leaving an AIC block's source edit, or switching the whole note from source to
-preview, sorts rows by label within each section using natural, case-insensitive
-order. Unlabelled rows remain in their original order at the end. Section order,
-value order and exact authored values are preserved. Opening a preview, copying
-and manual reordering do not trigger sorting.
+## Recovery and updates
 
-All three installation paths are in the [release and installation page](https://aic.dzyha.com/releases).
+While editing, AIC requests a separate local draft checkpoint. Acknowledged
+checkpoints can survive Reload or a browser restart; they do not mean the file
+has been saved. The active checkpoint is cleared after the file save is confirmed.
+Recovered drafts are reviewed explicitly and can be saved as copies. Recovery
+never automatically replaces a file or restores a deleted note. If a checkpoint
+fails, keep the panel open and save or export the draft before closing.
 
-## 0.11.3 — prepared scrolling fix
+For an unpacked installation, keep the same extension directory and use Reload.
+Removing the extension first clears its local recovery data. Saved disk files
+remain unchanged. This version does not migrate older encrypted notes.
 
-Code previews let vertical scrolling continue through the document, preserve
-horizontal scrolling for long lines, and use their full content height.
-Local storage, encryption and permissions are unchanged. Publication is verified
-separately from package preparation.
+## Local build
 
-## 0.11.2 — Mermaid update
+```bash
+npm run build:browser
+```
 
-Mermaid keeps a full-width canvas and centers the diagram at its natural size.
-Diagrams shrink to fit narrow panels, long flowchart labels wrap, and the preview
-uses all content height without internal scrollbars or zoom buttons. Copy and Edit
-remain. Mermaid loads only when a diagram is rendered. Store approval is separate.
+The command creates `dist-browser/chromium/` and a versioned ZIP under
+`dist-browser/artifacts/`. In `chrome://extensions` or `edge://extensions`, enable
+Developer mode, choose **Load unpacked**, and select the folder containing
+`manifest.json`. A GitHub ZIP or successful local build is not a store release.
 
-## Supported design
-
-Supported browser targets are desktop **Google Chrome and Microsoft Edge only**, using Chromium 140 or newer. Both use one Manifest V3 package, one side-panel adapter and the **same canonical AIC editor**, without forks of AIC fields, Mermaid or Markdown behavior. Build and release gates cover these two browsers only.
-
-- Create a note for the exact active URL, or explicitly import visible page content, a selection, or a Markdown file. Imports append; they never edit the website or replace an existing note.
-- Use the shared Preview / Markdown switch, slash snippets and block controls. Copy a note, selected block or individual value, then paste manually. No autofill, destination-field tracking or insertion into websites.
-- The panel follows its own browser window. Page notes belong to the active exact URL; Global Shared remains available with or without an active web page. Domain/path navigation and recent pages open or activate their source pages. URL paths are not a claim about a site's real content hierarchy.
-- Notes persist locally across restarts. There is one note per exact URL, including query and fragment. AIC records at most 100 recent URLs while its panel is active and unlocked; it never queries browser history.
-- No account, server, telemetry or synchronization. Whole-library transfer uses encrypted backups; Markdown import/export and clipboard transfer are deliberate plaintext actions.
-
-## Pinning a note and related pages
-
-Use **More options → Pin note** to keep a note open while switching tabs,
-navigating or closing its source tab. Write something first if the page still has
-an untouched placeholder. Pinning saves pending edits; a failed save keeps the
-current draft available. **Unpin note** resumes following the active tab after saving.
-
-While pinned, typing or pasting into the note adds the active web page once under
-**Related links**. Switching tabs alone adds nothing. The note's own URL and
-browser-internal pages are excluded. Links retain the exact URL and use an escaped
-page title; they are ordinary Markdown, included in saves and exports. The link
-and the edit share one Undo operation. Content import reads the active page and
-appends to the pinned note. Choosing a page in Notes and history unpins the note.
-
-A pin belongs to this panel. It survives hiding and showing a retained panel,
-but Lock, closing the panel document or restarting the browser clears it.
-
-## Compact panel and importing content
-
-- A page without a note opens an editable **AIC placeholder** immediately. Merely opening it, moving focus or leaving does not create a note. The first edit creates the encrypted local note without resetting the editor, selection or undo history.
-- The direct content control imports the current readable selection when one exists and otherwise the readable page. The separate **Import Markdown** control imports a plaintext Markdown file; **Export Markdown** downloads the current note. An untouched placeholder is replaced by the exact imported Markdown; imports otherwise append and save. They never replace authored note text or write to the website. Failed saves remain editable/exportable drafts.
-- AIC field menus stay inside the visible editor, choose space above or below the button, and scroll internally when space is limited.
-- The writing cursor uses the active text color and a 2 px stroke in both preview and source mode. It follows focus and light/dark theme changes; reduced-motion mode disables blinking.
-- Typed AIC fields use compact rows. Each separator types the next value: `|` text, `*|` secret, `#|` authenticator seed, `_|` card value, `1|` unused one-time value and `0|` used one-time value. Parts keep separate actions and accessible hints; labels and values wrap together at narrow widths.
-- For selection import, select readable text on the source page first. Page/selection import requests access to that site only after your click. Browser-protected pages, forms, editable controls, hidden content and inaccessible frames are not imported. If a site prevents capture, copy its text and paste natively into the editor.
-- An explicit Paste action may fill an empty typed field from the current clipboard after a user click. It does not monitor or enumerate clipboard history; ordinary editor paste remains native.
-- **Notes and history** opens navigation without rebuilding the editor. The header has only Notes and history, More options, and Lock. **More options** groups named import/export, pinning, guide, deletion and encrypted-backup actions; page actions appear only in Current.
-- Navigation shows bounded page titles under their domain. It omits single-page path ladders and shows a common path only where it groups several pages. Visible labels and tooltips omit query/fragment details; the exact stored URL, note identity and navigation target remain unchanged.
-- The compact browser toolbar keeps Save and Preview/Markdown controls visible and exposes five direct strike, link, bullet-list, numbered-list and task-list actions. Menus and navigation preserve the editor and its selection. Escape closes a panel menu and returns focus to its trigger. The local **More options → AIC guide** explains AIC syntax and current actions without network access.
-- Save failures remain visible until dismissed; routine confirmations disappear after five seconds. Notifications float above the lower edge rather than pushing the editor down.
-
-## 0.9.3 — Chrome Web Store preparation
-
-Removed the redundant `activeTab` permission. Page imports still request access
-to the selected origin after an explicit click and use `scripting` only after
-approval. The bilingual privacy policy now includes Chrome's Limited Use
-statement. Store registration and listing assets are complete; the 0.9.3 draft
-is saved. The owner reported that the manual Chrome 0.9.3 checklist works,
-explicitly confirming Lock across two panels and import/export. The exact Chrome
-version, OS and export type were not supplied; see the [verification record](VERIFICATION.md).
-Submitted on September 24, 2026 at 14:38 UTC: **Pending review**, with automatic
-publication after approval enabled. It is not published; see the [current store status](STORE_LISTING.md).
-
-## 0.9.2 — accordion layout and save feedback
-
-Linked-code comments stay inside their details accordion, with compact headers
-and readable nesting. Unsaved edits keep the editor background unchanged; the
-Save button pulses until changes are saved. Reduced motion uses a static
-indicator, and save acknowledgements remain authoritative.
-
-## 0.9.1 password generation at narrow widths
-
-Empty password fields expose generation at every panel width. Options wrap to
-fit; existing values and read-only notes remain protected.
-
-## 0.9.0 responsive records and automatic ordering
-
-AIC labels and values wrap as complete items at their natural width. Password
-copy uses one compact lock button; the final value keeps the `+` menu. Leaving
-source edit sorts rows by label within each section and preserves section order,
-value order and exact authored values.
-
-## 0.8.0 compact credential rows
-
-- Labels take only their bounded text width while flexible values use the
-  remaining space. Protected values are small copy buttons with a lock and six
-  dots. One trailing `+` menu adds a Field, Row or Section after the final
-  value, and a quiet divider separates records.
-
-## 0.7.0 whole-block Cut
-
-- Tables, code fences, Mermaid, AIC/Properties and details use one shared Cut
-  scissors action. It copies the complete Markdown block before removing the
-  exact source range. Failed or stale clipboard work leaves source unchanged;
-  read-only previews omit Cut.
-
-## 0.6.1 bilingual documentation
-
-- Product, privacy and verification documents are available in English and
-  Ukrainian and are packaged together. Generated third-party notices retain
-  their exact upstream wording.
-
-## 0.6.0 Mermaid source and live preview
-
-- Mermaid diagrams are edited as Markdown with a live preview. The preview has
-  Copy, one Edit icon and preview-only zoom. The visual builder, drag-and-drop
-  diagram editing and rotation controls are removed.
-
-## 0.5.2 quote accents and editable code fences
-
-- Information (`>`), warning (`!>`) and error (`!>>`) quotes have separate
-  accents, softly tinted backgrounds, smaller text and more space around them.
-  `>>> … <<<` remains a details block. Italic text is smaller too.
-- An unfinished three-backtick fence stays editable so the language can be entered;
-  completed code previews after the caret leaves the fence.
-
-## 0.5.1 Markdown spacing and thematic breaks
-
-- Headings, quotes and list starts have room to breathe even without authored
-  blank lines. Thematic breaks draw as centered 50–100 px lines with space above
-  and below. Raw `---` is shown under the caret without changing the row height.
-
-## 0.5.0 narrow panels and blank rows
-
-- The panel and toolbar can shrink without a fixed minimum width. Field labels
-  remain connected to their values as rows wrap into readable columns; a separate
-  values-only horizontal scroller is no longer used.
-- New AIC blocks begin with an unlabeled text row for an email or username.
-  Account is no longer a row preset; Password and TOTP are separate optional
-  fields. Existing authored notes are unchanged.
-- Password generation controls are hidden at viewport widths of 600 px or less.
-  Existing secret values and copy actions remain available.
-
-## 0.4.0 Global Shared and section copying
-
-- **Global** above Domain Shared opens an editable AIC placeholder. Opening it or
-  choosing Done without an edit creates no record; the first actual edit creates
-  the encrypted Global record. A populated **Global Shared** section uses the same
-  masked fields and editing controls as domain data. It remains available without
-  an active HTTP(S) page.
-- Global is one explicit record in this browser profile's vault. Domain Shared
-  still belongs to one exact origin, and Page still belongs to one exact URL.
-  Each has independent revisions and drafts. Global values do not override or get
-  copied into domain/page Markdown, and no values are inserted into websites.
-- **Copy section** in an AIC section header copies that section as a standalone
-  fenced `aic` block, including its masked and filter-hidden rows, without the card
-  title or sibling sections. Logical values and typed parts are preserved through
-  the shared serializer; source whitespace and quoting may be normalized. Copy is
-  available read-only, guards stale controls and does not edit or save the source.
-- Library v3 includes the Global record in the existing encrypted vault and backup.
-  When merging a backup, an existing local Global record is preserved and a
-  persistent notice reports the skipped imported record. The original encrypted
-  backup is unchanged. Version 1/2 content remains readable; the next write uses
-  v3, which older builds cannot read. Keep a pre-update encrypted backup before any
-  downgrade; no downgrade migrator is provided.
-- This does not implement the proposed generated-key or VS Code `global.aic`
-  encryption architecture, account connections or synchronization. No Standard
-  Notes PWA crash fix is claimed. Packaged-runtime and store acceptance remain
-  separately documented in [VERIFICATION.md](VERIFICATION.md).
-
-## 0.3.1 compact shared editor toolbar (prior release)
-
-- Standard Notes and the browser use one always-compact editor toolbar with direct
-  strike, link, bullet-list, ordered-list and task-list actions plus source mode.
-  Style/Insert selectors and Bold/Italic/Inline-code buttons are not mounted; use
-  existing keyboard shortcuts, authored Markdown or slash commands for those
-  operations. The shared editor guide is enabled by default, while this browser
-  host disables that editor-level trigger because the panel owns the local `?`
-  entry point. Wrapping avoids horizontal scrolling, and coarse-pointer controls
-  retain 44 px targets.
-- Browser 0.3.1 carries the shared host-toolbar and CSS bundle change. It does not
-  change the encrypted-library format, shared core 6.0.0 or AIC Notes 44.4.7.
-  Packaged-runtime acceptance remains pending in
-  [VERIFICATION.md](VERIFICATION.md).
-
-Current AIC-only field behavior builds on 0.3.0:
-
-- Shared core 6.0.0 recognizes one fenced `aic` document rather than active YAML
-  Properties blocks. Each typed separator applies to the next value, so a row can
-  combine ordinary, secret, authenticator, card and one-time parts. Blank, Card
-  and One-time codes are presets made from those parts, not separate data formats.
-  New blocks include a blank text row for an email or another identifier.
-  Narrow panels stack labels above responsive value columns and keep the whole
-  row readable without a separate value-only horizontal scroller.
-  Existing source is not automatically rewritten; unsupported old text remains in
-  the note for manual repair.
-- Copying an unused `1|` value marks it used as `0|`. Activating a used value changes
-  it back to `1|` without copying; only used values expose removal. Field adds a
-  typed part to the current row, Row inserts below it and Section inserts after the
-  current section.
-- The shared local guide is available from **More options → AIC guide** in the browser panel and from the help control in Standard Notes
-  compact toolbar and VS Code hosts. It renders fixed bundled text and examples; it does not read
-  notes, storage or the network.
-
-## 0.2.1 presentation corrections (historical source candidate)
-
-- Card/composite labels and their first values align with adjacent simple fields and
-  use the same typography. Cards omit the extra label colon; masking and independent
-  copy targets are unchanged.
-- Contextual Field, Row and Section actions follow the relevant row. Empty sections
-  keep Row and Section inline; no separate New-block or Section footer is mounted.
-- Navigation titles are bounded and do not visibly expose a page's full query or
-  fragment. This changes display only: exact stored URLs, note identities and source
-  navigation targets remain unchanged.
-- Plain Markdown preview uses parser-backed link records so a destination with nested
-  parentheses or query text does not append its suffix to the visible label. Authored
-  Markdown and the link destination remain unchanged.
-- The compact browser toolbar exposes five direct strike, link, bullet-list,
-  ordered-list and task icons without nested Format/Style/Insert controls. At this
-  historical candidate point, Standard Notes still had its broader controls; release
-  36.0.1 later replaced them with the compact action set and local `?` guide.
-- Shared field-add menus use compact, left-aligned items instead of oversized
-  centered rows while retaining their actions, viewport bounds and keyboard behavior.
-- Content and Markdown transfer use direct controls: the content icon imports the
-  current selection when one exists and otherwise the visible page; separate up/down
-  Markdown icons import and download files. Native paste replaces the general clipboard
-  import button, redundant Copy actions are removed, and More is limited to note/history
-  deletion plus clearly grouped encrypted backups.
-- These corrections do not implement the separately proposed global
-  Shared/encryption design and do not change the encrypted-library format.
-
-## Shared site AIC fields
-
-- **Shared → Edit shared properties** opens one site-level AIC document. Store ordinary, secret, authenticator, card or one-time values there once; every page at that same origin exposes its readonly preview and individual value actions in the Shared tab. Editing it does not replace the page editor or its draft.
-- Merely visiting a page or opening the shared editor creates no shared record. The first valid AIC edit creates the record in the encrypted library. Shared fields do not inherit from, override or get copied into page fields; existing homepage notes stay unchanged.
-- The boundary is the exact **scheme + host + port**: HTTPS and HTTP, different subdomains and non-default ports have separate shared records. A URL path never widens that boundary.
-- Page Markdown export includes the page only. The encrypted library backup includes each shared origin once and the optional Global record once. Domain data stay origin-bound; Global is separately available across pages in this profile. There is no autofill or network synchronization.
-- Save failures and conflicts retain the local draft for retry or explicit plaintext export. Invalid unfinished AIC source remains in the shared editor, never in a child page's readonly preview.
-
-## Historical 0.2.0 compact context, ancestors and deletion
-
-The focused scope tabs described below supersede the inline Shared action and stacked layout.
-
-- **Format** opens a compact toolbar popover. When shared Properties are empty, their
-  **Edit shared properties** action stays inline in that toolbar instead of adding a
-  separate empty section, leaving more space for the page editor.
-- Below domain Properties, a compact list links saved parent pages on the current
-  URL path, then identifies the current page. Parent content is not inherited or
-  copied. Only exact-origin, query/fragment-free, strict path ancestors qualify;
-  siblings and similarly named path prefixes do not. This is URL navigation, not
-  a reconstruction of Confluence or another site's internal page hierarchy.
-- Use **More options → Delete local note**, or the removal button next to a page
-  in **Notes and history**. Confirm to delete that note and its AIC history entry.
-  The source website, domain Properties and other notes remain unchanged. The
-  current page returns to a memory-only AIC placeholder; it creates a new
-  note only after an edit. Saved pages appear once, not again under Recent pages.
-- Deletion waits for this panel's pending save and checks the stored revision.
-  Save failures or concurrent changes stop deletion and keep the draft available.
-  There is no undo for a deleted note without an earlier encrypted backup. Removing
-  history does not block future tracking: visiting that page again can add a new
-  recent entry. It does not recreate its deleted note.
-
-## Encryption and limits
-
-Before the first note, choose a unique master passphrase of at least 12 Unicode characters, at most 1,024 UTF-8 bytes. Spaces and Unicode normalization are preserved exactly. Length alone does not guarantee strength. **There is no recovery without the passphrase.**
-
-Native WebCrypto derives an AES-256-GCM key using PBKDF2-HMAC-SHA256 with 600,000 iterations and a random 32-byte salt. Every write uses a fresh random 96-bit IV and a 128-bit authentication tag. The complete library—Markdown, titles, URLs, dates and navigation index—is encrypted before persistent writes. The bounded, versioned envelope authenticates its parameters and rejects tampering.
-
-The passphrase is never persisted or embedded in code. The derived key stays in trusted, memory-only `storage.session`, allowing background-worker suspension without another unlock. Lock, browser restart, extension reload or update ends that session. Both local and session storage access are explicitly restricted to trusted extension contexts. Local storage contains **ciphertext only**, never a key. Missing session storage or failed access restrictions fail closed; there is no disk fallback.
-
-Limits: 500 notes, 500 shared-origin records, one optional Global record, 512 KiB UTF-8 per document, 6 MiB UTF-8 for the decrypted library, 100 recent URLs, 8 KiB per URL. Shared AIC documents additionally follow the canonical parser's row, part and text limits. Backups merge new URLs and origins without overwriting existing records; an existing Global record is also preserved with an explicit skipped-import notice. Simultaneous first imports into one URL append atomically. Conflicting ordinary edits retain the losing panel's draft for export instead of overwriting the other revision.
-
-The decrypted library format is now version 3; the encryption envelope is unchanged. Version 1/2 notes, history and existing domain records migrate on read without changing their content or creating a Global record. Reading alone does not rewrite storage; the next persistent write uses v3. Existing encrypted backups remain importable. Older extension builds cannot read v3 after that write: retain a pre-update encrypted backup if you may need to downgrade. Reverse migration is not implemented.
-
-Encryption protects stored data from simple file inspection, not an unlocked extension, compromised device/browser, or clipboard history/synchronization. Plaintext exists in the editor and undo history while unlocked. JavaScript cannot guarantee forensic erasure of every memory copy. Masking a field is a display feature, not encryption.
-
-## Saving and locking
-
-Typing autosaves after a short pause. Save, Ctrl+S, shared-editor blur and block actions also request saving. Only a successful background storage acknowledgment marks the note saved; acknowledgments do not rebuild the editor or reset its cursor.
-
-Failed writes, conflicts and failed first imports keep an in-memory draft with retry/export actions. Wait for **Note saved** before closing the browser. Uncommitted drafts are not crash-safe storage.
-
-Hidden panels pause page tracking and discard late context replies. Showing the panel reloads the current page's context. Draft content survives a retained panel's hide/show cycle, but the recreated editor does not retain its cursor or undo stack.
-
-Lock clears editor/undo state, navigation, filters, import buffers and pending responses in every panel. The initiating panel offers export/discard when its own save fails. Save work in other panels first: global lock prioritizes clearing plaintext and cannot recover another panel's uncommitted draft. Downloaded files and the OS clipboard are not erased by Lock.
-
-## Private windows
-
-Chrome Incognito and Edge InPrivate are not supported in this build. The manifest disables private-window installation/use. Do not change browser privacy settings to work around that restriction. Use AIC in a normal browser window; its encrypted local notes persist across restarts.
-
-## Build and local testing
-
-To test a GitHub release without building, download `aic-browser-chromium-0.10.0.zip`
-and its `.sha256` from [AIC Releases](https://github.com/ldzyha/standard-notes-aic/releases),
-verify the checksum, and extract into a permanent folder. Use that folder for
-**Load unpacked** below. The ZIP is not a Chrome/Edge store installation package.
-
-Run `npm run build:browser` from the canonical repository. No additional runtime dependencies or external services are needed. It produces one unpacked directory, `dist-browser/chromium/`, and one archive, `dist-browser/artifacts/aic-browser-chromium-0.10.0.zip`, for both Chrome and Edge. Other browser build modes are rejected.
-
-The archive uses deterministic ordering and timestamps and includes the `>_` icon, worker, editor assets and privacy notices. Previously generated development files are not current targets; the build does not delete older archives or browser profiles. The command never installs into a user's profile or submits to a store.
-
-For local testing, open `chrome://extensions` in Chrome or `edge://extensions` in Edge, enable **Developer mode**, choose **Load unpacked**, and select `dist-browser/chromium/` (the folder containing `manifest.json`, not the ZIP). Pin AIC and click its toolbar icon to open the side panel. The same directory works in both browsers; their notes remain separate unless you explicitly transfer them. See the official [Chrome instructions](https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world) and [Edge instructions](https://learn.microsoft.com/en-us/microsoft-edge/extensions/getting-started/extension-sideloading).
-
-Before an update, wait for **Note saved**, export an encrypted backup from **More options**, and retain its passphrase. Keep the unpacked extension at the same path and use **Reload** on its existing extension card after rebuilding. Do not uninstall a populated extension to update it. Unpacked developer installation does not establish store-distributed update behavior.
-
-## Ownership
-
-- `library.ts`: versioned schemas, quotas, revisions, note/history, shared-origin records and the Global singleton; `navigation.ts`: compact display projection without changing stored URLs; `page-ancestors.ts`: exact-origin path-segment ancestor metadata without note contents.
-- `vault-crypto.ts` / `vault-store.ts`: cryptography and serialized encrypted persistence/backup lifecycle.
-- `service.ts` / `worker.ts`: sole storage writer, revision-guarded save/delete operations, active-page checks, capture/navigation authorization and sender isolation.
-- `api.ts` / `platform.ts`: one narrow Chromium adapter for Chrome and Edge; no shared-editor duplication.
-- `capture-page.ts` / `import-page.ts`: bounded read-only DOM capture and inert Markdown conversion. Forms, editable controls, hidden content and inaccessible frames are excluded. Visible text and URLs can contain confidential information; this is not a secret scanner or OCR tool.
-- `draft-coordinator.ts`: common acknowledged-save, conflict and recovery lifecycle; `drafts.ts` / `domain-drafts.ts` / `global-drafts.ts`: page, origin and Global adapters.
-- `panel.ts` / `domain-properties.ts`: own-window context, lock cleanup, recovery and readonly/editable domain and Global AIC documents using the canonical editor.
-
-All runtime assets are bundled. Extension CSP denies outgoing connections and remote embeds. Following a link is ordinary browser navigation, not synchronization. These restrictions do not control browser updates, other extensions or OS clipboard services.
-
-## Remaining release gates
-
-1. **Verify the package in Chrome and Edge.** Prerequisite: Chromium build and isolated synthetic profiles. Check startup, own-window sidebar context, private-window exclusion, capture permissions, save/reopen, session/restart, encrypted disk state, lock and network denial. Record each browser's versions and limitations in VERIFICATION.md.
-2. **Resolve runtime findings and rebuild.** Prerequisite: evidence from step 1. Every required fix needs a regression check; rerun type/lint/unit/visual checks and inspect final package contents.
-3. **Arrange store distribution.** Prerequisite: working package plus publisher account/credentials. Chrome Web Store and Microsoft Edge Add-ons are separate publication actions. No store approval or end-user installation is implied by a development ZIP.
-4. **Release with explicit boundaries.** Prerequisite: reviewed evidence and approved distribution artifacts. Publish the tested versions, recovery/export instructions and known limitations without claiming an audited password manager.
-
-## References
-
-- [WebCrypto AES-GCM](https://developer.mozilla.org/en-US/docs/Web/API/AesGcmParams)
-- [OWASP cryptographic storage](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html)
-- [Chrome extension storage](https://developer.chrome.com/docs/extensions/reference/api/storage)
-
-## Bundled instructions for coding agents
-
-Open **? → Instructions for coding agents** to select and copy the shared guide
-into any coding agent that accepts Markdown. The guide is bundled with this
-installation; it requires no separate AIC executable, server, account or config
-folder. Share note content separately and deliberately. This handoff does not
-grant the agent access to browser-vault or Standard Notes data.
-
-Current, Shared and Global are separate tabs. Only the selected scope is visible;
-its save must succeed before navigation. Current follows the exact page URL,
-Shared belongs to that origin, and Global belongs to this browser profile.
+The supported targets are desktop Google Chrome and Microsoft Edge. Incognito
+and InPrivate are disabled. All runtime resources are bundled; there is no
+account, telemetry, analytics or background website capture. See the bundled
+[privacy policy](PRIVACY.md) and [verification record](VERIFICATION.md).

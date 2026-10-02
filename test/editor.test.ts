@@ -6,6 +6,22 @@ import { undo } from "@codemirror/commands";
 afterEach(() => document.body.replaceChildren());
 
 describe("AIC editor integration", () => {
+  it.each([undefined, "", " \n"])(
+    "keeps empty document bytes without inserting a block: %s",
+    (initialText) => {
+      const host = document.createElement("div");
+      document.body.append(host);
+      const onChange = vi.fn();
+      const editor = new AicEditor(host, { initialText, onChange });
+      expect(editor.value).toBe(initialText ?? "");
+      expect(host.querySelector(".cm-aic-security-block")).toBeNull();
+      expect(onChange).not.toHaveBeenCalled();
+      editor.switchDocument("empty-document", "");
+      expect(editor.value).toBe("");
+      editor.destroy();
+    },
+  );
+
   it("preserves extra authored table cells when editing a visible cell", () => {
     const source = "| A |\n| --- |\n| visible | extra-authored-cell |\n\nAfter";
     const host = document.createElement("div");

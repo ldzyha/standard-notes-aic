@@ -52,7 +52,11 @@ export class BrowserDrafts {
       saveFn,
       {
         contextKey: (page) => page.url,
-        contextForRecord: (note) => ({ url: note.url, title: note.title }),
+        opaqueRevisionKey: (note) => note.filePath,
+        contextForRecord: (note) => ({
+          url: note.url || `file:${note.id}`,
+          title: note.title,
+        }),
       },
       (state) => onChangeFn(browserDraft(state)),
       createFn,
@@ -63,7 +67,7 @@ export class BrowserDrafts {
     return browserDraft(this.coordinator.activate(note));
   }
 
-  activatePlaceholder(page: PageContext, seed: string): Draft {
+  activatePlaceholder(page: PageContext, seed = ""): Draft {
     return browserDraft(this.coordinator.activatePlaceholder(page, seed));
   }
 
@@ -101,6 +105,10 @@ export class BrowserDrafts {
 
   dirtyDrafts(): Draft[] {
     return this.coordinator.dirtyDrafts().map(browserDraft);
+  }
+
+  pendingDrafts(): Draft[] {
+    return this.coordinator.pendingDrafts().map(browserDraft);
   }
 
   hasPendingChanges(): boolean {

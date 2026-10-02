@@ -7,30 +7,28 @@ import {
   it,
   vi,
 } from "vitest";
-import { createVault, unlockVault } from "../src/browser/vault-crypto";
 import { PwaRepository } from "../src/pwa/controller";
 import {
   createPwaFile,
   createWorkspace,
   fileText,
-  parsePayload,
   type WorkspacePayload,
 } from "../src/pwa/model";
 import {
   MemoryPwaPersistence,
   IndexedDbPwaPersistence,
-  validateStoredEntity,
-  validateStoredLocalWorkspace,
-  type PwaDevicePersistence,
+  type LocalWorkspacePersistence,
   type StoredLocalWorkspace,
-  type StoredPwaEntity,
 } from "../src/pwa/storage";
 
 const cryptoModule = "node:crypto";
 const { webcrypto } = (await import(cryptoModule)) as { webcrypto: Crypto };
-const password = "synthetic optional encryption password";
 let fixture: WorkspacePayload;
-let protectedFixture: StoredPwaEntity;
+const protectedFixture = {
+  id: "untouched-old-data",
+  revision: 7,
+  envelope: { opaque: "old bytes" },
+};
 
 beforeAll(async () => {
   vi.stubGlobal("crypto", webcrypto);
@@ -46,28 +44,15 @@ beforeAll(async () => {
     ],
     directories: ["project", "project/empty"],
   };
-  protectedFixture = {
-    id: "protected-fixture",
-    revision: 7,
-    envelope: (await createVault(password, JSON.stringify(fixture))).envelope,
-  };
 });
 afterEach(() => vi.restoreAllMocks());
 afterAll(() => vi.unstubAllGlobals());
 
 function adapter(
   memory: MemoryPwaPersistence,
-  shouldFail: (
-    operation: "protected-write" | "local-write" | "local-remove",
-  ) => boolean,
-): PwaDevicePersistence {
+  shouldFail: (operation: "local-write" | "local-remove") => boolean,
+): LocalWorkspacePersistence {
   return {
-    list: () => memory.list(),
-    read: (id) => memory.read(id),
-    write: (value, expected) =>
-      shouldFail("protected-write")
-        ? Promise.reject(new Error("Synthetic protected write failure"))
-        : memory.write(value, expected),
     listLocal: () => memory.listLocal(),
     readLocal: (id) => memory.readLocal(id),
     writeLocal: (value, expected) =>
@@ -196,21 +181,7 @@ function indexedDbFactory() {
   };
 }
 
-describe("optional-encryption device-local workspaces", () => {
-  it("rejects invalid protected creation through its existing Promise API without deriving or writing", async () => {
-    const persistence = new MemoryPwaPersistence();
-    const derive = vi.spyOn(webcrypto.subtle, "deriveBits");
-    const write = vi.spyOn(persistence, "write");
-    const repository = new PwaRepository(persistence);
-    let attempted: Promise<StoredPwaEntity> | undefined;
-    expect(() => {
-      attempted = repository.create(password, "🔐".repeat(300), fixture);
-    }).not.toThrow();
-    await expect(attempted).rejects.toMatchObject({ code: "invalid" });
-    expect(derive).not.toHaveBeenCalled();
-    expect(write).not.toHaveBeenCalled();
-  });
-
+describe("plain file workspace cache", () => {
   it("persists an explicit local record without a password or cryptographic derivation and reloads all files", async () => {
     const derive = vi.spyOn(webcrypto.subtle, "deriveBits");
     const persistence = new MemoryPwaPersistence();
@@ -222,11 +193,9 @@ describe("optional-encryption device-local workspaces", () => {
       revision: 1,
       payload: fixture,
     });
-    expect(await repository.list()).toEqual([]);
     const stored = (await persistence.listLocal())[0] as StoredLocalWorkspace;
     expect(JSON.stringify(stored)).toContain("project/notes.md");
     expect(stored).not.toHaveProperty("envelope");
-    expect(() => validateStoredEntity(stored)).toThrow();
     const reloaded = new PwaRepository(persistence);
     expect(reloaded.localSnapshot(record.id)).toBeNull();
     expect(await reloaded.readLocal(record.id)).toEqual(fixture);
@@ -243,7 +212,7 @@ describe("optional-encryption device-local workspaces", () => {
     const snapshot = repository.localSnapshot(record.id)!;
     snapshot.files[0]!.path = "changed.md";
     expect(repository.localSnapshot(record.id)).toEqual(fixture);
-    repository.lockAll();
+    repository.closeAll();
     expect(repository.localSnapshot(record.id)).toBeNull();
     expect((await repository.listLocal())[0]!.payload).toEqual(fixture);
     expect(await repository.readLocal(record.id)).toEqual(fixture);
@@ -315,47 +284,7 @@ describe("optional-encryption device-local workspaces", () => {
     await repository.removeLocal(record.id);
   });
 
-  it("encrypts a complete protected copy atomically and retains the plaintext original until explicit removal", async () => {
-    const memory = new MemoryPwaPersistence();
-    let failProtected = true;
-    const repository = new PwaRepository(
-      adapter(
-        memory,
-        (operation) => operation === "protected-write" && failProtected,
-      ),
-    );
-    const local = await repository.createLocal(undefined, fixture);
-    await expect(
-      repository.create(
-        password,
-        undefined,
-        repository.localSnapshot(local.id)!,
-      ),
-    ).rejects.toMatchObject({ code: "storage" });
-    expect(await repository.list()).toEqual([]);
-    expect((await repository.listLocal())[0]!.payload).toEqual(fixture);
-    failProtected = false;
-    const protectedCopy = await repository.create(
-      password,
-      undefined,
-      repository.localSnapshot(local.id)!,
-    );
-    expect(protectedCopy.id).not.toBe(local.id);
-    expect(
-      parsePayload(
-        (await unlockVault(protectedCopy.envelope, password)).plaintext,
-      ),
-    ).toEqual(fixture);
-    expect((await repository.listLocal())[0]!.payload).toEqual(fixture);
-    await repository.removeLocal(local.id);
-    expect(await repository.listLocal()).toEqual([]);
-    expect(await repository.exportEncrypted(protectedCopy.id)).toBe(
-      JSON.stringify(protectedCopy.envelope),
-    );
-    expect(() => validateStoredLocalWorkspace(protectedCopy)).toThrow();
-  });
-
-  it("shares workspace validation and fails closed on corrupt plaintext records without downgrading protected schemas", async () => {
+  it("shares workspace validation and fails closed on corrupt plaintext records without rewriting unrelated stored data", async () => {
     const persistence = new MemoryPwaPersistence();
     const write = vi.spyOn(persistence, "writeLocal");
     const repository = new PwaRepository(persistence);
@@ -365,10 +294,7 @@ describe("optional-encryption device-local workspaces", () => {
     };
     expect(() => repository.createLocal(undefined, invalid)).toThrow();
     expect(write).not.toHaveBeenCalled();
-    const damaged: PwaDevicePersistence = {
-      list: () => persistence.list(),
-      read: (id) => persistence.read(id),
-      write: (record, expected) => persistence.write(record, expected),
+    const damaged: LocalWorkspacePersistence = {
       listLocal: async () => [
         {
           format: "aic-local-workspace",
@@ -407,7 +333,7 @@ describe("default IndexedDB local workspace upgrade", () => {
       "synthetic-upgrade",
       fixtureDb.factory,
     );
-    const listing = persistence.list();
+    const listing = persistence.listLocal();
     expect(fixtureDb.open).toHaveBeenCalledWith("synthetic-upgrade", 2);
     const opening = fixtureDb.openings[0]!;
     opening.request.onupgradeneeded!();
@@ -416,7 +342,7 @@ describe("default IndexedDB local workspace upgrade", () => {
     });
     expect(fixtureDb.createStores).toHaveBeenCalledTimes(1);
     opening.request.onsuccess!();
-    expect(await listing).toEqual([protectedFixture]);
+    expect(await listing).toEqual([]);
     const local: StoredLocalWorkspace = {
       format: "aic-local-workspace",
       version: 1,
@@ -442,7 +368,6 @@ describe("default IndexedDB local workspace upgrade", () => {
     ).toBe(2);
     await persistence.removeLocal(local.id, 2);
     expect(await persistence.listLocal()).toEqual([]);
-    expect(await persistence.list()).toEqual([protectedFixture]);
     expect(fixtureDb.stores.get("entities")?.get(protectedFixture.id)).toEqual(
       protectedFixture,
     );
@@ -456,15 +381,15 @@ describe("default IndexedDB local workspace upgrade", () => {
         "synthetic-upgrade",
         fixtureDb.factory,
       );
-      const blocked = persistence.list();
+      const blocked = persistence.listLocal();
       const abandoned = fixtureDb.openings[0]!;
       abandoned.request[failure]!();
       await expect(blocked).rejects.toMatchObject({ code: "storage" });
-      const retry = persistence.list();
+      const retry = persistence.listLocal();
       const active = fixtureDb.openings[1]!;
       active.request.onupgradeneeded!();
       active.request.onsuccess!();
-      expect(await retry).toEqual([protectedFixture]);
+      expect(await retry).toEqual([]);
       abandoned.request.onsuccess!();
       expect(abandoned.close).toHaveBeenCalledOnce();
       expect(active.close).not.toHaveBeenCalled();
@@ -472,9 +397,9 @@ describe("default IndexedDB local workspace upgrade", () => {
       expect(fixtureDb.open).toHaveBeenCalledTimes(2);
       active.versionchange();
       expect(active.close).toHaveBeenCalledOnce();
-      const reopened = persistence.list();
+      const reopened = persistence.listLocal();
       fixtureDb.openings[2]!.request.onsuccess!();
-      expect(await reopened).toEqual([protectedFixture]);
+      expect(await reopened).toEqual([]);
       expect(fixtureDb.open).toHaveBeenCalledTimes(3);
     },
   );

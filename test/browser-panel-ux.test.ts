@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { EditorView } from "@codemirror/view";
 import { BrowserPanel } from "../src/browser/panel";
-import { displayPageLocation } from "../src/browser/navigation";
+import {
+  displayPageLocation,
+  navigationLabels,
+} from "../src/browser/navigation";
 import type { ActivePage, BrowserApi, Request } from "../src/browser/api";
 import type {
   BrowserLibrary,
@@ -45,14 +48,14 @@ const note = (page: ActivePage, markdown: string): BrowserNote => ({
 
 function fixture(
   options: {
-    state?: "locked" | "unlocked";
+    state?: "unavailable" | "ready";
     private?: boolean;
     page?: ActivePage | null;
     notes?: BrowserNote[];
     history?: PageVisit[];
   } = {},
 ) {
-  let state = options.state ?? "unlocked";
+  let state = options.state ?? "ready";
   let page = options.page === undefined ? firstPage : options.page;
   const library: BrowserLibrary = {
     version: 3,
@@ -83,7 +86,7 @@ function fixture(
             value = { state };
             break;
           case "lock":
-            state = "locked";
+            state = "unavailable";
             changed.emit({ "aic-browser-unlock": { oldValue: {} } }, "session");
             break;
           case "context":
@@ -154,8 +157,8 @@ function press(root: HTMLElement, name: RegExp): HTMLButtonElement {
       "Pin note",
       "Unpin note",
       "Import current content",
-      "Import Markdown file",
-      "Export Markdown file",
+      "Insert from Markdown file",
+      "Download copy",
       "AIC guide",
     ].some((label) => name.test(label)) &&
     !namedButton(root, name)
@@ -190,33 +193,33 @@ describe("browser panel compact UX", () => {
     expect(namedButton(root, /^Paste from clipboard$/iu)).toBeNull();
     press(root, /^More options$/iu);
     expect(namedButton(root, /^Import current content$/iu)).not.toBeNull();
-    expect(namedButton(root, /^Import Markdown file$/iu)).not.toBeNull();
-    expect(namedButton(root, /^Export Markdown file$/iu)).not.toBeNull();
+    expect(namedButton(root, /^Insert from Markdown file$/iu)).not.toBeNull();
+    expect(namedButton(root, /^Download copy$/iu)).not.toBeNull();
     expect(
       root
-        .querySelector('[aria-label="Import Markdown file"]')
+        .querySelector('[aria-label="Insert from Markdown file"]')
         ?.hasAttribute("aria-haspopup"),
     ).toBe(false);
     expect(root.querySelector('[role="dialog"]')).not.toBeNull();
   });
 
-  it("keeps backup actions in More options and restores its trigger on Escape", async () => {
+  it("keeps file actions in More options and restores its trigger on Escape", async () => {
     const fake = fixture({ notes: [note(firstPage, "Existing")] });
     const { root, panel } = mount(fake.api);
     await panel.ready;
-    expect(namedButton(root, /^Export encrypted backup$/iu)).toBeNull();
-    expect(namedButton(root, /^Import encrypted backup$/iu)).toBeNull();
+    expect(namedButton(root, /^Open file…$/iu)).toBeNull();
+    expect(namedButton(root, /^Open folder…$/iu)).toBeNull();
     const trigger = press(root, /^More options$/iu);
-    expect(namedButton(root, /^Export encrypted backup$/iu)).not.toBeNull();
-    expect(namedButton(root, /^Import encrypted backup$/iu)).not.toBeNull();
+    expect(namedButton(root, /^Open file…$/iu)).not.toBeNull();
+    expect(namedButton(root, /^Open folder…$/iu)).not.toBeNull();
     root.dispatchEvent(
       new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
     );
-    expect(namedButton(root, /^Export encrypted backup$/iu)).toBeNull();
+    expect(namedButton(root, /^Open file…$/iu)).toBeNull();
     expect(document.activeElement).toBe(trigger);
   });
 
-  it("groups current-note and encrypted-backup actions in More", async () => {
+  it("groups current-note and file actions in More", async () => {
     const fake = fixture({ notes: [note(firstPage, "Existing")] });
     const { root, panel } = mount(fake.api);
     await panel.ready;
@@ -229,16 +232,16 @@ describe("browser panel compact UX", () => {
     )!;
     expect(namedButton(root, /^Delete local note$/iu)).not.toBeNull();
     expect(namedButton(root, /^Copy note$/iu)).toBeNull();
-    expect(namedButton(menu, /^Export Markdown file$/iu)).not.toBeNull();
-    expect(namedButton(root, /^Export encrypted backup$/iu)).not.toBeNull();
-    expect(namedButton(root, /^Import encrypted backup$/iu)).not.toBeNull();
+    expect(namedButton(menu, /^Download copy$/iu)).not.toBeNull();
+    expect(namedButton(root, /^Open file…$/iu)).not.toBeNull();
+    expect(namedButton(root, /^Open folder…$/iu)).not.toBeNull();
   });
 
   it("opens one native Markdown picker without an intermediate dialog", async () => {
     const fake = fixture({ notes: [note(firstPage, "Existing")] });
     const { root, panel } = mount(fake.api);
     await panel.ready;
-    press(root, /^Import Markdown file$/iu);
+    press(root, /^Insert from Markdown file$/iu);
     const file = root.querySelector<HTMLInputElement>(
       'input[aria-label="Markdown file"]',
     );
@@ -249,36 +252,16 @@ describe("browser panel compact UX", () => {
     expect(file!.isConnected).toBe(false);
   });
 
-  it("focuses encrypted backup file control and returns to More options on Escape", async () => {
-    const fake = fixture({ notes: [note(firstPage, "Existing")] });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    const trigger = press(root, /^More options$/iu);
-    press(root, /^Import encrypted backup$/iu);
-    const file = root.querySelector<HTMLInputElement>(
-      'input[aria-label="Encrypted backup file"]',
-    );
-    expect(file).not.toBeNull();
-    expect(document.activeElement).toBe(file);
-    root.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
-    );
-    expect(file!.isConnected).toBe(false);
-    expect(document.activeElement).toBe(trigger);
-  });
-
-  it("shows an editable AIC placeholder without creating a note", async () => {
+  it("starts with a blank editor without creating a note", async () => {
     const fake = fixture();
     const { root, panel } = mount(fake.api);
     await panel.ready;
     const initial = view(root);
-    expect(initial.state.doc.toString()).toBe(
-      "```aic\n# Properties\n\n```\n\n",
-    );
+    expect(initial.state.doc.toString()).toBe("");
     expect(root.querySelector(".cm-aic-properties")).toBeNull();
     press(root, /^More options$/iu);
     expect(namedButton(root, /^Import current content$/iu)).not.toBeNull();
-    expect(namedButton(root, /^Import Markdown file$/iu)).not.toBeNull();
+    expect(namedButton(root, /^Insert from Markdown file$/iu)).not.toBeNull();
     expect(namedButton(root, /^Create note$/iu)).toBeNull();
     press(root, /^More options$/iu);
     expect(root.querySelector('[role="dialog"]')).toBeNull();
@@ -334,11 +317,11 @@ describe("browser panel compact UX", () => {
       changes: { from: 8, insert: " draft" },
       selection: { anchor: 5 },
     });
-    press(root, /^Notes and history$/iu);
+    press(root, /^Notes$/iu);
     expect(view(root)).toBe(editor);
     expect(editor.state.doc.toString()).toBe("Existing draft");
     expect(editor.state.selection.main.anchor).toBe(5);
-    press(root, /^Notes and history$/iu);
+    press(root, /^Notes$/iu);
     expect(view(root)).toBe(editor);
     expect(editor.state.doc.toString()).toBe("Existing draft");
   });
@@ -355,7 +338,7 @@ describe("browser panel compact UX", () => {
     });
     const { root, panel } = mount(fake.api);
     await panel.ready;
-    press(root, /^Notes and history$/iu);
+    press(root, /^Notes$/iu);
     const domains = [
       ...root.querySelectorAll<HTMLDetailsElement>(".browser-domain"),
     ];
@@ -369,9 +352,7 @@ describe("browser panel compact UX", () => {
     ].find((button) => button.textContent === "Deep note");
     expect(deepNote?.title).toBe(displayPageLocation(deepPage.url));
     expect(deepNote?.parentElement?.querySelector(".browser-url")).toBeNull();
-    const history = root.querySelector(".browser-history")!;
-    // Saved pages already appear in the tree, not again in recent history.
-    expect(history.childElementCount).toBe(0);
+    expect(root.querySelector(".browser-history")).toBeNull();
     const filter = root.querySelector<HTMLInputElement>(".browser-filter")!;
     filter.value = "Deep note";
     filter.dispatchEvent(new Event("input", { bubbles: true }));
@@ -380,18 +361,20 @@ describe("browser panel compact UX", () => {
     expect(matched?.open).toBe(true);
   });
 
-  it("keeps query and fragment data out of history labels, tooltips and delete prompts without changing destinations", async () => {
+  it("keeps query and fragment data out of note labels, tooltips and delete prompts without changing destinations", async () => {
     const urls = [
       "https://docs.example/login?login_hint=synthetic-private-user&state=synthetic-private-token#synthetic-private-fragment",
       "https://docs.example/login?login_hint=synthetic-private-other",
     ];
     const fake = fixture({
-      history: urls.map((url) => ({ url, title: "Sign in", visitedAt: 1 })),
+      notes: urls.map((url) =>
+        note({ ...firstPage, url, title: "Sign in" }, "Saved note"),
+      ),
     });
     const { root, panel } = mount(fake.api);
     await panel.ready;
-    press(root, /^Notes and history$/iu);
-    const history = root.querySelector<HTMLElement>(".browser-history")!;
+    press(root, /^Notes$/iu);
+    const history = root.querySelector<HTMLElement>(".browser-library")!;
     expect(history.innerHTML).not.toContain("synthetic-private");
     expect(history.textContent).not.toContain("login_hint");
     const destinations = [
@@ -403,7 +386,12 @@ describe("browser panel compact UX", () => {
     expect(new Set(destinations.map((button) => button.textContent)).size).toBe(
       2,
     );
-    destinations[0]!.click();
+    const firstLabel = navigationLabels(
+      urls.map((url) => ({ url, title: "Sign in" })),
+    ).get(urls[0]!);
+    destinations
+      .find((button) => button.getAttribute("aria-label") === firstLabel)!
+      .click();
     await vi.waitFor(() =>
       expect(fake.messages).toContainEqual({
         type: "navigate",
@@ -412,13 +400,61 @@ describe("browser panel compact UX", () => {
         allowPrivate: false,
       }),
     );
-    press(root, /^Notes and history$/iu);
-    press(root, /^Remove recent page: Sign in/iu);
+    press(root, /^Notes$/iu);
+    press(root, /^Delete local note: Sign in/iu);
     expect(
       root.querySelector(".browser-delete-confirm")?.innerHTML,
     ).not.toContain("synthetic-private");
     const filter = root.querySelector<HTMLInputElement>(".browser-filter");
     expect(filter).toBeNull();
+  });
+
+  it("omits history-only pages and shows a compact, honest empty state", async () => {
+    const fake = fixture({
+      page: null,
+      history: [{ url: firstPage.url, title: "Unwritten visit", visitedAt: 1 }],
+    });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    expect(root.textContent).toContain("No notes yet.");
+    expect(root.textContent).not.toMatch(
+      /Unwritten visit|Recent pages|No matching notes/,
+    );
+    expect(
+      root.querySelector<HTMLInputElement>(".browser-filter")?.hidden,
+    ).toBe(true);
+    expect(root.querySelector(".browser-empty-context h1")).toBeNull();
+    expect(fake.messages.some((message) => message.type === "create")).toBe(
+      false,
+    );
+  });
+
+  it("keeps folder ownership while filtering a nested notes tree", async () => {
+    const pages = ["one", "two"].map((name) => ({
+      ...firstPage,
+      url: `https://docs.example/project/${name}`,
+      title: `Project ${name}`,
+    }));
+    const fake = fixture({ notes: pages.map((page) => note(page, "Saved")) });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    press(root, /^Notes$/iu);
+    const folder = root.querySelector<HTMLDetailsElement>(".browser-path")!;
+    expect(folder.querySelector("summary")?.textContent).toBe("project");
+    expect(folder.querySelectorAll(".browser-page-row")).toHaveLength(2);
+    expect(folder.open).toBe(true);
+    folder.open = false;
+    expect(view(root).state.doc.toString()).toBe("");
+    const filter = root.querySelector<HTMLInputElement>(".browser-filter")!;
+    filter.value = "Project two";
+    filter.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(root.querySelector(".browser-domain summary")?.textContent).toBe(
+      "docs.example",
+    );
+    expect(root.querySelectorAll(".browser-page-row")).toHaveLength(1);
+    expect(root.querySelector(".browser-page-row")?.textContent).toBe(
+      "Project two",
+    );
   });
 
   it("sanitizes URL-like page titles during initial render and tab title updates", async () => {
@@ -449,7 +485,11 @@ describe("browser panel compact UX", () => {
     await panel.ready;
     const editor = view(root);
     expect(namedButton(root, /^Formatting$/iu)).toBeNull();
-    expect(root.querySelectorAll(".aic-toolbar-group button")).toHaveLength(5);
+    expect(
+      root.querySelectorAll(
+        ".browser-scope-panel:not([hidden]) .aic-toolbar-group button",
+      ),
+    ).toHaveLength(5);
     expect(
       root.querySelector(".aic-toolbar select,.aic-toolbar-tray"),
     ).toBeNull();
@@ -473,7 +513,7 @@ describe("browser panel compact UX", () => {
     await panel.ready;
     view(root).dispatch({ changes: { from: 5, insert: " draft" } });
     press(root, /^More options$/iu);
-    expect(namedButton(root, /^Export encrypted backup$/iu)).not.toBeNull();
+    expect(namedButton(root, /^Open file…$/iu)).not.toBeNull();
     fake.setPage(secondPage);
     fake.activated.emit({
       tabId: secondPage.tabId,
@@ -482,7 +522,7 @@ describe("browser panel compact UX", () => {
     await vi.waitFor(() =>
       expect(view(root).state.doc.toString()).toBe("Second"),
     );
-    expect(namedButton(root, /^Export encrypted backup$/iu)).toBeNull();
+    expect(namedButton(root, /^Open file…$/iu)).toBeNull();
     expect(root.textContent).not.toContain("First draft");
     fake.setPage(firstPage);
     fake.activated.emit({
@@ -494,19 +534,19 @@ describe("browser panel compact UX", () => {
     );
   });
 
-  it("cannot capture from a stale import button after the vault locks", async () => {
+  it("cannot capture from a stale import button after disposal", async () => {
     const fake = fixture({ notes: [note(firstPage, "Existing")] });
     const { root, panel } = mount(fake.api);
     await panel.ready;
     press(root, /^More options$/iu);
     const staleAction = namedButton(root, /^Import current content$/iu)!;
-    fake.changed.emit({ "aic-browser-unlock": { oldValue: {} } }, "session");
+    panel.destroy();
     expect(staleAction.isConnected).toBe(false);
     staleAction.click();
     expect(fake.api.permissions.request).not.toHaveBeenCalled();
     expect(fake.messages.some((message) => message.type === "capture")).toBe(
       false,
     );
-    expect(root.dataset.state).toBe("locked");
+    expect(root.querySelector(".cm-editor")).toBeNull();
   });
 });

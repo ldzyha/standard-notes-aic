@@ -7,13 +7,13 @@
   --aic-control-border: var(--vscode-input-border, #c5cbd3);
   --aic-accent: var(--vscode-button-background, #0969b8);
   --aic-on-accent: var(--vscode-button-foreground, #fff);
+  --aic-danger: #b92337;
+  --aic-success: #236d35;
   --aic-chip: var(--vscode-list-activeSelectionBackground, #e3effa);
-  --aic-radius-control: 3px;
-  --aic-radius-surface: 4px;
   --aic-contrast: var(--vscode-editorWidget-background, #f5f6f8);
   --pwa-sidebar: var(--vscode-sideBar-background, #f5f6f8);
-  --pwa-titlebar: var(--vscode-titleBar-activeBackground, #eef0f3);
-  --pwa-tabbar: var(--vscode-editorGroupHeader-tabsBackground, #f0f2f5);
+  --pwa-titlebar: var(--vscode-titleBar-activeBackground, var(--aic-contrast));
+  --aic-tabbar-bg: var(--vscode-editorGroupHeader-tabsBackground, #f0f2f5);
 }
 @media (prefers-color-scheme: dark) {
   :root {
@@ -24,11 +24,16 @@
     --aic-control-border: var(--vscode-input-border, #555b65);
     --aic-accent: var(--vscode-button-background, #75b9f4);
     --aic-on-accent: var(--vscode-button-foreground, #102b43);
+    --aic-danger: #ff93a1;
+    --aic-success: #90d9a1;
     --aic-chip: var(--vscode-list-activeSelectionBackground, #243b50);
     --aic-contrast: var(--vscode-editorWidget-background, #25272b);
     --pwa-sidebar: var(--vscode-sideBar-background, #181a1d);
-    --pwa-titlebar: var(--vscode-titleBar-activeBackground, #181a1d);
-    --pwa-tabbar: var(--vscode-editorGroupHeader-tabsBackground, #181a1d);
+    --pwa-titlebar: var(
+      --vscode-titleBar-activeBackground,
+      var(--aic-contrast)
+    );
+    --aic-tabbar-bg: var(--vscode-editorGroupHeader-tabsBackground, #181a1d);
   }
 }
 html,
@@ -88,17 +93,6 @@ body {
 .pwa-help {
   display: flex;
   flex-direction: column;
-}
-.pwa-help__link {
-  display: flex;
-  align-items: center;
-  min-height: 44px;
-  color: var(--aic-fg);
-  text-underline-offset: 4px;
-}
-.pwa-help__link:focus-visible {
-  outline: 2px solid var(--aic-accent);
-  outline-offset: 2px;
 }
 .pwa-notice {
   flex: 0 0 auto;
@@ -188,25 +182,17 @@ body {
   color: var(--aic-muted);
   font-size: 12px;
 }
-.pwa-entities__item,
-.pwa-files__item {
+.pwa-entities__item {
   width: 100%;
   justify-content: flex-start;
   text-align: start;
   overflow-wrap: anywhere;
   border-radius: 0;
 }
-.pwa-entities__item[aria-current="true"],
-.pwa-files__item[aria-current="true"] {
+.pwa-entities__item[aria-current="true"] {
   background: var(--aic-chip);
   color: var(--vscode-list-activeSelectionForeground, var(--aic-fg));
   box-shadow: inset 2px 0 var(--aic-accent);
-}
-.pwa-files__item .aic-button__label {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 .pwa-file-heading {
   display: none;
@@ -244,21 +230,6 @@ body {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.pwa-status {
-  flex: 0 0 auto;
-  color: var(--aic-muted);
-  font-size: 11px;
-  max-width: 160px;
-  line-height: 1.3;
-  overflow-wrap: anywhere;
-}
-.pwa-status[data-state="failed"],
-.pwa-status[data-state="dirty"] {
-  color: var(--aic-danger, #b92337);
-}
-.pwa-details {
-  display: none;
 }
 .pwa-actions {
   display: flex;
@@ -305,18 +276,6 @@ body {
   min-width: 0;
   flex-direction: column;
 }
-.pwa-editor > [role="tablist"] {
-  flex: 0 0 auto;
-  background: var(--pwa-tabbar);
-}
-.pwa-editor > [role="tablist"] > [role="tab"] {
-  flex: 0 1 140px;
-  border-radius: 0;
-  border-inline-end: 1px solid var(--aic-border);
-}
-.pwa-editor > [role="tablist"] > [aria-selected="true"] {
-  background: var(--aic-bg);
-}
 .pwa-empty {
   max-width: 34rem;
   margin-block: 12px;
@@ -358,7 +317,7 @@ body {
   white-space: normal;
   overflow-wrap: anywhere;
 }
-.pwa-shell[data-has-note="false"] .pwa-status {
+.pwa-shell[data-has-note="false"] .pwa-document-context {
   display: none;
 }
 .pwa-shell[data-has-note="false"] .pwa-actions > :first-child {
@@ -367,27 +326,6 @@ body {
 .pwa-shell[data-has-note="false"] .pwa-editor {
   flex: 0 0 auto;
 }
-.pwa-folder {
-  min-width: 0;
-}
-.pwa-folder__label {
-  min-height: var(--aic-control-size);
-  padding: 12px 6px;
-  box-sizing: border-box;
-  cursor: pointer;
-  overflow-wrap: anywhere;
-  font-size: 13px;
-}
-.pwa-folder__label:focus-visible {
-  outline: 2px solid var(--aic-accent);
-  outline-offset: -2px;
-}
-.pwa-folder__files {
-  margin-inline-start: 10px;
-  padding-inline-start: 5px;
-  border-inline-start: 1px solid var(--aic-border);
-  min-width: 0;
-}
 .pwa-dialog,
 .pwa-notes-drawer {
   width: min(440px, calc(100vw - 24px));
@@ -395,7 +333,6 @@ body {
   max-height: calc(
     100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)
   );
-  padding: 16px;
   overflow: auto;
   overflow-wrap: anywhere;
   overscroll-behavior: contain;
@@ -405,11 +342,15 @@ body {
   color: var(--aic-fg);
   box-shadow: 0 8px 24px #0003;
 }
+.pwa-dialog:not(.aic-menu),
+.pwa-notes-drawer {
+  padding: var(--aic-space-4);
+}
 .pwa-dialog::backdrop,
 .pwa-notes-drawer::backdrop {
   background: #0006;
 }
-.pwa-dialog h2,
+.pwa-dialog h2:not(.aic-menu__title--compact),
 .pwa-notes-drawer h2 {
   font-size: 14px;
   font-weight: 600;
@@ -435,21 +376,13 @@ body {
 }
 .pwa-sheet {
   flex-direction: column;
-  gap: 2px;
+  gap: 0;
 }
 .pwa-sheet[open] {
   display: flex;
 }
-.pwa-sheet > .aic-button {
-  width: 100%;
-  justify-content: flex-start;
-  text-align: start;
-  min-height: 44px;
-}
-.pwa-sheet hr {
-  width: 100%;
-  border: 0;
-  border-top: 1px solid var(--aic-border);
+.pwa-sheet[data-layout="actions"] {
+  width: min(var(--aic-menu-width), calc(100vw - 24px));
 }
 .pwa-notes-drawer {
   padding: 0;
@@ -519,10 +452,6 @@ body {
   .pwa-title {
     font-size: 14px;
   }
-  .pwa-status {
-    max-width: 44px;
-    font-size: 10px;
-  }
   .pwa-shell[data-has-note="false"] .pwa-actions > :first-child {
     flex: 0 1 auto;
   }
@@ -551,14 +480,14 @@ body {
     display: none;
   }
 }
-@media (min-width: 701px) and (pointer: fine) {
+@media (pointer: fine) {
   .pwa-browser-actions .aic-button {
     padding-inline: 4px;
   }
   .pwa-shell,
   .pwa-dialog,
   .pwa-notes-drawer {
-    --aic-control-size: 28px;
+    --aic-control-size: 32px;
     --aic-control-size-compact: 28px;
     --aic-control-size-touch: 32px;
   }
@@ -575,16 +504,10 @@ body {
   .pwa-note-header {
     min-height: 36px;
   }
-  .pwa-folder__label {
-    padding-block: 5px;
-  }
   .pwa-editor > .aic-editor > .aic-toolbar,
   .pwa-scope-panel > .aic-editor > .aic-toolbar {
     --aic-control-size-compact: 28px;
     min-height: 32px;
-  }
-  .pwa-editor > [role="tablist"] > [role="tab"] {
-    min-height: 34px;
   }
   .pwa-editor .cm-editor {
     font-size: 14px;

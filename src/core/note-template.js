@@ -1,4 +1,4 @@
-// Dependency-free guidance shared by slash snippets and new local note bodies.
+// Dependency-free guidance for explicit slash snippets and note templates.
 // Prompts are editable starting points, not required properties or workflow state.
 export const NOTE_PROMPTS = Object.freeze({
   noiseQuestion: "What is unclear, and what would understanding it enable?",
@@ -13,17 +13,6 @@ export const NOTE_PROMPTS = Object.freeze({
   waveClosure: "What was verified, or why should this work not continue?",
 });
 
-export const DEFAULT_NOTE_BODY_TEMPLATE = [
-  "# {{name}}",
-  "",
-  "## Noise",
-  "",
-  `**${NOTE_PROMPTS.noiseQuestion}**`,
-  "",
-  `**${NOTE_PROMPTS.noiseContext}**`,
-  "",
-  `**${NOTE_PROMPTS.noiseResearch}**`,
-  "",
-  "*When the path is clear, use /wave in this same note for dependency-ordered actions and verification. Keep the originating context linked; split only distinct results into separate waves.*",
-  "",
-].join("\n");
+// Newly created documents contain no generated content. The Noise/Wave prompts
+// remain available through explicit slash snippets or an owner-selected template.
+export const DEFAULT_NOTE_BODY_TEMPLATE = "";

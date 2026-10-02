@@ -1,8 +1,7 @@
+import { BrowserFileError } from "./file-errors";
 import { getBrowserApi } from "./api";
 import { BrowserActionError, createBrowserService } from "./service";
 import { LibraryError } from "./library";
-import { VaultError } from "./vault-crypto";
-import { VaultStateError } from "./vault-store";
 import { initializeSidebar } from "./platform";
 
 export function startBrowserWorker(api = getBrowserApi()): () => void {
@@ -12,20 +11,28 @@ export function startBrowserWorker(api = getBrowserApi()): () => void {
     sender,
     respond,
   ) => {
-    // No externally_connectable API and no content-script access to notes.
+    // Only our exact editor page, in the side panel or a normal top-level tab.
+    // The tab is an explicit permission fallback for older Chromium side panels.
+    const editorUrl = api.runtime.getURL("browser/index.html");
     if (
       sender.id !== api.runtime.id ||
-      sender.tab ||
-      sender.url !== api.runtime.getURL("browser/index.html")
+      sender.url !== editorUrl ||
+      (sender.frameId !== undefined && sender.frameId !== 0) ||
+      (sender.tab !== undefined &&
+        (sender.tab.incognito === true ||
+          !Number.isSafeInteger(sender.tab.id) ||
+          (sender.tab.id ?? -1) < 0 ||
+          !Number.isSafeInteger(sender.tab.windowId) ||
+          sender.tab.windowId < 0 ||
+          (sender.tab.url !== undefined && sender.tab.url !== editorUrl)))
     )
       return false;
     void service.handle(message).then(
       (value) => respond({ ok: true, value }),
       (error: unknown) => {
         const recognized =
+          error instanceof BrowserFileError ||
           error instanceof LibraryError ||
-          error instanceof VaultError ||
-          error instanceof VaultStateError ||
           error instanceof BrowserActionError;
         respond({
           ok: false,

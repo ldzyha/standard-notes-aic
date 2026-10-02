@@ -83,30 +83,22 @@ repository. Configure `AIC_CORE_SYNC_APP_ID` and the secret
 with contents and pull-request write access. The token is scoped to that one
 repository. [GitHub App token action](https://github.com/actions/create-github-app-token).
 
-Committed changes on canonical `main` build the PWA, mechanically copy only
-`CORE_FILES.json` entries into the VS Code core mirror, and synchronize the exact
-portable editor build into `vendor/portable-runtime`. `CORE_SNAPSHOT.json` and
-`PORTABLE_SNAPSHOT.json` record the source commit and exact hashes; `aicEditorCore`
-is aligned. The VS Code host builds independently from these committed generated
-files. Its VSIX includes the exact portable runtime and its snapshot.
+Committed changes on canonical `main` mechanically copy the shared files declared
+in `CORE_FILES.json` into the VS Code mirror. `CORE_SNAPSHOT.json` records the
+source commit and exact hashes; `aicEditorCore` is aligned. VS Code builds its own
+native Markdown editor. It no longer bundles an encrypted portable editor.
 
-For a local distribution, run `npm run build:pwa`, then `npm run portable:sync`
-in the canonical repository. `--target <AIC-Notes-repository>` selects another
-checkout; `npm run portable:check` compares without writing. Changed or untracked
-build inputs produce an honest `sourceState: working-tree` snapshot. Such snapshots
-support local builds, while release verification requires committed provenance.
-Synchronization refuses to replace unowned or modified generated directories.
-
-The VS Code release gate verifies both distributions before the workflow opens
-or refreshes `codex/sync-editor-core`. Review and merge that PR, then choose the
-host release version and tag. The workflow does not merge or publish releases.
+For local parity use `npm run core:sync` and `npm run core:check` in the canonical
+repository. The workflow verifies the VS Code release gate before proposing
+`codex/sync-editor-core`; review and merge that PR before a host release.
+The workflow does not merge or publish releases.
 
 ## Installed applications
 
 Store-installed Chrome and Edge extensions use their browser's normal extension
 update delivery. Unpacked developer extensions require Reload on the existing
-extension card. Preserve an encrypted backup before an update when rollback
-matters; lock, reload, or update ends the extension's unlocked session.
+extension card. Wait for the disk save acknowledgement before Reload. The same
+Markdown files remain outside the extension; reconnect their access if requested.
 [Chrome updates](https://developer.chrome.com/docs/webstore/update),
 [Edge updates](https://learn.microsoft.com/en-us/microsoft-edge/extensions/update/update-extension).
 
@@ -115,7 +107,10 @@ An earlier VSIX installation can enable **Auto Update** for AIC Notes to receive
 Marketplace updates. Open VSX distribution remains separate.
 [VS Code updates](https://code.visualstudio.com/docs/configure/extensions/extension-marketplace#extension-auto-update).
 
-The PWA caches its interface for offline use and keeps notes on the device.
+The PWA caches its interface for offline use and writes connected Markdown files
+directly. Download-only browsers keep labeled drafts until the user downloads a
+copy. Neither a disk-save acknowledgement nor an app update confirms completion
+of an external sync service.
 Publisher access belongs to CI; users do not configure store credentials in the
 notes interface. Deployment of a new PWA build and release of an extension are
 separate operations.

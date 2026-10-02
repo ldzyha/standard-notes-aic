@@ -146,6 +146,40 @@ afterEach(() => {
 });
 
 describe("portable filesystem adapter", () => {
+  it("retains selected original handles outside portable file data", async () => {
+    const handle = nativeFile(browserFile("note.md", encode("Exact original")));
+    installPicker("showOpenFilePicker", async () => [handle]);
+    const selected = await pickFiles({ markdownOnly: true });
+    expect(selected?.disk?.files[0]).toEqual({
+      id: selected!.files[0]!.id,
+      path: "note.md",
+      handle,
+    });
+    expect({ ...selected }).not.toHaveProperty("disk");
+    expect(JSON.parse(JSON.stringify(selected))).not.toHaveProperty("disk");
+  });
+
+  it("retains directory and file capabilities in each incremental Markdown batch", async () => {
+    const root = directory("project");
+    const handle = nativeFile(browserFile("note.md", encode("Original")));
+    root.files.set(handle.name, handle);
+    const picker = vi.fn(async () => root);
+    installPicker("showDirectoryPicker", picker);
+    const batches: PickedFiles[] = [];
+    const receipt = await pickFolder({
+      markdownOnly: true,
+      onBatch: async (batch) => {
+        batches.push(batch);
+      },
+    });
+    expect(picker).toHaveBeenCalledWith({ mode: "readwrite" });
+    expect(batches[0]?.disk?.root).toBe(root);
+    expect(batches[0]?.disk?.files[0]?.handle).toBe(handle);
+    expect(batches[0]?.disk?.files[0]?.id).toBe(batches[0]?.files[0]?.id);
+    expect(receipt?.disk?.root).toBe(root);
+    expect(receipt?.disk?.files).toEqual([]);
+  });
+
   it("identifies only .md paths case-insensitively", () => {
     for (const path of ["note.md", "NOTE.MD", "project/note.Md", ".md"])
       expect(isMarkdownPath(path)).toBe(true);

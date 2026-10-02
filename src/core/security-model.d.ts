@@ -55,6 +55,7 @@ export const SECURITY_LIMITS: Readonly<{
 /** Full fenced Markdown block with one implicit base section and blank fields. */
 export function securityTemplate(): string;
 /** Empty Properties is an ordinary named aic block, never a separate grammar. */
+/** Explicit Insert AIC template; never prefill a new or empty note with it. */
 export const AIC_EMPTY_DOCUMENT: string;
 /** Validate one closed top-level aic block with optional surrounding whitespace. */
 export function parseSecurityDocument(markdown: string): SecurityParseResult;

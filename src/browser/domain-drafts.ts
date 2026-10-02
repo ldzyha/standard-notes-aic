@@ -24,6 +24,7 @@ export class DomainDrafts extends SharedDrafts<BrowserDomain, DomainContext> {
     super(
       saveFn,
       {
+        opaqueRevisionKey: (record) => record.filePath,
         contextKey: (context) => context.origin,
         contextForRecord: (record) => ({
           origin: record.origin,

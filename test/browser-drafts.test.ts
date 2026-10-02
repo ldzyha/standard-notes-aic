@@ -35,6 +35,22 @@ describe("browser note drafts", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
+  it("starts an untouched new page blank and creates only its exact first edit", async () => {
+    const create = vi.fn(async (_page: PageContext, markdown: string) =>
+      note("new", markdown),
+    );
+    const save = vi.fn();
+    const drafts = new BrowserDrafts(save, undefined, create);
+    const initial = drafts.activatePlaceholder(newPage);
+    expect(initial.text).toBe("");
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS * 2);
+    expect(create).not.toHaveBeenCalled();
+    drafts.edit(initial.key, "My first note");
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS);
+    expect(create).toHaveBeenCalledWith(newPage, "My first note");
+    drafts.dispose();
+  });
+
   it("forgets only idle acknowledged drafts and starts a clean placeholder after deletion", async () => {
     const pending = deferred<BrowserNote>();
     const drafts = new BrowserDrafts(() => pending.promise);
@@ -100,11 +116,15 @@ describe("browser note drafts", () => {
       .fn()
       .mockImplementationOnce(() => first.promise)
       .mockImplementationOnce(() => second.promise);
-    const drafts = new BrowserDrafts(save);
+    const pendingStates: boolean[] = [];
+    const drafts = new BrowserDrafts(save, () =>
+      pendingStates.push(drafts.hasPendingChanges()),
+    );
     drafts.activate(note("a"));
     drafts.edit("a", "First");
     const flushing = drafts.flush("a");
     expect(drafts.get("a")).toMatchObject({ dirty: true, saving: true });
+    pendingStates.length = 0;
     drafts.edit("a", "Latest");
     first.resolve(note("a", "First", 2));
     await Promise.resolve();
@@ -114,6 +134,8 @@ describe("browser note drafts", () => {
       dirty: true,
       saving: true,
     });
+    expect(pendingStates.length).toBeGreaterThan(0);
+    expect(pendingStates.every(Boolean)).toBe(true);
     second.resolve(note("a", "Latest", 3));
     expect(await flushing).toBe(true);
     expect(drafts.get("a")).toMatchObject({
@@ -121,6 +143,7 @@ describe("browser note drafts", () => {
       dirty: false,
       saving: false,
     });
+    expect(pendingStates.at(-1)).toBe(false);
     drafts.dispose();
   });
 
@@ -133,7 +156,10 @@ describe("browser note drafts", () => {
         async (id: string, markdown: string, revision: number) =>
           note(id, markdown, revision + 1),
       );
-    const drafts = new BrowserDrafts(save);
+    const pendingStates: boolean[] = [];
+    const drafts = new BrowserDrafts(save, () =>
+      pendingStates.push(drafts.hasPendingChanges()),
+    );
     drafts.activate(note("a"));
     drafts.edit("a", "A first");
     const oldSave = drafts.flush("a");
@@ -148,6 +174,7 @@ describe("browser note drafts", () => {
     expect(save).toHaveBeenNthCalledWith(3, "a", "A latest", 2);
     expect(drafts.get("b")?.text).toBe("B edit");
     expect(drafts.get("a")).toBeUndefined(); // Clean inactive drafts are pruned.
+    expect(pendingStates.at(-1)).toBe(false);
     drafts.dispose();
   });
 
@@ -382,7 +409,12 @@ describe("browser note drafts", () => {
     const savePending = deferred<BrowserNote>();
     const create = vi.fn(() => createPending.promise);
     const save = vi.fn(() => savePending.promise);
-    const drafts = new BrowserDrafts(save, undefined, create);
+    const recoverable: string[][] = [];
+    const drafts = new BrowserDrafts(
+      save,
+      () => recoverable.push(drafts.pendingDrafts().map((draft) => draft.text)),
+      create,
+    );
     const key = drafts.activatePlaceholder(newPage, placeholder).key;
     expect(drafts.hasPendingChanges()).toBe(false);
     drafts.edit(key, "Changed");
@@ -390,13 +422,31 @@ describe("browser note drafts", () => {
     drafts.edit(key, placeholder);
     expect(drafts.get(key)?.dirty).toBe(false);
     expect(drafts.hasPendingChanges()).toBe(true);
+    expect(drafts.dirtyDrafts()).toEqual([]);
+    expect(drafts.pendingDrafts()).toMatchObject([
+      { key, text: placeholder, note: null, saving: true },
+    ]);
+    const snapshot = drafts.pendingDrafts()[0]!;
+    snapshot.text = "External mutation";
+    expect(drafts.pendingDrafts()[0]?.text).toBe(placeholder);
+    expect(recoverable.at(-1)).toEqual([placeholder]);
     createPending.resolve(note("new", "Changed"));
     await Promise.resolve();
     expect(save).toHaveBeenCalledExactlyOnceWith("new", placeholder, 1);
     expect(drafts.hasPendingChanges()).toBe(true);
+    expect(drafts.pendingDrafts()).toMatchObject([
+      {
+        key,
+        text: placeholder,
+        note: { id: "new", markdown: "Changed", revision: 1 },
+        saving: true,
+      },
+    ]);
     savePending.resolve(note("new", placeholder, 2));
     expect(await flushing).toBe(true);
     expect(drafts.hasPendingChanges()).toBe(false);
+    expect(drafts.pendingDrafts()).toEqual([]);
+    expect(recoverable.at(-1)).toEqual([]);
     drafts.dispose();
     expect(drafts.hasPendingChanges()).toBe(false);
   });

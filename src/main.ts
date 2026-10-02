@@ -24,31 +24,6 @@ declare global {
 const root = document.querySelector<HTMLElement>("#app");
 if (!root) throw new Error("AIC editor root is missing");
 
-const sample = `\`\`\`aic
-# Properties
-Status | idea
-Tags | notes, aic
-\`\`\`
-
-# AIC Markdown
-
-Markdown remains the source of truth.
-
-- [ ] Click this task
-- [x] Keep completed work visible
-
-| Feature | State |
-| --- | --- |
-| **Tables** | ready |
-| Mermaid | ready |
-
-\`\`\`mermaid
-flowchart LR
-  Markdown --> AIC
-  AIC --> StandardNotes[Standard Notes]
-\`\`\`
-`;
-
 const standalone = window.parent === window && !window.ReactNativeWebView;
 let hydrated = standalone;
 let remoteGeneration = 0;
@@ -77,7 +52,7 @@ let activeNoteId: string | null = standalone ? "standalone" : null;
 
 if (standalone) {
   const storageKey = "aic-standard-notes-standalone-document";
-  const initial = localStorage.getItem(storageKey) ?? sample;
+  const initial = localStorage.getItem(storageKey) ?? "";
   drafts.activate("standalone", initial, remoteGeneration);
   editor.switchDocument("standalone", initial);
   reflectSaveState();

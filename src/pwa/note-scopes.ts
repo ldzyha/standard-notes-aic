@@ -44,28 +44,5 @@ export function scopedNotes(
   payload: PwaPayload,
   selectedId: string,
 ): Partial<Record<NoteScope, ScopedNote>> {
-  if (payload.kind === "workspace")
-    return fileScopeNotes(payload.files, selectedId);
-  const current = payload.library.notes.find((note) => note.id === selectedId);
-  const domain = current
-    ? payload.library.domains.find(
-        (record) => record.origin === new URL(current.url).origin,
-      )
-    : payload.library.domains.find((record) => record.id === selectedId);
-  const global = payload.library.global;
-  return {
-    current: current
-      ? {
-          id: current.id,
-          title: current.title || current.url,
-          markdown: current.markdown,
-        }
-      : undefined,
-    shared: domain
-      ? { id: domain.id, title: domain.origin, markdown: domain.markdown }
-      : undefined,
-    global: global
-      ? { id: global.id, title: "Global", markdown: global.markdown }
-      : undefined,
-  };
+  return fileScopeNotes(payload.files, selectedId);
 }

@@ -6,7 +6,6 @@ import {
   type BrowserGlobal,
 } from "../src/browser/library";
 import { GlobalDrafts, GLOBAL_CONTEXT } from "../src/browser/global-drafts";
-import { AIC_EMPTY_DOCUMENT } from "../src/core/security-model.js";
 
 const markdown = (value = "synthetic-global-secret") =>
   `\`\`\`aic\n# Properties\nPassword *| ${value}\n\`\`\`\n`;
@@ -94,9 +93,13 @@ describe("explicit profile-global storage", () => {
     const snapshot = await store.load();
     snapshot.global!.markdown = "external mutation";
     expect((await store.load()).global).toEqual(saved);
-    await expect(
-      store.saveGlobal(first.id, "unfinished secret source", 2),
-    ).rejects.toMatchObject({ code: "invalid" });
+    const plain = await store.saveGlobal(
+      first.id,
+      "# Global Markdown\n\nUnfinished *format",
+      2,
+    );
+    expect(plain.markdown).toBe("# Global Markdown\n\nUnfinished *format");
+    expect(plain.revision).toBe(3);
   });
 
   it("strictly validates explicit global records and merges once with reported conflicts", async () => {
@@ -142,6 +145,47 @@ describe("explicit profile-global storage", () => {
 });
 
 describe("profile-global draft adapter", () => {
+  it("accepts lower opaque file tokens without weakening ACK identity or text", async () => {
+    const original = {
+      ...record("global-file", 90),
+      filePath: "global.md",
+      markdown: "Original",
+    };
+    const saved = { ...original, markdown: "Submitted", revision: 3 };
+    const clean = new GlobalDrafts(async () => saved);
+    clean.activate(original);
+    expect(
+      clean.activate({ ...original, markdown: "External", revision: 5 }).text,
+    ).toBe("External");
+    clean.edit(original.id, "Submitted");
+    expect(await clean.flush(original.id)).toBe(true);
+    expect(clean.get(original.id)).toMatchObject({
+      dirty: false,
+      record: saved,
+    });
+    clean.dispose();
+    for (const patch of [
+      { id: "other" },
+      { filePath: "other.md" },
+      { filePath: undefined },
+      { markdown: "Other text" },
+      { revision: 90 },
+      { revision: 0 },
+      { revision: 1.5 },
+    ]) {
+      const drafts = new GlobalDrafts(async () => ({ ...saved, ...patch }));
+      drafts.activate(original);
+      drafts.edit(original.id, "Submitted");
+      expect(await drafts.flush(original.id)).toBe(false);
+      expect(drafts.get(original.id)).toMatchObject({
+        text: "Submitted",
+        dirty: true,
+        record: original,
+      });
+      drafts.dispose();
+    }
+  });
+
   it("keeps one placeholder without creating until edit and drains later edits under acknowledged revisions", async () => {
     const store = new LibraryStore(memory());
     const create = vi.fn((_context, text: string) => store.createGlobal(text));
@@ -150,10 +194,7 @@ describe("profile-global draft adapter", () => {
       undefined,
       create,
     );
-    const key = drafts.activatePlaceholder(
-      GLOBAL_CONTEXT,
-      AIC_EMPTY_DOCUMENT,
-    ).key;
+    const key = drafts.activatePlaceholder(GLOBAL_CONTEXT, "").key;
     await drafts.flushAll();
     expect(create).not.toHaveBeenCalled();
     drafts.edit(key, markdown());
@@ -182,7 +223,7 @@ describe("profile-global draft adapter", () => {
     clean.dispose();
   });
 
-  it("ignores an acknowledgment after Lock disposes the coordinator", async () => {
+  it("ignores an acknowledgment after disposal", async () => {
     let acknowledge!: (value: BrowserGlobal) => void;
     const onChange = vi.fn();
     const drafts = new GlobalDrafts(
@@ -193,10 +234,7 @@ describe("profile-global draft adapter", () => {
           acknowledge = resolve;
         }),
     );
-    const key = drafts.activatePlaceholder(
-      GLOBAL_CONTEXT,
-      AIC_EMPTY_DOCUMENT,
-    ).key;
+    const key = drafts.activatePlaceholder(GLOBAL_CONTEXT, "").key;
     drafts.edit(key, markdown());
     const saved = drafts.flush(key);
     drafts.dispose();

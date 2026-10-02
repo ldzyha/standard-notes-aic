@@ -45,9 +45,7 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build && npm run build:pwa",
-    "portable:sync": "node scripts/sync-portable-runtime.mjs",
-    "portable:check": "node scripts/sync-portable-runtime.mjs --check"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm test && npm run build && npm run build:pwa"
   },
   "dependencies": {
     "@codemirror/autocomplete": "6.20.3",

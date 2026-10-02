@@ -46,12 +46,14 @@ const note = (page: ActivePage, markdown: string): BrowserNote => ({
   revision: 1,
 });
 
-function fixture() {
+function fixture(
+  notes = [note(firstPage, "First"), note(secondPage, "Second")],
+) {
   let page = firstPage;
   const library: BrowserLibrary = {
     version: 3,
     global: null,
-    notes: [note(firstPage, "First"), note(secondPage, "Second")],
+    notes,
     history: [],
     domains: [],
   };
@@ -73,7 +75,7 @@ function fixture() {
       sendMessage: async (message: Request) => {
         messages.push(message);
         let value: unknown = null;
-        if (message.type === "status") value = { state: "unlocked" };
+        if (message.type === "status") value = { state: "ready" };
         if (message.type === "context") value = page;
         if (message.type === "visit") value = structuredClone(library);
         if (message.type === "save") {
@@ -111,8 +113,8 @@ function button(root: HTMLElement, label: string): HTMLButtonElement {
       "Pin note",
       "Unpin note",
       "Import current content",
-      "Import Markdown file",
-      "Export Markdown file",
+      "Insert from Markdown file",
+      "Download copy",
       "AIC guide",
     ].includes(label) &&
     !root.querySelector(`button[aria-label="${label}"]`)
@@ -141,22 +143,17 @@ afterEach(() => {
 });
 
 describe("browser panel direct actions", () => {
-  it("opens the bundled shared file interface from the More menu", async () => {
-    const fake = fixture();
+  it("focuses an enabled menu action when the current note cannot be pinned yet", async () => {
+    const fake = fixture([]);
     const root = document.createElement("div");
     document.body.append(root);
     const panel = new BrowserPanel(root, fake.api);
     panels.push(panel);
     await panel.ready;
+
     button(root, "More options").click();
-    button(root, "Open file notes").click();
-    await Promise.resolve();
-    expect(fake.api.runtime.getURL).toHaveBeenCalledWith("pwa/index.html");
-    expect(fake.api.tabs.create).toHaveBeenCalledWith({
-      url: "chrome-extension://fixture/pwa/index.html",
-      windowId: 4,
-    });
-    expect(root.querySelector('[aria-label="Open file notes"]')).toBeNull();
+    expect(button(root, "Pin note").disabled).toBe(true);
+    expect(document.activeElement).toBe(button(root, "Import current content"));
   });
 
   it.each([
@@ -183,7 +180,7 @@ describe("browser panel direct actions", () => {
     expect(editorText(root)).toBe("First");
   });
 
-  it("keeps exactly three header controls and readable actions in More", async () => {
+  it("keeps exactly two header controls and readable actions in More", async () => {
     const fake = fixture();
     const root = document.createElement("div");
     document.body.append(root);
@@ -196,7 +193,7 @@ describe("browser panel direct actions", () => {
     ];
     expect(
       headerButtons.map((button) => button.getAttribute("aria-label")),
-    ).toEqual(["Notes and history", "More options", "Lock"]);
+    ).toEqual(["Notes", "More options"]);
     for (const control of headerButtons) {
       expect(control.classList.contains("aic-button--touch")).toBe(true);
       expect(control.classList.contains("aic-button--compact")).toBe(false);
@@ -205,16 +202,16 @@ describe("browser panel direct actions", () => {
       root.querySelector('[aria-label="Import current content"]'),
     ).toBeNull();
     button(root, "More options").click();
-    for (const label of [
-      "Pin note",
-      "Import current content",
-      "Import Markdown file",
-      "Export Markdown file",
-      "AIC guide",
+    for (const [label, caption] of [
+      ["Pin note", "Pin note"],
+      ["Import current content", "Import current content"],
+      ["Insert from Markdown file", "Insert from file…"],
+      ["Download copy", "Download copy"],
+      ["AIC guide", "AIC guide"],
     ]) {
-      const action = button(root, label);
+      const action = button(root, label!);
       expect(action.closest(".browser-popover")).not.toBeNull();
-      expect(action.textContent).toBe(label);
+      expect(action.textContent).toBe(caption);
       expect(action.title).not.toBe("");
     }
     expect(root.querySelector('[aria-label="Add content"]')).toBeNull();
@@ -226,15 +223,23 @@ describe("browser panel direct actions", () => {
       "Current note",
     );
     expect(button(root, "Delete local note")).not.toBeNull();
-    expect(button(root, "Export encrypted backup")).not.toBeNull();
-    expect(button(root, "Import encrypted backup")).not.toBeNull();
+    expect(button(root, "Open file…").textContent).toBe("Open file…");
+    expect(button(root, "Open folder…").textContent).toBe("Open folder…");
+    expect(
+      root.querySelector<HTMLElement>(".browser-overlay")?.dataset.layout,
+    ).toBe("actions");
     button(root, "More options").click();
     button(root, "AIC guide").click();
     const guide = root.querySelector<HTMLElement>(
       '[role="dialog"][aria-label="AIC guide"]',
     );
-    expect(guide?.textContent).toMatch(/Browser transfer.*Import Markdown/su);
-    expect(guide?.textContent).toMatch(/current browser-vault passphrase/iu);
+    expect(
+      root.querySelector<HTMLElement>(".browser-overlay")?.dataset.layout,
+    ).toBeUndefined();
+    expect(guide?.textContent).toMatch(/Browser transfer.*Insert from file/su);
+    expect(guide?.textContent).not.toMatch(
+      /browser-vault|passphrase|encrypted backup/iu,
+    );
     const view = EditorView.findFromDOM(
       root.querySelector<HTMLElement>(".cm-editor")!,
     )!;
@@ -263,7 +268,7 @@ describe("browser panel direct actions", () => {
     panels.push(panel);
     await panel.ready;
 
-    button(root, "Import Markdown file").click();
+    button(root, "Insert from Markdown file").click();
     const input = root.querySelector<HTMLInputElement>(
       'input[aria-label="Markdown file"]',
     )!;
@@ -297,7 +302,7 @@ describe("browser panel direct actions", () => {
     panels.push(panel);
     await panel.ready;
 
-    button(root, "Import Markdown file").click();
+    button(root, "Insert from Markdown file").click();
     const input = root.querySelector<HTMLInputElement>(
       'input[aria-label="Markdown file"]',
     )!;

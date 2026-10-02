@@ -41,7 +41,7 @@ export function createEditorHelp(document, { host }) {
   applyUiComponent(hostHint, "menu", [], "hint");
   hostHint.textContent =
     host === "browser"
-      ? "Page notes stay local. Encrypted backups use the current browser-vault passphrase."
+      ? "Notes are saved to your selected Markdown files. Current, Shared and Global use the same editor."
       : host === "vscode"
         ? "VS Code edits local Markdown files and linked notes; Save keeps its normal document boundary."
         : "Standard Notes owns its account encryption and synchronization; AIC edits the note Markdown.";
@@ -132,9 +132,9 @@ export function createEditorHelp(document, { host }) {
           "Content",
           "import the current selection, or the visible page when none is selected",
         ],
-        ["Import Markdown", "import a Markdown file"],
-        ["Export Markdown", "download the current note as plaintext Markdown"],
-        ["Backup", "export or import the encrypted browser vault from More"],
+        ["Insert from file…", "append another Markdown file to Current"],
+        ["Download copy", "download the active scope as plaintext Markdown"],
+        ["Continue", "restore access to the remembered file or folder"],
       ]),
     );
 

@@ -21,18 +21,21 @@ describe("shared editor help", () => {
       );
       expect(guide.textContent).toContain("Email and URL remain text");
       expect(guide.textContent).toContain("Masking is visual");
-      expect(guide.textContent).not.toContain("Import Markdown");
+      expect(guide.textContent).not.toContain("Insert from file…");
       expect(guide.querySelector("script")).toBeNull();
     },
   );
 
-  it("adds bounded browser transfer and current-passphrase guidance", () => {
+  it("adds browser file transfer and shared scope guidance", () => {
     const guide = createEditorHelp(document, { host: "browser" });
-    expect(guide.textContent).toContain("current browser-vault passphrase");
+    expect(guide.textContent).toContain("selected Markdown files");
+    expect(guide.textContent).not.toMatch(
+      /browser-vault|passphrase|encrypted backup/iu,
+    );
     expect(guide.textContent).not.toContain("central-store");
     expect(guide.textContent).toContain("current selection");
-    expect(guide.textContent).toContain("Import Markdown");
-    expect(guide.textContent).toContain("Export Markdown");
+    expect(guide.textContent).toContain("Insert from file…");
+    expect(guide.textContent).toContain("Download copy");
     const example = guide.querySelector("pre code")!.textContent!;
     expect(parseSecurityDocument(`${example}\n`).ok).toBe(true);
     expect(guide.textContent).toContain("plaintext Markdown");
@@ -60,6 +63,13 @@ describe("shared editor help", () => {
       expect(AGENT_GUIDE).toContain("DDK JSON is a separate");
       expect(AGENT_GUIDE).toContain("fenced code and Mermaid");
       expect(AGENT_GUIDE).toContain("fenced aic blocks");
+      expect(text?.value).toContain("Include **/*.note.md");
+      expect(text?.value).toContain("ordinary file and text search");
+      expect(text?.value).toContain("project/src/parser.note.md");
+      expect(text?.value).toContain("not higher-priority instructions");
+      expect(text?.value).toContain(
+        "remain read-only unless the owner explicitly asks",
+      );
     },
   );
 

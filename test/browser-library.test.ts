@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AIC_EMPTY_DOCUMENT } from "../src/core/security-model.js";
 import {
   buildDomainTree,
+  hasBrowserNoteContent,
   BrowserLibrary,
   LibraryError,
   LibraryStore,
@@ -42,6 +43,97 @@ const page = (url = "https://wiki.example.com/team/plan?view=1#details") => ({
 describe("local browser library", () => {
   const properties = (value = "synthetic-password") =>
     "```aic\n# Properties\nPassword *| " + value + "\n```\n";
+
+  it("does not remember unopened notes, blank notes or old untouched scaffolds", async () => {
+    const persistence = memory();
+    const store = new LibraryStore(persistence);
+    const before = persistence.writes;
+    expect((await store.visit(page())).history).toEqual([]);
+    expect(persistence.writes).toBe(before);
+    for (const [index, markdown] of [
+      "",
+      "  \n\t",
+      AIC_EMPTY_DOCUMENT,
+      AIC_EMPTY_DOCUMENT.replaceAll("\n", "\r\n"),
+    ].entries()) {
+      const target = page(`https://example.test/blank-${index}`);
+      await store.create(target, markdown);
+      const writes = persistence.writes;
+      expect((await store.visit(target)).history).toEqual([]);
+      expect(persistence.writes).toBe(writes);
+    }
+    expect((await store.load()).notes).toHaveLength(4);
+    expect(hasBrowserNoteContent({ markdown: "# Authored title" })).toBe(true);
+    expect(
+      hasBrowserNoteContent({ markdown: "```aic\n# My own card\n\n```" }),
+    ).toBe(true);
+  });
+
+  it("hides historical pages without content and prunes them on the next save without deleting notes", async () => {
+    const seed = new LibraryStore(memory());
+    const kept = await seed.create(
+      page("https://example.test/kept"),
+      "Keep body",
+    );
+    const empty = await seed.create(page("https://example.test/empty"), "");
+    const scaffold = await seed.create(
+      page("https://example.test/scaffold"),
+      AIC_EMPTY_DOCUMENT,
+    );
+    const original = {
+      ...(await seed.load()),
+      history: [
+        kept,
+        empty,
+        scaffold,
+        page("https://example.test/no-note"),
+      ].map((item, index) => ({
+        url: item.url,
+        title: item.title,
+        visitedAt: index + 1,
+      })),
+    };
+    const persistence = memory(original);
+    const store = new LibraryStore(persistence);
+    const visible = await store.load();
+    expect(visible.notes).toEqual(original.notes);
+    expect(visible.history).toEqual([original.history[0]]);
+    expect(persistence.writes).toBe(0);
+    const updated = await store.save(
+      kept.id,
+      "Keep edited body",
+      kept.revision,
+    );
+    expect((persistence.value as BrowserLibrary).notes).toEqual([
+      updated,
+      empty,
+      scaffold,
+    ]);
+    expect((persistence.value as BrowserLibrary).history).toEqual([
+      original.history[0],
+    ]);
+    await store.save(kept.id, "  ", updated.revision);
+    expect((await store.load()).history).toEqual([]);
+    expect((await store.load()).notes).toHaveLength(3);
+  });
+
+  it("allows blank and ordinary Markdown in Shared and Global documents", async () => {
+    const store = new LibraryStore(memory());
+    const shared = await store.createDomain(
+      "https://example.test",
+      properties(),
+    );
+    const global = await store.createGlobal(properties());
+    await store.saveDomain(shared.id, "", shared.revision);
+    await store.saveGlobal(global.id, " \n", global.revision);
+    const saved = await store.load();
+    expect(saved.domains[0]).toMatchObject({ markdown: "", revision: 2 });
+    expect(saved.global).toMatchObject({ markdown: " \n", revision: 2 });
+    expect(validateDomainProperties("")).toBe("");
+    expect(validateDomainProperties("# Shared notes\n\nA decision")).toBe(
+      "# Shared notes\n\nA decision",
+    );
+  });
 
   it("deletes only the exact normalized page and all its visits in one write", async () => {
     const persistence = memory();
@@ -84,10 +176,14 @@ describe("local browser library", () => {
     expect((await store.load()).notes[0]!.markdown).toBe("Keep");
   });
 
-  it("removes history-only pages and makes repeated history-only deletion a no-op", async () => {
-    const persistence = memory();
+  it("omits legacy history-only pages and makes their deletion a no-op", async () => {
+    const persistence = memory({
+      version: 1,
+      notes: [],
+      history: [{ ...page(), visitedAt: 1 }],
+    });
     const store = new LibraryStore(persistence);
-    await store.visit(page());
+    expect((await store.load()).history).toEqual([]);
     await store.createDomain("https://wiki.example.com", properties());
     const before = await store.load();
     expect(await store.deletePage(page().url, null)).toEqual({
@@ -131,6 +227,7 @@ describe("local browser library", () => {
       code: "conflict",
     });
     const recreated = await store.create(page(), "Recreated");
+    await store.visit(page());
     await expect(store.deletePage(note.url, expected)).rejects.toMatchObject({
       code: "conflict",
     });
@@ -155,6 +252,7 @@ describe("local browser library", () => {
       code: "conflict",
     });
     const note = (await store.load()).notes[0]!;
+    await store.visit(page());
     const saved = await Promise.allSettled([
       store.save(note.id, "Concurrent save", note.revision),
       store.deletePage(note.url, { id: note.id, revision: note.revision }),
@@ -312,25 +410,23 @@ describe("local browser library", () => {
     });
   });
 
-  it("persists only complete supported Properties and preserves data on failures", async () => {
+  it("persists ordinary Markdown and unfinished syntax while preserving data on write failures", async () => {
     const persistence = memory();
     const store = new LibraryStore(persistence);
     const domain = await store.createDomain(
       "https://example.com",
       properties(),
     );
+    let current = domain;
     for (const text of [
-      "",
-      "---\nPassword*: unfinished",
+      "# Shared notes\n\nA decision",
       `${properties()}ordinary Markdown`,
+      "```aic\nunfinished",
       "---\nkey: [\n---",
-      "---\n# aic-fields: v99\nkey: value\n---",
-      "---\na: &shared value\nb: *shared\n---",
-    ])
-      await expect(store.saveDomain(domain.id, text, 1)).rejects.toMatchObject({
-        code: "invalid",
-        message: "Invalid browser library data.",
-      });
+    ]) {
+      current = await store.saveDomain(domain.id, text, current.revision);
+      expect(current.markdown).toBe(text);
+    }
     expect(validateDomainProperties(AIC_EMPTY_DOCUMENT)).toBe(
       AIC_EMPTY_DOCUMENT,
     );
@@ -338,14 +434,14 @@ describe("local browser library", () => {
       validateDomainProperties(properties().replaceAll("\n", "\r\n")),
     ).toContain("\r\n");
     await expect(
-      store.saveDomain(domain.id, "x".repeat(512 * 1024 + 1), 1),
+      store.saveDomain(domain.id, "x".repeat(512 * 1024 + 1), current.revision),
     ).rejects.toMatchObject({ code: "quota" });
     persistence.setFailure(true);
     await expect(
-      store.saveDomain(domain.id, properties("failed"), 1),
+      store.saveDomain(domain.id, properties("failed"), current.revision),
     ).rejects.toMatchObject({ code: "storage" });
     persistence.setFailure(false);
-    expect((await store.load()).domains).toEqual([domain]);
+    expect((await store.load()).domains).toEqual([current]);
   });
 
   it("merges domain backups by origin and atomically rejects invalid domains", async () => {
@@ -444,11 +540,13 @@ describe("local browser library", () => {
     const imported = new LibraryStore(memory());
     await imported.importBackup(await store.exportBackup());
     expect((await imported.load()).domains[0]!.markdown).toBe(source);
-    await expect(
-      store.saveDomain("old-shared", source, 1),
-    ).rejects.toMatchObject({ code: "invalid" });
-    expect(await store.load()).toEqual(stored);
-    await store.saveDomain("old-shared", properties("manually-repaired"), 1);
+    const saved = await store.saveDomain("old-shared", source, 1);
+    expect(saved.markdown).toBe(source);
+    await store.saveDomain(
+      "old-shared",
+      properties("manually-repaired"),
+      saved.revision,
+    );
     expect((await store.load()).domains[0]!.markdown).toBe(
       properties("manually-repaired"),
     );
@@ -485,8 +583,8 @@ describe("local browser library", () => {
   it("persists notes and own visits across store restarts, with no mutable return values", async () => {
     const persistence = memory();
     const first = new LibraryStore(persistence);
-    await first.visit(page());
     const created = await first.create(page(), "Original");
+    await first.visit(page());
     created.markdown = "Changed outside the store";
     const second = new LibraryStore(persistence);
     const loaded = await second.load();
@@ -606,7 +704,7 @@ describe("local browser library", () => {
     };
     await expect(
       store.importBackup(JSON.stringify(huge)),
-    ).rejects.toMatchObject({ code: "invalid" });
+    ).rejects.toMatchObject({ code: "quota" });
     const oversizedText = JSON.stringify({
       version: 1,
       notes: huge.notes
@@ -764,6 +862,8 @@ describe("local browser library", () => {
     try {
       const persistence = memory();
       const store = new LibraryStore(persistence);
+      await store.create(page("https://example.com/a"), "Saved A");
+      await store.create(page("https://example.com/b"), "Saved B");
       await store.visit(page("https://example.com/a"));
       const firstWriteCount = persistence.writes;
       clock.mockReturnValue(100_500);
@@ -798,8 +898,13 @@ describe("local browser library", () => {
 
   it("caps its own panel-visit log at 100 entries", async () => {
     const store = new LibraryStore(memory());
-    for (let index = 0; index < 102; index++)
+    for (let index = 0; index < 102; index++) {
+      await store.create(
+        page(`https://example.com/${index}`),
+        `Saved ${index}`,
+      );
       await store.visit(page(`https://example.com/${index}`));
+    }
     const history = (await store.load()).history;
     expect(history).toHaveLength(100);
     expect(history[0]?.url).toBe("https://example.com/101");

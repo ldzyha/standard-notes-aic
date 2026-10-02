@@ -13,13 +13,21 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
+Prepared, unreleased plain-file update: the PWA and browser extension edit ordinary
+Markdown files and folders; VS Code uses native documents. No AIC password,
+encryption, encrypted backup or legacy conversion is required or provided.
+Standard Notes keeps its own encryption and synchronization. Masked field previews
+and copying without revealing values remain available in every editor.
+See [the cross-host usage guide](RELEASE_INSTALL.md), [PWA files](pwa/README.md)
+and [browser files and URL links](browser/README.md). Publication is verified separately.
+
 Prepared release 51.0.1 pairs with AIC Notes 60.0.2, experimental browser 0.11.3
 and shared core 7.5.3. Code previews let vertical scrolling continue through the
 document, retain their full height, and preserve horizontal scrolling for long
 lines. Release assets and store availability require separate verification.
 
-The new local-file PWA opens Markdown files and folders, keeps device-local copies,
-and offers optional encrypted exports. Current, Shared and Global tabs focus on
+The local-file PWA opens Markdown files and folders and writes connected originals,
+with device snapshots as a secondary cache. Current, Shared and Global tabs focus on
 one note at a time across supported hosts; mobile navigation gives the editor
 more space. Optional on-device AI and the shared DDK-based writing guide help
 revise documents. Folder imports count only Markdown files and support progress

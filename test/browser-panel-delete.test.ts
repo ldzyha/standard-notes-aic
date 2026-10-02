@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { EditorView } from "@codemirror/view";
 import { BrowserPanel } from "../src/browser/panel";
 import { displayPageLocation } from "../src/browser/navigation";
-import { AIC_EMPTY_DOCUMENT } from "../src/core/security-model.js";
 import type { BrowserApi, Request } from "../src/browser/api";
 import type { BrowserLibrary } from "../src/browser/library";
 
@@ -14,7 +13,7 @@ const page = {
 };
 const other = "https://example.test/other";
 const panels: BrowserPanel[] = [];
-const placeholder = AIC_EMPTY_DOCUMENT;
+const placeholder = "";
 function event() {
   const listeners = new Set<(...args: unknown[]) => void>();
   return {
@@ -68,7 +67,7 @@ function fixture(
         let value: unknown;
         switch (message.type) {
           case "status":
-            value = { state: "unlocked" };
+            value = { state: "ready" };
             break;
           case "context":
             value = active;
@@ -321,7 +320,7 @@ describe("local page deletion UI", () => {
     const f = fixture();
     await f.panel.ready;
     const original = view(f.root);
-    press(f.root, "Notes and history");
+    press(f.root, "Notes");
     expect(
       f.root.querySelectorAll(
         '.browser-page-row button[title="' +
@@ -329,13 +328,13 @@ describe("local page deletion UI", () => {
           '"]',
       ),
     ).toHaveLength(1);
-    expect(f.root.querySelector(".browser-history")?.childElementCount).toBe(0);
+    expect(f.root.querySelector(".browser-history")).toBeNull();
     press(f.root, "Delete local note: Other page");
     press(f.root, "Delete note");
     await vi.waitFor(() => expect(f.library.notes).toHaveLength(1));
     expect(f.library.notes[0]!.url).toBe(page.url);
     expect(view(f.root)).toBe(original);
-    press(f.root, "Notes and history");
+    press(f.root, "Notes");
     expect(f.root.querySelector(".browser-library")?.textContent).not.toContain(
       "Other page",
     );

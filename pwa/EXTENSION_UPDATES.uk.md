@@ -82,31 +82,22 @@ Workflow використовує GitHub federation через Azure Login, по
 та pull requests. Token обмежений цим repository.
 [GitHub App token action](https://github.com/actions/create-github-app-token).
 
-Committed зміни canonical `main` збирають PWA, механічно копіюють лише записи
-`CORE_FILES.json` до VS Code core mirror та точну portable editor build до
-`vendor/portable-runtime`. `CORE_SNAPSHOT.json` і `PORTABLE_SNAPSHOT.json`
-зберігають source commit та точні hashes; `aicEditorCore` узгоджується.
-VS Code host збирається самостійно з цих committed generated files.
-VSIX містить точний portable runtime і його snapshot.
+Зміни canonical `main` механічно копіюють спільні файли з `CORE_FILES.json`
+до VS Code mirror. `CORE_SNAPSHOT.json` фіксує commit і точні hashes;
+`aicEditorCore` узгоджується. VS Code збирає власний Markdown-редактор без
+вбудованого зашифрованого редактора.
 
-Для локального distribution запустіть `npm run build:pwa`, потім
-`npm run portable:sync` у canonical repository. `--target <AIC-Notes-repository>`
-вибирає інший checkout, а `npm run portable:check` порівнює без запису.
-Changed або untracked build inputs дають чесний snapshot
-`sourceState: working-tree`. Він підтримує local build; release verification
-потребує committed provenance. Sync не замінює unowned чи modified generated
-directory.
-
-VS Code release gate перевіряє обидва distribution перед створенням чи оновленням
-`codex/sync-editor-core`. Перегляньте та merge цей PR, потім виберіть версію
-host і релізний тег. Workflow не робить merge чи публікацію релізу.
+Локальна перевірка: `npm run core:sync` та `npm run core:check` у canonical
+репозиторії. Workflow перевіряє VS Code release gate й пропонує PR
+`codex/sync-editor-core`. Перегляньте та злийте його перед випуском хоста.
+Workflow сам не зливає й не публікує релізи.
 
 ## Встановлені застосунки
 
 Chrome та Edge із магазину використовують звичайне доставлення оновлень
 браузером. Для unpacked development extension потрібен Reload на наявній
-картці. Якщо важливий rollback, збережіть encrypted backup перед update;
-Lock, Reload і update завершують unlocked session.
+картці. Перед Reload дочекайтеся підтвердження запису на диск. Markdown-файли
+лишаються поза розширенням; за потреби відновіть дозвіл на доступ.
 [Оновлення Chrome](https://developer.chrome.com/docs/webstore/update),
 [оновлення Edge](https://learn.microsoft.com/en-us/microsoft-edge/extensions/update/update-extension).
 
@@ -115,6 +106,9 @@ Marketplace installation VS Code використовує налаштуванн
 щоб отримувати Marketplace updates. Доставлення через Open VSX налаштовується
 окремо. [Оновлення VS Code](https://code.visualstudio.com/docs/configure/extensions/extension-marketplace#extension-auto-update).
 
-PWA кешує інтерфейс для offline use і зберігає нотатки на пристрої. Доступ
-видавця належить CI; credentials магазину не налаштовуються в інтерфейсі
+PWA кешує інтерфейс для офлайн-роботи й записує підключені Markdown-файли.
+Без прямого запису браузер зберігає явно позначену чернетку до завантаження копії.
+Підтвердження запису чи оновлення застосунку не підтверджує завершення зовнішньої
+синхронізації. Доступ видавця належить CI; credentials магазину не
+налаштовуються в інтерфейсі
 нотаток. Deploy нової PWA build та реліз розширення — окремі операції.

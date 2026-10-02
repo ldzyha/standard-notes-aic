@@ -11,62 +11,42 @@ is available in [AIC Notes](https://github.com/ldzyha/aic-notes/blob/main/LICENS
 
 ## Your files and devices
 
-From the start screen, **New workspace**, **Open files** and **Open folder** create
-a local Markdown workspace without a password. Inside an open workspace, **Open
-files** and **Open folder** add files using its current local or encrypted storage
-mode. **Save** or Ctrl/Cmd+S stores a local workspace's notes, paths and labels as
-**unencrypted data on this device**. Local
-workspaces remain readable after restarting and do not auto-lock. Browser storage
-can be cleared or evicted; keep exported copies of important work.
+AIC is a file editor and viewer. **New note** chooses a Markdown destination;
+**Open files** and **Open folder** open existing notes. **Add files/folder** adds
+to the current workspace. AIC provides no app-level encryption, passphrase setup,
+Lock, encrypted export or legacy bundle import. Protection and synchronization
+are owned by your storage provider, device or host application. Standard Notes
+continues to handle its own storage and encryption.
 
-The file list shows `.md` files, case-insensitively. New file and folder imports
-include only those files and skip `.git` and `node_modules` folders. Opening a
-folder imports a snapshot; editing and saving locally do not write changes back
-to the original folder. Use **Save plaintext copy** or **Export folder** to write
-readable files explicitly. Existing encrypted bundles retain other file types as
-bytes even when the Markdown list hides them; folder export includes those
-retained files.
+On browsers with writable-file support, Save, Ctrl/Cmd+S and autosave write directly
+to the selected originals. The browser cache is secondary. File handles and
+relative display names are remembered locally; browsers do not expose absolute
+operating-system paths. AIC checks observed external changes and stops when an
+original is missing or access is denied. Failed drafts remain available for retry
+or export; autosave never recreates a deleted file. AIC does not merge concurrent
+edits or guarantee that another program cannot change a file during a save.
 
-**Encrypt workspace** creates a separate passphrase-protected copy. The original
-unencrypted workspace remains in device storage until you remove it with
-**Remove local workspace**. That action removes only the app's local copy; it
-does not delete original files, exported files or the encrypted copy. Creating
-an encrypted copy does not encrypt or erase an earlier plaintext copy.
+Browsers without native writes can edit browser drafts and download Markdown
+copies. **Browser draft · download to save** does not claim that an original file
+was updated. Browser storage may be cleared or evicted. Keep files you need in
+your filesystem or chosen storage service; drafts are not guaranteed crash backups.
 
-The PWA, Chrome/Edge file-notes editor and VS Code encrypted-file editor open the
-same `.aicnotes` files. Each encrypted entity has its own passphrase and can hold
-notes, individual files or project folders. Optional names never determine a key;
-local workspace labels are unencrypted, and encrypted entity labels are inside
-the protected payload. Chrome/Edge's page-notes library and the VS Code encrypted
-file host still require their encryption passphrase.
+The explorer shows `.md` files case-insensitively, skipping `.git`, `node_modules`
+and paths excluded by supported `.gitignore` or `.ignore` rules. Removing a
+workspace disconnects it and removes its app cache; it does not delete original
+or exported files. Existing unsupported stores and files are not automatically
+deleted or converted.
 
-Protected files use the existing AIC envelope on the device: PBKDF2-HMAC-SHA256
-with 600,000 iterations and a random salt, followed by authenticated AES-256-GCM.
-Passphrases are not saved. Unlocked content and keys exist in memory; locking or
-restarting ends the encrypted entity's unlocked session. Saved encrypted entities
-lock after five minutes without interaction; unsaved encrypted drafts remain
-unlocked until saved or closed. Encryption cannot protect a compromised device
-or an already unlocked editor. AIC is not an independently audited password manager.
+Markdown files, browser drafts and exports are readable data. Secret-field syntax
+masks values in the interface and supports explicit copying; masking does not
+encrypt files. Export and copy include authored secret values. Other applications,
+clipboard history and services receiving the files may read them. Folder export
+refuses existing destinations; interrupted operations can leave new files behind.
 
-For an encrypted entity, the selected `.aicnotes` file is the durable copy and
-the browser cache contains ciphertext. AIC checks for observed external changes
-before saving that connected file. It does not merge concurrent edits or guarantee
-that an external writer cannot change the file during a save. Reopen a file after
-your sync service updates it. Failed or conflicting changes remain in memory for
-retry or export; they are not crash-safe backups. Closing can discard unsaved changes.
-
-AIC provides no server storage, account recovery or synchronization service. You
-can synchronize exported Markdown files or `.aicnotes` files through Google Drive
-or another service you manage. A locally saved browser workspace is not a synced
-folder. The service has its own privacy policy and conflict handling; AIC does
-not authorize or control its access. Keep encrypted backups and their passphrases:
-the developer cannot recover a forgotten passphrase.
-
-**Save plaintext copy**, **Export folder**, **Restore folder**, Markdown exports
-and copy actions deliberately produce readable data, including secret values.
-Destination apps, clipboard history or synchronization, and services receiving
-files you share may access it. Folder export/restoration refuses observed existing
-files, but an interrupted operation can leave new files behind.
+AIC provides no server storage, account or synchronization service. You can place
+files in Google Drive or another folder you manage. Its permissions, protection,
+privacy policy and conflict handling belong to that service. AIC writes selected
+files and does not connect to or manage your sync account.
 
 ## Offline use and connections
 
@@ -78,7 +58,7 @@ separately. AIC's offline storage does not control those services.
 
 The website host receives ordinary requests for the application and documentation
 assets, including the connection's IP address. AIC's application does not send
-your notes, passphrases or encryption keys to that host.
+your notes to that host.
 
 ## Built-in AI
 
@@ -98,7 +78,7 @@ can change meaning or be incorrect; review them before saving or sharing.
 ## Chrome and Edge page-notes policy
 
 The following policy covers the existing browser page-notes host, including its
-permissions, encrypted page library and Chrome Web Store Limited Use statement.
+permissions, plain Markdown files and Chrome Web Store Limited Use statement.
 Its network restrictions apply to that host. Opening a public documentation or
 source link uses ordinary browser navigation.
 

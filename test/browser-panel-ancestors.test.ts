@@ -7,6 +7,7 @@ import type {
   BrowserNote,
 } from "../src/browser/library";
 import { BrowserPanel } from "../src/browser/panel";
+import { FILE_SOURCE_KEY } from "../src/browser/markdown-storage";
 
 function event<T extends unknown[]>() {
   const listeners = new Set<(...args: T) => unknown>();
@@ -54,7 +55,12 @@ const domain: BrowserDomain = {
 };
 
 function fixture() {
-  let state = "unlocked";
+  let state: "ready" | "unselected" = "ready";
+  const source = {
+    id: "browser-ancestor-files",
+    kind: "directory",
+    name: "Notes",
+  };
   let library: BrowserLibrary = {
     version: 3,
     global: null,
@@ -78,7 +84,10 @@ function fixture() {
         let value: unknown;
         switch (message.type) {
           case "status":
-            value = { state };
+            value = {
+              state,
+              source: state === "ready" ? source : { kind: "unselected" },
+            };
             break;
           case "context":
             value = structuredClone(current);
@@ -99,9 +108,11 @@ function fixture() {
           case "navigate":
             value = null;
             break;
-          case "lock":
-            state = "locked";
-            value = { state };
+          case "list-recovery":
+            value = [];
+            break;
+          case "checkpoint-drafts":
+            value = { sequence: message.sequence };
             break;
           default:
             throw new Error(`Unexpected request ${message.type}`);
@@ -127,13 +138,13 @@ function fixture() {
         notes: library.notes.filter((candidate) => candidate.url !== url),
       };
       changed.emit(
-        { "aic-browser-library": { newValue: "synthetic-envelope" } },
+        { "aic-browser-markdown-change": { newValue: { revision: 2 } } },
         "local",
       );
     },
-    lock() {
-      state = "locked";
-      changed.emit({ "aic-browser-unlock": { oldValue: {} } }, "session");
+    disconnect() {
+      state = "unselected";
+      changed.emit({ [FILE_SOURCE_KEY]: { oldValue: source } }, "local");
     },
   };
 }
@@ -153,7 +164,7 @@ function pageView(root: HTMLElement) {
   )!;
 }
 function press(root: ParentNode, label: RegExp) {
-  if (label.test("Export Markdown file"))
+  if (label.test("Download copy"))
     root
       .querySelector<HTMLButtonElement>('button[aria-label="More options"]')
       ?.click();
@@ -257,7 +268,7 @@ describe("saved page ancestors in the browser panel", () => {
       },
     );
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
-    press(root, /^Export Markdown file$/u);
+    press(root, /^Download copy$/u);
     const exported = await new Promise<string>((resolve) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result as string);
@@ -285,11 +296,11 @@ describe("saved page ancestors in the browser panel", () => {
     expect(editor.state.doc.toString()).toBe(currentSource);
   });
 
-  it("removes ancestor metadata and editor plaintext when the vault locks", async () => {
+  it("removes ancestor metadata and editor text when the source disconnects", async () => {
     const fake = fixture();
     const root = await mount(fake.api);
     expect(root.textContent).toContain("Items");
-    fake.lock();
+    fake.disconnect();
     expect(root.querySelector(".browser-page-ancestors")).toBeNull();
     expect(root.querySelector(".cm-editor")).toBeNull();
     expect(root.textContent).not.toContain("Items");

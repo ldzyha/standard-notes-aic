@@ -4,44 +4,105 @@
 
 [English](PRIVACY.md) · [Українська](PRIVACY.uk.md)
 
-This policy describes the encrypted page-notes panel of the experimental Chrome
-and Edge component. See README.md and VERIFICATION.md for release status and
-testing boundaries. The PWA's optional unencrypted local workspaces are described
-in [Terms and privacy](https://aic.dzyha.com/terms); the page-notes library described
-below remains encrypted.
+This policy describes the plain-file Chrome and Edge component. See the
+[README](README.md) and [verification record](VERIFICATION.md) for release status.
 
-In this version, AIC has no server, account, telemetry, analytics or synchronization. All runtime resources are bundled. Its extension content policy blocks outgoing connections and remote embedded resources. It reads page content only after you request an import; it does not edit, autofill or insert into source websites. Opening a source link is ordinary browser navigation.
+AIC has no account, sync server, telemetry or analytics. Runtime resources are
+bundled, and the extension content policy blocks outgoing connections and remote
+embedded resources. AIC reads page content only after your explicit import action
+and site-access approval. It does not edit, autofill or insert into websites.
+Opening a source link uses ordinary browser navigation.
 
-Notes, domain AIC documents, the optional Global Shared record, titles, URLs, dates and the navigation index are encrypted together in local extension storage. Domain values are displayed only for the same exact scheme, host and port. Global Shared is one explicitly created record available across pages in this browser profile, including without an active page. Neither record is copied into page Markdown or inserted into websites. Your master passphrase is not persisted. The derived key remains only in trusted browser session memory after unlock; Lock, browser restart, extension reload or update removes it. There is no embedded key or disk fallback. Both local and session storage require explicit trusted-context access restrictions; local storage contains only encrypted data.
+## Files and browser-local data
 
-The panel maintains its bounded recent-pages list only while active and unlocked. It does not read the browser's history database or collect browsing in the background. Notes follow the active page in the panel's own window. Its ancestor chain contains only saved-note titles and source URLs for exact-origin path-segment ancestors; it does not expose ancestor Markdown or secret fields.
+You choose a Markdown file or folder and grant access through the browser picker.
+Note content is plain Markdown on disk. In a folder, `.aic/links.json` stores URL,
+scope, note identifier, relative path and revision metadata, without duplicating
+Markdown content. File handles and connection metadata are remembered locally in
+IndexedDB. Browser-local storage can also hold cached metadata, preferences and
+plain draft recovery checkpoints. AIC does not use `storage.sync`.
 
-The manifest excludes Chrome Incognito and Edge InPrivate windows. AIC does not change browser privacy settings. Notes in normal windows persist locally until removed by the user or browser. Confirmed deletion removes the selected local note and its AIC recent-history entry while preserving other notes and exact-origin shared AIC data; restoration requires an earlier encrypted backup. Private browsing is not a way to clear notes.
+Current links to an exact URL, including its query and fragment; Shared belongs
+to an exact origin, and Global to the selected collection. Those associations do
+not copy shared text into other notes or insert it into websites. Active-tab
+navigation is limited to the panel's browser window. AIC does not read the
+browser history database or collect background browsing history. The navigation
+tree shows saved files and their explicit links; opening a page alone creates
+no note.
 
-Whole-library exports include Global Shared, are encrypted and need the backup's original passphrase. Backup merge preserves an existing local Global record and explicitly reports the skipped imported record; the original encrypted backup is unchanged. Markdown exports and Copy intentionally produce plaintext, including secret values. Copy section includes the selected section's masked and filter-hidden rows. Other software, clipboard history/synchronization and destination websites after you paste may access that plaintext. AIC network restrictions do not control those systems or the browser's normal update services.
+There is no app password, encrypted workspace or legacy-file converter. AIC does
+not open or migrate old `.aicnotes` files, and does not delete existing old files
+or unused legacy storage. Secret fields are masked in the editor; their source,
+clipboard copies and recovery checkpoints are plain text. Filesystem encryption,
+backups and external sync services are controlled by the user.
 
-Removing an extension removes its local data, but not downloaded backups. Keep an unpacked development installation at the same path and reload it instead of uninstalling it for updates. There is no server-side recovery. Keep backups and remember your passphrase. Failed or conflicting drafts remain in memory for retry/export, not crash-safe persistent storage.
+## Saving, recovery and removal
+
+A save is confirmed only after the selected file write is acknowledged. If the
+original changed, disappeared or lost permission, the draft remains unsaved for
+retry or export. AIC does not automatically recreate a deleted note or overwrite
+an externally changed source.
+
+Each edit requests a separate local recovery checkpoint containing draft text
+and context, with file/panel identifiers, sequence numbers and dates. Acknowledged
+checkpoints can survive Reload or a browser restart. They are not disk-save
+confirmations. Closing before checkpoint acknowledgement can lose the latest
+edit. A checkpoint failure leaves a notice to keep the panel open and save or
+export the draft.
+
+Recovered drafts are reviewed explicitly and may be saved as separate Markdown
+copies. Recovery does not automatically replace originals or recreate deleted
+files. The current checkpoint is cleared after a confirmed file save or explicit
+discard. Older recovered copies remain until their removal is confirmed;
+exporting a copy alone does not delete them.
+
+Removing or updating the extension does not delete selected external files.
+Uninstalling removes browser-local caches, recovery checkpoints and remembered
+access. After reinstalling, select the same files again. Reload may require
+reconnecting permission but does not erase saved file contents. There is no
+server-side recovery. Chrome Incognito and Edge InPrivate are excluded by the
+manifest; private browsing is not a way to clear notes.
+
+Markdown export and Copy deliberately include the selected source, including
+masked secrets and filter-hidden rows when copying a whole section. Other
+applications, clipboard history or sync, and destination websites after pasting
+may receive that text. AIC's network restrictions do not control those systems,
+user-selected filesystem sync or normal browser update services.
 
 ## Permissions
 
-- `storage`: encrypted local data and a session-only unlock key; no `storage.sync`.
-- `tabs`: identify the active page in the panel's window and open/activate saved source URLs. No history-database permission.
+- `storage`: local connection metadata, preferences, caches and plain draft
+  recovery checkpoints. File access is granted separately through the picker.
+- `tabs`: identify the active page in the panel's window and open or activate
+  explicitly linked URLs; no browser history database permission.
 - `sidePanel`: display the notes panel in Chrome and Edge.
-- `scripting`: deliberate, read-only page/selection capture after you grant access to the selected site.
-- Optional HTTP(S) site access: requested for the selected origin on import, not granted to every site at installation. You can revoke site access in browser extension settings.
-- `clipboardRead`: an explicit Paste action on an empty typed field reads the latest clipboard text after the user's click. General editor paste stays native; there is no top-level clipboard-import button, monitoring, history collection or background read.
-- `clipboardWrite`: deliberate copy actions, including hidden field values.
+- `scripting`: explicit, read-only page or selection capture after site approval.
+- Optional HTTP(S) site access: requested for the chosen origin during import,
+  rather than every website on installation. Revoke it in extension settings.
+- `clipboardRead`: an explicit Paste action on an empty typed field reads the
+  latest clipboard text after your click. Ordinary editor paste stays native;
+  there is no background clipboard reading, monitoring or history collection.
+- `clipboardWrite`: explicit copy actions, including hidden field values.
 
-Encryption does not protect an unlocked extension or a compromised device/browser. Plaintext exists in memory while editing. Visible webpage text, titles and URLs can contain confidential information; excluding form values is not universal secret detection. This build is not an independently audited password manager.
+Visible page content, titles and URLs may contain confidential information.
+Excluding form fields is not universal secret detection. Masking is a display
+feature, not file encryption; this build is not an audited password manager.
 
 ## Chrome Web Store Limited Use
 
-AIC's handling of user data complies with the [Chrome Web Store User Data Policy, including its Limited Use requirements](https://developer.chrome.com/docs/webstore/program-policies/limited-use).
+AIC's handling of user data complies with the [Chrome Web Store User Data Policy,
+including its Limited Use requirements](https://developer.chrome.com/docs/webstore/program-policies/limited-use).
 
-Browser permissions support only the local notes, page import and navigation features described above. The developer does not receive or remotely access your notes or captured page content. AIC does not sell user data or use it for advertising, unrelated profiling, creditworthiness assessments or lending. Exports and clipboard copies happen only through your explicit actions, as described above.
+Permissions support only the local notes, page import and navigation described
+above. The developer does not receive or remotely access notes or captured page
+content. AIC does not sell user data or use it for advertising, unrelated
+profiling, creditworthiness assessments or lending. Export and clipboard copy
+happen through your explicit actions.
 
 ## Changes to this policy
 
-The developer may update this policy with product releases. Accounts and synchronization between systems are not available in this version. Before such features become available, their data handling will be described separately, including what data is involved, where it is sent, who receives it and for what purpose.
-
-Changes to data practices will be prominently disclosed. Where required, AIC will obtain your affirmative, informed consent before new collection, use or sharing begins. Updating this policy alone does not authorize new uses of previously stored data or constitute your advance consent to future data handling.
+Product releases may update this policy. Changes to data handling will be
+prominently disclosed, including affected data, recipients and purpose. Where
+required, AIC will obtain affirmative, informed consent before new collection,
+use or sharing begins. Updating the policy alone does not authorize a new use of
+previously stored data or provide advance consent to future processing.

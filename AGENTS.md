@@ -34,7 +34,11 @@ make the source files look alike.
 
 Before every AIC release, refresh the authoring knowledge from the current
 `../core` instructions and document-writing guides. Do not rely only on memory or
-a copied prompt. Compare the [current DDK writing instructions](https://ddk.dzyha.com/prompt.html)
+a copied prompt. Review the current block catalogue, document templates and
+applicable authoring skills as well as the writing guide. Apply relevant changes
+through the canonical `src/core` owners and synchronize their host mirrors;
+external skill transport instructions do not replace the active harness contract.
+Compare the [current DDK writing instructions](https://ddk.dzyha.com/prompt.html)
 when the local Core checkout differs from published DDK. Record the source
 revision or reviewed documents in release verification, and resolve relevant
 drift before publication. Preserve AIC Markdown, fenced `aic` blocks, and host

@@ -13,6 +13,7 @@
   --aic-space-4: 16px;
   --aic-radius-control: 6px;
   --aic-radius-surface: 8px;
+  --aic-menu-width: 272px;
 }
 
 .aic-button {
@@ -175,14 +176,35 @@
   padding: var(--aic-space-2);
 }
 .aic-menu__item {
+  --aic-button-size: var(--aic-control-size);
   width: 100%;
+  gap: var(--aic-space-2);
+}
+.aic-button.aic-menu__item {
   justify-content: flex-start;
   text-align: start;
 }
+.aic-menu__item:any-link {
+  text-decoration: none;
+}
+.aic-menu__title--compact {
+  margin: var(--aic-space-1) var(--aic-space-2);
+  color: var(--aic-muted, GrayText);
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.4;
+  text-align: start;
+}
 .aic-menu__separator {
+  box-sizing: border-box;
+  width: 100%;
   border: 0;
   border-top: 1px solid var(--aic-border, #d8dde5);
+  margin-inline: 0;
   margin-block: var(--aic-space-2);
+}
+.aic-menu--compact .aic-menu__separator {
+  margin-block: var(--aic-space-1);
 }
 .aic-menu__hint,
 .aic-field__hint {
@@ -238,8 +260,165 @@
   margin: 0;
   padding: 0;
 }
+.aic-tree--connected {
+  --aic-tree-row-size: var(--aic-control-size);
+  --aic-tree-indent: 20px;
+  font-size: 13px;
+  min-width: 0;
+}
+.aic-tree--connected .aic-tree__group {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.aic-tree--connected .aic-tree__group .aic-tree__group {
+  margin-inline-start: 8px;
+  padding-inline-start: var(--aic-tree-indent);
+}
+.aic-tree--connected .aic-tree__item {
+  position: relative;
+  min-width: 0;
+  margin: 0;
+}
+.aic-tree--connected
+  .aic-tree__group
+  .aic-tree__group
+  > .aic-tree__item::before,
+.aic-tree--connected
+  .aic-tree__group
+  .aic-tree__group
+  > .aic-tree__item::after {
+  content: "";
+  position: absolute;
+  inset-inline-start: calc(var(--aic-tree-indent) / -2);
+  border-color: var(--aic-border, #d8dde5);
+  pointer-events: none;
+}
+.aic-tree--connected
+  .aic-tree__group
+  .aic-tree__group
+  > .aic-tree__item::before {
+  top: 0;
+  bottom: 0;
+  border-inline-start: 1px solid var(--aic-border, #d8dde5);
+}
+.aic-tree--connected
+  .aic-tree__group
+  .aic-tree__group
+  > .aic-tree__item:last-child::before {
+  height: calc(var(--aic-tree-row-size) / 2);
+}
+.aic-tree--connected
+  .aic-tree__group
+  .aic-tree__group
+  > .aic-tree__item::after {
+  top: calc(var(--aic-tree-row-size) / 2);
+  width: calc(var(--aic-tree-indent) / 2);
+  border-block-start: 1px solid var(--aic-border, #d8dde5);
+}
+.aic-tree--connected .aic-tree__row {
+  box-sizing: border-box;
+  display: flex;
+  gap: var(--aic-space-1);
+  align-items: center;
+  min-width: 0;
+  min-height: var(--aic-tree-row-size);
+  border-radius: var(--aic-radius-control);
+}
+.aic-tree--connected :is(summary, button).aic-tree__row {
+  width: 100%;
+  padding: 0 var(--aic-space-1);
+  cursor: pointer;
+  text-align: start;
+  list-style: none;
+}
+.aic-tree--connected summary::-webkit-details-marker {
+  display: none;
+}
+.aic-tree--connected summary:focus-visible {
+  outline: 2px solid var(--aic-accent, Highlight);
+  outline-offset: -2px;
+}
+.aic-tree--connected .aic-tree__row:hover {
+  background: var(--aic-contrast, #f3f5f7);
+}
+.aic-tree--connected .aic-tree__row[data-current="true"],
+.aic-tree--connected .aic-tree__row[aria-current="page"],
+.aic-tree--connected .aic-tree__row[aria-current="true"] {
+  background: color-mix(in srgb, var(--aic-accent, Highlight) 12%, transparent);
+  color: var(--aic-accent, Highlight);
+}
+.aic-tree--connected .aic-tree__row > .aic-button {
+  --aic-button-size: var(--aic-tree-row-size);
+  padding-block: 0;
+  border-color: transparent;
+  background: transparent;
+}
+.aic-tree--connected .aic-tree__label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aic-tree__icon,
+.aic-tree__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 16px;
+  width: 16px;
+  height: 16px;
+  color: var(--aic-muted, GrayText);
+}
+.aic-tree__toggle {
+  transform: none;
+}
+details[open] > summary > .aic-tree__toggle {
+  transform: rotate(90deg);
+}
+@media (pointer: coarse) {
+  .aic-tree--connected {
+    --aic-tree-row-size: var(--aic-control-size-touch);
+  }
+}
 .aic-context__current {
   color: var(--aic-muted, GrayText);
+}
+.aic-context--document {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  flex-wrap: wrap;
+  gap: var(--aic-space-1) var(--aic-space-2);
+  min-width: 0;
+  min-height: 24px;
+  padding: var(--aic-space-1) var(--aic-space-3);
+  border-block-end: 1px solid var(--aic-border, #d8dde5);
+  background: var(--aic-contrast, Canvas);
+  color: var(--aic-muted, GrayText);
+  font-size: 11px;
+  line-height: 1.4;
+}
+.aic-context--document > .aic-context__path {
+  display: block;
+  flex: 1 1 8rem;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.aic-context__status {
+  flex: 0 0 auto;
+  color: var(--aic-muted, GrayText);
+  font-size: 11px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.aic-context__status:is([data-state="dirty"], [data-state="saving"]) {
+  color: var(--aic-accent, Highlight);
+}
+.aic-context__status:is([data-state="failed"], [data-state="reconnect"]) {
+  color: var(--aic-danger, #b92337);
 }
 
 @media (pointer: coarse) {
@@ -278,21 +457,36 @@
 }
 
 .aic-context--tabs {
+  box-sizing: border-box;
   display: flex;
   flex: 0 0 auto;
-  gap: 2px;
+  gap: var(--aic-space-1);
   min-width: 0;
+  padding: var(--aic-space-1);
   border-bottom: 1px solid var(--aic-border);
+  background: var(--aic-tabbar-bg, var(--aic-contrast, Canvas));
 }
 .aic-context__tab {
+  --aic-button-size: var(--aic-control-size-touch);
   flex: 1 1 0;
   min-width: 44px;
-  min-height: 44px;
+  max-width: 140px;
+  min-height: var(--aic-button-size);
+  border-radius: var(--aic-space-1);
   white-space: nowrap;
 }
 .aic-context__tab[aria-selected="true"] {
+  background: var(--aic-bg, Canvas);
+  border-color: var(--aic-border);
   color: var(--aic-accent);
-  box-shadow: inset 0 -2px var(--aic-accent);
+}
+.aic-context__tab:focus-visible {
+  outline-offset: -3px;
+}
+@media (pointer: fine) {
+  .aic-context__tab {
+    --aic-button-size: var(--aic-control-size);
+  }
 }
 .aic-context__panel[hidden] {
   display: none !important;

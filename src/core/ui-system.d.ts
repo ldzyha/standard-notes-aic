@@ -31,8 +31,8 @@ export type UiModifiers = {
     | "empty"
     | "details"
     | "embedded";
-  tree: "compact" | "ancestors";
-  context: "compact" | "empty" | "editing" | "tabs";
+  tree: "compact" | "ancestors" | "connected";
+  context: "compact" | "empty" | "editing" | "tabs" | "document";
 };
 
 export type UiElements = {
@@ -51,8 +51,9 @@ export type UiElements = {
     | "section-title"
     | "section-actions"
     | "footer";
-  tree: "group" | "item" | "row" | "label" | "actions";
-  context: "title" | "path" | "item" | "link" | "current" | "tab" | "panel";
+  tree: "group" | "item" | "row" | "label" | "actions" | "icon" | "toggle";
+  context:
+    "title" | "path" | "item" | "link" | "current" | "tab" | "panel" | "status";
 };
 
 export const UI_COMPONENTS: {
