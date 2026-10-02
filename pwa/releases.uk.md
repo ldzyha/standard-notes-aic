@@ -9,6 +9,23 @@
 у VS Code. Захищені файлові редактори працюють з однаковими `.aicnotes`;
 синхронізуйте експортовані файли через керований вами сервіс.
 
+## Підготовлене оновлення: Standard Notes 51.0.1 / VS Code 60.0.2 / браузер 0.11.3
+
+Спільне ядро 7.5.3 пропускає вертикальне прокручування над прев’ю коду до
+документа. Прев’ю зберігає повну висоту й горизонтальне прокручування довгих
+рядків у всіх редакторах. VS Code також відновлює прокручування довгих
+пов’язаних нотаток, обмежуючи редактор доступною висотою бічної панелі.
+
+Публікація цих версій ще перевіряється. Після публікації використовуйте
+[VSIX 60.0.2](https://github.com/ldzyha/aic-notes/releases/download/v60.0.2/aic-notes-60.0.2.vsix)
+та [SHA-256](https://github.com/ldzyha/aic-notes/releases/download/v60.0.2/aic-notes-60.0.2.vsix.sha256),
+[Standard Notes 51.0.1](https://github.com/ldzyha/standard-notes-aic/releases/tag/v51.0.1),
+[Chromium 0.11.3 ZIP](https://github.com/ldzyha/standard-notes-aic/releases/download/v51.0.1/aic-browser-chromium-0.11.3.zip)
+і [SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v51.0.1/aic-browser-chromium-0.11.3.zip.sha256).
+Розгортання PWA, подання до магазинів та схвалення перевіряються окремо.
+Перевірка магазинів 2 жовтня підтвердила публічні Marketplace **59.0.2** і
+Chrome **0.9.3**, Chrome **0.11.1 на перевірці** та вимкнені нові завантаження.
+
 ## Доступні випуски: Standard Notes 50.0.1 / VS Code 59.0.2 / браузер 0.11.2
 
 Спільне ядро 7.5.2 показує Mermaid у природному розмірі по центру полотна.
@@ -24,8 +41,9 @@ PWA вже оновлено. Файли GitHub опубліковано, їхн�
 [Chromium 0.11.2 ZIP](https://github.com/ldzyha/standard-notes-aic/releases/download/v50.0.1/aic-browser-chromium-0.11.2.zip)
 і [SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v50.0.1/aic-browser-chromium-0.11.2.zip.sha256)
 доступні для ручного встановлення у Chrome або Edge.
-Підтверджена версія Marketplace — 58.1.1. Chrome публікує 0.9.3, а 0.11.1
-ще перевіряється; нове завантаження 0.11.2 поки недоступне.
+Перевірка магазинів 1 жовтня зафіксувала Marketplace 58.1.1 і Chrome 0.9.3
+у публічному доступі, Chrome 0.11.1 на перевірці та вимкнені нові завантаження.
+Перед наступним оновленням стан магазинів потрібно перевірити знову.
 
 ## AIC Notes 58.1.1 — настільний і браузерний VS Code
 

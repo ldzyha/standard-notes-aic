@@ -13,10 +13,10 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
-Prepared release 50.0.1 pairs with AIC Notes 59.0.2, experimental browser 0.11.2
-and shared core 7.5.2. Mermaid uses a full-width canvas with a naturally sized,
-centered diagram, bounded flowchart labels and content-driven height without
-internal scrolling. Release assets and store availability require separate verification.
+Prepared release 51.0.1 pairs with AIC Notes 60.0.2, experimental browser 0.11.3
+and shared core 7.5.3. Code previews let vertical scrolling continue through the
+document, retain their full height, and preserve horizontal scrolling for long
+lines. Release assets and store availability require separate verification.
 
 The new local-file PWA opens Markdown files and folders, keeps device-local copies,
 and offers optional encrypted exports. Current, Shared and Global tabs focus on

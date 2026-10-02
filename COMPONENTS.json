@@ -1,6 +1,6 @@
 {
   "registryVersion": 1,
-  "asOf": "2026-09-30",
+  "asOf": "2026-10-02",
   "status": {
     "currentFacts": "The shared runtime registry and base geometry exist in src/core/ui-system.*. Button is adopted by shared toolbar/actions and parts of the browser; card and field are adopted by the shared AIC renderer; toolbar, menu, notice, and tree are partially adopted in the browser. Most legacy selectors remain active and required.",
     "approvedDirection": "The user approved one cross-host design system using BEM elements and explicit modifiers for Standard Notes, Chromium, and VS Code. The eight current IDs are the implemented technical baseline accepted in root review, not names separately prescribed by the user.",
@@ -193,7 +193,7 @@
     },
     {
       "id": "card",
-      "purpose": "Structured content surface with header, title, body, and actions for AIC fields, diagrams, errors, and compact read-only previews. AIC sections use larger headings and distinct neutral group backgrounds to separate their rows visually. Details keep wrapping summary titles and source actions separate, with inset child previews and one visible parent boundary.",
+      "purpose": "Structured content surface with header, title, body, and actions for AIC fields, diagrams, errors, and compact read-only previews. AIC sections use larger headings and distinct neutral group backgrounds to separate their rows visually. Details keep wrapping summary titles and source actions separate, with inset child previews and one visible parent boundary. Code bodies scroll only horizontally and allow vertical gestures to continue scrolling the document.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode", "pwa"],
       "bem": {
         "block": "aic-card",

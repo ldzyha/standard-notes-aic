@@ -2,21 +2,31 @@
 
 [English](#english) · [Українська](#українська)
 
-## Prepared package 0.11.2
+## Prepared package 0.11.3
 
-This candidate adds natural Mermaid sizing in a full-width canvas, bounded
-flowchart labels and content-driven height without internal scrolling. Copy and
-Edit remain; zoom controls are removed. Local storage, encryption and the six
-required permissions are unchanged. Chrome 0.11.1 is still pending review, and
-the dashboard disables uploading a new package. No 0.11.2 submission is claimed.
+This candidate fixes vertical scrolling over code previews: the document keeps
+scrolling instead of stopping inside a block. Previews retain their full height
+and horizontal scrolling for long lines. Local storage, encryption and the six
+required permissions are unchanged. No 0.11.3 submission or approval is claimed.
+Recheck the dated dashboard observations below before submission.
 
-Пакет 0.11.2 підготовлено: природний розмір Mermaid на полотні повної ширини,
-обмежені підписи flowchart і висота за вмістом без внутрішніх скролів. Copy та
-Edit збережено; кнопки масштабу прибрано. Локальне зберігання, шифрування та
-шість дозволів не змінені. Chrome 0.11.1 ще перевіряється; завантаження нового
-пакета вимкнено. Подання 0.11.2 не підтверджене.
+Пакет 0.11.3 виправляє вертикальне прокручування над прев’ю коду: документ
+рухається далі, замість блокування всередині блока. Повна висота й горизонтальне
+прокручування довгих рядків збережені. Локальне зберігання, шифрування та шість
+дозволів не змінені. Подання чи схвалення 0.11.3 не заявляється. Перед поданням
+перевірте наведені нижче датовані спостереження з панелі знову.
 
-## Current dashboard check — October 1, 2026
+## Dashboard recheck — October 2, 2026
+
+The authenticated dashboard still shows **0.11.1 pending review**, **0.9.3 public**,
+and no available new upload. Package 0.11.3 has not been submitted. The October 1
+record below preserves the original submission evidence.
+
+Авторизована панель досі показує **0.11.1 на перевірці**, **0.9.3 у публічному
+доступі** та недоступне нове завантаження. Пакет 0.11.3 не подано. Запис від
+1 жовтня нижче зберігає докази початкового подання.
+
+## Dashboard check — October 1, 2026
 
 The existing Chrome item `mokndlkbkhnemhhcahddhdgihgdckbhp` has **0.11.1 pending
 review**; the published baseline remains **0.9.3**. The dashboard confirmed

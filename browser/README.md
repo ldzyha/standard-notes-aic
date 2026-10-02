@@ -7,7 +7,7 @@
 
 Bundled offline policy: [English](PRIVACY.md) · [Українська](PRIVACY.uk.md)
 
-Status: **0.10.0 experimental experimental build**, using the editor from AIC 47.1.0, AIC Notes 55.1.0 and shared core 7.4.0. It is not a browser-store release or an independently audited password manager. Use synthetic data until the final packaged-runtime gates in VERIFICATION.md are resolved.
+Status: **0.11.3 experimental build**, using the editor from AIC 51.0.1, AIC Notes 60.0.2 and shared core 7.5.3. Package publication and store approval are verified separately.
 
 Empty editable secret (`*|`) parts offer **Generate password** at every panel
 width, regardless of their label. Options wrap to fit narrow screens. Generation
@@ -32,7 +32,14 @@ and manual reordering do not trigger sorting.
 
 All three installation paths are in the [release and installation page](https://aic.dzyha.com/releases).
 
-## 0.11.2 — prepared Mermaid update
+## 0.11.3 — prepared scrolling fix
+
+Code previews let vertical scrolling continue through the document, preserve
+horizontal scrolling for long lines, and use their full content height.
+Local storage, encryption and permissions are unchanged. Publication is verified
+separately from package preparation.
+
+## 0.11.2 — Mermaid update
 
 Mermaid keeps a full-width canvas and centers the diagram at its natural size.
 Diagrams shrink to fit narrow panels, long flowchart labels wrap, and the preview

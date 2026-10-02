@@ -26,8 +26,8 @@ describe("publication metadata", () => {
   it("uses the unified installation guide as the public release notes", () => {
     expect(releaseInstall).toContain("https://aic.dzyha.com/releases");
     expect(releaseInstall).toContain("https://aic.dzyha.com/terms");
-    expect(releaseInstall).toContain("aic-notes-59.0.2.vsix");
-    expect(releaseInstall).toContain("aic-browser-chromium-0.11.2.zip");
+    expect(releaseInstall).toContain("aic-notes-60.0.2.vsix");
+    expect(releaseInstall).toContain("aic-browser-chromium-0.11.3.zip");
     expect(releaseInstall).toContain("## English");
     expect(releaseInstall).toContain("## Українська");
     expect(releaseWorkflow).toContain("--notes-file RELEASE_INSTALL.md");
@@ -71,15 +71,17 @@ describe("publication metadata", () => {
   });
 
   it("documents the current R.F.B release and packages usage and UI contracts", () => {
-    expect(manifest.version).toBe("50.0.1");
-    expect(browserManifest.version).toBe("0.11.2");
-    expect(changelog).toContain(`## ${manifest.version} — 2026-10-01`);
+    expect(manifest.version).toBe("51.0.1");
+    expect(browserManifest.version).toBe("0.11.3");
+    expect(changelog).toContain(`## ${manifest.version} — 2026-10-02`);
     expect(changelog).toContain(
-      "Release sequence 50 · 0 feature outcomes · 1 fixed-bug outcome",
+      "Release sequence 51 · 0 feature outcomes · 1 fixed-bug outcome",
     );
-    expect(changelog).toContain("### B01 — Readable Mermaid previews");
-    expect(changelog).toContain("shared core 7.5.2");
-    expect(marketplaceHowto).toContain("aic-browser-chromium-0.11.2.zip");
+    expect(changelog).toContain(
+      "### B01 — Document scrolling over code previews",
+    );
+    expect(changelog).toContain("shared core 7.5.3");
+    expect(marketplaceHowto).toContain("aic-browser-chromium-0.11.3.zip");
     expect(marketplaceHowto).toContain(
       `[Standard Notes AIC ${manifest.version}](https://github.com/ldzyha/standard-notes-aic/releases/tag/v${manifest.version})`,
     );

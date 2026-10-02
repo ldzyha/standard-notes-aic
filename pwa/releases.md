@@ -9,6 +9,23 @@ extension for encrypted page notes, or AIC Notes in VS Code. Protected file
 editors share the same `.aicnotes` data; synchronize exported files through a
 service you manage.
 
+## Prepared update: Standard Notes 51.0.1 / VS Code 60.0.2 / browser 0.11.3
+
+Shared core 7.5.3 lets vertical scrolling over code previews continue through
+the document. Code previews retain their full height and horizontal scrolling
+for long lines across all editor hosts. VS Code also restores scrolling in long
+linked notes by keeping their editor within the available sidebar height.
+
+Publication of these versions is pending verification. After publication, use
+[VSIX 60.0.2](https://github.com/ldzyha/aic-notes/releases/download/v60.0.2/aic-notes-60.0.2.vsix)
+and its [SHA-256](https://github.com/ldzyha/aic-notes/releases/download/v60.0.2/aic-notes-60.0.2.vsix.sha256),
+[Standard Notes 51.0.1](https://github.com/ldzyha/standard-notes-aic/releases/tag/v51.0.1),
+and [Chromium 0.11.3 ZIP](https://github.com/ldzyha/standard-notes-aic/releases/download/v51.0.1/aic-browser-chromium-0.11.3.zip)
+with [SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v51.0.1/aic-browser-chromium-0.11.3.zip.sha256).
+PWA deployment and store submission or approval are verified separately.
+The October 2 store check confirmed Marketplace **59.0.2** public and Chrome
+**0.9.3** public, with **0.11.1 pending review** and new Chrome uploads disabled.
+
 ## Available releases: Standard Notes 50.0.1 / VS Code 59.0.2 / browser 0.11.2
 
 Shared core 7.5.2 centers Mermaid diagrams at their natural size within a full-width
@@ -24,8 +41,9 @@ The PWA is deployed. GitHub packages are published and their SHA-256 checksums
 are verified. [Chromium 0.11.2 ZIP](https://github.com/ldzyha/standard-notes-aic/releases/download/v50.0.1/aic-browser-chromium-0.11.2.zip)
 and [SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v50.0.1/aic-browser-chromium-0.11.2.zip.sha256)
 are available for manual installation in Chrome or Edge.
-The confirmed Marketplace version is 58.1.1. Chrome publishes 0.9.3 while 0.11.1
-remains pending review; uploading 0.11.2 is currently unavailable.
+The October 1 store check recorded Marketplace 58.1.1 public and Chrome 0.9.3
+public, with Chrome 0.11.1 pending review and new uploads disabled. Store status
+must be checked again for a later update.
 
 ## AIC Notes 58.1.1 — VS Code desktop and web
 

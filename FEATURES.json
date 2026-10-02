@@ -1,7 +1,7 @@
 {
   "registryVersion": 1,
   "scope": "AIC Markdown functionality implemented by standard-notes-aic and aic-notes",
-  "asOf": "2026-10-01",
+  "asOf": "2026-10-02",
   "status": {
     "currentFacts": "Entrypoints and verification paths describe the current working trees. The aic-notes/vendor copies are distribution artifacts and are not independent feature owners.",
     "approvedDirection": "Maintain one stable registry of user-visible features, shared runtime capabilities, and host adapters.",
@@ -196,7 +196,7 @@
     {
       "id": "core.markdown-preview",
       "group": "shared-editor",
-      "purpose": "Render headings, smaller italic and quote text, softly shaded quote blocks with a side rule, short centered horizontal rules, lists, links, code fences, and other structured Markdown previews with readable spacing without replacing source truth.",
+      "purpose": "Render headings, smaller italic and quote text, softly shaded quote blocks with a side rule, short centered horizontal rules, lists, links, code fences, and other structured Markdown previews with readable spacing without replacing source truth. Code previews retain full content height and independent horizontal scrolling while vertical wheel and touch gestures chain to the document, including previews inside details.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/block-views.ts",
@@ -229,7 +229,8 @@
         "standard-notes-aic/test/preview.test.ts",
         "standard-notes-aic/test/preview-links.test.ts",
         "standard-notes-aic/test/structured-preview.test.ts",
-        "aic-notes/test/structured-preview.test.js"
+        "aic-notes/test/structured-preview.test.js",
+        "standard-notes-aic/scripts/browser-regression.mjs"
       ]
     },
     {
@@ -1028,7 +1029,7 @@
     {
       "id": "vscode.secondary-pane",
       "group": "vscode-adapter",
-      "purpose": "Follow or pin the active source's sidecar, show the nearest existing parent for an active note, preserve drafts, and provide explicit source/target navigation. Scope tabs open only existing related notes and preserve the original source anchor across save-gated navigation.",
+      "purpose": "Follow or pin the active source's sidecar, show the nearest existing parent for an active note, preserve drafts, and provide explicit source/target navigation. Scope tabs open only existing related notes and preserve the original source anchor across save-gated navigation. Constrain the linked editor to the active panel height so long notes scroll inside CodeMirror and the footer remains visible.",
       "hosts": ["vscode"],
       "canonicalOwners": [
         "aic-notes/src/secondary/provider.js",
@@ -1038,7 +1039,8 @@
       "sourceFiles": [
         "aic-notes/src/secondary/provider.js",
         "aic-notes/src/secondary/model.js",
-        "aic-notes/src/notes/parent-context.js"
+        "aic-notes/src/notes/parent-context.js",
+        "aic-notes/src/webview/theme.css"
       ],
       "entrypoints": [
         "aic-notes/src/extension.js",
@@ -1048,7 +1050,8 @@
         "aic-notes/test/secondary-provider.test.js",
         "aic-notes/test/secondary-model.test.js",
         "aic-notes/test/note-routing.test.js",
-        "aic-notes/test/note-transition-races.test.js"
+        "aic-notes/test/note-transition-races.test.js",
+        "aic-notes/scripts/browser-secondary-regression.mjs"
       ]
     },
     {

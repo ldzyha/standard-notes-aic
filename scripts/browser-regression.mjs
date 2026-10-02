@@ -76,6 +76,104 @@ try {
     );
   }
   passed.push("ArrowUp adjacent navigation: plain/code/table/properties/mixed");
+
+  // Use native wheel input: dispatchEvent cannot exercise browser scroll chaining.
+  const wideFence = [
+    "```js",
+    `const wideValue = "${"scroll-regression-".repeat(40)}";`,
+    "console.log(wideValue);",
+    "```",
+  ].join("\n");
+  const scrollTail = Array.from(
+    { length: 60 },
+    (_, index) =>
+      `Paragraph ${index + 1}: the document continues below the block.`,
+  ).join("\n\n");
+  for (const viewport of [
+    { width: 1280, height: 900 },
+    { width: 390, height: 844 },
+  ]) {
+    await page.setViewportSize(viewport);
+    for (const [name, block] of [
+      ["code", wideFence],
+      ["details-code", `>>>|open| Nested code\n${wideFence}\n<<<`],
+    ]) {
+      const source = `# Scroll regression\n\n${block}\n\n${scrollTail}`;
+      await load(source, `wheel-${name}-${viewport.width}`);
+      await page.evaluate(() => {
+        regressionEditor.view.dispatch({
+          selection: { anchor: 0 },
+          scrollIntoView: true,
+        });
+      });
+      await settle();
+      const pre = root.locator(".cm-md-code-preview > pre");
+      await pre.waitFor();
+      const geometry = await pre.evaluate((element) => ({
+        width: element.clientWidth,
+        contentWidth: element.scrollWidth,
+        height: element.clientHeight,
+        contentHeight: element.scrollHeight,
+      }));
+      assert.ok(
+        geometry.contentWidth > geometry.width + 100,
+        `${name}/${viewport.width}: fixture must have horizontal overflow`,
+      );
+      assert.ok(
+        geometry.contentHeight <= geometry.height + 1,
+        `${name}/${viewport.width}: code retains its full content height`,
+      );
+      const resetScroll = async (rightEdge = false) => {
+        await page.evaluate((rightEdge) => {
+          const scroller = regressionEditor.view.scrollDOM;
+          const block = regressionEditor.element.querySelector(
+            ".cm-md-code-preview > pre",
+          );
+          scroller.scrollTop = 0;
+          block.scrollLeft = rightEdge ? block.scrollWidth : 0;
+        }, rightEdge);
+        await settle();
+        await pre.hover();
+      };
+      for (const rightEdge of [false, true]) {
+        await resetScroll(rightEdge);
+        const beforeLeft = await pre.evaluate((element) => element.scrollLeft);
+        await page.mouse.wheel(0, 100);
+        await page.waitForFunction(
+          () => regressionEditor.view.scrollDOM.scrollTop > 10,
+        );
+        await settle();
+        assert.equal(await pre.evaluate((element) => element.scrollTop), 0);
+        assert.equal(
+          await pre.evaluate((element) => element.scrollLeft),
+          beforeLeft,
+          `${name}/${viewport.width}: vertical wheel does not move code sideways`,
+        );
+      }
+      await resetScroll();
+      await page.mouse.wheel(140, 0);
+      await page.waitForFunction(
+        () =>
+          regressionEditor.element.querySelector(".cm-md-code-preview > pre")
+            .scrollLeft > 10,
+      );
+      await settle();
+      assert.equal(
+        await page.evaluate(() => regressionEditor.view.scrollDOM.scrollTop),
+        0,
+        `${name}/${viewport.width}: horizontal wheel stays inside the code`,
+      );
+      assert.equal(
+        await value(),
+        source,
+        "scrolling preserves document source",
+      );
+    }
+  }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  passed.push(
+    "native code/details wheel: vertical input reaches document at both horizontal edges; horizontal input stays in code on desktop and narrow layouts",
+  );
   const propertiesSource =
     "---\nfile: example.note.md\ncreated: 2026-09-12T10:00:00Z\ncustom*: synthetic-only-secret\n---\n\nBody";
   await load(propertiesSource, "properties-preview");

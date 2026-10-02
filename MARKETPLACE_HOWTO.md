@@ -4,20 +4,22 @@
 
 ## English
 
-### Current release and store status — October 1, 2026
+### Prepared release — October 2, 2026
 
-[AIC Notes 59.0.2](https://github.com/ldzyha/aic-notes/releases/tag/v59.0.2)
-and [Standard Notes AIC 50.0.1](https://github.com/ldzyha/standard-notes-aic/releases/tag/v50.0.1)
-are prepared with browser 0.11.2 and core 7.5.2. Verify final GitHub assets,
+[AIC Notes 60.0.2](https://github.com/ldzyha/aic-notes/releases/tag/v60.0.2)
+and [Standard Notes AIC 51.0.1](https://github.com/ldzyha/standard-notes-aic/releases/tag/v51.0.1)
+are prepared with browser 0.11.3 and core 7.5.3. Verify final GitHub assets,
 SHA-256 values and installation before claiming a release or store approval.
 
-| Destination            | Current verified state                                   | Prepared update                     |
+| Destination            | Latest checked state                                     | Prepared update                     |
 | ---------------------- | -------------------------------------------------------- | ----------------------------------- |
-| VS Code Marketplace    | 58.1.1 public                                            | 59.0.2, submission not yet verified |
-| Chrome Web Store       | 0.9.3 public; 0.11.1 pending review; new upload disabled | `aic-browser-chromium-0.11.2.zip`   |
-| Microsoft Edge Add-ons | Partner Center has no available Edge workspace           | No confirmed submission             |
+| VS Code Marketplace    | 59.0.2 public (October 2)                                | 60.0.2, submission not yet verified |
+| Chrome Web Store       | 0.9.3 public; 0.11.1 pending review; new upload disabled | `aic-browser-chromium-0.11.3.zip`   |
+| Microsoft Edge Add-ons | No Edge workspace at the October 1 check                 | No confirmed submission             |
 
-Chrome's published baseline remains **0.9.3**. A pending Chrome review is not publication. Do not claim a store install,
+The October 2 checks confirm Marketplace **59.0.2** public and Chrome **0.9.3**
+public, with **0.11.1 pending review** and new uploads disabled. A pending
+Chrome review is not publication. Do not claim a store install,
 update, or runtime acceptance until the relevant store exposes the released
 version and it has been installed and checked in a clean profile.
 
@@ -59,18 +61,18 @@ local Markdown, optional encryption, or explicit export model.
 
 #### VS Code Marketplace
 
-1. Verify the 59.0.2 GitHub VSIX and checksum, then upload those exact bytes to
-   the existing listing. The current public version is 58.1.1.
+1. Verify the 60.0.2 GitHub VSIX and checksum, then upload those exact bytes to
+   the existing listing after checking its current version.
 2. Wait for Microsoft verification, confirm `ldzyha.aic-notes` publicly shows
-   **59.0.2**, then install it in a clean VS Code profile.
+   **60.0.2**, then install it in a clean VS Code profile.
 3. A GitHub VSIX supports manual installation but does not publish the extension.
    See the [Marketplace publishing guide](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md).
 
 #### Chrome Web Store
 
 1. Follow the [existing item's status](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/status).
-   The current 0.11.1 draft is **Pending review**; do not create a second item or
-   upload another package while this review is active.
+   The October 2 check confirmed 0.11.1 **Pending review**. Recheck its status;
+   do not create a second item or upload another package while review is active.
 2. Keep automatic publication after approval enabled only if that remains the
    intended release policy. Approval is still a separate event.
 3. After approval, verify the store displays **0.11.1** and perform a clean-profile
@@ -78,7 +80,7 @@ local Markdown, optional encryption, or explicit export model.
 
 #### Microsoft Edge Add-ons
 
-This session's authenticated Partner Center exposed no Edge workspace, and no Edge
+The October 1 Partner Center check exposed no Edge workspace, and no Edge
 submission was made. Do not infer an Edge listing from the Chrome submission.
 Resume Edge instructions only after the owning workspace is available and a
 separately verified ZIP is ready.
@@ -113,21 +115,22 @@ See [Local data](browser/README.md).
 
 ## Українська
 
-### Поточний реліз і стан магазинів — 1 жовтня 2026
+### Підготовлений випуск — 2 жовтня 2026
 
-Підготовлено [AIC Notes 59.0.2](https://github.com/ldzyha/aic-notes/releases/tag/v59.0.2)
-і [Standard Notes AIC 50.0.1](https://github.com/ldzyha/standard-notes-aic/releases/tag/v50.0.1)
-із браузерним пакетом 0.11.2 та ядром 7.5.2. Перед заявою про випуск або схвалення
+Підготовлено [AIC Notes 60.0.2](https://github.com/ldzyha/aic-notes/releases/tag/v60.0.2)
+і [Standard Notes AIC 51.0.1](https://github.com/ldzyha/standard-notes-aic/releases/tag/v51.0.1)
+із браузерним пакетом 0.11.3 та ядром 7.5.3. Перед заявою про випуск або схвалення
 перевірте остаточні файли GitHub, SHA-256 та встановлення.
 
-| Призначення            | Поточний перевірений стан                                        | Підготовлене оновлення             |
+| Призначення            | Останній перевірений стан                                        | Підготовлене оновлення             |
 | ---------------------- | ---------------------------------------------------------------- | ---------------------------------- |
-| VS Code Marketplace    | 58.1.1 публічно доступна                                         | 59.0.2, подання ще не підтверджене |
-| Chrome Web Store       | 0.9.3 доступна; 0.11.1 перевіряється; нове завантаження вимкнено | `aic-browser-chromium-0.11.2.zip`  |
-| Microsoft Edge Add-ons | У Partner Center немає доступного простору Edge                  | Подання не підтверджене            |
+| VS Code Marketplace    | 59.0.2 доступна (2 жовтня)                                       | 60.0.2, подання ще не підтверджене |
+| Chrome Web Store       | 0.9.3 доступна; 0.11.1 перевіряється; нове завантаження вимкнено | `aic-browser-chromium-0.11.3.zip`  |
+| Microsoft Edge Add-ons | Простір Edge недоступний під час перевірки 1 жовтня              | Подання не підтверджене            |
 
-Опублікованою базовою версією Chrome лишається **0.9.3**. Pending review у Chrome
-ще не є публікацією. Не заявляйте про встановлення,
+Перевірки 2 жовтня підтвердили публічні Marketplace **59.0.2** і Chrome **0.9.3**,
+Chrome **0.11.1 на перевірці** та вимкнені нові завантаження. Стан Pending review
+у Chrome ще не є публікацією. Не заявляйте про встановлення,
 оновлення чи перевірену працездатність, доки відповідний магазин не покаже
 випущену версію і її не буде встановлено та перевірено в чистому профілі.
 
@@ -170,9 +173,9 @@ PWA, що входить до Standard Notes AIC 49.1.2, має компактн
 
 #### VS Code Marketplace
 
-1. Перевірте VSIX 59.0.2 із GitHub та контрольну суму, потім завантажте ті самі
-   байти до наявного запису. Поточна публічна версія — 58.1.1.
-2. Дочекайтеся перевірки Microsoft, підтвердьте публічну **59.0.2** у
+1. Перевірте VSIX 60.0.2 із GitHub та контрольну суму, потім завантажте ті самі
+   байти до наявного запису після перевірки поточної версії.
+2. Дочекайтеся перевірки Microsoft, підтвердьте публічну **60.0.2** у
    `ldzyha.aic-notes` і встановіть її у чистому профілі VS Code.
 3. VSIX на GitHub дозволяє ручне встановлення, але не публікує розширення.
    Див. [інструкцію публікації Marketplace](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md).
@@ -180,8 +183,8 @@ PWA, що входить до Standard Notes AIC 49.1.2, має компактн
 #### Chrome Web Store
 
 1. Стежте за [станом наявного запису](https://chrome.google.com/webstore/devconsole/23222565-bf28-4fbe-a259-3009399e6677/mokndlkbkhnemhhcahddhdgihgdckbhp/edit/status).
-   Поточна чернетка 0.11.1 має стан **Pending review**; не створюйте другий запис і
-   не завантажуйте інший пакет, поки триває ця перевірка.
+   Перевірка 2 жовтня підтвердила 0.11.1 у стані **Pending review**. Перевірте
+   стан знову; не створюйте другий запис і не завантажуйте інший пакет під час перевірки.
 2. Залишайте автоматичну публікацію після схвалення ввімкненою, лише якщо це й
    надалі відповідає політиці релізу. Схвалення все одно є окремою подією.
 3. Після схвалення переконайтеся, що магазин показує **0.11.1**, і виконайте
@@ -190,7 +193,7 @@ PWA, що входить до Standard Notes AIC 49.1.2, має компактн
 
 #### Microsoft Edge Add-ons
 
-У цій сесії автентифікований Partner Center не показав робочого простору Edge, і
+Під час перевірки 1 жовтня автентифікований Partner Center не показав робочого простору Edge, і
 подання до Edge не робили. Не робіть висновок про наявність запису Edge з подання
 до Chrome. Поверніться до кроків Edge лише після появи робочого простору власника
 й окремої перевірки ZIP.

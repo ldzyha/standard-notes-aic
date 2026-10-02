@@ -141,14 +141,17 @@
   max-width: 100%;
   margin: 0;
   padding: var(--aic-space-2) var(--aic-space-3);
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   background: color-mix(in srgb, var(--aic-bg) 88%, var(--aic-fg) 12%);
   color: var(--aic-fg);
   font: inherit;
   line-height: 1.5;
   tab-size: 2;
   white-space: pre;
-  overscroll-behavior: contain;
+  /* Keep wide code horizontally scrollable without trapping document scroll. */
+  overscroll-behavior-x: contain;
+  overscroll-behavior-y: auto;
 }
 .cm-md-code-preview > pre > code {
   font: inherit;

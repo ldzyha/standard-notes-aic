@@ -2,6 +2,20 @@
 
 [English](CHANGELOG.md) · [Українська](CHANGELOG.uk.md)
 
+## 51.0.1 — 2026-10-02
+
+Release sequence 51 · 0 feature outcomes · 1 fixed-bug outcome.
+Coordinates Standard Notes AIC 51.0.1, AIC Notes 60.0.2, experimental browser
+0.11.3 and shared core 7.5.3. Prepared release; publication is verified separately.
+
+### B01 — Document scrolling over code previews
+
+Vertical scrolling over a code preview continues through the document instead
+of getting trapped inside the block. Code previews retain their complete height
+and horizontal scrolling for long lines. The same behavior applies to Standard
+Notes, PWA, browser notes, and VS Code main and linked-note editors. Authored
+Markdown, editing, Copy and Save/Undo ownership remain unchanged.
+
 ## 50.0.1 — 2026-10-01
 
 Release sequence 50 · 0 feature outcomes · 1 fixed-bug outcome.
