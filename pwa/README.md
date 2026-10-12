@@ -64,13 +64,10 @@ that folder instead of silently importing excluded data.
 
 On mobile, **Browse notes** opens a drawer. Selecting a note, Escape or browser
 Back returns to the editor without replacing its selection or Undo history.
-Compact SVG actions and the shared scope tabs leave room for content.
+Compact SVG actions leave room for content.
 
-**Current**, **Shared** and **Global** each show one existing file. For
-`app/src/page.md`, Shared resolves the nearest existing `app/src.note.md` ancestor
-sidecar, and Global resolves `app/app.note.md`. Loose files have no project Global.
-Switching waits for saving; a failure keeps the current editor open. Missing
-sidecars stay disabled and selecting a tab never creates them.
+The editor shows exactly the file selected in the tree. `*.note.md` files are
+ordinary Markdown files in that tree; none is opened alongside another file.
 
 **Export all notes** writes a selected folder or downloads a ZIP preserving paths.
 Folder export refuses existing destination files. An interrupted export may leave

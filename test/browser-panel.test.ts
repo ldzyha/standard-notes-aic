@@ -62,8 +62,6 @@ function fixture(
   };
   const library: BrowserLibrary = {
     version: 3,
-    global: null,
-    domains: [],
     notes: options.notes ?? [],
     history: [],
   };
@@ -527,80 +525,6 @@ describe("browser panel", () => {
     expect(editor(root)).toBe(view);
     expect(view.state.doc.toString()).toBe("Original unsaved");
     expect(root.textContent).toContain("Save or export this draft");
-  });
-
-  it("switches only scope presentation while retaining Current text, selection and Undo", async () => {
-    const fake = fixture({
-      notes: [note("https://example.com/a", "Original")],
-    });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    const view = editor(root);
-    view.dispatch({
-      changes: { from: 8, insert: " edited" },
-      selection: { anchor: 3 },
-    });
-    button(root, "Shared").click();
-    await vi.waitFor(() =>
-      expect(
-        root.querySelector("[role=tab][aria-selected=true]")?.textContent,
-      ).toBe("Shared"),
-    );
-    expect(
-      root.querySelector(
-        '.browser-toolbar [aria-label="Import current content"]',
-      ),
-    ).toBeNull();
-    expect(
-      root.querySelector<HTMLElement>(
-        '.browser-scope-panel[data-scope="current"]',
-      )!.inert,
-    ).toBe(true);
-    button(root, "Global").click();
-    await vi.waitFor(() =>
-      expect(
-        root.querySelector("[role=tab][aria-selected=true]")?.textContent,
-      ).toBe("Global"),
-    );
-    button(root, "Current").click();
-    await vi.waitFor(() =>
-      expect(
-        root.querySelector("[role=tab][aria-selected=true]")?.textContent,
-      ).toBe("Current"),
-    );
-    expect(editor(root)).toBe(view);
-    expect(view.state.selection.main.anchor).toBe(3);
-    expect(view.state.doc.toString()).toBe("Original edited");
-    expect(undo(view)).toBe(true);
-    expect(view.state.doc.toString()).toBe("Original");
-  });
-
-  it("keeps a failed Current save visible instead of activating another scope", async () => {
-    const fake = fixture({
-      notes: [note("https://example.com/a", "Original")],
-    });
-    fake.override((message) =>
-      message.type === "save"
-        ? Promise.reject(new Error("Synthetic failed save"))
-        : undefined,
-    );
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    const view = editor(root);
-    view.dispatch({ changes: { from: 8, insert: " recoverable" } });
-    button(root, "Shared").click();
-    await vi.waitFor(() =>
-      expect(root.textContent).toContain("Scope change paused"),
-    );
-    expect(
-      root.querySelector("[role=tab][aria-selected=true]")?.textContent,
-    ).toBe("Current");
-    expect(
-      root.querySelector<HTMLElement>(
-        '.browser-scope-panel[data-scope="current"]',
-      )!.hidden,
-    ).toBe(false);
-    expect(view.state.doc.toString()).toBe("Original recoverable");
   });
 
   it("pins the editor, links only pages typed about, and unpins to the active page", async () => {
@@ -1091,6 +1015,75 @@ describe("browser panel", () => {
     expect(fake.recoveries.size).toBe(1);
     button(two.root, "Keep recovery copy").click();
     expect(fake.recoveries.size).toBe(1);
+  });
+
+  it("keeps recovery copies of retired Shared and Global drafts reviewable and exportable", async () => {
+    const fake = fixture({
+      notes: [note("https://example.com/a", "Original")],
+      fileSource: true,
+    });
+    fake.recoveries.set("old-panel", {
+      clientId: "old-panel",
+      sourceId: "browser-test",
+      sequence: 3,
+      updatedAt: 1,
+      entries: [
+        {
+          scope: "shared",
+          key: "pending:https://example.com",
+          context: { origin: "https://example.com" },
+          record: null,
+          text: "Unsaved shared draft",
+        },
+        {
+          scope: "global",
+          key: "global-1",
+          context: {},
+          record: { id: "global-1", revision: 2, markdown: "Saved" },
+          text: "Unsaved global draft",
+        },
+      ],
+    });
+    const before = structuredClone(fake.recoveries.get("old-panel"));
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    expect(root.textContent).toContain("2 draft recovery copies available.");
+    expect(root.querySelector('[role="tab"]')).toBeNull();
+    const blobs: Blob[] = [];
+    vi.stubGlobal(
+      "URL",
+      class extends URL {
+        static override createObjectURL(blob: Blob) {
+          blobs.push(blob);
+          return "blob:synthetic-recovery";
+        }
+        static override revokeObjectURL() {}
+      },
+    );
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    button(root, "Review recovered drafts").click();
+    button(root, "Save recovered copy: Shared · example.com").click();
+    button(root, "Save recovered copy: Global").click();
+    const texts = await Promise.all(
+      blobs.map(
+        (blob) =>
+          new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsText(blob);
+          }),
+      ),
+    );
+    expect(texts).toEqual(["Unsaved shared draft", "Unsaved global draft"]);
+    // Exporting and editing the page note never drop the stored copy.
+    editor(root).dispatch({ changes: { from: 8, insert: " edited" } });
+    await vi.waitFor(() =>
+      expect(fake.messages.some((item) => item.type === "save")).toBe(true),
+    );
+    expect(fake.recoveries.get("old-panel")).toEqual(before);
+    expect(fake.messages.some((item) => item.type === "dismiss-recovery")).toBe(
+      false,
+    );
   });
 
   it("checkpoints an Undo back to the baseline while an older write is still pending", async () => {

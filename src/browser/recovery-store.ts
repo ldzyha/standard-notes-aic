@@ -9,6 +9,10 @@ type RecoveryContent = {
   record: RecoveryRecord | null;
   text: string;
 };
+/**
+ * Only page-note drafts ("current") are checkpointed now. Stored copies of the
+ * retired Shared and Global drafts still load so they can be exported.
+ */
 export type RecoveryDraft = RecoveryContent &
   (
     | { scope: "current"; context: { url: string; title: string } }

@@ -118,15 +118,6 @@ export type Request = { sourceId?: string } & (
   | { type: "link-file"; id: string; page: ActivePage; allowPrivate?: boolean }
   | { type: "delete-page"; url: string; expectedNote: PageNoteExpectation }
   | {
-      type: "create-domain";
-      page: ActivePage;
-      markdown: string;
-      allowPrivate?: boolean;
-    }
-  | { type: "save-domain"; id: string; markdown: string; revision: number }
-  | { type: "create-global"; markdown: string }
-  | { type: "save-global"; id: string; markdown: string; revision: number }
-  | {
       type: "capture";
       page: ActivePage;
       mode: "auto" | "page" | "selection";

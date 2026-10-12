@@ -40,7 +40,7 @@ the release-oriented `FUNCTIONAL_INDEX.md`:
    and code-preview layout that was previously duplicated between the Standard
    Notes stylesheet and VS Code theme. Compatibility selectors remain while
    producers migrate.
-5. Standard Notes and the browser page and Shared Properties editors use one
+5. Standard Notes and the browser page editor use one
    always-compact toolbar composition: strike, link, bullet/ordered/task lists,
    source mode, and a local `?` guide where the host enables its trigger. No Format
    disclosure, Style/Insert selector or Bold/Italic/Inline-code button is mounted;

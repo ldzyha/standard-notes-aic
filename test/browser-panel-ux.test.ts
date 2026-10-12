@@ -59,8 +59,6 @@ function fixture(
   let page = options.page === undefined ? firstPage : options.page;
   const library: BrowserLibrary = {
     version: 3,
-    global: null,
-    domains: [],
     notes: options.notes ?? [],
     history: options.history ?? [],
   };
@@ -479,21 +477,21 @@ describe("browser panel compact UX", () => {
     );
   });
 
-  it("uses one shared editor with five inline formatting actions", async () => {
+  it("uses one editor with five inline formatting actions", async () => {
     const fake = fixture({ notes: [note(firstPage, "Existing")] });
     const { root, panel } = mount(fake.api);
     await panel.ready;
     const editor = view(root);
     expect(namedButton(root, /^Formatting$/iu)).toBeNull();
     expect(
-      root.querySelectorAll(
-        ".browser-scope-panel:not([hidden]) .aic-toolbar-group button",
-      ),
+      root.querySelectorAll(".browser-note .aic-toolbar-group button"),
     ).toHaveLength(5);
     expect(
       root.querySelector(".aic-toolbar select,.aic-toolbar-tray"),
     ).toBeNull();
     expect(view(root)).toBe(editor);
+    expect(root.querySelectorAll(".cm-editor")).toHaveLength(1);
+    expect(root.querySelector('[role="tab"],[role="tablist"]')).toBeNull();
   });
 
   it("does not expose clipboard-copy or clipboard-read panel actions", async () => {

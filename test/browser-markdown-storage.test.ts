@@ -256,6 +256,146 @@ describe("plain Markdown source storage", () => {
     expect(h.fixture.text("note.md")).toBe("Committed body");
   });
 
+  it("opens a folder with retired Shared and Global links, keeps their files and round-trips the index", async () => {
+    const sha = async (text: string) =>
+      Array.from(
+        new Uint8Array(
+          await webcrypto.subtle.digest(
+            "SHA-256",
+            new TextEncoder().encode(text),
+          ),
+        ),
+        (n) => n.toString(16).padStart(2, "0"),
+      ).join("");
+    const shared = "```aic\nShared | value\n```";
+    const global = "# Global\n";
+    const legacy = [
+      {
+        id: "shared-1",
+        path: "shared/shared-1.md",
+        scope: "shared",
+        origin: "https://example.test",
+        createdAt: 3,
+        updatedAt: 4,
+        revision: 2,
+        fingerprint: await sha(shared),
+      },
+      {
+        id: "global-1",
+        path: "global.md",
+        scope: "global",
+        createdAt: 5,
+        updatedAt: 6,
+        revision: 7,
+        fingerprint: await sha(global),
+      },
+    ];
+    const h = await harness({
+      "pages/page-1.md": "Page",
+      "shared/shared-1.md": shared,
+      "global.md": global,
+      ".aic/links.json": JSON.stringify({
+        format: "aic-markdown-links",
+        version: 1,
+        entries: [
+          {
+            id: "page-1",
+            path: "pages/page-1.md",
+            scope: "current",
+            url: "https://example.test/a",
+            title: "A",
+            createdAt: 1,
+            updatedAt: 2,
+            revision: 1,
+            fingerprint: await sha("Page"),
+          },
+          ...legacy,
+        ],
+      }),
+    });
+    const retired = () =>
+      (
+        JSON.parse(h.fixture.text(".aic/links.json")!) as {
+          entries: { id: string; scope: string }[];
+        }
+      ).entries
+        .filter((entry) => entry.scope !== "current")
+        .sort((a, b) => b.id.localeCompare(a.id));
+    const library = await h.storage.read();
+    expect(Object.keys(library).sort()).toEqual([
+      "history",
+      "notes",
+      "version",
+    ]);
+    // Retired links open as ordinary Markdown files, not as page notes.
+    expect(
+      library.notes
+        .map(({ id, url, filePath, markdown, revision }) => ({
+          id,
+          url,
+          filePath,
+          markdown,
+          revision,
+        }))
+        .sort((a, b) => b.id.localeCompare(a.id)),
+    ).toEqual([
+      {
+        id: "shared-1",
+        url: "",
+        filePath: "shared/shared-1.md",
+        markdown: shared,
+        revision: 2,
+      },
+      {
+        id: "page-1",
+        url: "https://example.test/a",
+        filePath: "pages/page-1.md",
+        markdown: "Page",
+        revision: 1,
+      },
+      {
+        id: "global-1",
+        url: "",
+        filePath: "global.md",
+        markdown: global,
+        revision: 7,
+      },
+    ]);
+    // Saving another note rewrites the index and keeps both retired entries verbatim.
+    const edited = structuredClone(library);
+    const pageNote = edited.notes.find((note) => note.id === "page-1")!;
+    pageNote.markdown = "Page edited";
+    pageNote.revision++;
+    await h.storage.write(edited);
+    expect(h.fixture.text("pages/page-1.md")).toBe("Page edited");
+    expect(retired()).toEqual(legacy);
+    expect(h.fixture.text("shared/shared-1.md")).toBe(shared);
+    expect(h.fixture.text("global.md")).toBe(global);
+    // Editing a retired file as a plain note keeps its link scope and origin.
+    const next = h.storage.snapshot();
+    const sharedNote = next.notes.find((note) => note.id === "shared-1")!;
+    sharedNote.markdown = "Shared edited";
+    sharedNote.revision++;
+    await h.storage.write(next);
+    expect(h.fixture.text("shared/shared-1.md")).toBe("Shared edited");
+    expect(retired()).toEqual([
+      {
+        ...legacy[0],
+        revision: sharedNote.revision,
+        fingerprint: await sha("Shared edited"),
+      },
+      legacy[1],
+    ]);
+    const reopened = await h.restart().read();
+    expect(reopened.notes.map((note) => note.id).sort()).toEqual([
+      "global-1",
+      "page-1",
+      "shared-1",
+    ]);
+    expect(retired()).toHaveLength(2);
+    expect(h.fixture.text("global.md")).toBe(global);
+  });
+
   it("restores permission to the retained source without changing file contents", async () => {
     const h = await harness({ "note.md": "Original" });
     h.fixture.state.allowed = false;

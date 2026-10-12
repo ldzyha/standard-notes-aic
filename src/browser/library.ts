@@ -23,30 +23,6 @@ export interface BrowserLibrary {
   version: 3;
   notes: BrowserNote[];
   history: PageVisit[];
-  domains: BrowserDomain[];
-  global: BrowserGlobal | null;
-}
-
-/** One profile-local shared record, deliberately independent of every URL. */
-export interface BrowserGlobal {
-  id: string;
-  scope: "global";
-  markdown: string;
-  createdAt: number;
-  updatedAt: number;
-  revision: number;
-  filePath?: string;
-}
-
-/** Shared Properties have their own identity and never own a page's Markdown. */
-export interface BrowserDomain {
-  id: string;
-  origin: string;
-  markdown: string;
-  createdAt: number;
-  updatedAt: number;
-  revision: number;
-  filePath?: string;
 }
 
 export interface PageContext {
@@ -78,10 +54,6 @@ export interface DomainNode {
 export interface ImportResult {
   created: number;
   skipped: number;
-  domainsCreated: number;
-  domainsSkipped: number;
-  globalCreated: number;
-  globalSkipped: number;
   library: BrowserLibrary;
 }
 
@@ -96,7 +68,6 @@ export class LibraryError extends Error {
 }
 
 const MAX_NOTES = 500;
-const MAX_DOMAINS = 500;
 const MAX_HISTORY = 100;
 const MAX_NOTE_BYTES = 512 * 1024;
 // Leave room for the encrypted/base64 envelope in chrome.storage.local.
@@ -215,79 +186,11 @@ export function normalizePageUrl(input: string): string {
   return url.href;
 }
 
-/** Domain sharing deliberately retains scheme, subdomain and non-default port. */
+/** Legacy per-origin link metadata retains scheme, subdomain and non-default port. */
 export function normalizeDomainOrigin(input: string): string {
   const origin = new URL(normalizePageUrl(input)).origin;
   if (input !== origin) throw invalid();
   return origin;
-}
-
-/** All scopes store bounded Markdown; AIC blocks use the shared editor syntax. */
-export function validateDomainProperties(markdown: string): string {
-  if (typeof markdown !== "string") throw invalid();
-  if (bytes(markdown) > MAX_NOTE_BYTES) throw quota();
-  return markdown;
-}
-
-function validDomain(value: unknown): BrowserDomain {
-  if (
-    !documentKeys(value, [
-      "id",
-      "origin",
-      "markdown",
-      "createdAt",
-      "updatedAt",
-      "revision",
-    ])
-  )
-    throw invalid();
-  // Reuse the same bounded identity, timestamps and revision rules as notes.
-  const origin = normalizeDomainOrigin(value.origin as string);
-  const note = validNote({
-    id: value.id,
-    url: `${origin}/`,
-    title: "",
-    markdown: value.markdown,
-    createdAt: value.createdAt,
-    updatedAt: value.updatedAt,
-    revision: value.revision,
-  });
-  return {
-    id: note.id,
-    ...filePath(value),
-    origin,
-    // Read validation checks structure/size only. An old or unfinished record
-    // must not prevent opening other files in the selected folder.
-    markdown: note.markdown,
-    createdAt: note.createdAt,
-    updatedAt: note.updatedAt,
-    revision: note.revision,
-  };
-}
-
-function validGlobal(value: unknown): BrowserGlobal {
-  if (
-    !documentKeys(value, [
-      "id",
-      "scope",
-      "markdown",
-      "createdAt",
-      "updatedAt",
-      "revision",
-    ]) ||
-    value.scope !== "global"
-  )
-    throw invalid();
-  if (!validDocumentFields(value)) throw invalid();
-  return {
-    id: value.id as string,
-    ...filePath(value),
-    scope: "global",
-    markdown: value.markdown as string,
-    createdAt: value.createdAt as number,
-    updatedAt: value.updatedAt as number,
-    revision: value.revision as number,
-  };
 }
 
 function validDocumentFields(value: Record<string, unknown>): boolean {
@@ -379,11 +282,12 @@ export function hasBrowserNoteContent(
 /** Validate and copy decrypted or imported data before it enters the store. */
 export function validateBrowserLibrary(value: unknown): BrowserLibrary {
   try {
-    const legacy =
-      record(value, ["version", "notes", "history"]) && value.version === 1;
+    // Versions 2 and 3 also carried retired per-origin and profile-wide records.
+    // Those shapes still load; the retired records are not part of the library.
     if (
       !(
-        legacy ||
+        (record(value, ["version", "notes", "history"]) &&
+          (value.version === 1 || value.version === 3)) ||
         (record(value, ["version", "notes", "history", "domains"]) &&
           value.version === 2) ||
         (record(value, ["version", "notes", "history", "domains", "global"]) &&
@@ -391,8 +295,7 @@ export function validateBrowserLibrary(value: unknown): BrowserLibrary {
       ) ||
       !denseArray(value.notes) ||
       !denseArray(value.history) ||
-      value.history.length > MAX_HISTORY ||
-      (!legacy && !denseArray(value.domains))
+      value.history.length > MAX_HISTORY
     )
       throw invalid();
     const notes = value.notes.map(validNote);
@@ -401,51 +304,26 @@ export function validateBrowserLibrary(value: unknown): BrowserLibrary {
       notes.filter(hasBrowserNoteContent).map((note) => note.url),
     );
     const history = visits.filter((visit) => notedUrls.has(visit.url));
-    const domains = legacy ? [] : (value.domains as unknown[]).map(validDomain);
-    const global =
-      value.version === 3 && value.global !== null
-        ? validGlobal(value.global)
-        : null;
-    const ids = new Set(
-      [...notes, ...domains, ...(global ? [global] : [])].map(
-        (item) => item.id,
-      ),
-    );
+    const ids = new Set(notes.map((item) => item.id));
     const linkedNotes = notes.filter((note) => note.url);
     const urls = new Set(linkedNotes.map((note) => note.url));
     const filePaths = notes
       .filter((note) => note.filePath)
       .map((note) => note.filePath);
-    const origins = new Set(domains.map((domain) => domain.origin));
     if (
-      ids.size !== notes.length + domains.length + Number(!!global) ||
+      ids.size !== notes.length ||
       urls.size !== linkedNotes.length ||
-      new Set(filePaths).size !== filePaths.length ||
-      origins.size !== domains.length
+      new Set(filePaths).size !== filePaths.length
     )
       throw invalid();
-    const library: BrowserLibrary = {
-      version: 3,
-      notes,
-      history,
-      domains,
-      global,
-    };
+    const library: BrowserLibrary = { version: 3, notes, history };
     // Files already selected on disk are not a browser vault. Do not turn a
     // large folder into an all-or-nothing library-count/cache-size failure.
     const portableNotes = notes.filter((note) => !note.filePath);
-    const portableDomains = domains.filter((note) => !note.filePath);
     if (
       portableNotes.length > MAX_NOTES ||
-      portableDomains.length > MAX_DOMAINS ||
-      bytes(
-        JSON.stringify({
-          ...library,
-          notes: portableNotes,
-          domains: portableDomains,
-          global: global?.filePath ? null : global,
-        }),
-      ) > MAX_LIBRARY_BYTES
+      bytes(JSON.stringify({ ...library, notes: portableNotes })) >
+        MAX_LIBRARY_BYTES
     )
       throw quota();
     return library;
@@ -460,8 +338,6 @@ function snapshot(library: BrowserLibrary): BrowserLibrary {
     version: 3,
     notes: library.notes.map((note) => ({ ...note })),
     history: library.history.map((visit) => ({ ...visit })),
-    domains: library.domains.map((domain) => ({ ...domain })),
-    global: library.global ? { ...library.global } : null,
   };
 }
 
@@ -489,7 +365,7 @@ export class LibraryStore {
       throw storage();
     }
     return raw === null || raw === undefined
-      ? { version: 3, notes: [], history: [], domains: [], global: null }
+      ? { version: 3, notes: [], history: [] }
       : validateBrowserLibrary(raw);
   }
 
@@ -705,115 +581,6 @@ export class LibraryStore {
     });
   }
 
-  createDomain(origin: string, markdown: string): Promise<BrowserDomain> {
-    return this.queued(async () => {
-      const safeOrigin = normalizeDomainOrigin(origin);
-      validateDomainProperties(markdown);
-      const current = await this.read();
-      if (current.domains.some((domain) => domain.origin === safeOrigin))
-        throw conflict();
-      if (
-        current.domains.filter((note) => !note.filePath).length >= MAX_DOMAINS
-      )
-        throw quota();
-      const now = Date.now();
-      const domain: BrowserDomain = {
-        id: crypto.randomUUID(),
-        origin: safeOrigin,
-        markdown,
-        createdAt: now,
-        updatedAt: now,
-        revision: 1,
-      };
-      await this.write({ ...current, domains: [...current.domains, domain] });
-      return { ...domain };
-    });
-  }
-
-  saveDomain(
-    id: string,
-    markdown: string,
-    expectedRevision: number,
-  ): Promise<BrowserDomain> {
-    return this.queued(async () => {
-      if (
-        typeof id !== "string" ||
-        !id ||
-        !Number.isSafeInteger(expectedRevision) ||
-        expectedRevision < 1
-      )
-        throw invalid();
-      validateDomainProperties(markdown);
-      const current = await this.read();
-      const index = current.domains.findIndex((domain) => domain.id === id);
-      if (index < 0) throw invalid();
-      const original = current.domains[index]!;
-      if (original.revision !== expectedRevision) throw conflict();
-      const updated: BrowserDomain = {
-        ...original,
-        markdown,
-        updatedAt: Math.max(Date.now(), original.updatedAt),
-        revision: original.revision + 1,
-      };
-      const domains = [...current.domains];
-      domains[index] = updated;
-      await this.write({ ...current, domains });
-      return { ...updated };
-    });
-  }
-
-  createGlobal(markdown: string): Promise<BrowserGlobal> {
-    return this.queued(async () => {
-      validateDomainProperties(markdown);
-      const current = await this.read();
-      if (current.global) throw conflict();
-      const now = Date.now();
-      const global: BrowserGlobal = {
-        id: crypto.randomUUID(),
-        scope: "global",
-        markdown,
-        createdAt: now,
-        updatedAt: now,
-        revision: 1,
-      };
-      await this.write({ ...current, global });
-      return { ...global };
-    });
-  }
-
-  saveGlobal(
-    id: string,
-    markdown: string,
-    expectedRevision: number,
-  ): Promise<BrowserGlobal> {
-    return this.queued(async () => {
-      if (
-        typeof id !== "string" ||
-        !id ||
-        !Number.isSafeInteger(expectedRevision) ||
-        expectedRevision < 1
-      )
-        throw invalid();
-      validateDomainProperties(markdown);
-      const current = await this.read();
-      const original = current.global;
-      if (
-        !original ||
-        original.id !== id ||
-        original.revision !== expectedRevision
-      )
-        throw conflict();
-      const global: BrowserGlobal = {
-        ...original,
-        markdown,
-        updatedAt: Math.max(Date.now(), original.updatedAt),
-        revision: original.revision + 1,
-      };
-      await this.write({ ...current, global });
-      return { ...global };
-    });
-  }
-
   importBackup(text: string): Promise<ImportResult> {
     return this.queued(async () => {
       if (typeof text !== "string" || bytes(text) > MAX_LIBRARY_BYTES)
@@ -827,13 +594,7 @@ export class LibraryStore {
       const incoming = validateBrowserLibrary(parsed);
       const current = await this.read();
       const urls = new Set(current.notes.map((note) => note.url));
-      const ids = new Set(
-        [
-          ...current.notes,
-          ...current.domains,
-          ...(current.global ? [current.global] : []),
-        ].map((item) => item.id),
-      );
+      const ids = new Set(current.notes.map((item) => item.id));
       const additions: BrowserNote[] = [];
       let skipped = 0;
       for (const note of incoming.notes) {
@@ -847,29 +608,6 @@ export class LibraryStore {
         ids.add(imported.id);
         additions.push(imported);
       }
-      const origins = new Set(current.domains.map((domain) => domain.origin));
-      const domainAdditions: BrowserDomain[] = [];
-      let domainsSkipped = 0;
-      for (const domain of incoming.domains) {
-        if (origins.has(domain.origin)) {
-          domainsSkipped++;
-          continue;
-        }
-        const imported = { ...domain };
-        if (ids.has(imported.id)) imported.id = crypto.randomUUID();
-        origins.add(imported.origin);
-        ids.add(imported.id);
-        domainAdditions.push(imported);
-      }
-      const globalCreated = Number(!current.global && !!incoming.global);
-      const globalSkipped = Number(!!current.global && !!incoming.global);
-      const global = current.global
-        ? { ...current.global }
-        : incoming.global
-          ? { ...incoming.global }
-          : null;
-      if (globalCreated && global && ids.has(global.id))
-        global.id = crypto.randomUUID();
       const history = [...current.history];
       const visitKeys = new Set(
         history.map((visit) => `${visit.url}\u0000${visit.visitedAt}`),
@@ -887,23 +625,12 @@ export class LibraryStore {
         version: 3,
         notes: [...current.notes, ...additions],
         history,
-        domains: [...current.domains, ...domainAdditions],
-        global,
       });
-      if (
-        additions.length ||
-        domainAdditions.length ||
-        globalCreated ||
-        history.length !== current.history.length
-      )
+      if (additions.length || history.length !== current.history.length)
         await this.write(merged);
       return {
         created: additions.length,
         skipped,
-        domainsCreated: domainAdditions.length,
-        domainsSkipped,
-        globalCreated,
-        globalSkipped,
         library: snapshot(merged),
       };
     });

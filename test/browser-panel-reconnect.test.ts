@@ -58,8 +58,6 @@ function fixture(
   };
   const library: BrowserLibrary = {
     version: 3,
-    global: null,
-    domains: [],
     notes: [note("first")],
     history: [],
   };

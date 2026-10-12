@@ -69,19 +69,20 @@ text. File encryption is managed by your device or filesystem.
 
 For a folder connection, **Link file to current page** associates the selected
 file with the exact page URL. Choose **Follow active tab** to resume page-based
-navigation after selecting files. Merely visiting a page does not create a note. A folder stores URL and scope associations in
+navigation after selecting files. Merely visiting a page does not create a note. A folder stores URL associations in
 `.aic/links.json`; the note content remains in Markdown files.
 
-Current, Shared and Global focus one note at a time. Current is linked to an exact
-URL, Shared to an exact origin, and Global to the selected folder. Switching
-waits for pending saves and does not copy shared content into the current note.
-All three tabs open the same Markdown editor directly: prose, lists, diagrams and
-AIC blocks can be mixed freely. The visible path and **Download copy** action refer
-to the active tab. Global stays selected when the browser page changes. Shared
-follows the page context; after choosing an independent file, **Follow active tab**
-restores that context.
+The panel shows one note at a time: the note for the active tab's exact URL, the
+pinned page, or a file selected from the tree. The visible path and **Download
+copy** refer to that note. After choosing an independent file, **Follow active
+tab** restores the page context.
+
+Earlier versions also had Shared (one file per origin, `shared/<id>.md`) and
+Global (`global.md`) tabs. Those files are never deleted or rewritten: they stay
+in the folder as ordinary Markdown, open from the file tree, and keep their
+`.aic/links.json` entries.
 The file tree remains the way to browse documents independently of the website.
-A single-file connection edits just that file, without folder scopes or URL linking.
+A single-file connection edits just that file, without URL linking.
 
 Pinning keeps a note selected while navigating. When typing in a pinned note,
 related page links are ordinary Markdown and share the edit's Undo operation.

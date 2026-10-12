@@ -1,11 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ActivePage, BrowserApi, Request } from "../src/browser/api";
-import type {
-  BrowserDomain,
-  BrowserLibrary,
-  BrowserNote,
-} from "../src/browser/library";
+import type { BrowserLibrary, BrowserNote } from "../src/browser/library";
 import { BrowserPanel } from "../src/browser/panel";
 import { FILE_SOURCE_KEY } from "../src/browser/markdown-storage";
 
@@ -27,7 +23,6 @@ const current: ActivePage = {
   title: "Current page",
   url: "https://example.test/docs/api/items/current?view=full",
 };
-const sharedSecret = "SYNTHETIC-SHARED-SECRET";
 const currentSource = "Current page source only";
 const note = (
   url: string,
@@ -42,18 +37,6 @@ const note = (
   updatedAt: 1,
   revision: 1,
 });
-const domain: BrowserDomain = {
-  id: "domain:https://example.test",
-  origin: "https://example.test",
-  markdown:
-    "```aic\n# Properties\nUsername | shared-user\nPassword *| " +
-    sharedSecret +
-    "\n```\n",
-  createdAt: 1,
-  updatedAt: 1,
-  revision: 1,
-};
-
 function fixture() {
   let state: "ready" | "unselected" = "ready";
   const source = {
@@ -63,8 +46,6 @@ function fixture() {
   };
   let library: BrowserLibrary = {
     version: 3,
-    global: null,
-    domains: [domain],
     notes: [
       note("https://example.test/", "Site"),
       note("https://example.test/docs", "Docs"),
@@ -186,28 +167,18 @@ afterEach(() => {
 });
 
 describe("saved page ancestors in the browser panel", () => {
-  it("places metadata-only ancestor links before the editor inside Current only", async () => {
+  it("places metadata-only ancestor links before the single page editor", async () => {
     const fake = fixture();
     const root = await mount(fake.api);
     const content = root.querySelector(".browser-content")!;
-    const current = content.querySelector<HTMLElement>(
-      '.browser-scope-panel[data-scope="current"]',
-    )!;
-    expect(current.hidden).toBe(false);
     expect(
-      [...current.children].map((child) => child.className.split(" ")[0]),
-    ).toEqual(["browser-page-ancestors", "browser-note"]);
-    expect(current.querySelector(".browser-shared-host")).toBeNull();
-    expect(
-      content.querySelector<HTMLElement>(
-        '.browser-scope-panel[data-scope="shared"]',
-      )!.hidden,
-    ).toBe(true);
-    expect(
-      content.querySelector<HTMLElement>(
-        '.browser-scope-panel[data-scope="global"]',
-      )!.hidden,
-    ).toBe(true);
+      [...content.children].map((child) => child.className.split(" ")[0]),
+    ).toEqual([
+      "browser-page-ancestors",
+      "browser-note",
+      "browser-draft-warnings",
+    ]);
+    expect(content.querySelector('[role="tab"]')).toBeNull();
     const ancestors = content.querySelector(".browser-page-ancestors")!;
     expect(
       [...ancestors.querySelectorAll("li")].map((item) => item.textContent),
@@ -216,7 +187,6 @@ describe("saved page ancestors in the browser panel", () => {
     expect(ancestors.textContent).not.toContain("SYNTHETIC-ANCESTOR-SECRET");
     expect(ancestors.innerHTML).not.toContain("markdown");
     expect(pageView(root).state.doc.toString()).toBe(currentSource);
-    expect(root.textContent).not.toContain(sharedSecret);
   });
 
   it("uses the existing save-before-navigation boundary and preserves current export source", async () => {
@@ -276,7 +246,6 @@ describe("saved page ancestors in the browser panel", () => {
     });
     expect(exported).toBe(expectedSource);
     expect(exported).not.toContain("SYNTHETIC-ANCESTOR-SECRET");
-    expect(exported).not.toContain(sharedSecret);
     expect(writeText).not.toHaveBeenCalled();
   });
 

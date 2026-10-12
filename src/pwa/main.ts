@@ -4,8 +4,6 @@ import {
   type InstallPrompt,
 } from "./app-lifecycle";
 import { AicEditor } from "../editor";
-import { createScopeTabs, type ScopeTabs } from "../core/scope-tabs.js";
-import { scopedNotes, type NoteScope, type ScopedNote } from "./note-scopes";
 import { attachLocalAI, type LocalAIControls } from "./ai-controls";
 import logoUrl from "../../public/aic-logo.svg?url";
 import { createUiButton, applyUiComponent } from "../core/ui-system.js";
@@ -68,12 +66,6 @@ let lifecycle = 0;
 let editor: AicEditor | null = null;
 let aiControls: LocalAIControls | null = null;
 let textArea: HTMLTextAreaElement | null = null;
-let activeScope: NoteScope = "current";
-let scopeTabs: ScopeTabs | null = null;
-const scopeEditors = new Map<
-  NoteScope,
-  { editor: AicEditor; ai: LocalAIControls; panel: HTMLElement }
->();
 const expandedFolders = new Map<string, boolean>();
 let saveTask: Promise<boolean> | null = null;
 let saveFailed = false;
@@ -997,36 +989,21 @@ function clearEditor() {
   mountedIdentity = null;
   if (autosaveTimer) clearTimeout(autosaveTimer);
   autosaveTimer = null;
-  scopeTabs?.dispose();
-  scopeTabs = null;
-  for (const item of scopeEditors.values()) {
-    item.ai.dispose();
-    item.editor.destroy();
-  }
-  scopeEditors.clear();
-  activeScope = "current";
+  aiControls?.dispose();
   aiControls = null;
+  editor?.destroy();
   editor = null;
   textArea = null;
   editorContainer.replaceChildren();
 }
-function selectedScopeNote(
-  scope: NoteScope = activeScope,
-): ScopedNote | undefined {
-  return payload && selectedId
-    ? scopedNotes(payload, selectedId)[scope]
-    : undefined;
-}
 function selectedFile(): PwaFile | undefined {
-  return selectedScopeNote()?.file;
+  return payload?.files.find((file) => file.id === selectedId);
 }
-function updateText(text: string, scope: NoteScope = activeScope) {
+function updateText(text: string) {
   if (!payload || !selectedId || isCurrentCopy()) return;
-  const scoped = selectedScopeNote(scope);
-  if (!scoped) return;
+  const file = selectedFile();
+  if (!file) return;
   if (payload.kind === "workspace") {
-    const file = scoped.file;
-    if (!file) return;
     const replacement = createPwaFile(
       file.path,
       new TextEncoder().encode(text),
@@ -1163,13 +1140,8 @@ async function refreshMarkdownSelection() {
     !selectedId
   )
     return;
-  const ids = new Set(
-    Object.values(scopedNotes(payload, selectedId)).flatMap((note) =>
-      note ? [note.id] : [],
-    ),
-  );
-  if (!ids.size || ![...ids].some((id) => markdownDisk.has(activeId!, id)))
-    return;
+  const ids = new Set([selectedId]);
+  if (!markdownDisk.has(activeId, selectedId)) return;
   const id = activeId;
   const started = lifecycle;
   const next = await markdownDisk.refresh(id, payload, ids);
@@ -1235,11 +1207,6 @@ async function saveNoteAs() {
     return;
   // Saving a copy changes this note's binding explicitly; the old original remains untouched.
   written.path = handle.name;
-  const scopeIds = (value: PwaPayload) =>
-    JSON.stringify(
-      Object.values(scopedNotes(value, selectedId!)).map((note) => note?.id),
-    );
-  const previousScopes = scopeIds(payload);
   const next = structuredClone(payload);
   next.files[next.files.findIndex((other) => other.id === file.id)] = written;
   await rememberMarkdown(
@@ -1252,7 +1219,6 @@ async function saveNoteAs() {
   dirty = true;
   await save();
   if (started !== lifecycle) return;
-  if (scopeIds(next) !== previousScopes) clearEditor();
   renderContent();
 }
 async function newNote() {
@@ -1626,131 +1592,37 @@ function renderContent() {
       );
       return;
     }
-    if (!editor) mountEditor(file.id);
-    else
-      setScopeTitle(
-        selectedScopeNote() ?? { id: file.id, title: file.path, file },
-      );
+    if (!editor) mountEditor(file.id, text);
   }
 }
 
-function setScopeTitle(note: ScopedNote) {
-  title.textContent = note.file
-    ? note.file.path.split("/").at(-1)!
-    : note.title;
-  title.title = note.title;
-}
-function mountEditor(id: string) {
-  if (!payload || !selectedId) return;
+function mountEditor(id: string, text: string) {
   mountedIdentity = `${activeId}/${id}`;
   screen = "editor";
   reflectScreen();
   notice.hidden = true;
-  const available = scopedNotes(payload, selectedId);
-  const order: NoteScope[] = ["current", "shared", "global"];
-  activeScope = order.find((scope) => available[scope]) ?? "current";
-  const panels = new Map(
-    order.map((scope) => [scope, element("section", "pwa-scope-panel")]),
-  );
   const originatingLifecycle = lifecycle;
   const originatingIdentity = mountedIdentity;
-  const ensureEditor = (scope: NoteScope) => {
-    const note = selectedScopeNote(scope);
-    const panel = panels.get(scope)!;
-    if (!note) return;
-    let instance = scopeEditors.get(scope);
-    if (!instance) {
-      let text: string;
-      try {
-        text = note.file ? fileText(note.file) : (note.markdown ?? "");
-      } catch {
-        text = "";
-      }
-      if (text.includes("\u0000") || text.length > 512 * 1024) {
-        panel.append(
-          element(
-            "p",
-            "pwa-empty",
-            "This note exceeds the editable text limit. Export it to open it in another application.",
-          ),
-        );
-        editor = null;
-        aiControls = null;
-        setScopeTitle(note);
-        return;
-      }
-      const scopedEditor = new AicEditor(panel, {
-        initialText: text,
-        readOnly: working,
-        onChange: (value) => {
-          if (
-            lifecycle === originatingLifecycle &&
-            mountedIdentity === originatingIdentity &&
-            activeScope === scope
-          )
-            updateText(value, scope);
-        },
-        onSave: () =>
-          lifecycle === originatingLifecycle &&
-          mountedIdentity === originatingIdentity
-            ? save()
-            : false,
-      });
-      scopedEditor.switchDocument(note.id, text);
-      const ai = attachLocalAI(scopedEditor.toolbar?.element ?? panel, {
-        compact: true,
-        editor: scopedEditor,
-        identity: () => `${activeId}/${note.id}/${generation}/${scope}`,
-        isReadonly: () =>
-          working ||
-          isCurrentCopy() ||
-          activeScope !== scope ||
-          !activeId ||
-          !payload,
-        onNotice: notify,
-      });
-      instance = { editor: scopedEditor, ai, panel };
-      scopeEditors.set(scope, instance);
-    }
-    editor = instance.editor;
-    aiControls = instance.ai;
-    editor.setReadOnly(working || isCurrentCopy());
-    setScopeTitle(note);
-    reflectSave();
-  };
-  scopeTabs = createScopeTabs(document, {
-    label: "Note scope",
-    selected: activeScope,
-    items: order.map((scope) => ({
-      id: scope,
-      label: scope[0]!.toUpperCase() + scope.slice(1),
-      panel: panels.get(scope)!,
-      disabled: !available[scope],
-      title:
-        available[scope]?.title ??
-        (scope === "shared"
-          ? "No existing folder or site note in this workspace"
-          : "No existing project or Global note in this workspace"),
-    })),
-    onSelect: async (next) => {
-      if (
-        working ||
-        !(await save()) ||
-        lifecycle !== originatingLifecycle ||
-        mountedIdentity !== originatingIdentity
-      )
-        return false;
-      aiControls?.cancel();
-      activeScope = next as NoteScope;
-      ensureEditor(activeScope);
-      return true;
+  const mounted = () =>
+    lifecycle === originatingLifecycle &&
+    mountedIdentity === originatingIdentity;
+  editor = new AicEditor(editorContainer, {
+    initialText: text,
+    readOnly: working || isCurrentCopy(),
+    onChange: (value) => {
+      if (mounted()) updateText(value);
     },
-    onSelected: () => {
-      editor?.view?.requestMeasure();
-    },
+    onSave: () => (mounted() ? save() : false),
   });
-  editorContainer.append(scopeTabs.element, ...panels.values());
-  ensureEditor(activeScope);
+  editor.switchDocument(id, text);
+  aiControls = attachLocalAI(editor.toolbar?.element ?? editorContainer, {
+    compact: true,
+    editor,
+    identity: () => `${activeId}/${id}/${generation}`,
+    isReadonly: () => working || isCurrentCopy() || !activeId || !payload,
+    onNotice: notify,
+  });
+  reflectSave();
 }
 
 window.addEventListener("popstate", () => {

@@ -71,10 +71,8 @@ files. Other locations and **New file** are in **More options**. If no permissio
 prompt appears in the side panel, use **More options → Open AIC in tab** and
 continue there. The original panel checks access when you return.
 
-**Current**, **Shared** and **Global** show one scope at a time. For files, Current
-is the selected document, Shared is its nearest existing folder note, and Global
-is its project note. For `project/src/page.md`, the sidecars are `project/src.note.md`
-and `project/project.note.md`. A scope switch does not copy inherited content.
+The editor shows one note at a time: the file selected in the tree, or in the
+browser extension the note for the active page.
 
 For browser URL associations, open a **folder**, select a file, then choose
 **More options → Link file to current page**. Choose **Follow active tab** to resume

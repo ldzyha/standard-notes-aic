@@ -741,6 +741,10 @@ now run Vitest suites with simulated browser APIs and DOMs:
 | `node scripts/browser-extension-regression.mjs` | Plain-file adapter/concurrency, service/recovery, build and package contracts |
 | `node scripts/browser-domain-regression.mjs`    | Shared/Global scopes, independent drafts and ancestor navigation              |
 
+The Shared and Global scopes and the domain entrypoint were removed on October
+12; its navigation and ancestor tests now run in the panel entrypoint. The
+counts below record the October 2 run.
+
 All three entrypoints passed on October 2: **93 panel tests**, **54 extension
 adapter tests** and **66 domain tests**. The ancestor fixture now models a connected
 folder and disconnection, retaining its save-before-navigation, export isolation

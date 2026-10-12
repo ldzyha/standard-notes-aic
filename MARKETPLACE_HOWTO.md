@@ -107,8 +107,7 @@ export an **encrypted backup**, and keep its password. Do not remove a populated
 extension because local data can disappear. Automatic transfer between unpacked and
 store installations is not proven; test restoration separately. Libraries v1 and
 v2 are read without rewriting; the next write uses v3, which older builds cannot
-read. During merge, an existing local Global Shared record is preserved, a skipped
-imported record is reported, and the original encrypted backup remains available.
+read. The original encrypted backup remains available.
 See [Local data](browser/README.md).
 
 ---
@@ -220,7 +219,5 @@ ZIP; версії VS Code і браузера незалежні.
 видаляйте заповнене розширення, бо локальні дані можуть зникнути. Автоматичне
 перенесення між розпакованим і магазинним встановленням не доведене; окремо
 перевірте відновлення. Бібліотеки v1 і v2 читаються без переписування; наступне
-збереження використовує v3, яку старі збірки не прочитають. Під час злиття
-зберігається наявний локальний запис Global Shared, про пропущений імпортований
-запис повідомляється, а оригінальна зашифрована копія лишається доступною. Див.
+збереження використовує v3, яку старі збірки не прочитають. Оригінальна зашифрована копія лишається доступною. Див.
 [Локальні дані](browser/README.md).

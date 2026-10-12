@@ -27,9 +27,8 @@ document, retain their full height, and preserve horizontal scrolling for long
 lines. Release assets and store availability require separate verification.
 
 The local-file PWA opens Markdown files and folders and writes connected originals,
-with device snapshots as a secondary cache. Current, Shared and Global tabs focus on
-one note at a time across supported hosts; mobile navigation gives the editor
-more space. Optional on-device AI and the shared DDK-based writing guide help
+with device snapshots as a secondary cache. Each host shows one note at a time;
+mobile navigation gives the editor more space. Optional on-device AI and the shared DDK-based writing guide help
 revise documents. Folder imports count only Markdown files and support progress
 and cancellation. VS Code refuses to save an existing document after its file
 has been deleted. Synchronization remains under the user's control.

@@ -15,10 +15,6 @@ const cryptoModule = "node:crypto";
 const { webcrypto } = (await import(cryptoModule)) as { webcrypto: Crypto };
 const CURRENT =
   "# Current project\n\nOrdinary Markdown with **emphasis**.\n\n```aic\nStatus | Synthetic current field\n```\n";
-const SHARED =
-  "# Shared project\n\nCommon project notes.\n\n```aic\nTeam | Synthetic shared field\n```\n";
-const GLOBAL =
-  "# Global notes\n\n- Reusable checklist\n\n```aic\nFormat | Synthetic global field\n```\n";
 
 function event<T extends unknown[]>() {
   const listeners = new Set<(...args: T) => unknown>();
@@ -47,28 +43,19 @@ function harness() {
   const local: Record<string, unknown> = {};
   const changed = event<[Record<string, unknown>, string]>();
   const activated = event<[{ tabId: number; windowId: number }]>();
-  let page = {
+  const page = {
     id: 7,
     windowId: 2,
     url: "https://example.test/project",
     title: "Synthetic project",
     active: true,
   };
-  const messages: Request[] = [];
-  let nextLoad: { captured: () => void; wait: Promise<void> } | null = null;
   let service: ReturnType<typeof createBrowserService>;
   const api = {
     runtime: {
       sendMessage: async (message: Request) => {
-        messages.push(message);
-        const delayed = message.type === "load" ? nextLoad : null;
-        if (delayed) nextLoad = null;
         try {
           const value = await service.handle(message);
-          if (delayed) {
-            delayed.captured();
-            await delayed.wait;
-          }
           return { ok: true, value };
         } catch (error) {
           return {
@@ -112,39 +99,11 @@ function harness() {
     files,
     local,
     api,
-    messages,
     picker,
     grant,
     scans,
     restart: () => {
       service = createBrowserService(api, files.bindings);
-    },
-    navigate: (url: string) => {
-      page = { ...page, id: page.id + 1, url, title: "Another page" };
-      activated.emit({ tabId: page.id, windowId: page.windowId });
-    },
-    refreshFromDisk: async () => {
-      const sourceId = (local[FILE_SOURCE_KEY] as { id: string }).id;
-      await service.handle({ type: "refresh-files", sourceId });
-      const library = (await service.handle({
-        type: "load",
-        sourceId,
-      })) as BrowserLibrary;
-      changed.emit({ "aic-browser-markdown-change": {} }, "local");
-      return library;
-    },
-    notify: () => changed.emit({ "aic-browser-markdown-change": {} }, "local"),
-    pauseNextLoad: () => {
-      let captured!: () => void;
-      let release!: () => void;
-      const observed = new Promise<void>((resolve) => {
-        captured = resolve;
-      });
-      const wait = new Promise<void>((resolve) => {
-        release = resolve;
-      });
-      nextLoad = { captured, wait };
-      return { captured: observed, release };
     },
     library: () =>
       service.handle({
@@ -171,36 +130,10 @@ function button(root: HTMLElement, label: string) {
   return found!;
 }
 function currentEditor(root: HTMLElement) {
-  const element = root.querySelector<HTMLElement>(
-    '.browser-scope-panel[data-scope="current"] .cm-editor',
-  );
-  expect(element, "Current editor").not.toBeNull();
+  const element = root.querySelector<HTMLElement>(".browser-note .cm-editor");
+  expect(element, "Note editor").not.toBeNull();
   return EditorView.findFromDOM(element!)!;
 }
-async function scope(root: HTMLElement, name: "Current" | "Shared" | "Global") {
-  button(root, name).click();
-  await vi.waitFor(() =>
-    expect(
-      root.querySelector('[role="tab"][aria-selected="true"]')?.textContent,
-    ).toBe(name),
-  );
-}
-function writeProperties(
-  root: HTMLElement,
-  kind: "shared" | "global",
-  text: string,
-) {
-  const container = root.querySelector<HTMLElement>(
-    `.browser-domain-properties[data-scope="${kind === "shared" ? "domain" : "global"}"]`,
-  )!;
-  const view = EditorView.findFromDOM(
-    container.querySelector<HTMLElement>(".cm-editor")!,
-  )!;
-  view.dispatch({
-    changes: { from: 0, to: view.state.doc.length, insert: text },
-  });
-}
-
 beforeEach(() => vi.stubGlobal("crypto", webcrypto));
 afterEach(() => {
   for (const panel of panels.splice(0)) panel.destroy();
@@ -211,203 +144,37 @@ afterEach(() => {
 });
 
 describe("browser folder workflow across worker and browser restarts", () => {
-  it.each([
-    ["Shared", false, "lower"],
-    ["Global", false, "lower"],
-    ["Shared", true, "lower"],
-    ["Global", true, "lower"],
-    ["Shared", true, "higher"],
-    ["Global", true, "higher"],
-  ] as const)(
-    "observes external file changes in %s with dirty=%s and %s revisions",
-    async (target, dirty, direction) => {
-      const h = harness();
-      const { root, panel } = mount(h.api);
-      await panel.ready;
-      button(root, "Open folder").click();
-      await vi.waitFor(() =>
-        expect(
-          root.querySelector(
-            '.browser-scope-panel[data-scope="current"] .cm-editor',
-          ),
-        ).not.toBeNull(),
-      );
-      const kind = target === "Shared" ? "shared" : "global";
-      const record = (library: BrowserLibrary) =>
-        target === "Shared" ? library.domains[0]! : library.global!;
-      const activeEditor = () =>
-        EditorView.findFromDOM(
-          root.querySelector<HTMLElement>(
-            `.browser-domain-properties[data-scope="${kind === "shared" ? "domain" : "global"}"] .cm-editor`,
-          )!,
-        )!;
-      await scope(root, target);
-      writeProperties(root, kind, "# Original scope\n");
-      await scope(root, "Current");
-      await scope(root, target);
-      const path = record(await h.library()).filePath!;
-      // These real SHA-256 tokens change in either numeric direction. Neither
-      // is an edit counter; both observations must reach the scope owner.
-      const oldText =
-        direction === "lower"
-          ? "# External version gamma\n"
-          : "# External version alpha\n";
-      const newText =
-        direction === "lower"
-          ? "# External version alpha\n"
-          : "# External version gamma\n";
-      h.files.put(path, oldText);
-      const previous = record(await h.refreshFromDisk());
-      await vi.waitFor(() =>
-        expect(activeEditor().state.doc.toString()).toBe(previous.markdown),
-      );
-      const view = activeEditor();
-      const localDraft = "# Local unsaved version\n";
-      if (dirty) {
-        // Isolate observation from the later autosave CAS failure: a conflict must
-        // be visible before the 350ms save timer gets a chance to run.
-        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
-        view.dispatch({
-          changes: { from: 0, to: view.state.doc.length, insert: localDraft },
-          selection: { anchor: 5 },
-        });
-      }
-      const saves = h.messages.filter(
-        (message) =>
-          message.type === `save-${kind === "shared" ? "domain" : "global"}`,
-      ).length;
-      h.files.put(path, newText);
-      const incoming = record(await h.refreshFromDisk());
-      if (direction === "lower")
-        expect(incoming.revision).toBeLessThan(previous.revision);
-      else expect(incoming.revision).toBeGreaterThan(previous.revision);
-      if (dirty) {
-        await vi.waitFor(
-          () => expect(root.textContent).toMatch(/another window|conflict/iu),
-          { timeout: 50, interval: 1 },
-        );
-        expect(activeEditor()).toBe(view);
-        expect(view.state.doc.toString()).toBe(localDraft);
-        expect(view.state.selection.main.anchor).toBe(5);
-      } else {
-        await vi.waitFor(() =>
-          expect(activeEditor().state.doc.toString()).toBe(incoming.markdown),
-        );
-        expect(activeEditor()).toBe(view);
-      }
-      expect(
-        h.messages.filter(
-          (message) =>
-            message.type === `save-${kind === "shared" ? "domain" : "global"}`,
-        ),
-      ).toHaveLength(saves);
-      expect(h.files.text(path)).toBe(newText);
-    },
-  );
-
-  it.each(["Shared", "Global"] as const)(
-    "does not replace an acknowledged %s edit with a delayed older library response",
-    async (target) => {
-      const h = harness();
-      const { root, panel } = mount(h.api);
-      await panel.ready;
-      button(root, "Open folder").click();
-      await vi.waitFor(() =>
-        expect(
-          root.querySelector(
-            '.browser-scope-panel[data-scope="current"] .cm-editor',
-          ),
-        ).not.toBeNull(),
-      );
-      const kind = target === "Shared" ? "shared" : "global";
-      await scope(root, target);
-      writeProperties(root, kind, "# Baseline scope\n");
-      await scope(root, "Current");
-      await scope(root, target);
-      const library = await h.library();
-      const record =
-        target === "Shared" ? library.domains[0]! : library.global!;
-      const surface = root.querySelector<HTMLElement>(
-        `.browser-domain-properties[data-scope="${kind === "shared" ? "domain" : "global"}"]`,
-      )!;
-      const view = EditorView.findFromDOM(
-        surface.querySelector<HTMLElement>(".cm-editor")!,
-      )!;
-      const delayed = h.pauseNextLoad();
-      h.notify();
-      await delayed.captured;
-      try {
-        const latest = "# Latest acknowledged edit\n";
-        view.dispatch({
-          changes: { from: 0, to: view.state.doc.length, insert: latest },
-          selection: { anchor: 6 },
-        });
-        button(surface, "Save note").click();
-        await vi.waitFor(() =>
-          expect(
-            surface.querySelector<HTMLElement>(".aic-editor")!.dataset
-              .saveState,
-          ).toBe("saved"),
-        );
-        expect(h.files.text(record.filePath!)).toBe(latest);
-        const writes = h.files.entries.get(record.filePath!)!.closes;
-        const statusRequests = h.messages.filter(
-          (message) => message.type === "status",
-        ).length;
-        delayed.release();
-        await vi.waitFor(() =>
-          expect(
-            h.messages.filter((message) => message.type === "status").length,
-          ).toBeGreaterThan(statusRequests),
-        );
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        expect(
-          EditorView.findFromDOM(
-            surface.querySelector<HTMLElement>(".cm-editor")!,
-          ),
-        ).toBe(view);
-        expect(view.state.doc.toString()).toBe(latest);
-        expect(view.state.selection.main.anchor).toBe(6);
-        expect(h.files.text(record.filePath!)).toBe(latest);
-        expect(h.files.entries.get(record.filePath!)!.closes).toBe(writes);
-      } finally {
-        delayed.release();
-      }
-    },
-  );
-
-  it("saves all scopes into one folder and reopens them through one Continue action after permissions reset", async () => {
+  it("saves the page note into one folder and reopens it through one Continue action after permissions reset", async () => {
     const h = harness();
     const initial = mount(h.api);
     await initial.panel.ready;
     button(initial.root, "Open folder").click();
     await vi.waitFor(() =>
       expect(
-        initial.root.querySelector(
-          '.browser-scope-panel[data-scope="current"] .cm-editor',
-        ),
+        initial.root.querySelector(".browser-note .cm-editor"),
       ).not.toBeNull(),
     );
     const view = currentEditor(initial.root);
     view.dispatch({ changes: { from: 0, insert: CURRENT } });
-    await scope(initial.root, "Shared");
-    await writeProperties(initial.root, "shared", SHARED);
-    await scope(initial.root, "Global");
-    await writeProperties(initial.root, "global", GLOBAL);
-    await scope(initial.root, "Current");
+    // One note per page: no scope tabs and no second editor.
+    expect(initial.root.querySelector('[role="tab"]')).toBeNull();
+    expect(initial.root.querySelectorAll(".cm-editor")).toHaveLength(1);
+    await vi.waitFor(async () =>
+      expect((await h.library()).notes[0]?.markdown).toBe(CURRENT),
+    );
     const before = await h.library();
-    expect(before.notes).toHaveLength(1);
-    expect(before.domains).toHaveLength(1);
-    expect(before.global).not.toBeNull();
-    expect(before.notes[0]?.markdown).toBe(CURRENT);
-    expect(before.domains[0]?.markdown).toBe(SHARED);
-    expect(before.global?.markdown).toBe(GLOBAL);
-    for (const record of [...before.notes, ...before.domains, before.global!])
-      expect(h.files.text(record.filePath!)).toBe(record.markdown);
+    expect(before).toEqual({
+      version: 3,
+      notes: [expect.objectContaining({ markdown: CURRENT })],
+      history: before.history,
+    });
+    expect(h.files.text(before.notes[0]!.filePath!)).toBe(CURRENT);
     expect(before.notes[0]?.url).toBe("https://example.test/project");
-    expect(before.domains[0]?.origin).toBe("https://example.test");
+    expect(
+      [...h.files.entries.keys()].filter((path) => path.endsWith(".md")),
+    ).toEqual([before.notes[0]!.filePath]);
     expect(h.files.text(".aic/links.json")).not.toContain(
-      "Synthetic shared field",
+      "Synthetic current field",
     );
     const originalBytes = new Map(
       [...h.files.entries]
@@ -459,59 +226,11 @@ describe("browser folder workflow across worker and browser restarts", () => {
     ).toBe(true);
     const after = await h.library();
     expect(after.notes).toEqual(before.notes);
-    expect(after.domains).toEqual(before.domains);
-    expect(after.global).toEqual(before.global);
-    await scope(reopened.root, "Shared");
-    expect(
-      EditorView.findFromDOM(
-        reopened.root.querySelector<HTMLElement>(
-          '.browser-domain-properties[data-scope="domain"] .cm-editor',
-        )!,
-      )!.state.doc.toString(),
-    ).toBe(SHARED);
     expect(
       reopened.root.querySelector(".browser-file-location .aic-context__path")!
         .textContent,
-    ).toContain(before.domains[0]!.filePath!);
-    await scope(reopened.root, "Global");
-    expect(
-      EditorView.findFromDOM(
-        reopened.root.querySelector<HTMLElement>(
-          '.browser-domain-properties[data-scope="global"] .cm-editor',
-        )!,
-      )!.state.doc.toString(),
-    ).toBe(GLOBAL);
-    expect(
-      reopened.root.querySelector(".browser-file-location .aic-context__path")!
-        .textContent,
-    ).toContain(before.global!.filePath!);
+    ).toContain(before.notes[0]!.filePath!);
     expect(h.scans).toHaveBeenCalledTimes(scans + 1);
-    const oldContextReads = h.messages.filter(
-      (message) => message.type === "context",
-    ).length;
-    h.navigate("https://another.example.test/page");
-    await vi.waitFor(() =>
-      expect(
-        h.messages.filter((message) => message.type === "context").length,
-      ).toBeGreaterThan(oldContextReads),
-    );
-    await vi.waitFor(() =>
-      expect(
-        reopened.root.querySelector('[role="tab"][aria-selected="true"]')
-          ?.textContent,
-      ).toBe("Global"),
-    );
-    expect(
-      EditorView.findFromDOM(
-        reopened.root.querySelector<HTMLElement>(
-          '.browser-domain-properties[data-scope="global"] .cm-editor',
-        )!,
-      )!.state.doc.toString(),
-    ).toBe(GLOBAL);
-    expect(
-      reopened.root.querySelector(".browser-file-location .aic-context__path")!
-        .textContent,
-    ).toContain(before.global!.filePath!);
     const blobs: Blob[] = [];
     vi.stubGlobal(
       "URL",
@@ -526,10 +245,6 @@ describe("browser folder workflow across worker and browser restarts", () => {
     vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
     button(reopened.root, "More options").click();
     const menu = reopened.root.querySelector<HTMLElement>(".browser-overlay")!;
-    expect(
-      menu.querySelector('[aria-label="Link file to current page"]'),
-    ).toBeNull();
-    expect(menu.querySelector('[aria-label="Pin note"]')).toBeNull();
     button(menu, "Download copy").click();
     expect(blobs).toHaveLength(1);
     const downloaded = await new Promise<string>((resolve) => {
@@ -537,9 +252,101 @@ describe("browser folder workflow across worker and browser restarts", () => {
       reader.onload = () => resolve(reader.result as string);
       reader.readAsText(blobs[0]!);
     });
-    expect(downloaded).toBe(GLOBAL);
+    expect(downloaded).toBe(CURRENT);
     for (const [path, value] of originalBytes)
       expect(h.files.text(path)).toBe(value);
+  });
+
+  it("opens a folder holding retired Shared and Global files as ordinary notes and leaves them and their links intact", async () => {
+    const h = harness();
+    const sha = async (text: string) =>
+      Array.from(
+        new Uint8Array(
+          await webcrypto.subtle.digest(
+            "SHA-256",
+            new TextEncoder().encode(text),
+          ),
+        ),
+        (n) => n.toString(16).padStart(2, "0"),
+      ).join("");
+    const shared = "# Shared project\n\nCommon project notes.\n";
+    const global = "# Global notes\n\n- Reusable checklist\n";
+    const legacy = [
+      {
+        id: "shared-1",
+        path: "shared/shared-1.md",
+        scope: "shared",
+        origin: "https://example.test",
+        createdAt: 3,
+        updatedAt: 4,
+        revision: 2,
+        fingerprint: await sha(shared),
+      },
+      {
+        id: "global-1",
+        path: "global.md",
+        scope: "global",
+        createdAt: 5,
+        updatedAt: 6,
+        revision: 7,
+        fingerprint: await sha(global),
+      },
+    ];
+    h.files.put("shared/shared-1.md", shared);
+    h.files.put("global.md", global);
+    h.files.put(
+      ".aic/links.json",
+      JSON.stringify({
+        format: "aic-markdown-links",
+        version: 1,
+        entries: legacy,
+      }),
+    );
+    const { root, panel } = mount(h.api);
+    await panel.ready;
+    button(root, "Open folder").click();
+    await vi.waitFor(() =>
+      expect(root.querySelector(".browser-note .cm-editor")).not.toBeNull(),
+    );
+    // The page note is the only editor; the retired files are not shown as tabs.
+    expect(root.querySelector('[role="tab"]')).toBeNull();
+    expect(root.querySelectorAll(".cm-editor")).toHaveLength(1);
+    expect(currentEditor(root).state.doc.toString()).toBe("");
+    currentEditor(root).dispatch({ changes: { from: 0, insert: CURRENT } });
+    await vi.waitFor(async () =>
+      expect((await h.library()).notes).toHaveLength(3),
+    );
+    const retired = () =>
+      (
+        JSON.parse(h.files.text(".aic/links.json")!) as {
+          entries: { id: string; scope: string }[];
+        }
+      ).entries
+        .filter((entry) => entry.scope !== "current")
+        .sort((a, b) => b.id.localeCompare(a.id));
+    expect(retired()).toEqual(legacy);
+    expect(h.files.text("shared/shared-1.md")).toBe(shared);
+    expect(h.files.text("global.md")).toBe(global);
+    // Opening a folder with files shows the existing file tree, where they
+    // stay reachable as plain Markdown files.
+    const file = [
+      ...root.querySelectorAll<HTMLButtonElement>(".browser-overlay button"),
+    ].find((item) => item.title === "global.md");
+    expect(file).toBeDefined();
+    expect(
+      [
+        ...root.querySelectorAll<HTMLButtonElement>(".browser-overlay button"),
+      ].some((item) => item.title === "shared/shared-1.md"),
+    ).toBe(true);
+    file!.click();
+    await vi.waitFor(() =>
+      expect(currentEditor(root).state.doc.toString()).toBe(global),
+    );
+    expect(root.querySelector(".browser-page-title")?.textContent).toBe(
+      "global.md",
+    );
+    expect(h.files.text("global.md")).toBe(global);
+    expect(retired()).toEqual(legacy);
   });
 
   it.each(["reconnect", "focus"] as const)(
@@ -550,11 +357,7 @@ describe("browser folder workflow across worker and browser restarts", () => {
       await panel.ready;
       button(root, "Open folder").click();
       await vi.waitFor(() =>
-        expect(
-          root.querySelector(
-            '.browser-scope-panel[data-scope="current"] .cm-editor',
-          ),
-        ).not.toBeNull(),
+        expect(root.querySelector(".browser-note .cm-editor")).not.toBeNull(),
       );
       const view = currentEditor(root);
       view.dispatch({ changes: { from: 0, insert: "Saved baseline" } });

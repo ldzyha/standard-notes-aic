@@ -48,7 +48,6 @@ function progress(
       filePath,
       title: filePath,
       url: "",
-      scope: "current",
     })),
     next,
   };
@@ -99,8 +98,6 @@ it("drains an in-flight scan tick before the final cursor read", async () => {
             value = {
               version: 3,
               notes: [],
-              domains: [],
-              global: null,
               history: [],
             };
             break;

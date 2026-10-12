@@ -246,13 +246,11 @@ body {
   min-width: 0;
   overflow: hidden;
 }
-.pwa-editor > .aic-editor,
-.pwa-scope-panel > .aic-editor {
+.pwa-editor > .aic-editor {
   flex: 1;
   min-height: 0;
 }
-.pwa-editor > .aic-editor > .aic-toolbar,
-.pwa-scope-panel > .aic-editor > .aic-toolbar {
+.pwa-editor > .aic-editor > .aic-toolbar {
   flex-wrap: wrap;
   --aic-control-size-compact: 44px;
   min-height: 44px;
@@ -268,13 +266,6 @@ body {
 }
 .pwa-editor .cm-editor {
   font-size: 16px;
-}
-.pwa-scope-panel {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-  flex-direction: column;
 }
 .pwa-empty {
   max-width: 34rem;
@@ -504,8 +495,7 @@ body {
   .pwa-note-header {
     min-height: 36px;
   }
-  .pwa-editor > .aic-editor > .aic-toolbar,
-  .pwa-scope-panel > .aic-editor > .aic-toolbar {
+  .pwa-editor > .aic-editor > .aic-toolbar {
     --aic-control-size-compact: 28px;
     min-height: 32px;
   }

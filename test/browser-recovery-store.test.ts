@@ -249,6 +249,49 @@ describe("plain Markdown draft recovery", () => {
     ]);
   });
 
+  it("lists a stored recovery copy of retired Shared and Global drafts and keeps its bytes when another panel checkpoints", async () => {
+    const legacy = {
+      clientId: "old-panel",
+      sourceId: SOURCE,
+      sequence: 4,
+      updatedAt: 10,
+      entries: [
+        {
+          scope: "shared",
+          key: "pending:https://example.test",
+          context: { origin: "https://example.test" },
+          record: null,
+          text: "Unsaved shared draft",
+        },
+        {
+          scope: "global",
+          key: "global-1",
+          context: {},
+          record: { id: "global-1", revision: 2, markdown: "Saved global" },
+          text: "Unsaved global draft",
+        },
+      ],
+    };
+    const h = harness({
+      [RECOVERY_KEY]: { version: 2, snapshots: [legacy] },
+    });
+    expect(await h.list()).toEqual([legacy]);
+    await h.checkpoint(1);
+    h.restart();
+    expect((h.local[RECOVERY_KEY] as Journal).snapshots).toContainEqual(legacy);
+    expect(await h.list()).toEqual(
+      expect.arrayContaining([
+        legacy,
+        expect.objectContaining({ clientId: CLIENT, entries: [draft()] }),
+      ]),
+    );
+    // Only an explicit dismissal removes it.
+    await h.store().dismiss(SOURCE, "old-panel", 4);
+    expect(await h.list()).toEqual([
+      expect.objectContaining({ clientId: CLIENT }),
+    ]);
+  });
+
   it("reports one damaged snapshot without hiding or mutating another client's recoverable draft", async () => {
     const h = harness();
     await h.checkpoint(1);

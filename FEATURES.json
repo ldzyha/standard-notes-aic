@@ -40,7 +40,6 @@
         "standard-notes-aic/src/pwa/folder-ignore.ts",
         "standard-notes-aic/src/pwa/styles.css",
         "standard-notes-aic/src/pwa/sw.js",
-        "standard-notes-aic/src/pwa/note-scopes.ts",
         "standard-notes-aic/src/pwa/app-lifecycle.ts",
         "standard-notes-aic/src/pwa/disk.ts"
       ],
@@ -56,7 +55,6 @@
         "standard-notes-aic/test/pwa-folder-ignore.test.ts",
         "standard-notes-aic/test/pwa-ui.test.ts",
         "standard-notes-aic/test/pwa-offline.test.ts",
-        "standard-notes-aic/test/pwa-note-scopes.test.ts",
         "standard-notes-aic/test/pwa-app-lifecycle.test.ts",
         "standard-notes-aic/test/pwa-disk.test.ts"
       ]
@@ -397,7 +395,6 @@
       ],
       "entrypoints": [
         "standard-notes-aic/src/editor.ts",
-        "standard-notes-aic/src/browser/domain-properties.ts",
         "aic-notes/src/webview/main.js"
       ],
       "verification": [
@@ -640,24 +637,20 @@
       "canonicalOwners": [
         "standard-notes-aic/src/core/ui-system.js",
         "standard-notes-aic/COMPONENTS.json",
-        "standard-notes-aic/UI_ARCHITECTURE.md",
-        "standard-notes-aic/src/core/scope-tabs.js"
+        "standard-notes-aic/UI_ARCHITECTURE.md"
       ],
       "sourceFiles": [
         "standard-notes-aic/src/core/ui-system.js",
         "standard-notes-aic/src/core/ui-system.d.ts",
         "standard-notes-aic/src/core/ui-system.css",
-        "standard-notes-aic/src/core/icons.css",
-        "standard-notes-aic/src/core/scope-tabs.js",
-        "standard-notes-aic/src/core/scope-tabs.d.ts"
+        "standard-notes-aic/src/core/icons.css"
       ],
       "entrypoints": ["standard-notes-aic/src/core/ui-system.js"],
       "verification": [
         "standard-notes-aic/test/ui-system.test.ts",
         "standard-notes-aic/test/ui-registry-contract.test.ts",
         "standard-notes-aic/test/toolbar-compact.test.ts",
-        "aic-notes/test/release-contract.test.js",
-        "standard-notes-aic/test/scope-tabs.test.ts"
+        "aic-notes/test/release-contract.test.js"
       ]
     },
     {
@@ -717,7 +710,7 @@
     {
       "id": "browser.markdown-files",
       "group": "browser-adapter",
-      "purpose": "Edit a selected plain .md file or a folder of Markdown files directly. The browser worker serializes mutations, checks original bytes and revisions before writes and reports On disk only after acknowledgement. Folder .aic/links.json records URL/scope/path metadata separately from Markdown content. Existing unassociated files open without navigation; explicit linking associates a file with the active URL. Local handle bindings and acknowledged plain draft checkpoints survive reload; recovery exports copies and never replays into deleted files. No passwords, crypto, encrypted backup or legacy conversion are part of AIC. Folder scans publish inspected/found/loaded counts and bounded filename summaries, race each read against cancellation and a 30-second deadline, retain safe partial results, and ignore late results. Ordinary loads use the current observation; Refresh folder explicitly rescans. Open panels retain live native source handles independently of worker lifetime. Permission status distinguishes read and write grants; reconnect requests the retained handle from a user gesture and never probes a slow directory before returning.",
+      "purpose": "Edit a selected plain .md file or a folder of Markdown files directly. The browser worker serializes mutations, checks original bytes and revisions before writes and reports On disk only after acknowledgement. Folder .aic/links.json records URL/path metadata separately from Markdown content. Index entries written by the retired Shared and Global notes stay valid and are preserved as written; their files open as ordinary Markdown files. Existing unassociated files open without navigation; explicit linking associates a file with the active URL. Local handle bindings and acknowledged plain draft checkpoints survive reload; recovery exports copies and never replays into deleted files. No passwords, crypto, encrypted backup or legacy conversion are part of AIC. Folder scans publish inspected/found/loaded counts and bounded filename summaries, race each read against cancellation and a 30-second deadline, retain safe partial results, and ignore late results. Ordinary loads use the current observation; Refresh folder explicitly rescans. Open panels retain live native source handles independently of worker lifetime. Permission status distinguishes read and write grants; reconnect requests the retained handle from a user gesture and never probes a slow directory before returning.",
       "hosts": ["browser"],
       "canonicalOwners": [
         "standard-notes-aic/src/browser/markdown-storage.ts",
@@ -749,7 +742,7 @@
     {
       "id": "browser.page-notes",
       "group": "browser-adapter",
-      "purpose": "Create on first edit, save, export, copy, and delete exact-URL page notes while retaining failed local drafts. Pin a saved note while browsing and add deduplicated active-page related links atomically when typing. Focused Current/Shared/Global tabs expose one scope at a time through an acknowledged save barrier. File status stays unsaved through pending writes, including undo compensation, and settles after disk acknowledgement. Pending snapshots feed the plain recovery owner until that acknowledgement; restored copies require explicit export or confirmed dismissal and never recreate deleted notes. New notes and deleted-note placeholders start as empty Markdown, with no automatic AIC block. Untouched blank pages create no record. Opening, restoring and refreshing sources show stable live progress controls outside the inert editor. Use found notes stops the scan. The file tree mounts folders lazily, pages 100 rows per level and searches every indexed note. Permission recovery preserves the current draft, selection and source identity, rejects stale status adoption and reports success only after ready/write access. File-backed save acknowledgements use opaque content revision tokens with exact identity and submitted-text checks. A remembered unavailable source offers one Continue action after its native handle is warm; fresh setup offers Open folder and Open file, with New file and source changes in More. Reconnect is shown only when needed. An explicit Open AIC in tab fallback shares the source, and returning focus can resume a grant without repicking. Scope actions target only the visible document.",
+      "purpose": "Create on first edit, save, export, copy, and delete exact-URL page notes while retaining failed local drafts. Pin a saved note while browsing and add deduplicated active-page related links atomically when typing. The panel shows exactly one note: the active page, the pinned page or the selected file. File status stays unsaved through pending writes, including undo compensation, and settles after disk acknowledgement. Pending snapshots feed the plain recovery owner until that acknowledgement; restored copies require explicit export or confirmed dismissal and never recreate deleted notes. New notes and deleted-note placeholders start as empty Markdown, with no automatic AIC block. Untouched blank pages create no record. Opening, restoring and refreshing sources show stable live progress controls outside the inert editor. Use found notes stops the scan. The file tree mounts folders lazily, pages 100 rows per level and searches every indexed note. Permission recovery preserves the current draft, selection and source identity, rejects stale status adoption and reports success only after ready/write access. File-backed save acknowledgements use opaque content revision tokens with exact identity and submitted-text checks. A remembered unavailable source offers one Continue action after its native handle is warm; fresh setup offers Open folder and Open file, with New file and source changes in More. Reconnect is shown only when needed. An explicit Open AIC in tab fallback shares the source, and returning focus can resume a grant without repicking.",
       "hosts": ["browser"],
       "canonicalOwners": [
         "standard-notes-aic/src/browser/drafts.ts",
@@ -777,57 +770,6 @@
         "standard-notes-aic/test/browser-panel-scan.test.ts",
         "standard-notes-aic/test/browser-panel-reconnect.test.ts",
         "standard-notes-aic/test/browser-draft-file-service.test.ts",
-        "standard-notes-aic/test/browser-folder-flow.test.ts"
-      ]
-    },
-    {
-      "id": "browser.domain-properties",
-      "group": "browser-adapter",
-      "purpose": "Store one exact-origin Shared Markdown file separately from Current. Shared and Global mount the same AicEditor immediately, accept ordinary Markdown mixed with AIC blocks and preserve shared masking, copying and undo. Focused scope tabs use one acknowledged save barrier; there is no preview-only or Edit/Done gate. Empty documents remain blank and untouched placeholders create no file. File-backed revisions are opaque equality tokens: clean external observations can move numerically either way, while dirty drafts retain text and report conflicts for changed identities or tokens. Reloads overtaken by a local save acknowledgement are discarded and reread; non-file protocols retain sequential revision validation.",
-      "hosts": ["browser"],
-      "canonicalOwners": [
-        "standard-notes-aic/src/browser/domain-properties.ts",
-        "standard-notes-aic/src/browser/domain-drafts.ts"
-      ],
-      "sourceFiles": [
-        "standard-notes-aic/src/browser/domain-properties.ts",
-        "standard-notes-aic/src/browser/domain-drafts.ts",
-        "standard-notes-aic/src/browser/shared-drafts.ts"
-      ],
-      "entrypoints": [
-        "standard-notes-aic/src/browser/panel.ts",
-        "standard-notes-aic/src/browser/service.ts"
-      ],
-      "verification": [
-        "standard-notes-aic/test/browser-domain-properties.test.ts",
-        "standard-notes-aic/test/browser-domain-drafts.test.ts",
-        "standard-notes-aic/test/browser-domain-panel.test.ts",
-        "standard-notes-aic/test/browser-folder-flow.test.ts"
-      ]
-    },
-    {
-      "id": "browser.global-properties",
-      "group": "browser-adapter",
-      "purpose": "Keep one Global Markdown file per selected folder, available without an active page. Reuse the direct AicEditor and revisioned draft owner with ordinary Markdown and AIC syntax. Global stays selected across browser page changes; the visible path and Download copy action follow the active scope. Scope transitions wait for acknowledged saves and preserve failed drafts. File-backed revisions are opaque equality tokens: clean external observations can move numerically either way, while dirty drafts retain text and report conflicts for changed identities or tokens. Reloads overtaken by a local save acknowledgement are discarded and reread; non-file protocols retain sequential revision validation.",
-      "hosts": ["browser"],
-      "canonicalOwners": [
-        "standard-notes-aic/src/browser/global-drafts.ts",
-        "standard-notes-aic/src/browser/shared-drafts.ts",
-        "standard-notes-aic/src/browser/domain-properties.ts"
-      ],
-      "sourceFiles": [
-        "standard-notes-aic/src/browser/global-drafts.ts",
-        "standard-notes-aic/src/browser/shared-drafts.ts"
-      ],
-      "entrypoints": [
-        "standard-notes-aic/src/browser/panel.ts",
-        "standard-notes-aic/src/browser/service.ts",
-        "standard-notes-aic/src/browser/library.ts"
-      ],
-      "verification": [
-        "standard-notes-aic/test/browser-global.test.ts",
-        "standard-notes-aic/test/browser-domain-panel.test.ts",
-        "standard-notes-aic/test/browser-service.test.ts",
         "standard-notes-aic/test/browser-folder-flow.test.ts"
       ]
     },
@@ -994,7 +936,7 @@
     {
       "id": "vscode.main-editor",
       "group": "vscode-adapter",
-      "purpose": "Host Markdown in a custom editor with UTF-16 change synchronization, stale-generation reset, undo/redo delegation, source/link routing, clipboard, and edit leases. Show Current, nearest Shared folder note, and Global project note through the shared scope tabs; preserve the original Current anchor and each native document owner. Show the same compact file location/save status as browser and PWA, retaining the host resource URI/provider and acknowledged TextDocument save ownership.",
+      "purpose": "Host Markdown in a custom editor with UTF-16 change synchronization, stale-generation reset, undo/redo delegation, source/link routing, clipboard, and edit leases. Show the same compact file location/save status as browser and PWA, retaining the host resource URI/provider and acknowledged TextDocument save ownership.",
       "hosts": ["vscode"],
       "canonicalOwners": [
         "aic-notes/src/editor/provider.js",
@@ -1016,14 +958,13 @@
         "aic-notes/test/note-transition-races.test.js",
         "aic-notes/test/edit-ownership.test.js",
         "aic-notes/test/clipboard.test.js",
-        "standard-notes-aic/test/vscode-scope-tabs.test.js",
         "aic-notes/test/note-routing.test.js"
       ]
     },
     {
       "id": "vscode.secondary-pane",
       "group": "vscode-adapter",
-      "purpose": "Follow or pin the active source's sidecar, show the nearest existing parent for an active note, preserve drafts, and provide explicit source/target navigation. Scope tabs open only existing related notes and preserve the original source anchor across save-gated navigation. Constrain the linked editor to the active panel height so long notes scroll inside CodeMirror and the footer remains visible.",
+      "purpose": "Follow or pin the active source's sidecar, show the nearest existing parent for an active note, preserve drafts, and provide explicit source/target navigation. Constrain the linked editor to the active panel height so long notes scroll inside CodeMirror and the footer remains visible.",
       "hosts": ["vscode"],
       "canonicalOwners": [
         "aic-notes/src/secondary/provider.js",

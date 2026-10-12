@@ -52,10 +52,8 @@ function fixture(
   let page = firstPage;
   const library: BrowserLibrary = {
     version: 3,
-    global: null,
     notes,
     history: [],
-    domains: [],
   };
   const changed = event<[Record<string, unknown>, string]>();
   const activated = event<[{ tabId: number; windowId: number }]>();

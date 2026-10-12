@@ -1353,7 +1353,7 @@ describe("PWA direct Markdown workspaces", () => {
       ),
     ).toEqual(["NOTE.md", "note-2.md"]);
   });
-  it("focuses one file scope, saves its own file, preserves editors and refuses a failed scope switch", async () => {
+  it("shows one editor for the selected file and keeps *.note.md sidecars as ordinary untouched files", async () => {
     const paths = ["app/src/current.md", "app/src.note.md", "app/app.note.md"];
     state.pickedFiles = {
       files: paths.map((path) =>
@@ -1363,57 +1363,32 @@ describe("PWA direct Markdown workspaces", () => {
     };
     control("Open folder").click();
     await idle();
-    const current = editorField();
-    current.selectionStart = 2;
-    current.selectionEnd = 5;
-    const tab = (name: string) =>
-      document.querySelector<HTMLButtonElement>(
-        `[role="tab"][aria-label="${name}"]`,
-      )!;
-    tab("Shared").click();
-    await vi.waitFor(() =>
-      expect(tab("Shared").getAttribute("aria-selected")).toBe("true"),
-    );
-    const shared = document.querySelector<HTMLTextAreaElement>(
-      '[role="tabpanel"]:not([hidden]) .synthetic-editor',
-    )!;
-    expect(shared.value).toBe("app/src.note.md");
-    expect(current.closest('[role="tabpanel"]')?.hasAttribute("hidden")).toBe(
-      true,
-    );
-    state.failDisk = true;
-    shared.value = "Changed shared folder note";
-    shared.dispatchEvent(new Event("input", { bubbles: true }));
-    tab("Global").click();
-    await vi.waitFor(() =>
-      expect(document.querySelector(".pwa-status")?.textContent).toBe(
-        "Save failed",
-      ),
-    );
-    expect(tab("Shared").getAttribute("aria-selected")).toBe("true");
-    state.failDisk = false;
-    control("Retry save").click();
+    const single = () => {
+      expect(document.querySelectorAll(".synthetic-editor")).toHaveLength(1);
+      expect(
+        document.querySelector(
+          '[role="tab"],[role="tablist"],[role="tabpanel"]',
+        ),
+      ).toBeNull();
+    };
+    single();
+    expect(editorField().value).toBe(paths[0]);
+    type("Changed current");
+    await saveShortcut();
     await idle();
-    tab("Global").click();
-    await vi.waitFor(() =>
-      expect(tab("Global").getAttribute("aria-selected")).toBe("true"),
-    );
-    expect(
-      document.querySelector<HTMLTextAreaElement>(
-        '[role="tabpanel"]:not([hidden]) .synthetic-editor',
-      )?.value,
-    ).toBe("app/app.note.md");
-    tab("Current").click();
-    await vi.waitFor(() =>
-      expect(tab("Current").getAttribute("aria-selected")).toBe("true"),
-    );
-    expect(editorField()).toBe(current);
-    expect(current.selectionStart).toBe(2);
-    expect(current.selectionEnd).toBe(5);
-    const saved = (await state.repository!.listLocal())[0]!.payload;
-    expect(saved.files.map(fileText)).toEqual([
-      paths[0],
-      "Changed shared folder note",
+    const saved = async () =>
+      (await state.repository!.listLocal())[0]!.payload.files.map(fileText);
+    expect(await saved()).toEqual(["Changed current", paths[1], paths[2]]);
+    control(`Open ${paths[1]}`).click();
+    await idle();
+    single();
+    expect(editorField().value).toBe(paths[1]);
+    type("Changed sidecar");
+    await saveShortcut();
+    await idle();
+    expect(await saved()).toEqual([
+      "Changed current",
+      "Changed sidecar",
       paths[2],
     ]);
     expect(document.querySelectorAll(".pwa-folder summary")).toHaveLength(2);

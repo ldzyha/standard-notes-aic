@@ -146,11 +146,7 @@ export function createBrowserService(
         const result = await operation(store);
         if (changed && result && typeof result === "object" && "id" in result) {
           const saved = files.snapshot();
-          const record = [
-            ...saved.notes,
-            ...saved.domains,
-            ...(saved.global ? [saved.global] : []),
-          ].find((item) => item.id === result.id);
+          const record = saved.notes.find((item) => item.id === result.id);
           if (record) return record as T;
         }
         return result;
@@ -281,25 +277,6 @@ export function createBrowserService(
       case "delete-page":
         return run((store) =>
           store.deletePage(message.url, message.expectedNote),
-        );
-      case "create-domain": {
-        const page = await requireCurrent(
-          message.page,
-          message.allowPrivate === true,
-        );
-        return run((store) =>
-          store.createDomain(new URL(page.url).origin, message.markdown),
-        );
-      }
-      case "save-domain":
-        return run((store) =>
-          store.saveDomain(message.id, message.markdown, message.revision),
-        );
-      case "create-global":
-        return run((store) => store.createGlobal(message.markdown));
-      case "save-global":
-        return run((store) =>
-          store.saveGlobal(message.id, message.markdown, message.revision),
         );
       case "capture": {
         const generation = sourceGeneration;

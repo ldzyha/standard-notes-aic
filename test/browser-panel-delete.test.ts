@@ -46,8 +46,6 @@ function fixture(
   });
   const library: BrowserLibrary = {
     version: 3,
-    global: null,
-    domains: [],
     notes: options.empty
       ? []
       : [makeNote(page.url, page.title), makeNote(other, "Other page")],
@@ -292,7 +290,7 @@ describe("local page deletion UI", () => {
     const original = view(f.root);
     openDelete(f.root);
     expect(f.root.textContent).toContain(
-      "website, shared properties, and other notes stay unchanged",
+      "website and other notes stay unchanged",
     );
     press(f.root, "Cancel");
     expect(f.messages.some((message) => message.type === "delete-page")).toBe(

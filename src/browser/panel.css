@@ -238,21 +238,6 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.browser-shared-host,
-.browser-domain-properties {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-}
-.browser-shared-host:empty {
-  display: none;
-}
-.browser-domain-properties .cm-content {
-  padding: 12px 12px 20vh;
-}
 .browser-editor-host {
   flex: 1;
   min-width: 0;
@@ -457,28 +442,6 @@
     top: 48px;
     max-height: max(0px, min(calc(100% - 60px), calc(100dvh - 68px)));
   }
-}
-
-.browser-scope-panel {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  min-height: 0;
-  min-width: 0;
-  overflow: auto;
-}
-.browser-scope-panel[data-scope="current"] {
-  overflow: hidden;
-}
-.browser-scope-panel > .browser-shared-host {
-  flex: 1;
-  max-height: none;
-  border-bottom: 0;
-}
-.browser-scope-panel .browser-shared-host:has([data-editing="true"]) {
-  display: flex;
-  min-height: 0;
-  overflow: hidden;
 }
 
 .browser-file-actions {

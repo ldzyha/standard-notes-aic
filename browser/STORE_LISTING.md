@@ -132,8 +132,7 @@ Chrome's side panel and connects each note to its exact page URL.
   sections and Mermaid diagrams. Switch between Markdown and preview.
 - Import readable selected text or page content when you choose. AIC requests
   access to the selected site and does not edit the website or fill its forms.
-- Organize page notes by domain, with optional notes shared within one domain
-  or across this browser profile.
+- Organize page notes by domain.
 - Keep structured text, masked values, card fields and one-time codes in your
   notes. Copy values manually; generate a password only for an empty field.
 - Export Markdown or a password-protected backup of your local library.
@@ -299,8 +298,7 @@ GitHub-сторінку браузерного проєкту збережено
   акордеонами й Mermaid-діаграмами. Перемикайте Markdown і прев’ю.
 - За власною дією імпортуйте читабельний виділений текст або вміст сторінки.
   AIC запитує доступ до вибраного сайту, не редагує його й не заповнює форми.
-- Знаходьте нотатки за доменом; за потреби створюйте спільні нотатки для одного
-  домену або всього поточного профілю браузера.
+- Знаходьте нотатки за доменом.
 - Зберігайте в нотатках текст, масковані значення, поля карток та одноразові
   коди. Копіюйте значення вручну; генеруйте пароль лише в порожньому полі.
 - Експортуйте Markdown або захищену паролем резервну копію всієї бібліотеки.

@@ -281,41 +281,29 @@
     },
     {
       "id": "context",
-      "purpose": "Expose the current editing identity and its non-owning shared, ancestor, source, or path context without merging content or persistence identities. Mutually exclusive accessible scope tabs keep one panel visible and focusable, support manual keyboard activation and defer transitions to the host save barrier. The document variant shares a compact source-location and acknowledged-save-status strip across PWA, browser and VS Code without owning persistence. Scope tabs use inset selected surfaces with a full subtle border, without an underline; keyboard focus is inset and touch targets remain 44px.",
+      "purpose": "Expose the current editing identity and its non-owning ancestor, source, or path context without merging content or persistence identities. The document variant shares a compact source-location and acknowledged-save-status strip across PWA, browser and VS Code without owning persistence.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode", "pwa"],
       "bem": {
         "block": "aic-context",
-        "elements": [
-          "title",
-          "path",
-          "item",
-          "link",
-          "current",
-          "tab",
-          "panel",
-          "status"
-        ],
-        "modifiers": ["compact", "empty", "editing", "tabs", "document"]
+        "elements": ["title", "path", "item", "link", "current", "status"],
+        "modifiers": ["compact", "empty", "editing", "document"]
       },
       "canonicalOwners": [
         "standard-notes-aic/src/core/ui-system.js",
         "standard-notes-aic/src/core/ui-system.css",
         "standard-notes-aic/src/browser/panel.ts",
-        "aic-notes/src/notes/relationships.js",
-        "standard-notes-aic/src/core/scope-tabs.js"
+        "aic-notes/src/notes/relationships.js"
       ],
       "legacyHooks": {
         "shared": [".cm-aic-properties-metadata", ".cm-aic-note-relations"],
         "browser": [
-          ".browser-shared-host",
           ".browser-page-identity",
           ".browser-page-title",
           ".browser-page-origin",
           ".browser-page-ancestors",
           ".browser-ancestor-current",
           ".browser-note",
-          ".browser-empty-context",
-          ".browser-domain-properties"
+          ".browser-empty-context"
         ],
         "vscode": [
           ".aic-main-note-surface",

@@ -30,7 +30,7 @@ horizontal scrolling for long lines across Standard Notes, PWA, browser notes,
 and VS Code main and linked-note editors. Markdown syntax and Save/Undo ownership remain compatible.
 
 VS Code also restores scrolling through long linked notes in the sidebar. The
-active Current, Shared or Global pane constrains the editor to the available
+linked-note pane constrains the editor to the available
 height, so content below the visible area remains reachable.
 
 ### VS Code desktop, Web and code-server
@@ -114,7 +114,7 @@ in PowerShell. Test an installed package separately from its build and checksum.
 редагування та власник Save/Undo лишаються сумісними.
 
 VS Code також відновлює прокручування довгих пов’язаних нотаток у бічній
-панелі. Активне подання Current, Shared або Global обмежує редактор доступною
+панелі. Панель пов’язаної нотатки обмежує редактор доступною
 висотою, щоб вміст нижче видимої області залишався доступним.
 
 ### VS Code desktop, Web та code-server

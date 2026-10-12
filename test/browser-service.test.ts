@@ -130,29 +130,32 @@ describe("plain browser file service", () => {
       await expect(h.send(request)).rejects.toThrow("not supported");
   });
 
-  it("saves Current, Shared and Global as individual Markdown files with portable scope links", async () => {
+  it("saves a page note as an individual Markdown file with a portable link", async () => {
     const h = harness();
     await h.connect();
     const pageNote = await note(h);
-    const shared = (await h.send({
-      type: "create-domain",
-      page: h.page(),
-      markdown: "```aic\nShared | value\n```",
-    })) as BrowserNote;
-    const global = (await h.send({
-      type: "create-global",
-      markdown: "```aic\nGlobal | value\n```",
-    })) as BrowserNote;
     expect(h.files.text(pageNote.filePath!)).toBe("Page note");
-    expect(h.files.text(shared.filePath!)).toContain("Shared | value");
-    expect(h.files.text(global.filePath!)).toContain("Global | value");
     expect(h.files.text(".aic/links.json")).toContain(h.page().url);
     expect(h.files.text(".aic/links.json")).not.toContain("Page note");
     h.restart();
     const restored = (await h.send({ type: "load" })) as BrowserLibrary;
-    expect(restored.notes[0]).toEqual(pageNote);
-    expect(restored.domains[0]).toEqual(shared);
-    expect(restored.global).toEqual(global);
+    expect(restored).toEqual({ version: 3, notes: [pageNote], history: [] });
+  });
+
+  it("rejects the retired Shared and Global requests without touching the folder", async () => {
+    const h = harness({ "global.md": "# Kept" });
+    await h.connect();
+    for (const request of [
+      { type: "create-domain", page: h.page(), markdown: "x" },
+      { type: "save-domain", id: "a", markdown: "x", revision: 1 },
+      { type: "create-global", markdown: "x" },
+      { type: "save-global", id: "a", markdown: "x", revision: 1 },
+    ])
+      await expect(h.send(request as unknown as Request)).rejects.toThrow(
+        "Unsupported AIC request.",
+      );
+    expect(h.files.text("global.md")).toBe("# Kept");
+    expect(h.files.text(".aic/links.json")).toBeUndefined();
   });
 
   it("acknowledges current single-file revisions for consecutive edits and rejects external changes", async () => {
@@ -474,33 +477,5 @@ describe("plain browser file service", () => {
       ((await h.send({ type: "load" })) as BrowserLibrary).notes[0]!.markdown,
     ).toBe("Saved on disk");
     expect(h.local[FILE_SOURCE_KEY]).toEqual(originalSource);
-  });
-
-  it("allows explicit recreation of a confirmed deleted Global file without resurrecting it during autosave", async () => {
-    const h = harness();
-    await h.connect();
-    const global = (await h.send({
-      type: "create-global",
-      markdown: "```aic\nValue | old\n```",
-    })) as BrowserNote;
-    h.files.remove("global.md");
-    await expect(
-      h.send({
-        type: "save-global",
-        id: global.id,
-        revision: global.revision,
-        markdown: "",
-      }),
-    ).rejects.toBeDefined();
-    expect(h.files.text("global.md")).toBeUndefined();
-    await h.send({ type: "refresh-files" });
-    expect(
-      ((await h.send({ type: "load" })) as BrowserLibrary).global,
-    ).toBeNull();
-    await h.send({
-      type: "create-global",
-      markdown: "```aic\nValue | new\n```",
-    });
-    expect(h.files.text("global.md")).toContain("Value | new");
   });
 });

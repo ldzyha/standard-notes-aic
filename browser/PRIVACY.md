@@ -22,9 +22,8 @@ Markdown content. File handles and connection metadata are remembered locally in
 IndexedDB. Browser-local storage can also hold cached metadata, preferences and
 plain draft recovery checkpoints. AIC does not use `storage.sync`.
 
-Current links to an exact URL, including its query and fragment; Shared belongs
-to an exact origin, and Global to the selected collection. Those associations do
-not copy shared text into other notes or insert it into websites. Active-tab
+A page note links to an exact URL, including its query and fragment. That
+association does not copy text into other notes or insert it into websites. Active-tab
 navigation is limited to the panel's browser window. AIC does not read the
 browser history database or collect background browsing history. The navigation
 tree shows saved files and their explicit links; opening a page alone creates

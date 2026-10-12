@@ -39,7 +39,6 @@ export interface ScanNoteSummary {
   filePath: string;
   title: string;
   url: string;
-  scope: "current" | "shared" | "global";
 }
 export interface BrowserScanStatus {
   scan: BrowserScan | null;
@@ -192,6 +191,8 @@ interface LocalStorage {
 type IndexEntry = {
   id: string;
   path: string;
+  // "shared" and "global" are retired. Existing entries stay valid and are kept
+  // as written; their files open as ordinary Markdown notes.
   scope: "current" | "shared" | "global";
   url?: string;
   title?: string;
@@ -234,8 +235,6 @@ const empty = (): BrowserLibrary => ({
   version: 3,
   notes: [],
   history: [],
-  domains: [],
-  global: null,
 });
 const emptyIndex = (): LinksIndex => ({
   format: "aic-markdown-links",
@@ -999,28 +998,20 @@ export class BrowserMarkdownStorage {
             updatedAt: link?.updatedAt ?? 0,
           };
           const candidate = empty();
-          if (link?.scope === "global")
-            candidate.global = { ...fields, scope: "global" };
-          else if (link?.scope === "shared")
-            candidate.domains.push({ ...fields, origin: link.origin! });
-          else
-            candidate.notes.push({
-              ...fields,
-              url: link?.url ?? "",
-              title: link?.title ?? path.split("/").at(-1)!,
-            });
+          candidate.notes.push({
+            ...fields,
+            url: link?.url ?? "",
+            title: link?.title ?? path.split("/").at(-1)!,
+          });
           // Invalid standalone records must not discard already usable notes.
           validateBrowserLibrary(candidate);
           files.set(id, { path, handle, text, fingerprint });
           library.notes.push(...candidate.notes);
-          library.domains.push(...candidate.domains);
-          if (candidate.global) library.global = candidate.global;
           job.notes.push({
             id,
             filePath: path,
             title: link?.title ?? path.split("/").at(-1)!,
             url: link?.url ?? "",
-            scope: link?.scope ?? "current",
           });
           job.update({ loaded: job.progress.loaded + 1 });
         } catch (error) {
@@ -1131,11 +1122,7 @@ export class BrowserMarkdownStorage {
       // Unvisited originals keep their exact prior baseline. A later edit still
       // checks current disk bytes and cannot recreate an externally deleted file.
       const usedPaths = new Set([...files.values()].map((file) => file.path));
-      for (const record of [
-        ...previous.library.notes,
-        ...previous.library.domains,
-        ...(previous.library.global ? [previous.library.global] : []),
-      ]) {
+      for (const record of previous.library.notes) {
         const file = previous.files.get(record.id);
         if (!file || files.has(record.id) || usedPaths.has(file.path)) continue;
         if (ignore.isIgnored(file.path)) continue;
@@ -1151,22 +1138,10 @@ export class BrowserMarkdownStorage {
           );
           continue;
         }
-        if (
-          "url" in record &&
-          record.url &&
-          library.notes.some((note) => note.url === record.url)
-        )
+        if (record.url && library.notes.some((note) => note.url === record.url))
           continue;
-        if (
-          "origin" in record &&
-          library.domains.some((note) => note.origin === record.origin)
-        )
-          continue;
-        if ("scope" in record && library.global) continue;
         files.set(record.id, file);
-        if ("url" in record) library.notes.push(record);
-        else if ("origin" in record) library.domains.push(record);
-        else library.global = record;
+        library.notes.push(record);
       }
     }
     if (incomplete && files.size === 0 && !allowEmptyCancellation)
@@ -1215,23 +1190,12 @@ export class BrowserMarkdownStorage {
     if (!observed || observed.sourceId !== location.id)
       throw fail("Reopen the files before saving.", "source");
     const validated = validateBrowserLibrary(next);
-    const records = [
-      ...validated.notes.map((note) => ({
-        ...note,
-        scope: "current" as const,
-      })),
-      ...validated.domains.map((note) => ({
-        ...note,
-        scope: "shared" as const,
-      })),
-      ...(validated.global ? [validated.global] : []),
-    ];
+    const records = validated.notes;
     if (observed.root.kind === "file") {
       if (
         records.length !== 1 ||
         records[0]!.id !== observed.library.notes[0]?.id ||
-        records[0]!.scope !== "current" ||
-        (records[0] as { url?: string }).url
+        records[0]!.url
       )
         throw fail(
           "Open a folder to create more notes or save portable URL links.",
@@ -1285,12 +1249,7 @@ export class BrowserMarkdownStorage {
     for (const record of records) {
       const original = observed.files.get(record.id);
       const path = validateMarkdownPath(
-        record.filePath ??
-          (record.scope === "current"
-            ? `pages/${record.id}.md`
-            : record.scope === "shared"
-              ? `shared/${record.id}.md`
-              : "global.md"),
+        record.filePath ?? `pages/${record.id}.md`,
       );
       if (original && original.path !== path)
         throw fail(
@@ -1302,19 +1261,14 @@ export class BrowserMarkdownStorage {
         const superseded = indexEntries.filter(
           (entry) =>
             entry.path === path ||
-            (entry.scope === "global" && record.scope === "global") ||
-            (entry.scope === "shared" &&
-              record.scope === "shared" &&
-              entry.origin === record.origin) ||
             (entry.scope === "current" &&
-              record.scope === "current" &&
               !!record.url &&
               entry.url === record.url),
         );
         for (const entry of superseded) {
           if (await maybeFile(root, entry.path))
             throw fail(
-              "That page or scope is already linked to an excluded file. Open the original file instead.",
+              "That page is already linked to an excluded file. Open the original file instead.",
               "conflict",
             );
           // Only explicit creation can replace a confirmed-missing association.
@@ -1341,15 +1295,20 @@ export class BrowserMarkdownStorage {
           handle: original.handle,
         });
       }
+      const linked = observed.index.entries.find(
+        (entry) => entry.id === record.id,
+      );
       indexEntries.push({
         id: record.id,
         path,
-        scope: record.scope,
-        ...(record.scope === "current"
-          ? { url: record.url, title: record.title }
-          : record.scope === "shared"
-            ? { origin: record.origin }
-            : {}),
+        // A retired Shared/Global link is kept as written until the user links
+        // that file to a page; the folder index never silently loses it.
+        ...(linked && linked.scope !== "current" && !record.url
+          ? {
+              scope: linked.scope,
+              ...(linked.origin ? { origin: linked.origin } : {}),
+            }
+          : { scope: "current", url: record.url, title: record.title }),
         createdAt: record.createdAt,
         updatedAt: record.updatedAt,
         revision: record.revision,
@@ -1365,7 +1324,7 @@ export class BrowserMarkdownStorage {
       entries: indexEntries,
     };
     const text = JSON.stringify(index, null, 2);
-    parseIndex(text); // Detect path/scope collisions before creating or changing files.
+    parseIndex(text); // Detect path/link collisions before creating or changing files.
     if (encoder.encode(text).length > 1024 * 1024)
       throw fail(
         "Folder link metadata exceeds 1 MiB. Open the individual file to edit it directly.",
@@ -1412,9 +1371,6 @@ export class BrowserMarkdownStorage {
           .fingerprint,
       });
     for (const note of validated.notes) note.filePath = paths.get(note.id)!;
-    for (const note of validated.domains) note.filePath = paths.get(note.id)!;
-    if (validated.global)
-      validated.global.filePath = paths.get(validated.global.id)!;
     observed.library = validated;
     observed.index = index;
     try {

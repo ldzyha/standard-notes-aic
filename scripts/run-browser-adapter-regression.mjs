@@ -17,6 +17,9 @@ const suites = {
     "test/browser-panel-delete.test.ts",
     "test/browser-panel-ux.test.ts",
     "test/browser-related-links.test.ts",
+    "test/browser-navigation.test.ts",
+    "test/browser-page-ancestors.test.ts",
+    "test/browser-panel-ancestors.test.ts",
   ],
   extension: [
     "test/browser-build-config.test.ts",
@@ -29,15 +32,6 @@ const suites = {
     "test/browser-markdown-concurrency.test.ts",
     "test/browser-service.test.ts",
     "test/browser-recovery-store.test.ts",
-  ],
-  domain: [
-    "test/browser-domain-drafts.test.ts",
-    "test/browser-domain-properties.test.ts",
-    "test/browser-domain-panel.test.ts",
-    "test/browser-global.test.ts",
-    "test/browser-navigation.test.ts",
-    "test/browser-page-ancestors.test.ts",
-    "test/browser-panel-ancestors.test.ts",
   ],
 };
 

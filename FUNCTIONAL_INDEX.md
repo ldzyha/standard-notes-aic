@@ -125,9 +125,8 @@ without single-page ladders and has no separate recent-page list. It does not
 rewrite URLs or persist display trees. Visible note labels are bounded and omit
 raw query/fragment text; the exact stored URL remains the navigation target and
 note identity. Existing blank note records stay visible in the tree.
-Browser Current, Shared and Global records refer to separate plain Markdown files.
-All scopes reuse the editor and draft coordinator; structured values stay masked
-and inherited fields are not copied into the current note. The worker owns file
+Each browser page note is a separate plain Markdown file; structured values stay
+masked. The worker owns file
 commits and URL metadata. There is no AIC account, encryption or synchronization.
 
 Above the current editor, a compact chain exposes only metadata links for saved
@@ -764,32 +763,19 @@ revision checks. **Saved to file** confirms the original write; **Browser draft 
 download to save** does not. Neither status confirms completion of external sync.
 Coverage: `pwa-ui`, `pwa-ai-controls` and separate responsive-browser validation.
 
-## Focused note scopes
+## One note at a time
 
-**Current**, **Shared**, and **Global** show one note scope at a time. Switching
-waits for the active draft to save; a failed save keeps that scope open. The
-shared tab control supports arrow keys, Home/End and Enter/Space, and hides
-inactive panels from focus and assistive technology. Switching scopes never
-copies inherited text into the Current note.
+Each host shows exactly one note. The PWA shows the file selected in the tree.
+The browser panel shows the note for the active tab's exact URL, the pinned
+page, or a file selected from the tree; **Follow active tab** returns to URL
+navigation and **Link file to current page** is available for selected folder
+files. There are no Current, Shared or Global tabs.
 
-With a connected browser folder, Current follows the exact URL, Shared its origin,
-and Global the folder. Selecting a file opens it independently; **Follow active
-tab** returns to URL navigation. **Link file to current page** is available for
-selected folder files. A single-file connection has no Shared/Global tabs. In VS Code, Current stays anchored to the
-original file, Shared opens its nearest existing folder note, and Global opens
-the existing project note. Native TextDocument ownership and Undo remain in
-VS Code; scope navigation reuses the owning editor. Missing sidecars are
-disabled and selecting a tab never creates a file.
-
-The PWA explores imported Markdown files as folders. For `app/src/page.md`,
-Shared resolves `app/src.note.md` (or the nearest existing ancestor sidecar),
-and Global resolves `app/app.note.md`. These paths follow the VS Code sidecar
-convention. Loose files without an identifiable project folder have no Global
-file scope. Workspace labels do not determine file identity.
-The browser folder index holds only file/URL/scope metadata; document content
-stays in Markdown. Shared records can exist without a Current note, and Global
-is available without an active web page. Scope editors retain independent Undo
-until the selected context closes or changes.
+Files written by the retired Shared and Global tabs (`shared/<id>.md`,
+`global.md`) and any `*.note.md` sidecars stay on disk as ordinary Markdown and
+open from the file tree. Their `.aic/links.json` entries remain valid and are
+preserved when the index is rewritten. The browser folder index holds only
+file/URL metadata; document content stays in Markdown.
 
 PWA saves update connected original Markdown files. On browsers with native
 write support, cached copies remain read-only until a destination is connected.
