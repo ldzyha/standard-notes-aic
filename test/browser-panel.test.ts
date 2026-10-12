@@ -305,6 +305,113 @@ describe("browser panel", () => {
     ).toBe(false);
   });
 
+  it("opens the note and page bound to the active URL and saves to that note's file", async () => {
+    const markdown =
+      "Index\n\n--- https://example.com\nSite\n\n--- https://example.com/a\nPage A";
+    const notebook = { ...note("", markdown), id: "notebook" };
+    const fake = fixture({
+      notes: [
+        { ...note("", "--- https://example.com\nLess specific"), id: "site" },
+        notebook,
+      ],
+    });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    const view = editor(root);
+    expect(view.state.doc.toString()).toBe(markdown);
+    expect(view.state.selection.main.head).toBe(markdown.indexOf("Page A"));
+    expect(root.querySelector(".aic-pages__position")?.textContent).toBe(
+      "3 / 3",
+    );
+    expect(root.querySelector(".aic-pages__target")?.textContent).toBe(
+      "https://example.com/a",
+    );
+
+    // A same-page title update neither remounts the editor nor moves the caret.
+    view.dispatch({ selection: { anchor: 0 } });
+    fake.updated.emit(7, { title: "Renamed" }, { id: 7, windowId: 2 });
+    expect(editor(root)).toBe(view);
+    expect(view.state.selection.main.head).toBe(0);
+
+    view.dispatch({
+      changes: { from: markdown.length, insert: " edited" },
+      userEvent: "input.type",
+    });
+    await vi.waitFor(() =>
+      expect(fake.messages).toContainEqual({
+        type: "save",
+        id: "notebook",
+        markdown: `${markdown} edited`,
+        revision: 1,
+      }),
+    );
+    expect(fake.messages.some((message) => message.type === "create")).toBe(
+      false,
+    );
+    expect(fake.library.notes).toHaveLength(2);
+  });
+
+  it("opens a bound page for a URL under its prefix and prefers an exact URL note", async () => {
+    const markdown = "Index\n\n--- https://example.com/docs\nDocs";
+    const fake = fixture({
+      notes: [
+        { ...note("", markdown), id: "notebook" },
+        note(
+          "https://example.com/docs/exact",
+          "Exact\n\n--- https://example.com/docs/exact\nOwn page",
+        ),
+      ],
+    });
+    fake.setPage({
+      tabId: 7,
+      windowId: 2,
+      title: "API",
+      url: "https://example.com/docs/api?v=2#top",
+    });
+    const { root, panel } = mount(fake.api);
+    await panel.ready;
+    expect(editor(root).state.doc.toString()).toBe(markdown);
+    expect(editor(root).state.selection.main.head).toBe(
+      markdown.indexOf("Docs"),
+    );
+
+    fake.setPage({
+      tabId: 7,
+      windowId: 2,
+      title: "Exact",
+      url: "https://example.com/docs/exact",
+    });
+    fake.updated.emit(
+      7,
+      { url: "https://example.com/docs/exact" },
+      { id: 7, windowId: 2, active: true },
+    );
+    await vi.waitFor(() =>
+      expect(editor(root).state.doc.toString()).toContain("Own page"),
+    );
+    expect(editor(root).state.selection.main.head).toBe(
+      editor(root).state.doc.toString().indexOf("Own page"),
+    );
+
+    fake.setPage({
+      tabId: 7,
+      windowId: 2,
+      title: "Other",
+      url: "https://example.com/docsx",
+    });
+    fake.updated.emit(
+      7,
+      { url: "https://example.com/docsx" },
+      { id: 7, windowId: 2, active: true },
+    );
+    await vi.waitFor(() =>
+      expect(
+        root.querySelector(".cm-editor") && editor(root).state.doc.toString(),
+      ).toBe(""),
+    );
+    expect(root.querySelector(".aic-pages")).toBeNull();
+  });
+
   it("keeps available notes editable while showing skipped-file notices", async () => {
     const fake = fixture({
       fileSource: true,

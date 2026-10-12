@@ -77,6 +77,11 @@ pinned page, or a file selected from the tree. The visible path and **Download
 copy** refer to that note. After choosing an independent file, **Follow active
 tab** restores the page context.
 
+Inside a note, a `---` line after a blank line starts a new page and
+`--- https://example.com/docs` binds the following page to that address and the
+pages below it. When no note is linked to the exact URL, the panel opens the
+folder note with the most specific bound page and saves edits to that file.
+
 Earlier versions also had Shared (one file per origin, `shared/<id>.md`) and
 Global (`global.md`) tabs. Those files are never deleted or rewritten: they stay
 in the folder as ordinary Markdown, open from the file tree, and keep their

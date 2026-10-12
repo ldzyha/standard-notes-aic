@@ -79,6 +79,10 @@ export function createEditorHelp(document, { host }) {
       ["!>> text", "error quote"],
       [">>> title … <<<", "collapsible details block"],
       [
+        "--- or --- path-or-URL",
+        "after a blank line, start a new page of this note; a target names it",
+      ],
+      [
         "```language … ```",
         "code block; finish the opening language before closing the fence",
       ],

@@ -257,6 +257,32 @@ describe("browser folder workflow across worker and browser restarts", () => {
       expect(h.files.text(path)).toBe(value);
   });
 
+  it("opens a plain folder file on the page bound to the active URL and saves into that file", async () => {
+    const h = harness();
+    const notebook =
+      "# Notebook\n\n--- https://example.test/project\nProject page\n";
+    h.files.put("notebook.md", notebook);
+    const { root, panel } = mount(h.api);
+    await panel.ready;
+    button(root, "Open folder").click();
+    await vi.waitFor(() =>
+      expect(root.querySelector(".browser-note .cm-editor")).not.toBeNull(),
+    );
+    const view = currentEditor(root);
+    expect(view.state.doc.toString()).toBe(notebook);
+    expect(view.state.selection.main.head).toBe(
+      notebook.indexOf("Project page"),
+    );
+    expect(root.querySelector(".aic-pages__position")?.textContent).toBe(
+      "2 / 2",
+    );
+    view.dispatch({ changes: { from: notebook.length, insert: "More\n" } });
+    await vi.waitFor(() =>
+      expect(h.files.text("notebook.md")).toBe(`${notebook}More\n`),
+    );
+    expect((await h.library()).notes).toHaveLength(1);
+  });
+
   it("opens a folder holding retired Shared and Global files as ordinary notes and leaves them and their links intact", async () => {
     const h = harness();
     const sha = async (text: string) =>

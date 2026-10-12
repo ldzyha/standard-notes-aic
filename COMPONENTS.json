@@ -2,7 +2,7 @@
   "registryVersion": 1,
   "asOf": "2026-10-02",
   "status": {
-    "currentFacts": "The shared runtime registry and base geometry exist in src/core/ui-system.*. Button is adopted by shared toolbar/actions and parts of the browser; card and field are adopted by the shared AIC renderer; toolbar, menu, notice, and tree are partially adopted in the browser. Most legacy selectors remain active and required.",
+    "currentFacts": "The shared runtime registry and base geometry exist in src/core/ui-system.*. Button is adopted by shared toolbar/actions and parts of the browser; card and field are adopted by the shared AIC renderer; toolbar, menu, notice, and tree are partially adopted in the browser. Most legacy selectors remain active and required. Pages is a ninth ID added for the shared note page bar and has no legacy selectors.",
     "approvedDirection": "The user approved one cross-host design system using BEM elements and explicit modifiers for Standard Notes, Chromium, and VS Code. The eight current IDs are the implemented technical baseline accepted in root review, not names separately prescribed by the user.",
     "reviewPending": "The mappings below are the author's recommended migration map. Reviewers must approve or amend each mapping before removing legacy hooks."
   },
@@ -314,6 +314,27 @@
         ]
       },
       "adoption": "partial"
+    },
+    {
+      "id": "pages",
+      "purpose": "Compact page bar for a note split by `---` lines: previous/next icon buttons, the `2 / 5` position and the bound target as an ellipsized label. Shown only for multi-page notes, above the editor content in preview and source modes; buttons keep editor focus on pointer use, stay keyboard reachable and use 44 px coarse-pointer targets.",
+      "hosts": ["standard-notes", "standalone", "browser", "pwa"],
+      "bem": {
+        "block": "aic-pages",
+        "elements": ["position", "target"],
+        "modifiers": []
+      },
+      "canonicalOwners": [
+        "standard-notes-aic/src/core/ui-system.js",
+        "standard-notes-aic/src/core/ui-system.css",
+        "standard-notes-aic/src/core/note-pages-bar.js"
+      ],
+      "legacyHooks": {
+        "shared": [],
+        "browser": [],
+        "vscode": []
+      },
+      "adoption": "complete"
     }
   ],
   "coverageGaps": [

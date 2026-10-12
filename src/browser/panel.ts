@@ -7,6 +7,11 @@ import { savedPageAncestors } from "./page-ancestors";
 import { applyUiComponent, createUiButton } from "../core/ui-system.js";
 import { createEditorHelp } from "../core/editor-help.js";
 import {
+  notePages,
+  pageForTarget,
+  targetSpecificity,
+} from "../core/note-pages.js";
+import {
   buildDomainTree,
   type BrowserLibrary,
   type BrowserNote,
@@ -1914,14 +1919,29 @@ export class BrowserPanel {
     } else if (this.page && this.source?.kind !== "file") {
       this.content.append(this.el("nav", "browser-page-ancestors"));
       this.renderPageAncestors();
-      const note = this.library.notes.find(
-        (item) => item.url === this.page!.url,
-      );
+      const url = this.page.url;
+      // The note linked to this exact URL wins; otherwise the loaded note with
+      // the most specific `--- <url>` page opens on that page.
+      let note = this.library.notes.find((item) => item.url === url);
+      let score = 0;
+      if (!note)
+        for (const item of this.library.notes) {
+          // Bound pages are read from already loaded text on each navigation.
+          if (!item.markdown.includes("---")) continue;
+          const pages = notePages(item.markdown);
+          const target = pages[pageForTarget(pages, url)]?.target;
+          const next = target ? targetSpecificity(target, url) : 0;
+          if (next > score) [note, score] = [item, next];
+        }
       this.mountEditor(
         note
           ? this.drafts!.activate(note)
           : this.drafts!.activatePlaceholder(this.page, PLACEHOLDER_TEXT),
       );
+      if (note)
+        this.editor!.showPage(
+          pageForTarget(notePages(this.editor!.value), url),
+        );
     } else {
       const empty = this.el("section", "browser-empty-context");
       empty.append(this.el("p", "", "Open a web page to start a note."));

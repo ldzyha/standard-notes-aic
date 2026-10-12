@@ -1396,6 +1396,23 @@ describe("PWA direct Markdown workspaces", () => {
     expect(document.querySelectorAll(".synthetic-editor")).toHaveLength(0);
   });
 
+  it("opens the clicked file itself even when another note has a page bound to its path", async () => {
+    const notebook = "Index\n\n--- docs/guide.md\nNotes about the guide";
+    state.pickedFiles = {
+      files: [
+        createPwaFile("a-notebook.md", new TextEncoder().encode(notebook)),
+        createPwaFile("docs/guide.md", new TextEncoder().encode("Guide")),
+      ],
+      directories: [],
+    };
+    control("Open folder").click();
+    await idle();
+    expect(editorField().value).toBe(notebook);
+    control("Open docs/guide.md").click();
+    await idle();
+    expect(editorField().value).toBe("Guide");
+  });
+
   it("reopens the last note by identity on a cold start and keeps it across pagehide", async () => {
     const last = await twoNotes();
     expect(editorField().value).toBe("Second note");

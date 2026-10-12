@@ -736,6 +736,84 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
+  it("shows a page bar only for a multi-page note and follows edits and the caret", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host, { initialText: "One" });
+    const bar = () => editor.element.querySelector<HTMLElement>(".aic-pages");
+    const label = () =>
+      bar()?.querySelector(".aic-pages__position")?.textContent;
+    expect(bar()).toBeNull();
+    expect(editor.showPage(1)).toBe(false);
+
+    const source = "One\n\n--- https://example.com/docs\nTwo\n\n---\nThree";
+    editor.updateDocument(source);
+    expect(bar()?.getAttribute("aria-label")).toBe("Note pages");
+    expect(label()).toBe("1 / 3");
+    const [previous, next] = [
+      ...bar()!.querySelectorAll<HTMLButtonElement>("button"),
+    ];
+    expect(previous!.getAttribute("aria-label")).toBe("Previous page");
+    expect(next!.getAttribute("aria-label")).toBe("Next page");
+    expect(previous!.disabled).toBe(true);
+
+    next!.click();
+    expect(editor.view.state.selection.main.head).toBe(source.indexOf("Two"));
+    expect(editor.currentPage).toBe(1);
+    expect(label()).toBe("2 / 3");
+    const target = bar()!.querySelector<HTMLElement>(".aic-pages__target")!;
+    expect(target.textContent).toBe("https://example.com/docs");
+    expect(target.title).toBe("https://example.com/docs");
+
+    expect(editor.showPage(2)).toBe(true);
+    expect(editor.view.state.selection.main.head).toBe(source.indexOf("Three"));
+    expect(label()).toBe("3 / 3");
+    expect(target.textContent).toBe("");
+    expect(next!.disabled).toBe(true);
+    previous!.click();
+    expect(label()).toBe("2 / 3");
+
+    editor.view.dispatch({ selection: { anchor: 1 } });
+    expect(label()).toBe("1 / 3");
+    // Paging is a view: the note text is never rewritten.
+    expect(editor.value).toBe(source);
+
+    editor.switchDocument("other", "Single page");
+    expect(bar()).toBeNull();
+    editor.switchDocument("notebook", source);
+    expect(label()).toBe("1 / 3");
+    editor.destroy();
+  });
+
+  it("pages a read-only note and keeps the bar in whole-note source mode", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const source =
+      "---\ntitle: A\n---\nOne\n\n---\nTwo\n\n```aic\n# S\n\n---\n```\n";
+    const editor = new AicEditor(host, { initialText: source, readOnly: true });
+    const label = () =>
+      editor.element.querySelector(".aic-pages__position")?.textContent;
+    expect(label()).toBe("1 / 2");
+    expect(editor.showPage(1)).toBe(true);
+    expect(editor.view.state.selection.main.head).toBe(source.indexOf("Two"));
+    expect(label()).toBe("2 / 2");
+    editor.element
+      .querySelector<HTMLButtonElement>(".aic-source-mode-toggle")!
+      .click();
+    expect(
+      editor.element
+        .querySelector(".aic-source-mode-toggle")!
+        .getAttribute("aria-pressed"),
+    ).toBe("true");
+    expect(label()).toBe("2 / 2");
+    editor.element
+      .querySelector<HTMLButtonElement>('[aria-label="Previous page"]')!
+      .click();
+    expect(label()).toBe("1 / 2");
+    expect(editor.value).toBe(source);
+    editor.destroy();
+  });
+
   it("disables commands and source mutation while locked", () => {
     const host = document.createElement("div");
     document.body.append(host);

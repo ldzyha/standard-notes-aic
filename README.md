@@ -28,6 +28,8 @@ lines. Release assets and store availability require separate verification.
 
 The local-file PWA opens Markdown files and folders and writes connected originals,
 with device snapshots as a secondary cache. Each host shows one note at a time;
+a `---` line after a blank line splits a note into pages, and `--- <path-or-url>`
+binds the following page to that target;
 mobile navigation gives the editor more space. Optional on-device AI and the shared DDK-based writing guide help
 revise documents. Folder imports count only Markdown files and support progress
 and cancellation. VS Code refuses to save an existing document after its file

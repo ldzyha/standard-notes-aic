@@ -556,6 +556,7 @@ navigation and lifecycle checks. They are separate from authenticated host verif
 | `security-otp`                                                 | In-memory Base32/otpauth parsing and WebCrypto TOTP; fixed non-secret diagnostics                                                        | security-otp: RFC 6238 SHA-1/SHA-256/SHA-512 vectors and rejected inputs     |
 | `security-qr`                                                  | Retained bounded local-image decoder with resource cleanup                                                                               | security-qr; no mounted QR import or generation UI                           |
 | `agentic-notes`                                                | Scope/section utilities only                                                                                                             | agentic-notes; no enabled universal agent adapter or standalone writer       |
+| `note-pages`, `note-pages-bar`                                 | Pure `---` page parser and target matching; derived page bar that moves the caret and never rewrites text                                | note-pages, editor, browser-panel, browser-folder-flow                       |
 | `icons.css`, `preview-layout.css`, module CSS and declarations | Common action presentation, preview geometry and adapter API contracts                                                                   | editor, publication, TypeScript checks and browser layout QA                 |
 
 Adapter ownership stays explicit: `src/editor.ts`, `toolbar.ts`, `commands.ts`,
@@ -782,3 +783,42 @@ write support, cached copies remain read-only until a destination is connected.
 Download-only browsers edit local drafts and explicitly download Markdown copies.
 Neither opening a folder nor saving confirms background cloud synchronization;
 the user’s sync client owns that step.
+
+## Note pages
+
+A note can be a notebook. A line that is exactly `---` starts a new page, and
+`--- <path-or-url>` (for example `--- /src/app/editor.ts` or
+`--- https://example.com/docs`) binds the page that follows to that target.
+The note stays one file; pages are a derived view and no text, index or
+metadata is written. Owner: `src/core/note-pages.js`.
+
+- The line must begin the body or follow a blank line, so `---` under a
+  paragraph remains a setext heading. `----`, `- - -`, `***`, `___` and indented
+  rules stay ordinary rules.
+- Leading frontmatter and anything inside a ``` or ~~~ fence, including `aic`
+  and Mermaid blocks, is never a page break. A note that begins with a bare
+  `---` and has a later bare `---` line is read as frontmatter.
+- A separator with nothing before it binds page 1; a separator on the last
+  line starts an empty last page.
+- URL targets ignore the hash, host case and a trailing slash. Without a query
+  they ignore the visited query and also cover URLs below them at a path
+  segment; with a query they need the same query. Path targets compare in NFC
+  without case, with `\` as `/` and without leading `./` or `/`; a folder
+  covers the files below it. The longest match wins, then the first page.
+
+The page bar (`aic-pages`, owner `src/core/note-pages-bar.js`) is part of the
+shared editor and appears only when a note has more than one page, in preview
+and source modes and for read-only notes. Previous and Next move the caret to
+the start of a page and scroll it to the top; the position and the bound
+target follow the caret. The whole note remains in the editor.
+
+- PWA and Standard Notes: pages and bar only. A file selected in the PWA tree
+  always opens itself; bound targets are labels.
+- Browser panel, while following the active tab: the note linked to the exact
+  URL opens first, on its own bound page when it has one. Otherwise the loaded
+  folder note with the most specific bound page opens on that page and saves
+  to its own file. Otherwise the empty page note is offered as before.
+
+The browser reads bound targets from note text that is already loaded, on each
+navigation and without stored state. Coverage: `note-pages`, `editor`, `browser-panel`,
+`browser-folder-flow` and `pwa-ui`.

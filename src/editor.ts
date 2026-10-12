@@ -27,6 +27,11 @@ import { blockViewExtensions } from "./block-views";
 import { makeCalloutExtension } from "./core/callout-decorations.js";
 import { makeCodeFenceExtension } from "./core/code-fence-extension.js";
 import { createEditorHelp } from "./core/editor-help.js";
+import {
+  currentNotePage,
+  notePagesBar,
+  showNotePage,
+} from "./core/note-pages-bar.js";
 import { makeSecurityBlockExtension } from "./core/security-block.js";
 import { isSaveAction, wireSaveBoundary } from "./core/save-boundary.js";
 import { createSourceModeController } from "./core/source-mode.js";
@@ -250,6 +255,7 @@ export class AicEditor {
       EditorView.lineWrapping,
       placeholder(SLASH_SNIPPET_PLACEHOLDER),
       slashSnippetExtension(),
+      notePagesBar(),
       EditorView.contentAttributes.of({
         "aria-label": "AIC Markdown note",
         spellcheck: "true",
@@ -533,6 +539,16 @@ export class AicEditor {
 
   focus(): void {
     this.view.focus();
+  }
+
+  /** Zero-based page of the caret; pages are split by `---` lines. */
+  get currentPage(): number {
+    return currentNotePage(this.view.state);
+  }
+
+  /** Move the caret to a page start and scroll it to the top of the editor. */
+  showPage(index: number): boolean {
+    return showNotePage(this.view, index);
   }
 
   destroy(): void {

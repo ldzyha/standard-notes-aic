@@ -6,7 +6,8 @@ export type UiBlock =
   | "field"
   | "card"
   | "tree"
-  | "context";
+  | "context"
+  | "pages";
 
 export type UiModifiers = {
   button:
@@ -33,6 +34,7 @@ export type UiModifiers = {
     | "embedded";
   tree: "compact" | "ancestors" | "connected";
   context: "compact" | "empty" | "editing" | "document";
+  pages: never;
 };
 
 export type UiElements = {
@@ -53,6 +55,7 @@ export type UiElements = {
     | "footer";
   tree: "group" | "item" | "row" | "label" | "actions" | "icon" | "toggle";
   context: "title" | "path" | "item" | "link" | "current" | "status";
+  pages: "position" | "target";
 };
 
 export const UI_COMPONENTS: {

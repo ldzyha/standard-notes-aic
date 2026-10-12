@@ -49,7 +49,7 @@ the release-oriented `FUNCTIONAL_INDEX.md`:
    because its panel owns the local guide entry point. The toolbar wraps rather
    than scrolling horizontally and retains 44 px targets for coarse pointers.
    Domain identity and actions remain part of the compact shared surface.
-6. `src/core/ui-system.*` now defines the eight IDs, allowed elements and
+6. `src/core/ui-system.*` now defines the eight IDs plus the `pages` bar, allowed elements and
    modifiers, additive class application, a native button factory, and common
    geometry. Adoption is partial: legacy `.cm-*`, `.browser-*`, `.aic-*`,
    `.aic-db-*`, and `.aicn-*` hooks remain active.
