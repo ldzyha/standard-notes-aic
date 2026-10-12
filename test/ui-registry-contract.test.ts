@@ -110,6 +110,65 @@ describe("shared design and feature registry contract", () => {
     }
   });
 
+  it("registers the VS Code linked-note use of note pages", async () => {
+    const registry = JSON.parse(await read("FEATURES.json"));
+    const pages = registry.features.find(
+      (feature: { id: string }) => feature.id === "core.note-pages",
+    );
+    expect(pages.hosts).toContain("vscode");
+    expect(pages.purpose).toContain("VS Code Linked Note");
+    expect(pages.entrypoints).toEqual(
+      expect.arrayContaining([
+        "aic-notes/src/webview/main.js",
+        "aic-notes/src/secondary/provider.js",
+        "aic-notes/src/notes/relationships.js",
+      ]),
+    );
+    expect(pages.verification).toEqual(
+      expect.arrayContaining([
+        "aic-notes/test/note-routing.test.js",
+        "aic-notes/test/web-host.test.js",
+      ]),
+    );
+  });
+
+  it("lists only existing scripts as browser verification commands", async () => {
+    for (const file of [
+      "browser/VERIFICATION.md",
+      "browser/VERIFICATION.uk.md",
+    ]) {
+      const text = await read(file);
+      for (const [, script] of text.matchAll(/node (scripts\/[\w.-]+\.mjs)/gu))
+        expect(
+          await exists(path.join(root, script!)),
+          `${file}: ${script}`,
+        ).toBe(true);
+      // The removed Shared/Global scopes stay only as dated history.
+      expect(text).not.toMatch(
+        /Current, Shared (?:and|і) Global (?:edit|редагують) /u,
+      );
+    }
+  });
+
+  it("maps CodeMirror panel chrome to semantic tokens above the injected theme", async () => {
+    const css = await read("src/core/ui-system.css");
+    const rule =
+      /\.cm-editor \.cm-panels:is\(\.cm-panels-top, \.cm-panels-bottom\) \{([^}]*)\}/u.exec(
+        css,
+      )?.[1];
+    // CodeMirror injects `.<theme> .cm-panels` (two classes) after host CSS.
+    expect(rule).toContain("background: var(--aic-bg, Canvas);");
+    expect(rule).toContain("color: inherit;");
+    expect(rule).toContain("border-color: var(--aic-border, #d8dde5);");
+    // The other panel user keeps its own chrome inside the mapped wrapper.
+    const importBar = await read("src/core/security-import-extension.css");
+    expect(importBar).toMatch(
+      /\.cm-aic-security-import-bar \{[^}]*background: var\(--aic-contrast\);[^}]*color: var\(--aic-contrast-fg\);/u,
+    );
+    for (const file of ["src/styles.css", "src/pwa/styles.css"])
+      expect(await read(file)).not.toContain(".cm-panels");
+  });
+
   it("loads shared UI in every host and does not restore copied preview shells", async () => {
     const inventory: string[] = JSON.parse(await read("CORE_FILES.json"));
     for (const file of ["ui-system.js", "ui-system.d.ts", "ui-system.css"])

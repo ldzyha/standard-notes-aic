@@ -1287,31 +1287,39 @@ describe("PWA direct Markdown workspaces", () => {
     await idle();
     expect(document.querySelector("main")?.dataset.screen).toBe("browser");
     expect(editorField()).toBe(field);
+    const persistedShow = () => {
+      const restored = new Event("pageshow");
+      Object.defineProperty(restored, "persisted", { value: true });
+      window.dispatchEvent(restored);
+    };
     window.dispatchEvent(new Event("pagehide"));
-    const restored = new Event("pageshow");
-    Object.defineProperty(restored, "persisted", { value: true });
-    window.dispatchEvent(restored);
+    expect(document.querySelector(".synthetic-editor")).toBeNull();
+    persistedShow();
+    // Returning from the back/forward cache reopens the last workspace and note.
     await vi.waitFor(() =>
-      expect(document.querySelector("main")?.dataset.hasWorkspaces).toBe(
-        "true",
-      ),
+      expect(editorField().value).toBe("Survives navigation"),
     );
     const selector = document.querySelector<HTMLSelectElement>(
       ".pwa-workspace-select",
     )!;
+    expect(selector.selectedOptions[0]?.textContent).toBe("Workspace 1");
+
+    // A stale last-opened key is forgotten and the workspace list still returns.
+    window.dispatchEvent(new Event("pagehide"));
+    localStorage.setItem(
+      LAST_OPENED,
+      JSON.stringify({ workspaceId: "missing", fileId: "x", path: "x.md" }),
+    );
+    persistedShow();
     await vi.waitFor(() =>
       expect(
         [...selector.options].map((option) => option.textContent),
       ).toContain("Workspace 1"),
     );
-    selector.value = [...selector.options].find(
-      (option) => option.textContent === "Workspace 1",
-    )!.value;
-    selector.dispatchEvent(new Event("change"));
-    await idle();
-    control("Open note.md").click();
-    await idle();
-    expect(editorField().value).toBe("Survives navigation");
+    await vi.waitFor(() =>
+      expect(localStorage.getItem(LAST_OPENED)).toBeNull(),
+    );
+    expect(document.querySelector(".synthetic-editor")).toBeNull();
   });
 
   it("does not resurrect a failed save or plaintext UI after pagehide", async () => {

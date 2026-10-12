@@ -1685,8 +1685,7 @@ window.addEventListener("pagehide", (event) => {
 window.addEventListener("pageshow", (event) => {
   if (event.persisted) {
     appUpdates?.resume();
-    void refreshEntities();
-    renderContent();
+    void restoreLastOpened();
   }
 });
 window.addEventListener("online", reflectSave);
@@ -1704,8 +1703,9 @@ document.addEventListener("keydown", (event) => {
     void run(save);
   }
 });
-async function start() {
-  if (!(await refreshEntities())) return;
+/** Cold start and bfcache return: list workspaces, then reopen the last one. */
+async function restoreLastOpened() {
+  if (!(await refreshEntities())) return false;
   const remembered = readLastOpened();
   try {
     if (remembered)
@@ -1715,6 +1715,10 @@ async function start() {
     forgetLastOpened();
   }
   renderContent();
+  return true;
+}
+async function start() {
+  if (!(await restoreLastOpened())) return;
   if (
     /^https?:$/u.test(location.protocol) &&
     "serviceWorker" in navigator &&

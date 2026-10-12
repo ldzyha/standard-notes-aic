@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  displayTarget,
   normalizeTarget,
   notePages,
   pageForTarget,
@@ -58,11 +59,12 @@ describe("note pages", () => {
 
   it("binds page 1 when the body starts with a separator", () => {
     const source = "--- /a.md\nFirst\n\n---\nSecond";
-    expect(texts(source)).toEqual(["First\n\n", "Second"]);
+    // Page 1 starts at 0 and keeps its own leading separator line.
+    expect(texts(source)).toEqual(["--- /a.md\nFirst\n\n", "Second"]);
     expect(targets(source)).toEqual(["/a.md", null]);
     expect(targets("---\n\n--- /a\nPage")).toEqual(["/a"]);
     expect(notePages("\n\n---\nOnly")).toEqual([
-      { from: 6, to: 10, target: null },
+      { from: 0, to: 10, target: null },
     ]);
   });
 
@@ -75,9 +77,40 @@ describe("note pages", () => {
       "---\ntitle: A\n\nb: 1\n---\nBody\n\n",
       "Next",
     ]);
-    expect(targets("---\ntitle: A\n---\n--- /first\nBody")).toEqual(["/first"]);
+    expect(notePages("---\ntitle: A\n---\n--- /first\nBody")).toEqual([
+      { from: 0, to: 32, target: "/first" },
+    ]);
+    const bound = "---\ntitle: x\n---\n\n--- /a\np2\n\n---\np3";
+    expect(notePages(bound)).toEqual([
+      { from: 0, to: 29, target: "/a" },
+      { from: 33, to: 35, target: null },
+    ]);
     // Without a closing line the first line is an ordinary leading break.
     expect(targets("---\ntitle: A\n\n--- /b\nNext")).toEqual([null, "/b"]);
+  });
+
+  it.each([
+    "",
+    "---",
+    "---\n",
+    "\n\n---\nOnly",
+    "--- /a\nFirst\n\n---\nSecond",
+    "---\n\n--- /a\nPage",
+    "---\ntitle: x\n---\n\n--- /a\np2",
+    "---\ntitle: x\n---\n--- /a\np1\n\n--- /b\np2\n\n---",
+    "---\ntitle: x\n\n--- /b\nNext",
+    "A\r\n\r\n--- /b\r\nB\r\n\r\n---\r\n",
+    "A\n\n```\n\n---\n```\n\n--- /x\nB\n\n```\n\n---\nopen",
+    "A\n\n--- /end",
+    "\n\n---\n\n---\n\n---\n",
+  ])("covers %j with ordered pages from 0 to the text end", (source) => {
+    const pages = notePages(source);
+    expect(pages[0]!.from).toBe(0);
+    expect(pages.at(-1)!.to).toBe(source.length);
+    pages.forEach((page, index) => {
+      expect(page.from).toBeLessThanOrEqual(page.to);
+      if (index) expect(page.from).toBeGreaterThan(pages[index - 1]!.to);
+    });
   });
 
   it.each(["```", "~~~", "```aic", "```aic-security", "````mermaid"])(
@@ -165,5 +198,27 @@ describe("note page targets", () => {
     expect(pageForTarget(pages, "https://example.com/blog")).toBe(1);
     expect(pageForTarget(pages, "https://other.example/docs")).toBe(-1);
     expect(pageForTarget(notePages("A"), "https://example.com")).toBe(-1);
+  });
+  it("labels a URL target without its username and password", () => {
+    expect(displayTarget("https://user:pw@example.com/x?q=1#top")).toBe(
+      "https://example.com/x?q=1#top",
+    );
+    expect(displayTarget("https://user@example.com/x")).toBe(
+      "https://example.com/x",
+    );
+    expect(displayTarget("https://user:pw@")).toBe("https://");
+    // Targets without credentials and path targets are shown as written.
+    expect(displayTarget("https://Example.com/a@b/")).toBe(
+      "https://Example.com/a@b/",
+    );
+    expect(displayTarget("docs/user:pw@file.md")).toBe("docs/user:pw@file.md");
+    expect(displayTarget(null)).toBe("");
+    // Matching still uses the written target.
+    expect(
+      targetSpecificity(
+        "https://user:pw@example.com/x",
+        "https://example.com/x",
+      ),
+    ).toBeGreaterThan(0);
   });
 });

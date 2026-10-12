@@ -1,6 +1,6 @@
 import { StateField } from "@codemirror/state";
 import { EditorView, showPanel } from "@codemirror/view";
-import { notePages } from "./note-pages.js";
+import { displayTarget, notePages } from "./note-pages.js";
 import { createIconButton } from "./structured-preview.js";
 import { applyUiComponent } from "./ui-system.js";
 
@@ -75,7 +75,7 @@ function createBar(view) {
     previous.disabled = index === 0;
     next.disabled = index === pages.length - 1;
     position.textContent = `${index + 1} / ${pages.length}`;
-    target.textContent = target.title = pages[index].target ?? "";
+    target.textContent = target.title = displayTarget(pages[index].target);
   };
   render(view.state);
   return {

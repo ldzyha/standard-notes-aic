@@ -20,11 +20,15 @@ page in a normal top-level extension tab; foreign, private, framed and stale-sou
 requests remain rejected. A grant made in that tab can resume the original panel
 without selecting the files again or replacing a pending draft.
 
-Current, Shared and Global edit their own Markdown files with the same editor and
-save feedback. Regression tests cover Shared/Global external file changes with
-both lower and higher content tokens, retained dirty drafts, and an old reload
-response arriving after a newer successful save. Content tokens are not treated
-as chronological version numbers.
+History, before October 12, 2026: the next two paragraphs record checks of the
+Current, Shared and Global scopes. Shared and Global were removed on October 12,
+so nothing below about those two scopes describes current behaviour.
+
+Current, Shared and Global edited their own Markdown files with the same editor
+and save feedback. Regression tests covered Shared/Global external file changes
+with both lower and higher content tokens, retained dirty drafts, and an old
+reload response arriving after a newer successful save. Content tokens are not
+treated as chronological version numbers.
 
 CUA checked the production panel and service using disposable native OPFS files
 and a controlled permission fixture. At 320 px, light/dark views had no horizontal
@@ -732,17 +736,18 @@ the changes and independently ran the complete suite, builds and Edge smoke.
 
 ## Current adapter regressions — October 2, 2026
 
-The old encrypted-runtime harnesses have been retired. Their three script names
+The old encrypted-runtime harnesses have been retired. Two of their script names
 now run Vitest suites with simulated browser APIs and DOMs:
 
-| Command                                         | Current verification scope                                                    |
-| ----------------------------------------------- | ----------------------------------------------------------------------------- |
-| `node scripts/browser-panel-regression.mjs`     | Draft saves, panel actions, deletion, navigation and related links            |
-| `node scripts/browser-extension-regression.mjs` | Plain-file adapter/concurrency, service/recovery, build and package contracts |
-| `node scripts/browser-domain-regression.mjs`    | Shared/Global scopes, independent drafts and ancestor navigation              |
+| Command                                         | Current verification scope                                                         |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `node scripts/browser-panel-regression.mjs`     | Draft saves, panel actions, deletion, navigation, ancestor notes and related links |
+| `node scripts/browser-extension-regression.mjs` | Plain-file adapter/concurrency, service/recovery, build and package contracts      |
 
-The Shared and Global scopes and the domain entrypoint were removed on October
-12; its navigation and ancestor tests now run in the panel entrypoint. The
+History: on October 2 a third entrypoint, `scripts/browser-domain-regression.mjs`,
+covered the Shared/Global scopes, independent drafts and ancestor navigation. The
+scopes and that script were removed on October 12 and the command no longer
+exists; its navigation and ancestor tests now run in the panel entrypoint. The
 counts below record the October 2 run.
 
 All three entrypoints passed on October 2: **93 panel tests**, **54 extension

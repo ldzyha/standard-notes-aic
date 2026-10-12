@@ -12,7 +12,9 @@
 // - Nothing inside a ``` or ~~~ fence counts; an unclosed fence runs to the end.
 // - A break with only blank text before it binds page 1 instead of creating an
 //   empty first page; a break on the last line starts an empty last page.
-// Offsets index the given text; CRLF line ends are tolerated.
+// Offsets index the given text; CRLF line ends are tolerated. Page 1 always
+// starts at 0, so it also holds frontmatter and a leading break line; every
+// later page starts after its break line and the last page ends the text.
 
 const SEPARATOR = /^---(?:[ \t]+(\S.*?))?[ \t]*$/u;
 const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/u;
@@ -56,9 +58,10 @@ export function notePages(text) {
     } else if (mark && !(mark[1][0] === "`" && mark[2].includes("`")))
       fence = mark[1];
     else if (match) {
-      if (pages.length || source.slice(content, start).trim())
-        pages.push({ from, to: start, target });
-      from = content = Math.min(next, source.length);
+      const empty = !pages.length && !source.slice(content, start).trim();
+      if (!empty) pages.push({ from, to: start, target });
+      content = Math.min(next, source.length);
+      if (!empty) from = content;
       target = match[1] ?? null;
     }
     blank = !match && !raw.trim();
@@ -66,6 +69,21 @@ export function notePages(text) {
   }
   pages.push({ from, to: source.length, target });
   return pages;
+}
+
+/** Label form of a target: a URL is shown without its username and password. */
+export function displayTarget(raw) {
+  const value = String(raw ?? "").trim();
+  if (!URL_TARGET.test(value) || !value.includes("@")) return value;
+  try {
+    const url = new URL(value);
+    if (!url.username && !url.password) return value;
+    url.username = url.password = "";
+    return url.href;
+  } catch {
+    // Not parseable: never echo what may be credentials before the last `@`.
+    return value.replace(/^(https?:\/\/)[^/?#]*@/iu, "$1");
+  }
 }
 
 /** Canonical comparison form: `scheme://host/path?query` or a lower-case path. */

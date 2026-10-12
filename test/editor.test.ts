@@ -765,6 +765,14 @@ describe("AIC editor integration", () => {
     expect(target.textContent).toBe("https://example.com/docs");
     expect(target.title).toBe("https://example.com/docs");
 
+    editor.updateDocument("One\n\n--- https://user:pw@example.com/x\nTwo");
+    editor.showPage(1);
+    const safe = bar()!.querySelector<HTMLElement>(".aic-pages__target")!;
+    expect(safe.textContent).toBe("https://example.com/x");
+    expect(safe.title).toBe("https://example.com/x");
+    editor.updateDocument(source);
+    editor.showPage(1);
+
     expect(editor.showPage(2)).toBe(true);
     expect(editor.view.state.selection.main.head).toBe(source.indexOf("Three"));
     expect(label()).toBe("3 / 3");

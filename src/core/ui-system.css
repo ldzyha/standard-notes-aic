@@ -421,6 +421,13 @@ details[open] > summary > .aic-tree__toggle {
   color: var(--aic-danger, #b92337);
 }
 
+/* CodeMirror panel chrome (page bar, security import bar) follows the host
+   scheme; both classes outrank CodeMirror's injected light/dark base theme. */
+.cm-editor .cm-panels:is(.cm-panels-top, .cm-panels-bottom) {
+  border-color: var(--aic-border, #d8dde5);
+  background: var(--aic-bg, Canvas);
+  color: inherit;
+}
 .aic-pages {
   box-sizing: border-box;
   display: flex;
