@@ -312,3 +312,45 @@ export class MemoryPwaPersistence implements LocalWorkspacePersistence {
     this.localWorkspaces.delete(id);
   }
 }
+
+/** Last opened note; the only PWA value kept outside the workspace records. */
+export interface LastOpened {
+  workspaceId: string;
+  fileId: string | null;
+  path: string | null;
+}
+const LAST_OPENED_KEY = "aic-notes-pwa:last-opened";
+
+export function readLastOpened(): LastOpened | null {
+  try {
+    const raw = localStorage.getItem(LAST_OPENED_KEY);
+    if (raw === null) return null;
+    const value = JSON.parse(raw) as Partial<LastOpened>;
+    const { fileId = null, path = null } = value;
+    if (path !== null && typeof path !== "string") throw new Error();
+    return {
+      workspaceId: validateEntityId(value.workspaceId),
+      fileId: fileId === null ? null : validateEntityId(fileId),
+      path,
+    };
+  } catch {
+    forgetLastOpened();
+    return null;
+  }
+}
+
+export function writeLastOpened(value: LastOpened): void {
+  try {
+    localStorage.setItem(LAST_OPENED_KEY, JSON.stringify(value));
+  } catch {
+    /* Remembering the last note is a convenience; storage may be unavailable. */
+  }
+}
+
+export function forgetLastOpened(): void {
+  try {
+    localStorage.removeItem(LAST_OPENED_KEY);
+  } catch {
+    /* Nothing to forget without storage. */
+  }
+}

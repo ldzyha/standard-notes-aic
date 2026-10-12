@@ -713,7 +713,9 @@ metadata and descriptors remain validated; Markdown source bytes are preserved. 
 
 **Save** commits to connected original files before updating secondary browser
 snapshots. Revision and byte comparisons reject stale or conflicting writes.
-Removing a local workspace disconnects it without deleting its files. Browsers
+Removing a local workspace disconnects it without deleting its files. Launch
+reopens the last opened note (one `localStorage` value owned by `src/pwa/storage.ts`)
+until its workspace is closed or removed. Browsers
 without writable file handles offer explicit download copies and distinguish
 browser drafts from files saved to disk. No protected entity, key or encrypted
 export is part of the runtime.

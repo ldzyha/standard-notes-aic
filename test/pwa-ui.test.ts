@@ -13,6 +13,7 @@ import type { MarkdownFileHandle, MarkdownSelection } from "../src/pwa/disk";
 const state = vi.hoisted(() => ({
   repository: null as PwaRepository | null,
   persistence: null as MemoryPwaPersistence | null,
+  retainPersistence: false,
   failCache: false,
   failDisk: false,
   nativeAccess: true,
@@ -113,7 +114,9 @@ vi.mock("../src/pwa/controller", async (importOriginal) => {
     ...actual,
     PwaRepository: class extends actual.PwaRepository {
       constructor() {
-        const persistence = new MemoryPwaPersistence();
+        const persistence =
+          (state.retainPersistence && state.persistence) ||
+          new MemoryPwaPersistence();
         super({
           listLocal: async () => {
             await state.pauseLocalList?.();
@@ -313,10 +316,45 @@ async function readBlob(blob: Blob): Promise<string> {
   });
 }
 
+const LAST_OPENED = "aic-notes-pwa:last-opened";
+
+/** Cold start: a new module instance over the same stored workspaces. */
+async function relaunch() {
+  window.dispatchEvent(new Event("pagehide"));
+  for (const entry of listeners.splice(0))
+    entry.target.removeEventListener(entry.type, entry.listener, entry.options);
+  state.retainPersistence = true;
+  document.body.innerHTML = '<div id="app"></div>';
+  vi.resetModules();
+  await import("../src/pwa/main");
+  await vi.waitFor(() =>
+    expect(
+      document.querySelector(".pwa-empty, .synthetic-editor"),
+    ).not.toBeNull(),
+  );
+  await idle();
+}
+
+async function twoNotes() {
+  for (const text of ["First note", "Second note"]) {
+    control("New note").click();
+    await idle();
+    type(text);
+    await saveShortcut();
+  }
+  return JSON.parse(localStorage.getItem(LAST_OPENED)!) as {
+    workspaceId: string;
+    fileId: string;
+    path: string;
+  };
+}
+
 beforeEach(async () => {
   vi.resetModules();
   state.repository = null;
   state.persistence = null;
+  state.retainPersistence = false;
+  localStorage.clear();
   state.failCache = false;
   state.failDisk = false;
   state.nativeAccess = true;
@@ -1381,5 +1419,58 @@ describe("PWA direct Markdown workspaces", () => {
     expect(document.querySelectorAll(".pwa-folder summary")).toHaveLength(2);
     window.dispatchEvent(new Event("pagehide"));
     expect(document.querySelectorAll(".synthetic-editor")).toHaveLength(0);
+  });
+
+  it("reopens the last note by identity on a cold start and keeps it across pagehide", async () => {
+    const last = await twoNotes();
+    expect(editorField().value).toBe("Second note");
+    await relaunch();
+    expect(document.querySelector("main")?.dataset.screen).toBe("editor");
+    expect(editorField().value).toBe("Second note");
+    expect(JSON.parse(localStorage.getItem(LAST_OPENED)!)).toEqual(last);
+  });
+
+  it("falls back to the remembered path, then to the first file", async () => {
+    const last = await twoNotes();
+    localStorage.setItem(
+      LAST_OPENED,
+      JSON.stringify({ ...last, fileId: "stale-id" }),
+    );
+    await relaunch();
+    expect(editorField().value).toBe("Second note");
+    localStorage.setItem(
+      LAST_OPENED,
+      JSON.stringify({ ...last, fileId: "stale-id", path: "gone.md" }),
+    );
+    await relaunch();
+    expect(editorField().value).toBe("First note");
+  });
+
+  it("starts empty and drops a remembered note that is missing or malformed", async () => {
+    const last = await twoNotes();
+    for (const stale of [
+      JSON.stringify({ ...last, workspaceId: "removed-workspace" }),
+      JSON.stringify({ ...last, workspaceId: 7 }),
+      "{not json",
+    ]) {
+      localStorage.setItem(LAST_OPENED, stale);
+      await relaunch();
+      expect(document.querySelector(".synthetic-editor")).toBeNull();
+      expect(document.querySelector(".pwa-notice")?.textContent).toBe("");
+      expect(document.querySelector("main")?.dataset.hasWorkspaces).toBe(
+        "true",
+      );
+      expect(localStorage.getItem(LAST_OPENED)).toBeNull();
+    }
+  });
+
+  it("does not reopen a workspace that was closed deliberately", async () => {
+    await twoNotes();
+    control("Close workspace").click();
+    await idle();
+    expect(localStorage.getItem(LAST_OPENED)).toBeNull();
+    await relaunch();
+    expect(document.querySelector(".synthetic-editor")).toBeNull();
+    expect(document.querySelector("main")?.dataset.hasWorkspaces).toBe("true");
   });
 });

@@ -17,6 +17,12 @@ import {
 } from "./disk";
 import { PwaRepository } from "./controller";
 import {
+  forgetLastOpened,
+  readLastOpened,
+  writeLastOpened,
+  type LastOpened,
+} from "./storage";
+import {
   createPwaFile,
   createWorkspace,
   serializePayload,
@@ -745,12 +751,16 @@ async function createLocalWorkspace() {
   if (!(await save()) || started !== lifecycle) return;
   await openFiles(true);
 }
-async function selectLocalWorkspace(id: string) {
+async function selectLocalWorkspace(id: string, remembered?: LastOpened) {
   const started = lifecycle;
   if (!(await save()) || started !== lifecycle) return;
   const next = await repository.readLocal(id);
   if (started !== lifecycle) return;
-  activateLocal(id, next, next.files[0]?.id ?? null);
+  const file =
+    next.files.find((file) => file.id === remembered?.fileId) ??
+    next.files.find((file) => file.path === remembered?.path) ??
+    next.files[0];
+  activateLocal(id, next, file?.id ?? null);
   try {
     if (await markdownDisk.restore(id)) await refreshMarkdownSelection();
     else if (repository.isDiskWorkspace(id))
@@ -966,6 +976,7 @@ async function removeLocalWorkspace() {
   );
   if (!answer) return;
   await repository.removeLocal(activeId);
+  forgetLastOpened();
   try {
     await markdownDisk.disconnect(activeId);
   } catch {
@@ -1110,6 +1121,7 @@ async function closeWorkspace() {
   }
   lifecycle++;
   repository.closeAll();
+  forgetLastOpened();
   payload = null;
   closeNotesDrawer(false);
   activeId = null;
@@ -1542,6 +1554,13 @@ function renderContent() {
   renderFileNavigation();
   reflectSave();
   reflectScreen();
+  // Every selection change renders; pagehide renders with nothing open and keeps the value.
+  if (localWorkspace && activeId && payload?.kind === "workspace")
+    writeLastOpened({
+      workspaceId: activeId,
+      fileId: selectedId,
+      path: payload.files.find((file) => file.id === selectedId)?.path ?? null,
+    });
   if (!payload) {
     title.textContent = "Start editing";
     details.textContent = "";
@@ -1815,6 +1834,14 @@ document.addEventListener("keydown", (event) => {
 });
 async function start() {
   if (!(await refreshEntities())) return;
+  const remembered = readLastOpened();
+  try {
+    if (remembered)
+      await selectLocalWorkspace(remembered.workspaceId, remembered);
+  } catch {
+    // The remembered workspace is gone or unreadable: start empty as before.
+    forgetLastOpened();
+  }
   renderContent();
   if (
     /^https?:$/u.test(location.protocol) &&

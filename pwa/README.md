@@ -35,7 +35,8 @@ you control. Existing cache-only workspaces on writable-file browsers remain
 readable until **Save to file** chooses a destination.
 
 **Remove from this device…** disconnects the workspace and removes its app cache,
-not original files. Closing a workspace keeps its remembered entry. Existing
+not original files. Closing a workspace keeps its remembered entry. The app reopens the last opened
+note on launch until its workspace is closed or removed. Existing
 unsupported data stores and files are not automatically deleted or converted.
 Secret-field syntax still masks values on screen and supports explicit copying;
 it does not encrypt the Markdown file.
