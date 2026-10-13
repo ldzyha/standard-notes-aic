@@ -28,10 +28,13 @@ import { makeCalloutExtension } from "./core/callout-decorations.js";
 import { makeCodeFenceExtension } from "./core/code-fence-extension.js";
 import { createEditorHelp } from "./core/editor-help.js";
 import {
-  currentNotePage,
-  notePagesBar,
-  showNotePage,
-} from "./core/note-pages-bar.js";
+  focusPageTarget,
+  focusedPage,
+  notePageCards,
+  notePageCardsPreview,
+  pageExternalChange,
+  type FocusedPage,
+} from "./core/note-page-cards.js";
 import { makeSecurityBlockExtension } from "./core/security-block.js";
 import { isSaveAction, wireSaveBoundary } from "./core/save-boundary.js";
 import { createSourceModeController } from "./core/source-mode.js";
@@ -66,6 +69,8 @@ export type AicEditorOptions = {
   showEditorHelp?: boolean;
   onChange?: (text: string) => void;
   onSave?: (reason?: "action" | "boundary") => boolean | Promise<boolean>;
+  /** "Open target" on a page card; without it the action is not shown. */
+  onOpenTarget?: (target: string) => void;
 };
 
 export type SaveState = "dirty" | "saved" | "placeholder" | "unavailable";
@@ -137,6 +142,8 @@ export class AicEditor {
   private readonly sourceModeButton: HTMLButtonElement;
   private readonly onChange: (text: string) => void;
   private readonly onSave: AicEditorOptions["onSave"];
+  private readonly onOpenTarget: AicEditorOptions["onOpenTarget"];
+  private pageFocus: string | null = null;
   private readonly saveButton: HTMLButtonElement | null;
   private readonly saveStatus: HTMLElement | null;
   private readonly saveControls: HTMLElement | null;
@@ -153,6 +160,7 @@ export class AicEditor {
     this.document = options.document ?? parent.ownerDocument;
     this.onChange = options.onChange ?? (() => {});
     this.onSave = options.onSave;
+    this.onOpenTarget = options.onOpenTarget;
     this.currentReadOnly = options.readOnly ?? false;
     this.element = this.document.createElement("section");
     this.element.className = "aic-editor";
@@ -255,7 +263,7 @@ export class AicEditor {
       EditorView.lineWrapping,
       placeholder(SLASH_SNIPPET_PLACEHOLDER),
       slashSnippetExtension(),
-      notePagesBar(),
+      notePageCards({ onOpenTarget: this.onOpenTarget }),
       EditorView.contentAttributes.of({
         "aria-label": "AIC Markdown note",
         spellcheck: "true",
@@ -282,6 +290,7 @@ export class AicEditor {
           document: this.document,
         }),
         linkActionsExtension(),
+        notePageCardsPreview(),
       ]),
       EditorView.updateListener.of((update) => {
         if (!update.docChanged || this.suppressChange) return;
@@ -348,6 +357,7 @@ export class AicEditor {
     this.suppressChange = true;
     try {
       this.view.setState(this.createState(text));
+      if (this.pageFocus !== null) focusPageTarget(this.view, this.pageFocus);
       this.view.scrollDOM.scrollTop = 0;
       this.view.scrollDOM.scrollLeft = 0;
       this.view.requestMeasure();
@@ -384,7 +394,10 @@ export class AicEditor {
     try {
       this.view.dispatch({
         changes: { from, to: currentTo, insert: next.slice(from, nextTo) },
-        annotations: Transaction.addToHistory.of(false),
+        annotations: [
+          Transaction.addToHistory.of(false),
+          pageExternalChange.of(true),
+        ],
       });
       this.view.requestMeasure();
     } finally {
@@ -541,14 +554,29 @@ export class AicEditor {
     this.view.focus();
   }
 
-  /** Zero-based page of the caret; pages are split by `---` lines. */
-  get currentPage(): number {
-    return currentNotePage(this.view.state);
+  /**
+   * Show only the page bound to `target` and confine edits to it; a target
+   * without a page shows an empty card that is written on first typing. Null
+   * shows the whole note. Never changes the note text.
+   */
+  focusTarget(target: string | null): boolean {
+    if (!focusPageTarget(this.view, target)) return false;
+    this.pageFocus = focusedPage(this.view.state)?.target ?? null;
+    return true;
   }
 
-  /** Move the caret to a page start and scroll it to the top of the editor. */
-  showPage(index: number): boolean {
-    return showNotePage(this.view, index);
+  /** The focused page with its text, or null when the whole note is shown. */
+  get focusedPage(): (FocusedPage & { text: string }) | null {
+    const page = focusedPage(this.view.state);
+    if (!page) return null;
+    const text = this.view.state.sliceDoc(page.from, page.to);
+    return {
+      ...page,
+      text:
+        this.lineSeparator === "\n"
+          ? text
+          : text.replaceAll("\n", this.lineSeparator),
+    };
   }
 
   destroy(): void {

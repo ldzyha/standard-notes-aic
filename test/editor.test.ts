@@ -736,89 +736,172 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
-  it("shows a page bar only for a multi-page note and follows edits and the caret", () => {
+  it("shows note pages as cards in preview and plain text in source mode", () => {
     const host = document.createElement("div");
     document.body.append(host);
-    const editor = new AicEditor(host, { initialText: "One" });
-    const bar = () => editor.element.querySelector<HTMLElement>(".aic-pages");
-    const label = () =>
-      bar()?.querySelector(".aic-pages__position")?.textContent;
-    expect(bar()).toBeNull();
-    expect(editor.showPage(1)).toBe(false);
+    const onOpenTarget = vi.fn();
+    const editor = new AicEditor(host, { initialText: "One", onOpenTarget });
+    const titles = () =>
+      [...editor.element.querySelectorAll(".aic-card--page")].map(
+        (card) => card.querySelector(".aic-card__title")?.textContent ?? null,
+      );
+    expect(titles()).toEqual([]);
 
-    const source = "One\n\n--- https://example.com/docs\nTwo\n\n---\nThree";
+    const source =
+      "---\ntitle: A\n---\nOne\n\n--- https://user:pw@example.com/docs\nTwo\n\n---\nThree\n\n```aic\n# S\n\n---\n```\n";
     editor.updateDocument(source);
-    expect(bar()?.getAttribute("aria-label")).toBe("Note pages");
-    expect(label()).toBe("1 / 3");
-    const [previous, next] = [
-      ...bar()!.querySelectorAll<HTMLButtonElement>("button"),
-    ];
-    expect(previous!.getAttribute("aria-label")).toBe("Previous page");
-    expect(next!.getAttribute("aria-label")).toBe("Next page");
-    expect(previous!.disabled).toBe(true);
+    expect(titles()).toEqual(["https://example.com/docs", null]);
+    editor.element
+      .querySelector<HTMLButtonElement>('[aria-label="Open target"]')!
+      .click();
+    expect(onOpenTarget).toHaveBeenCalledExactlyOnceWith(
+      "https://user:pw@example.com/docs",
+    );
 
-    next!.click();
-    expect(editor.view.state.selection.main.head).toBe(source.indexOf("Two"));
-    expect(editor.currentPage).toBe(1);
-    expect(label()).toBe("2 / 3");
-    const target = bar()!.querySelector<HTMLElement>(".aic-pages__target")!;
-    expect(target.textContent).toBe("https://example.com/docs");
-    expect(target.title).toBe("https://example.com/docs");
+    editor.view.dispatch({
+      selection: { anchor: source.indexOf("--- https") },
+    });
+    expect(titles()).toEqual([null]);
+    editor.view.dispatch({ selection: { anchor: source.indexOf("Two") } });
+    expect(titles()).toHaveLength(2);
 
-    editor.updateDocument("One\n\n--- https://user:pw@example.com/x\nTwo");
-    editor.showPage(1);
-    const safe = bar()!.querySelector<HTMLElement>(".aic-pages__target")!;
-    expect(safe.textContent).toBe("https://example.com/x");
-    expect(safe.title).toBe("https://example.com/x");
-    editor.updateDocument(source);
-    editor.showPage(1);
-
-    expect(editor.showPage(2)).toBe(true);
-    expect(editor.view.state.selection.main.head).toBe(source.indexOf("Three"));
-    expect(label()).toBe("3 / 3");
-    expect(target.textContent).toBe("");
-    expect(next!.disabled).toBe(true);
-    previous!.click();
-    expect(label()).toBe("2 / 3");
-
-    editor.view.dispatch({ selection: { anchor: 1 } });
-    expect(label()).toBe("1 / 3");
-    // Paging is a view: the note text is never rewritten.
+    const toggle = editor.element.querySelector<HTMLButtonElement>(
+      ".aic-source-mode-toggle",
+    )!;
+    toggle.click();
+    expect(toggle.getAttribute("aria-pressed")).toBe("true");
+    expect(titles()).toEqual([]);
+    toggle.click();
+    expect(titles()).toHaveLength(2);
     expect(editor.value).toBe(source);
+    expect(editor.focusedPage).toBeNull();
 
+    editor.setReadOnly(true);
+    expect(titles()).toHaveLength(2);
     editor.switchDocument("other", "Single page");
-    expect(bar()).toBeNull();
-    editor.switchDocument("notebook", source);
-    expect(label()).toBe("1 / 3");
+    expect(titles()).toEqual([]);
     editor.destroy();
   });
 
-  it("pages a read-only note and keeps the bar in whole-note source mode", () => {
+  it("focuses one page card and confines edits to it", () => {
     const host = document.createElement("div");
     document.body.append(host);
-    const source =
-      "---\ntitle: A\n---\nOne\n\n---\nTwo\n\n```aic\n# S\n\n---\n```\n";
-    const editor = new AicEditor(host, { initialText: source, readOnly: true });
-    const label = () =>
-      editor.element.querySelector(".aic-pages__position")?.textContent;
-    expect(label()).toBe("1 / 2");
-    expect(editor.showPage(1)).toBe(true);
-    expect(editor.view.state.selection.main.head).toBe(source.indexOf("Two"));
-    expect(label()).toBe("2 / 2");
-    editor.element
-      .querySelector<HTMLButtonElement>(".aic-source-mode-toggle")!
-      .click();
-    expect(
-      editor.element
-        .querySelector(".aic-source-mode-toggle")!
-        .getAttribute("aria-pressed"),
-    ).toBe("true");
-    expect(label()).toBe("2 / 2");
-    editor.element
-      .querySelector<HTMLButtonElement>('[aria-label="Previous page"]')!
-      .click();
-    expect(label()).toBe("1 / 2");
+    const onChange = vi.fn();
+    const editor = new AicEditor(host, { onChange });
+    const hidden =
+      "| Hidden | table |\n| --- | --- |\n| h1 | h2 |\n\n```aic\n# Hidden block\n\n---\n```\n";
+    const page =
+      "Shown\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n```aic\n# Shown block\n\n---\n```\n\n~~~\n\n---\n~~~";
+    const source = `---\ntitle: Notebook\n---\nIntro\n\n--- other.ts\n${hidden}\n--- src/app.ts\n${page}\n\n--- https://example.com\n${hidden}`;
+    editor.switchDocument("aic.md", source);
+    const shown = () => editor.view.contentDOM.textContent ?? "";
+    const titles = () =>
+      [...editor.element.querySelectorAll(".aic-card--page")].map(
+        (card) => card.querySelector(".aic-card__title")?.textContent,
+      );
+
+    expect(editor.focusTarget("/src/App.ts")).toBe(true);
+    expect(titles()).toEqual(["/src/App.ts"]);
+    expect(editor.focusedPage).toEqual({
+      target: "/src/App.ts",
+      from: source.indexOf("Shown"),
+      to: source.indexOf("Shown") + page.length,
+      exists: true,
+      text: page,
+    });
+    expect(shown()).toContain("Shown");
+    expect(shown()).not.toMatch(/Hidden|Intro|Notebook|other\.ts/u);
+
+    // Select-all is the page; deleting or replacing it leaves the rest alone.
+    editor.view.contentDOM.dispatchEvent(
+      new KeyboardEvent("keydown", { key: "a", ctrlKey: true, bubbles: true }),
+    );
+    const selection = editor.view.state.selection.main;
+    expect(editor.view.state.sliceDoc(selection.from, selection.to)).toBe(page);
+    const [before, after] = source.split(page) as [string, string];
+    editor.view.dispatch({
+      changes: { from: 0, to: source.length, insert: "wipe" },
+      userEvent: "input.paste",
+    });
     expect(editor.value).toBe(source);
+    editor.view.dispatch(editor.view.state.replaceSelection("New text"));
+    expect(editor.value).toBe(`${before}New text${after}`);
+    expect(onChange).toHaveBeenLastCalledWith(`${before}New text${after}`);
+    editor.view.dispatch({
+      selection: { anchor: 0, head: editor.view.state.doc.length },
+    });
+    editor.view.dispatch(editor.view.state.replaceSelection(""));
+    expect(editor.value).toBe(`${before}${after}`);
+
+    // Source mode keeps the same page and hiding; only previews go.
+    const toggle = editor.element.querySelector<HTMLButtonElement>(
+      ".aic-source-mode-toggle",
+    )!;
+    toggle.click();
+    expect(titles()).toEqual(["/src/App.ts"]);
+    expect(shown()).not.toMatch(/Hidden|Intro/u);
+    editor.view.dispatch(editor.view.state.replaceSelection("raw"));
+    expect(editor.value).toBe(`${before}raw${after}`);
+    toggle.click();
+
+    // A host update passes and the page is found again where it moved.
+    onChange.mockClear();
+    expect(
+      editor.updateDocument(`--- src/app.ts\nMoved\n\n---\n${hidden}`),
+    ).toBe(true);
+    expect(editor.focusedPage).toMatchObject({ from: 15, text: "Moved" });
+    expect(editor.updateDocument("No pages")).toBe(true);
+    expect(editor.value).toBe("No pages");
+    expect(editor.focusedPage).toMatchObject({ exists: false, text: "" });
+    expect(onChange).not.toHaveBeenCalled();
+    expect(shown()).not.toContain("No pages");
+
+    // Focus survives a document switch; null shows the whole note again.
+    editor.switchDocument("b.md", source);
+    expect(editor.focusedPage?.text).toBe(page);
+    expect(editor.setDocument(`${source}\n`)).toBe(true);
+    expect(editor.focusedPage?.text).toBe(`${page}`);
+    expect(editor.focusTarget(null)).toBe(true);
+    expect(editor.focusedPage).toBeNull();
+    expect(shown()).toContain("Intro");
+    expect(editor.value).toBe(`${source}\n`);
+    editor.destroy();
+  });
+
+  it("writes a focused page that does not exist only on first typing", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const onChange = vi.fn();
+    const editor = new AicEditor(host, { onChange, readOnly: true });
+    editor.switchDocument("crlf", "One\r\nTwo");
+    expect(editor.focusTarget("https://example.com/new")).toBe(true);
+    expect(
+      editor.element.querySelector(".aic-card--page .aic-card__title")
+        ?.textContent,
+    ).toBe("https://example.com/new");
+    expect(editor.focusedPage).toMatchObject({ exists: false, text: "" });
+    editor.view.dispatch(editor.view.state.replaceSelection("x"));
+    expect(editor.value).toBe("One\r\nTwo");
+    expect(editor.view.contentDOM.textContent).not.toContain("One");
+
+    editor.setReadOnly(false);
+    editor.focusTarget("https://example.com/new");
+    expect(onChange).not.toHaveBeenCalled();
+    editor.view.dispatch(editor.view.state.replaceSelection("Hi"));
+    const written = "One\r\nTwo\r\n\r\n--- https://example.com/new\r\nHi";
+    expect(editor.value).toBe(written);
+    expect(onChange).toHaveBeenCalledExactlyOnceWith(written);
+    editor.view.dispatch(editor.view.state.replaceSelection("\n!"));
+    expect(editor.value).toBe(`${written}\r\n!`);
+    expect(editor.focusedPage).toMatchObject({
+      exists: true,
+      text: "Hi\r\n!",
+    });
+
+    editor.switchDocument("empty", "");
+    expect(editor.value).toBe("");
+    editor.view.dispatch(editor.view.state.replaceSelection("a"));
+    expect(editor.value).toBe("--- https://example.com/new\na");
     editor.destroy();
   });
 

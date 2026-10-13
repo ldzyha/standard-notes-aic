@@ -33,6 +33,7 @@ export const UI_COMPONENTS = Object.freeze({
       "empty",
       "details",
       "embedded",
+      "page",
     ],
     [
       "header",
@@ -53,7 +54,6 @@ export const UI_COMPONENTS = Object.freeze({
     ["compact", "empty", "editing", "document"],
     ["title", "path", "item", "link", "current", "status"],
   ),
-  pages: definition([], ["position", "target"]),
 });
 
 function definition(modifiers, elements) {

@@ -555,7 +555,7 @@ navigation and lifecycle checks. They are separate from authenticated host verif
 | `security-otp`                                                 | In-memory Base32/otpauth parsing and WebCrypto TOTP; fixed non-secret diagnostics                                                        | security-otp: RFC 6238 SHA-1/SHA-256/SHA-512 vectors and rejected inputs     |
 | `security-qr`                                                  | Retained bounded local-image decoder with resource cleanup                                                                               | security-qr; no mounted QR import or generation UI                           |
 | `agentic-notes`                                                | Scope/section utilities only                                                                                                             | agentic-notes; no enabled universal agent adapter or standalone writer       |
-| `note-pages`, `note-pages-bar`                                 | Pure `---` page parser and target matching; derived page bar that moves the caret and never rewrites text                                | note-pages, editor, browser-panel, browser-folder-flow                       |
+| `note-pages`, `note-page-cards`                                | Pure `---` page parser and exact target matching; page card headers, one-target focus and edit confinement                               | note-pages, note-page-cards, editor, browser-panel, browser-folder-flow      |
 | `icons.css`, `preview-layout.css`, module CSS and declarations | Common action presentation, preview geometry and adapter API contracts                                                                   | editor, publication, TypeScript checks and browser layout QA                 |
 
 Adapter ownership stays explicit: `src/editor.ts`, `toolbar.ts`, `commands.ts`,
@@ -797,25 +797,42 @@ metadata is written. Owner: `src/core/note-pages.js`.
   `---` and has a later bare `---` line is read as frontmatter.
 - A separator with nothing before it binds page 1; a separator on the last
   line starts an empty last page.
-- URL targets ignore the hash, host case and a trailing slash. Without a query
-  they ignore the visited query and also cover URLs below them at a path
-  segment; with a query they need the same query. Path targets compare in NFC
-  without case, with `\` as `/` and without leading `./` or `/`; a folder
-  covers the files below it. The longest match wins, then the first page.
+- A page matches a target only when both are equal after normalization; a
+  folder or URL prefix does not match what is below it. URL targets ignore the
+  hash, host case and a trailing slash; without a query they ignore the visited
+  query, with a query they need the same query. Path targets compare in NFC
+  without case, with `\` as `/` and without leading `./` or `/`. The first
+  matching page wins.
 
-The page bar (`aic-pages`, owner `src/core/note-pages-bar.js`) is part of the
-shared editor and appears only when a note has more than one page, in preview
-and source modes and for read-only notes. Previous and Next move the caret to
-the start of a page and scroll it to the top; the position and the bound
-target follow the caret. The whole note remains in the editor.
+Page cards (`aic-card--page`, owner `src/core/note-page-cards.js`) are part of
+the shared editor. In preview each separator line is a card header: the bound
+target and one action, **Open target**, which the host handles; an unbound
+page gets a plain divider. A selection on the line shows its source, and
+whole-note source mode shows the note as plain text.
 
-- PWA and Standard Notes: pages and bar only. A file selected in the PWA tree
-  always opens itself; bound targets are labels.
+A host can focus one target (`AicEditor.focusTarget`), in preview and source
+modes:
+
+- Only that page's card is shown; the other pages are hidden and cannot be
+  reached by the caret or select-all.
+- A user edit that reaches outside the page is dropped. Host document updates
+  pass, and the page is found again in the new text.
+- A target without a page shows an empty card. The first typing appends the
+  page to the end of the note; focusing alone never changes the text, and a
+  read-only note is not written.
+- `AicEditor.focusedPage` gives the focused target, range and text.
+
+Hosts:
+
+- PWA and Standard Notes: the whole note as cards. Open target opens an
+  http(s) URL in a new tab; in the PWA a path equal to a workspace file selects
+  that file. A file selected in the PWA tree always opens itself.
 - Browser panel, while following the active tab: the note linked to the exact
-  URL opens first, on its own bound page when it has one. Otherwise the loaded
-  folder note with the most specific bound page opens on that page and saves
-  to its own file. Otherwise the empty page note is offered as before.
+  URL opens first, on its own bound page when it has one. Otherwise the first
+  loaded folder note with a page for exactly that URL opens on that page and
+  saves to its own file. Otherwise the empty page note is offered as before.
+  Open target opens a URL target in a new tab.
 
 The browser reads bound targets from note text that is already loaded, on each
-navigation and without stored state. Coverage: `note-pages`, `editor`, `browser-panel`,
-`browser-folder-flow` and `pwa-ui`.
+navigation and without stored state. Coverage: `note-pages`, `note-page-cards`,
+`editor`, `browser-panel`, `browser-folder-flow` and `pwa-ui`.

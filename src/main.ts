@@ -35,6 +35,10 @@ const queued = new Set<string>();
 const editor = new AicEditor(root, {
   readOnly: !standalone,
   onSave: commitDraft,
+  onOpenTarget: (target) => {
+    if (/^https?:\/\//iu.test(target))
+      window.open(target, "_blank", "noopener,noreferrer");
+  },
   onChange: (text) => {
     // Read-only belongs at the interaction boundary. If any mutation reaches
     // the document, never silently discard its draft tracking.

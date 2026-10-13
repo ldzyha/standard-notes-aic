@@ -80,7 +80,7 @@ export function createEditorHelp(document, { host }) {
       [">>> title … <<<", "collapsible details block"],
       [
         "--- or --- path-or-URL",
-        "after a blank line, start a new page of this note; a target names it",
+        "after a blank line, start a new page card of this note; a target heads it",
       ],
       [
         "```language … ```",

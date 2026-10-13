@@ -4,6 +4,7 @@ import {
   type InstallPrompt,
 } from "./app-lifecycle";
 import { AicEditor } from "../editor";
+import { normalizeTarget } from "../core/note-pages.js";
 import { attachLocalAI, type LocalAIControls } from "./ai-controls";
 import logoUrl from "../../public/aic-logo.svg?url";
 import { createUiButton, applyUiComponent } from "../core/ui-system.js";
@@ -1472,24 +1473,7 @@ function renderFileNavigation() {
       }
     const row = button(
       `Open ${file.path}`,
-      async () => {
-        if (!(await save())) {
-          closeNotesDrawer();
-          return;
-        }
-        const previousSelection = selectedId;
-        selectedId = file.id;
-        try {
-          await refreshMarkdownSelection();
-        } catch (error) {
-          selectedId = previousSelection;
-          throw error;
-        }
-        screen = "editor";
-        renderContent();
-        closeNotesDrawer(false);
-        editor?.view?.focus();
-      },
+      () => openWorkspaceFile(file.id),
       query ? file.path : segments[segments.length - 1],
       { icon: "document" },
     );
@@ -1596,6 +1580,39 @@ function renderContent() {
   }
 }
 
+async function openWorkspaceFile(id: string) {
+  if (!(await save())) {
+    closeNotesDrawer();
+    return;
+  }
+  const previousSelection = selectedId;
+  selectedId = id;
+  try {
+    await refreshMarkdownSelection();
+  } catch (error) {
+    selectedId = previousSelection;
+    throw error;
+  }
+  screen = "editor";
+  renderContent();
+  closeNotesDrawer(false);
+  editor?.view?.focus();
+}
+
+/** A page card opens its workspace file here, or its web URL in a new tab. */
+function openPageTarget(target: string) {
+  if (/^https?:\/\//iu.test(target)) {
+    window.open(target, "_blank", "noopener");
+    return;
+  }
+  const path = normalizeTarget(target);
+  const file = payload?.files.find(
+    (item) => isMarkdownPath(item.path) && normalizeTarget(item.path) === path,
+  );
+  if (file && file.id !== selectedId)
+    void run(() => openWorkspaceFile(file.id));
+}
+
 function mountEditor(id: string, text: string) {
   mountedIdentity = `${activeId}/${id}`;
   screen = "editor";
@@ -1613,6 +1630,9 @@ function mountEditor(id: string, text: string) {
       if (mounted()) updateText(value);
     },
     onSave: () => (mounted() ? save() : false),
+    onOpenTarget: (target) => {
+      if (mounted()) openPageTarget(target);
+    },
   });
   editor.switchDocument(id, text);
   aiControls = attachLocalAI(editor.toolbar?.element ?? editorContainer, {

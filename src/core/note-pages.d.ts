@@ -5,6 +5,10 @@ export type NotePage = {
   to: number;
   /** Navigation target written after the separator, or null when unbound. */
   target: string | null;
+  /** Offset of the page's own separator line, or -1 when page 1 has none. */
+  separator: number;
+  /** Offset just after the separator line; equals `from` without one. */
+  content: number;
 };
 
 /** Split note text into pages; always returns at least one page. */
@@ -12,8 +16,10 @@ export function notePages(text: string): NotePage[];
 /** Target as shown in labels: URL credentials are removed. */
 export function displayTarget(raw: string | null | undefined): string;
 export function normalizeTarget(raw: string): string;
-export function targetSpecificity(bound: string, target: string): number;
+/** Index of the first page whose target equals `target` when normalized, or -1. */
 export function pageForTarget(
   pages: readonly NotePage[],
   target: string,
 ): number;
+/** Exact text to insert at the end of `text` to start a page for `target`. */
+export function appendPageText(text: string, target: string): string;

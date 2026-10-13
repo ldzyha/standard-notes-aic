@@ -68,9 +68,10 @@ Compact SVG actions leave room for content.
 
 The editor shows exactly the file selected in the tree. `*.note.md` files are
 ordinary Markdown files in that tree; none is opened alongside another file.
-A `---` line after a blank line splits a note into pages with a small page bar;
-`--- <path-or-url>` only labels the page, and a tree click always opens the
-clicked file.
+A `---` line after a blank line splits a note into page cards;
+`--- <path-or-url>` heads the card, whose **Open target** opens a web URL in a
+new tab or selects the workspace file with that path. A tree click always opens
+the clicked file.
 
 **Export all notes** writes a selected folder or downloads a ZIP preserving paths.
 Folder export refuses existing destination files. An interrupted export may leave

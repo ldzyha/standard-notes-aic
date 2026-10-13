@@ -577,27 +577,29 @@
     {
       "id": "core.note-pages",
       "group": "shared-editor",
-      "purpose": "Show one note as a notebook: a blank-line separated `---` line starts a page and `--- <path-or-url>` binds the following page to a navigation target. Pages are a derived view; the note stays one file and its text is never rewritten. The shared bar appears only for multi-page notes, steps between pages, follows the caret and names the bound target. The browser panel opens the loaded note and page bound to the active URL when no note is linked to that exact URL; the PWA and Standard Notes only page. VS Code Linked Note opens the active file's sidecar on its bound page, or the workspace note with the most specific bound page when no sidecar exists.",
+      "purpose": "Show one note as page cards: a blank-line separated `---` line starts a page and `--- <path-or-url>` binds the following page to a navigation target. A page matches a target only when their normalized forms are equal; the first match wins. Pages are a derived view; the note stays one file. In preview each separator line is a card header that names the target and offers one host action, Open target; a selection on the line shows its source, and whole-note source mode shows plain text. A host can focus one target: only that page is shown, user edits are confined to it, and a target without a page shows an empty card that is appended to the note on first typing. The PWA and Standard Notes show the whole note as cards. The browser panel opens the loaded note that has a page for exactly the active URL when no note is linked to that URL. VS Code Linked Note opens the active file's sidecar on its bound page, or the workspace note with the most specific bound page when no sidecar exists.",
       "hosts": ["standard-notes", "standalone", "browser", "pwa", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/core/note-pages.js",
-        "standard-notes-aic/src/core/note-pages-bar.js"
+        "standard-notes-aic/src/core/note-page-cards.js"
       ],
       "sourceFiles": [
         "standard-notes-aic/src/core/note-pages.js",
         "standard-notes-aic/src/core/note-pages.d.ts",
-        "standard-notes-aic/src/core/note-pages-bar.js",
-        "standard-notes-aic/src/core/note-pages-bar.d.ts"
+        "standard-notes-aic/src/core/note-page-cards.js",
+        "standard-notes-aic/src/core/note-page-cards.d.ts"
       ],
       "entrypoints": [
         "standard-notes-aic/src/editor.ts",
         "standard-notes-aic/src/browser/panel.ts",
+        "standard-notes-aic/src/pwa/main.ts",
         "aic-notes/src/webview/main.js",
         "aic-notes/src/secondary/provider.js",
         "aic-notes/src/notes/relationships.js"
       ],
       "verification": [
         "standard-notes-aic/test/note-pages.test.ts",
+        "standard-notes-aic/test/note-page-cards.test.ts",
         "standard-notes-aic/test/editor.test.ts",
         "standard-notes-aic/test/browser-panel.test.ts",
         "standard-notes-aic/test/browser-folder-flow.test.ts",

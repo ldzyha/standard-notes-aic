@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  appendPageText,
   displayTarget,
   normalizeTarget,
   notePages,
   pageForTarget,
-  targetSpecificity,
 } from "../src/core/note-pages.js";
 
 const texts = (source: string) =>
@@ -14,8 +14,9 @@ const targets = (source: string) =>
 
 describe("note pages", () => {
   it("always returns one unbound page for text without separators", () => {
-    expect(notePages("")).toEqual([{ from: 0, to: 0, target: null }]);
-    expect(notePages("One\ntwo")).toEqual([{ from: 0, to: 7, target: null }]);
+    const unbound = { target: null, separator: -1, content: 0 };
+    expect(notePages("")).toEqual([{ from: 0, to: 0, ...unbound }]);
+    expect(notePages("One\ntwo")).toEqual([{ from: 0, to: 7, ...unbound }]);
     expect(notePages(undefined as unknown as string)).toHaveLength(1);
   });
 
@@ -63,13 +64,13 @@ describe("note pages", () => {
     expect(texts(source)).toEqual(["--- /a.md\nFirst\n\n", "Second"]);
     expect(targets(source)).toEqual(["/a.md", null]);
     expect(targets("---\n\n--- /a\nPage")).toEqual(["/a"]);
-    expect(notePages("\n\n---\nOnly")).toEqual([
+    expect(notePages("\n\n---\nOnly")).toMatchObject([
       { from: 0, to: 10, target: null },
     ]);
   });
 
   it("keeps leading frontmatter inside page 1", () => {
-    expect(notePages("---\ntitle: A\n---")).toEqual([
+    expect(notePages("---\ntitle: A\n---")).toMatchObject([
       { from: 0, to: 16, target: null },
     ]);
     const source = "---\ntitle: A\n\nb: 1\n---\nBody\n\n--- /b\nNext";
@@ -77,11 +78,11 @@ describe("note pages", () => {
       "---\ntitle: A\n\nb: 1\n---\nBody\n\n",
       "Next",
     ]);
-    expect(notePages("---\ntitle: A\n---\n--- /first\nBody")).toEqual([
+    expect(notePages("---\ntitle: A\n---\n--- /first\nBody")).toMatchObject([
       { from: 0, to: 32, target: "/first" },
     ]);
     const bound = "---\ntitle: x\n---\n\n--- /a\np2\n\n---\np3";
-    expect(notePages(bound)).toEqual([
+    expect(notePages(bound)).toMatchObject([
       { from: 0, to: 29, target: "/a" },
       { from: 33, to: 35, target: null },
     ]);
@@ -131,11 +132,11 @@ describe("note pages", () => {
   });
 
   it("starts an empty last page for a separator at the very end", () => {
-    expect(notePages("A\n\n--- /end")).toEqual([
+    expect(notePages("A\n\n--- /end")).toMatchObject([
       { from: 0, to: 3, target: null },
       { from: 11, to: 11, target: "/end" },
     ]);
-    expect(notePages("A\n\n---\n")).toEqual([
+    expect(notePages("A\n\n---\n")).toMatchObject([
       { from: 0, to: 3, target: null },
       { from: 7, to: 7, target: null },
     ]);
@@ -159,46 +160,84 @@ describe("note page targets", () => {
     expect(normalizeTarget("Café.md")).toBe("café.md");
   });
 
-  it("matches URLs exactly, without hash or trailing slash, and below a bound prefix", () => {
+  const matches = (bound: string, target: string) =>
+    pageForTarget(notePages(`--- ${bound}\nText`), target) === 0;
+
+  it("matches URLs exactly, without hash or trailing slash, never below a bound prefix", () => {
     const bound = "https://example.com/docs";
-    expect(targetSpecificity(bound, "https://EXAMPLE.com/docs/#x")).toBe(24);
-    expect(targetSpecificity(bound, "https://example.com/docs?q=1")).toBe(24);
-    expect(targetSpecificity(bound, "https://example.com/docs/api?q=1")).toBe(
-      24,
+    expect(matches(bound, "https://EXAMPLE.com/docs/#x")).toBe(true);
+    expect(matches(bound, "https://example.com/docs?q=1")).toBe(true);
+    expect(matches(bound, "https://example.com/docs/api")).toBe(false);
+    expect(matches(bound, "https://example.com/docsx")).toBe(false);
+    expect(matches(bound, "http://example.com/docs")).toBe(false);
+    expect(matches(bound, "https://example.com/Docs")).toBe(false);
+    expect(matches(bound, "docs")).toBe(false);
+    expect(matches("https://example.com", "https://example.com/docs")).toBe(
+      false,
     );
-    expect(targetSpecificity(bound, "https://example.com/docsx")).toBe(0);
-    expect(targetSpecificity(bound, "http://example.com/docs")).toBe(0);
-    expect(targetSpecificity(bound, "https://example.com/Docs")).toBe(0);
-    expect(targetSpecificity(bound, "docs")).toBe(0);
   });
 
   it("requires the bound query when one is written", () => {
     const bound = "https://example.com/docs?id=1";
-    expect(targetSpecificity(bound, "https://example.com/docs?id=1#a")).toBe(
-      29,
-    );
-    expect(targetSpecificity(bound, "https://example.com/docs")).toBe(0);
-    expect(targetSpecificity(bound, "https://example.com/docs?id=2")).toBe(0);
-    expect(targetSpecificity(bound, "https://example.com/docs/a?id=1")).toBe(0);
+    expect(matches(bound, "https://example.com/docs?id=1#a")).toBe(true);
+    expect(matches(bound, "https://example.com/docs")).toBe(false);
+    expect(matches(bound, "https://example.com/docs?id=2")).toBe(false);
+    expect(matches(bound, "https://example.com/docs/a?id=1")).toBe(false);
   });
 
-  it("matches paths case-insensitively and files under a bound folder", () => {
-    expect(targetSpecificity("/src/app/", "SRC\\app\\editor.ts")).toBe(7);
-    expect(targetSpecificity("./src/app", "src/app")).toBe(7);
-    expect(targetSpecificity("src/app", "src/application.ts")).toBe(0);
-    expect(targetSpecificity("/", "src/app")).toBe(0);
-    expect(targetSpecificity("src/app", "https://example.com/src/app")).toBe(0);
+  it("matches paths case-insensitively and never files under a bound folder", () => {
+    expect(matches("/src/app/", "SRC\\app")).toBe(true);
+    expect(matches("./src/app/Editor.ts", "src/app/editor.ts")).toBe(true);
+    expect(matches("/src/app/", "SRC\\app\\editor.ts")).toBe(false);
+    expect(matches("src/app", "src/application.ts")).toBe(false);
+    expect(matches("/", "src/app")).toBe(false);
+    expect(matches("src/app", "https://example.com/src/app")).toBe(false);
   });
 
-  it("returns the most specific bound page and the first of equal matches", () => {
+  it("returns the first page bound to exactly the target", () => {
     const pages = notePages(
       "A\n\n--- https://example.com\nB\n\n--- https://example.com/docs\nC\n\n--- https://example.com/docs/\nD\n\n---\nE",
     );
-    expect(pageForTarget(pages, "https://example.com/docs/api")).toBe(2);
-    expect(pageForTarget(pages, "https://example.com/blog")).toBe(1);
-    expect(pageForTarget(pages, "https://other.example/docs")).toBe(-1);
+    expect(pageForTarget(pages, "https://example.com/docs")).toBe(2);
+    expect(pageForTarget(pages, "https://example.com/")).toBe(1);
+    expect(pageForTarget(pages, "https://example.com/docs/api")).toBe(-1);
+    expect(pageForTarget(pages, "https://example.com/blog")).toBe(-1);
     expect(pageForTarget(notePages("A"), "https://example.com")).toBe(-1);
   });
+
+  it("reports each page's own separator line and content start", () => {
+    const source = "---\na: 1\n---\n\n--- one\nA\n\n--- two";
+    expect(notePages(source)).toEqual([
+      { from: 0, to: 25, target: "one", separator: 14, content: 22 },
+      { from: 32, to: 32, target: "two", separator: 25, content: 32 },
+    ]);
+  });
+
+  it("returns the text that appends a page for a target", () => {
+    const cases: [string, string][] = [
+      ["", "--- src/a.ts\n"],
+      ["One", "\n\n--- src/a.ts\n"],
+      ["One\n", "\n--- src/a.ts\n"],
+      ["One\n\n", "--- src/a.ts\n"],
+      ["One\n  ", "\n--- src/a.ts\n"],
+      ["---\na: 1\n---\n", "\n--- src/a.ts\n"],
+      ["One\r\nTwo", "\r\n\r\n--- src/a.ts\r\n"],
+      // A fence left open would swallow the separator, so it is closed first.
+      ["One\n\n~~~~js\ncode", "\n~~~~\n\n--- src/a.ts\n"],
+    ];
+    for (const [text, appended] of cases) {
+      expect(appendPageText(text, " src/a.ts\n")).toBe(appended);
+      const pages = notePages(text + appended);
+      const page = pages[pageForTarget(pages, "src/a.ts")]!;
+      expect([page.content, page.to]).toEqual([
+        text.length + appended.length,
+        text.length + appended.length,
+      ]);
+    }
+    expect(appendPageText("One", "")).toBe("");
+    expect(appendPageText("One", "/")).toBe("");
+  });
+
   it("labels a URL target without its username and password", () => {
     expect(displayTarget("https://user:pw@example.com/x?q=1#top")).toBe(
       "https://example.com/x?q=1#top",
@@ -215,10 +254,7 @@ describe("note page targets", () => {
     expect(displayTarget(null)).toBe("");
     // Matching still uses the written target.
     expect(
-      targetSpecificity(
-        "https://user:pw@example.com/x",
-        "https://example.com/x",
-      ),
-    ).toBeGreaterThan(0);
+      matches("https://user:pw@example.com/x", "https://example.com/x"),
+    ).toBe(true);
   });
 });

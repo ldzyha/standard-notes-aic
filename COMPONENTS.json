@@ -192,7 +192,7 @@
     },
     {
       "id": "card",
-      "purpose": "Structured content surface with header, title, body, and actions for AIC fields, diagrams, errors, and compact read-only previews. AIC sections use larger headings and distinct neutral group backgrounds to separate their rows visually. Details keep wrapping summary titles and source actions separate, with inset child previews and one visible parent boundary. Code bodies scroll only horizontally and allow vertical gestures to continue scrolling the document.",
+      "purpose": "Structured content surface with header, title, body, and actions for AIC fields, diagrams, errors, and compact read-only previews. AIC sections use larger headings and distinct neutral group backgrounds to separate their rows visually. Details keep wrapping summary titles and source actions separate, with inset child previews and one visible parent boundary. Code bodies scroll only horizontally and allow vertical gestures to continue scrolling the document. A note page card (`page`) is the header strip over a `---` separator line: the bound target as an ellipsized label and one Open target icon button, or a plain divider for an unbound page; spacing above it separates the cards.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode", "pwa"],
       "bem": {
         "block": "aic-card",
@@ -213,7 +213,8 @@
           "readonly",
           "empty",
           "details",
-          "embedded"
+          "embedded",
+          "page"
         ]
       },
       "canonicalOwners": [
@@ -221,7 +222,8 @@
         "standard-notes-aic/src/core/ui-system.css",
         "standard-notes-aic/src/core/security-block.js",
         "standard-notes-aic/src/core/details-preview.js",
-        "standard-notes-aic/src/core/preview-layout.css"
+        "standard-notes-aic/src/core/preview-layout.css",
+        "standard-notes-aic/src/core/note-page-cards.js"
       ],
       "legacyHooks": {
         "shared": [
@@ -314,27 +316,6 @@
         ]
       },
       "adoption": "partial"
-    },
-    {
-      "id": "pages",
-      "purpose": "Compact page bar for a note split by `---` lines: previous/next icon buttons, the `2 / 5` position and the bound target as an ellipsized label. Shown only for multi-page notes, above the editor content in preview and source modes; buttons keep editor focus on pointer use, stay keyboard reachable and use 44 px coarse-pointer targets.",
-      "hosts": ["standard-notes", "standalone", "browser", "pwa"],
-      "bem": {
-        "block": "aic-pages",
-        "elements": ["position", "target"],
-        "modifiers": []
-      },
-      "canonicalOwners": [
-        "standard-notes-aic/src/core/ui-system.js",
-        "standard-notes-aic/src/core/ui-system.css",
-        "standard-notes-aic/src/core/note-pages-bar.js"
-      ],
-      "legacyHooks": {
-        "shared": [],
-        "browser": [],
-        "vscode": []
-      },
-      "adoption": "complete"
     }
   ],
   "coverageGaps": [

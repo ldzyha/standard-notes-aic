@@ -211,7 +211,12 @@ describe("whole-note source mode", () => {
     expect(editor.element.querySelector(".cm-md-table")).toBeNull();
     expect(editor.element.querySelector(".cm-aic-security")).toBeNull();
     expect(editor.element.querySelector(".cm-mermaid-inline")).toBeNull();
-    expect(editor.view.state.facet(EditorView.atomicRanges)).toHaveLength(0);
+    // Only the page-focus hiding stays installed; unfocused it has no ranges.
+    expect(
+      editor.view.state
+        .facet(EditorView.atomicRanges)
+        .map((source) => source(editor.view).size),
+    ).toEqual([0]);
     expect(onChange).not.toHaveBeenCalled();
     expect(onSave).not.toHaveBeenCalled();
 

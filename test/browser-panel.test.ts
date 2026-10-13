@@ -54,6 +54,7 @@ function fixture(
   } = {},
 ) {
   let state = options.state ?? "ready";
+  const openedTab = vi.fn(async () => ({}));
   let page: ActivePage | null = {
     tabId: 7,
     windowId: 2,
@@ -208,11 +209,17 @@ function fixture(
       getCurrent: async () => ({ id: 2, incognito: options.private ?? false }),
     },
     storage: { onChanged: changed },
-    tabs: { onActivated: activated, onUpdated: updated, onRemoved: removed },
+    tabs: {
+      onActivated: activated,
+      onUpdated: updated,
+      onRemoved: removed,
+      create: openedTab,
+    },
     permissions: { request: vi.fn(async () => true) },
   } as unknown as BrowserApi;
   return {
     api,
+    openedTab,
     messages,
     recoveries,
     library,
@@ -320,12 +327,17 @@ describe("browser panel", () => {
     const view = editor(root);
     expect(view.state.doc.toString()).toBe(markdown);
     expect(view.state.selection.main.head).toBe(markdown.indexOf("Page A"));
-    expect(root.querySelector(".aic-pages__position")?.textContent).toBe(
-      "3 / 3",
-    );
-    expect(root.querySelector(".aic-pages__target")?.textContent).toBe(
-      "https://example.com/a",
-    );
+    const cards = [...root.querySelectorAll(".aic-card--page")];
+    expect(
+      cards.map((card) => card.querySelector(".aic-card__title")?.textContent),
+    ).toEqual(["https://example.com", "https://example.com/a"]);
+    cards[1]!
+      .querySelector<HTMLButtonElement>('[aria-label="Open target"]')!
+      .click();
+    expect(fake.openedTab).toHaveBeenCalledExactlyOnceWith({
+      url: "https://example.com/a",
+      windowId: 2,
+    });
 
     // A same-page title update neither remounts the editor nor moves the caret.
     view.dispatch({ selection: { anchor: 0 } });
@@ -351,7 +363,7 @@ describe("browser panel", () => {
     expect(fake.library.notes).toHaveLength(2);
   });
 
-  it("opens a bound page for a URL under its prefix and prefers an exact URL note", async () => {
+  it("opens a bound page only for exactly its URL and prefers an exact URL note", async () => {
     const markdown = "Index\n\n--- https://example.com/docs\nDocs";
     const fake = fixture({
       notes: [
@@ -365,8 +377,8 @@ describe("browser panel", () => {
     fake.setPage({
       tabId: 7,
       windowId: 2,
-      title: "API",
-      url: "https://example.com/docs/api?v=2#top",
+      title: "Docs",
+      url: "https://example.com/docs/?v=2#top",
     });
     const { root, panel } = mount(fake.api);
     await panel.ready;
@@ -409,7 +421,22 @@ describe("browser panel", () => {
         root.querySelector(".cm-editor") && editor(root).state.doc.toString(),
       ).toBe(""),
     );
-    expect(root.querySelector(".aic-pages")).toBeNull();
+    expect(root.querySelector(".aic-card--page")).toBeNull();
+
+    // A URL below the bound one is a different target.
+    fake.setPage({
+      tabId: 7,
+      windowId: 2,
+      title: "API",
+      url: "https://example.com/docs/api",
+    });
+    fake.updated.emit(
+      7,
+      { url: "https://example.com/docs/api" },
+      { id: 7, windowId: 2, active: true },
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(editor(root).state.doc.toString()).toBe("");
   });
 
   it("keeps available notes editable while showing skipped-file notices", async () => {

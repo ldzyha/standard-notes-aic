@@ -1,4 +1,5 @@
 import { ChangeSet, EditorState, StateEffect } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
 import { relatedPageLink } from "./related-links";
 import { AicEditor } from "../editor";
 import { request, type Request, type ActivePage, type BrowserApi } from "./api";
@@ -6,11 +7,7 @@ import { BrowserDrafts, type Draft } from "./drafts";
 import { savedPageAncestors } from "./page-ancestors";
 import { applyUiComponent, createUiButton } from "../core/ui-system.js";
 import { createEditorHelp } from "../core/editor-help.js";
-import {
-  notePages,
-  pageForTarget,
-  targetSpecificity,
-} from "../core/note-pages.js";
+import { notePages, pageForTarget } from "../core/note-pages.js";
 import {
   buildDomainTree,
   type BrowserLibrary,
@@ -1920,28 +1917,29 @@ export class BrowserPanel {
       this.content.append(this.el("nav", "browser-page-ancestors"));
       this.renderPageAncestors();
       const url = this.page.url;
-      // The note linked to this exact URL wins; otherwise the loaded note with
-      // the most specific `--- <url>` page opens on that page.
-      let note = this.library.notes.find((item) => item.url === url);
-      let score = 0;
-      if (!note)
-        for (const item of this.library.notes) {
-          // Bound pages are read from already loaded text on each navigation.
-          if (!item.markdown.includes("---")) continue;
-          const pages = notePages(item.markdown);
-          const target = pages[pageForTarget(pages, url)]?.target;
-          const next = target ? targetSpecificity(target, url) : 0;
-          if (next > score) [note, score] = [item, next];
-        }
+      // The note linked to this exact URL wins; otherwise the first loaded
+      // note with a `--- <url>` page for exactly this URL opens on that page.
+      // Bound pages are read from already loaded text on each navigation.
+      const note =
+        this.library.notes.find((item) => item.url === url) ??
+        this.library.notes.find(
+          (item) =>
+            item.markdown.includes("---") &&
+            pageForTarget(notePages(item.markdown), url) >= 0,
+        );
       this.mountEditor(
         note
           ? this.drafts!.activate(note)
           : this.drafts!.activatePlaceholder(this.page, PLACEHOLDER_TEXT),
       );
-      if (note)
-        this.editor!.showPage(
-          pageForTarget(notePages(this.editor!.value), url),
-        );
+      const view = this.editor!.view;
+      const pages = notePages(view.state.doc.toString());
+      const page = note ? pages[pageForTarget(pages, url)] : undefined;
+      if (page)
+        view.dispatch({
+          selection: { anchor: page.content },
+          effects: EditorView.scrollIntoView(page.content, { y: "start" }),
+        });
     } else {
       const empty = this.el("section", "browser-empty-context");
       empty.append(this.el("p", "", "Open a web page to start a note."));
@@ -1981,6 +1979,10 @@ export class BrowserPanel {
         !this.deleting
           ? this.drafts!.flush(draft.key)
           : false,
+      onOpenTarget: (target) => {
+        if (/^https?:\/\//iu.test(target))
+          void this.openTab(target).catch((error) => this.fail(error));
+      },
     });
     this.editor.switchDocument(draft.key, draft.text);
     this.editor.view.dispatch({

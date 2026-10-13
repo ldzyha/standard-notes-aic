@@ -27,6 +27,7 @@ const state = vi.hoisted(() => ({
   pickSelection: null as
     ((options: FileSelectionOptions) => Promise<PickedFiles | null>) | null,
   downloads: [] as Blob[],
+  openTarget: null as ((target: string) => void) | null,
 }));
 
 function nativeFile(
@@ -170,8 +171,10 @@ vi.mock("../src/editor", () => ({
         initialText: string;
         readOnly?: boolean;
         onChange(text: string): void;
+        onOpenTarget?(target: string): void;
       },
     ) {
+      state.openTarget = options.onOpenTarget ?? null;
       this.field = document.createElement("textarea");
       this.field.className = "synthetic-editor";
       this.field.value = options.initialText;
@@ -1419,6 +1422,34 @@ describe("PWA direct Markdown workspaces", () => {
     control("Open docs/guide.md").click();
     await idle();
     expect(editorField().value).toBe("Guide");
+  });
+
+  it("opens a page card target: a workspace file here, a web URL in a new tab", async () => {
+    state.pickedFiles = {
+      files: [
+        createPwaFile("a-notebook.md", new TextEncoder().encode("Index")),
+        createPwaFile("docs/guide.md", new TextEncoder().encode("Guide")),
+      ],
+      directories: [],
+    };
+    control("Open folder").click();
+    await idle();
+    const open = vi.spyOn(window, "open").mockReturnValue(null);
+    state.openTarget!("https://example.com/docs");
+    expect(open).toHaveBeenCalledExactlyOnceWith(
+      "https://example.com/docs",
+      "_blank",
+      "noopener",
+    );
+    for (const target of ["docs", "docs/missing.md", "mailto:a@example.com"])
+      state.openTarget!(target);
+    await idle();
+    expect(editorField().value).toBe("Index");
+    state.openTarget!("./Docs\\guide.md");
+    await idle();
+    expect(editorField().value).toBe("Guide");
+    expect(open).toHaveBeenCalledTimes(1);
+    open.mockRestore();
   });
 
   it("reopens the last note by identity on a cold start and keeps it across pagehide", async () => {

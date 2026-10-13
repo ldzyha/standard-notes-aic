@@ -273,9 +273,9 @@ describe("browser folder workflow across worker and browser restarts", () => {
     expect(view.state.selection.main.head).toBe(
       notebook.indexOf("Project page"),
     );
-    expect(root.querySelector(".aic-pages__position")?.textContent).toBe(
-      "2 / 2",
-    );
+    expect(
+      root.querySelector(".aic-card--page .aic-card__title")?.textContent,
+    ).toBe("https://example.test/project");
     view.dispatch({ changes: { from: notebook.length, insert: "More\n" } });
     await vi.waitFor(() =>
       expect(h.files.text("notebook.md")).toBe(`${notebook}More\n`),
