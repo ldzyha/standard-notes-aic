@@ -304,7 +304,8 @@ describe("focused note page", () => {
     ["One\n\n```js\nopen", "One\n\n```js\nopen\n\n--- t\nx"],
     // The page exists but has no line of its own yet.
     ["One\n\n--- t", "One\n\n--- t\nx"],
-    ["--- t\n\n--- u\nU", "--- t\n\n--- u\nU\n\n--- t\nx"],
+    // A leading empty page is written in place, not appended again.
+    ["--- t\n\n--- u\nU", "--- t\nx\n\n--- u\nU"],
   ])("creates the page for %j", (source, written) => {
     const { view, text, page } = mount(source);
     focusPageTarget(view, "t");
@@ -381,6 +382,35 @@ describe("focused note page", () => {
       "BBB linex\n\n",
       "CCC line\n",
     ]);
+    view.destroy();
+  });
+
+  it("keeps typing in the first page after its text is deleted", () => {
+    const { view, text, page } = mount("--- a\nA\n\n--- b\nB\n");
+    focusPageTarget(view, "a");
+    const { from, to } = focusedPage(view.state)!;
+    view.dispatch({ changes: { from, to }, userEvent: "delete.selection" });
+    expect(text()).toBe("--- a\n\n\n--- b\nB\n");
+    expect(focusedPage(view.state)).toMatchObject({ exists: true, from: 6 });
+    view.dispatch(view.state.replaceSelection("n"));
+    expect(text()).toBe("--- a\nn\n\n--- b\nB\n");
+    expect(page()).toBe("n");
+    // The same after a reload of the emptied note.
+    const reloaded = mount("--- a\n\n--- b\nB\n");
+    focusPageTarget(reloaded.view, "a");
+    expect(focusedPage(reloaded.view.state)).toMatchObject({ exists: true });
+    reloaded.view.dispatch(reloaded.view.state.replaceSelection("n"));
+    expect(reloaded.text()).toBe("--- a\nn\n\n--- b\nB\n");
+    view.destroy();
+    reloaded.view.destroy();
+  });
+
+  it("does not focus a target that cannot be written as a page", () => {
+    const { view, text } = mount("Intro");
+    expect(focusPageTarget(view, "a\u2028b")).toBe(false);
+    expect(focusedPage(view.state)).toBeNull();
+    view.dispatch(view.state.replaceSelection("x"));
+    expect(text()).toBe("xIntro");
     view.destroy();
   });
 

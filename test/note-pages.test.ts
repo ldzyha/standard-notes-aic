@@ -63,10 +63,22 @@ describe("note pages", () => {
     // Page 1 starts at 0 and keeps its own leading separator line.
     expect(texts(source)).toEqual(["--- /a.md\nFirst\n\n", "Second"]);
     expect(targets(source)).toEqual(["/a.md", null]);
-    expect(targets("---\n\n--- /a\nPage")).toEqual(["/a"]);
+    expect(targets("---\n\n--- /a\nPage")).toEqual([null, "/a"]);
     expect(notePages("\n\n---\nOnly")).toMatchObject([
       { from: 0, to: 10, target: null },
     ]);
+  });
+
+  it("keeps empty pages after a leading separator", () => {
+    expect(notePages("--- a\n\n--- b\nB\n")).toEqual([
+      { from: 0, to: 7, target: "a", separator: 0, content: 6 },
+      { from: 13, to: 15, target: "b", separator: 7, content: 13 },
+    ]);
+    expect(targets("--- a\n\n--- b\n\n--- c\nC")).toEqual(["a", "b", "c"]);
+    expect(targets("\n--- a\n\n\n---\n\n--- c")).toEqual(["a", null, "c"]);
+    // Only the implicit page before the first separator is dropped.
+    expect(targets("---\na: 1\n---\n\n--- a\n\n--- b")).toEqual(["a", "b"]);
+    expect(targets("\n\n---\n\n---\n\n---\n")).toEqual([null, null, null]);
   });
 
   it("keeps leading frontmatter inside page 1", () => {
@@ -263,6 +275,21 @@ describe("note page targets", () => {
     }
     expect(appendPageText("One", "")).toBe("");
     expect(appendPageText("One", "/")).toBe("");
+  });
+
+  it("refuses a target that would not be read back as a page", () => {
+    for (const target of ["a\u2028b", "a\u2029b", "\u2028", "a\u2028"]) {
+      const appended = appendPageText("One", target);
+      const name = target.trim();
+      if (!appended) continue;
+      // Whatever is returned must be found again, or typing would repeat it.
+      expect(appended).toBe(`\n\n--- ${name}\n`);
+      const pages = notePages(`One${appended}`);
+      expect(pageForTarget(pages, target)).toBe(pages.length - 1);
+    }
+    expect(appendPageText("One", "a\u2028b")).toBe("");
+    expect(appendPageText("", "a\u2029b")).toBe("");
+    expect(appendPageText("One", "a\u0085b \t")).toBe("\n\n--- a\u0085b\n");
   });
 
   it("labels a URL target without its username and password", () => {
