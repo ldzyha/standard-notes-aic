@@ -445,25 +445,87 @@ export function slashSnippetSections() {
   );
 }
 
+function isSubsequence(needle, text) {
+  let at = 0;
+  for (const character of text) if (character === needle[at]) at += 1;
+  return at === needle.length;
+}
+
+// Lower is better: the command itself, then its aliases, then loose matches.
+// Each term is matched on its own, so letters never match across aliases.
+function slashSnippetRank(entry, typed) {
+  if (!typed) return 0;
+  const command = entry.command.toLowerCase();
+  const aliases = entry.searchTerms.map((term) => term.toLowerCase());
+  if (command === typed) return 0;
+  if (command.startsWith(typed)) return 1;
+  if (aliases.includes(typed)) return 2;
+  if (aliases.some((alias) => alias.startsWith(typed))) return 3;
+  if (command.includes(typed)) return 4;
+  if (aliases.some((alias) => alias.includes(typed))) return 5;
+  if (isSubsequence(typed, command)) return 6;
+  if (aliases.some((alias) => isSubsequence(typed, alias))) return 7;
+  return -1;
+}
+
+/**
+ * Matching and order are decided here (`filter: false`): an exact command,
+ * then a command prefix, then an alias, then a loose match. The group holding
+ * the best match comes first; a bare `/` lists the catalogue in its own order.
+ */
 export function slashSnippetCompletions(context) {
   const query = slashSnippetQuery(context.state, context.pos);
   if (!query) return null;
-  const menuSections = slashSnippetSections(query.hasPageContent);
+  const typed = query.text.slice(1).toLowerCase();
   const sourceBeforeCursor = context.state.sliceDoc(0, query.from);
+  const ranked = DOCUMENTATION_SNIPPETS.map((entry, index) => ({
+    entry,
+    index,
+    rank: slashSnippetRank(entry, typed),
+  })).filter(({ rank }) => rank >= 0);
+  const best = (group) =>
+    Math.min(
+      ...ranked
+        .filter(({ entry }) => entry.group === group)
+        .map((item) => item.rank),
+    );
+  const groups = GROUP_ORDER.filter((group) =>
+    ranked.some(({ entry }) => entry.group === group),
+  ).sort((left, right) => best(left) - best(right));
+  const menuSections = Object.fromEntries(
+    groups.map((group, rank) => [
+      group,
+      Object.freeze({ name: SLASH_SNIPPET_GROUP_NAMES[group], rank }),
+    ]),
+  );
+  const prefixed = new Set();
+  const options = ranked
+    .sort(
+      (left, right) =>
+        menuSections[left.entry.group].rank -
+          menuSections[right.entry.group].rank ||
+        left.rank - right.rank ||
+        left.index - right.index,
+    )
+    .map(({ entry, rank }) => {
+      const option = snippetCompletion(
+        slashSnippetTemplate(entry, sourceBeforeCursor),
+        {
+          label: "/" + entry.command,
+          displayLabel: "/" + entry.command,
+          detail: entry.title,
+          type: "text",
+          section: menuSections[entry.group],
+        },
+      );
+      if (typed && rank <= 1) prefixed.add(option);
+      return option;
+    });
   return {
     from: query.from,
-    options: DOCUMENTATION_SNIPPETS.map((entry) =>
-      snippetCompletion(slashSnippetTemplate(entry, sourceBeforeCursor), {
-        label: slashSnippetSearchText(entry),
-        ...(entry.searchTerms.length
-          ? { displayLabel: "/" + entry.command, sortText: "/" + entry.command }
-          : {}),
-        detail: entry.title,
-        type: "text",
-        section: menuSections[entry.group],
-      }),
-    ),
-    validFor: /^\/[\p{L}\p{N}_-]*$/u,
+    options,
+    filter: false,
+    getMatch: (option) => (prefixed.has(option) ? [0, query.text.length] : []),
   };
 }
 

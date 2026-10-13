@@ -4,6 +4,7 @@ import {
   currentCompletions,
   hasNextSnippetField,
   nextSnippetField,
+  selectedCompletion,
   startCompletion,
 } from "@codemirror/autocomplete";
 import { EditorState } from "@codemirror/state";
@@ -374,6 +375,68 @@ describe("shared documentation slash snippets", () => {
         slashSnippetQuery(state("/" + command, true), command.length + 1),
       ).toBeNull();
     }
+  });
+
+  it("ranks a command match above alias and loose matches in the menu", async () => {
+    for (const [query, expected] of [
+      ["/error", ["/error-handling"]],
+      ["/aic", ["/aic"]],
+      ["/sec", ["/section", "/aic", "/sequence"]],
+      ["/test", ["/test-cases"]],
+      ["/gloss", ["/glossary"]],
+      ["/list", ["/list", "/list-numbered", "/checklist"]],
+      ["/security", ["/aic"]],
+    ] as const) {
+      const parent = document.createElement("div");
+      document.body.append(parent);
+      const view = new EditorView({
+        parent,
+        state: EditorState.create({
+          doc: query,
+          selection: { anchor: query.length },
+          extensions: [aicMarkdownLanguage(), slashSnippetExtension()],
+        }),
+      });
+      startCompletion(view);
+      await expect
+        .poll(() =>
+          currentCompletions(view.state).map(
+            ({ displayLabel }) => displayLabel,
+          ),
+        )
+        .toEqual(expected);
+      // Enter takes the first entry.
+      expect(selectedCompletion(view.state)?.displayLabel).toBe(expected[0]);
+      view.destroy();
+      parent.remove();
+    }
+  });
+
+  it("re-ranks while typing and lists a bare slash in catalogue order", async () => {
+    const parent = document.createElement("div");
+    document.body.append(parent);
+    const view = new EditorView({
+      parent,
+      state: EditorState.create({
+        doc: "/",
+        selection: { anchor: 1 },
+        extensions: [aicMarkdownLanguage(), slashSnippetExtension()],
+      }),
+    });
+    const shown = () =>
+      currentCompletions(view.state).map(({ displayLabel }) => displayLabel);
+    startCompletion(view);
+    await expect
+      .poll(shown)
+      .toEqual(DOCUMENTATION_SNIPPETS.map(({ command }) => "/" + command));
+    for (const character of "error")
+      view.dispatch({
+        ...view.state.replaceSelection(character),
+        userEvent: "input.type",
+      });
+    await expect.poll(shown).toEqual(["/error-handling"]);
+    view.destroy();
+    parent.remove();
   });
 
   it("ranks list forms first for /list and the ordered form first for /list-numbered", async () => {
