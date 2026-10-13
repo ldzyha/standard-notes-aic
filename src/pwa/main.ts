@@ -1606,11 +1606,22 @@ function openPageTarget(target: string) {
     return;
   }
   const path = normalizeTarget(target);
-  const file = payload?.files.find(
-    (item) => isMarkdownPath(item.path) && normalizeTarget(item.path) === path,
+  const notes = (payload?.files ?? []).filter((item) =>
+    isMarkdownPath(item.path),
   );
-  if (file && file.id !== selectedId)
-    void run(() => openWorkspaceFile(file.id));
+  // A folder opened from disk stores its files under the folder's own name,
+  // while a target is written relative to that folder.
+  const current = notes.find((item) => item.id === selectedId)?.path ?? "";
+  const root = current.includes("/")
+    ? normalizeTarget(current.slice(0, current.indexOf("/"))) + "/"
+    : "";
+  const file =
+    notes.find((item) => normalizeTarget(item.path) === path) ??
+    (root
+      ? notes.find((item) => normalizeTarget(item.path) === root + path)
+      : undefined);
+  if (!file) notify("No note in this workspace matches this target.");
+  else if (file.id !== selectedId) void run(() => openWorkspaceFile(file.id));
 }
 
 function mountEditor(id: string, text: string) {

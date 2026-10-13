@@ -1427,13 +1427,18 @@ describe("PWA direct Markdown workspaces", () => {
   it("opens a page card target: a workspace file here, a web URL in a new tab", async () => {
     state.pickedFiles = {
       files: [
-        createPwaFile("a-notebook.md", new TextEncoder().encode("Index")),
-        createPwaFile("docs/guide.md", new TextEncoder().encode("Guide")),
+        // A folder opened from disk keeps its own name as the first segment.
+        createPwaFile("ws/a-notebook.md", new TextEncoder().encode("Index")),
+        createPwaFile("ws/docs/guide.md", new TextEncoder().encode("Guide")),
+        createPwaFile("ws/docs/more.md", new TextEncoder().encode("More")),
       ],
-      directories: [],
+      directories: ["ws"],
     };
     control("Open folder").click();
     await idle();
+    const notice = () =>
+      document.querySelector<HTMLElement>(".aic-notice:not([hidden])")
+        ?.textContent ?? "";
     const open = vi.spyOn(window, "open").mockReturnValue(null);
     state.openTarget!("https://example.com/docs");
     expect(open).toHaveBeenCalledExactlyOnceWith(
@@ -1441,13 +1446,27 @@ describe("PWA direct Markdown workspaces", () => {
       "_blank",
       "noopener",
     );
-    for (const target of ["docs", "docs/missing.md", "mailto:a@example.com"])
+    expect(notice()).not.toContain("matches this target");
+    for (const target of [
+      "docs",
+      "docs/missing.md",
+      "src/app.ts",
+      "mailto:a@example.com",
+    ]) {
       state.openTarget!(target);
-    await idle();
-    expect(editorField().value).toBe("Index");
+      await idle();
+      expect(notice()).toBe("No note in this workspace matches this target.");
+      expect(editorField().value).toBe("Index");
+    }
+    // Targets are written relative to the opened folder.
     state.openTarget!("./Docs\\guide.md");
     await idle();
     expect(editorField().value).toBe("Guide");
+    expect(notice()).not.toContain("matches this target");
+    // The stored path still matches as written.
+    state.openTarget!("ws/docs/more.md");
+    await idle();
+    expect(editorField().value).toBe("More");
     expect(open).toHaveBeenCalledTimes(1);
     open.mockRestore();
   });

@@ -823,8 +823,9 @@ modes:
 Hosts:
 
 - PWA and Standard Notes: the whole note as cards. Open target opens an
-  http(s) URL in a new tab; in the PWA a path equal to a workspace file selects
-  that file. A file selected in the PWA tree always opens itself.
+  http(s) URL in a new tab; in the PWA a path equal to a workspace file, as
+  stored or relative to the opened folder, selects that file, and a notice says
+  when no note matches. A file selected in the PWA tree always opens itself.
 - Browser panel, while following the active tab: the note linked to the exact
   URL opens first, on its own bound page when it has one. Otherwise the first
   loaded folder note with a page for exactly that URL opens on that page and
