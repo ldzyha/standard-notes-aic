@@ -812,6 +812,9 @@ modes:
   reached by the caret or select-all.
 - A user edit that reaches outside the page is dropped. Host document updates
   pass, and the page is found again in the new text.
+- Undo and redo stay in the focused page: the undo history
+  (`notePageHistory`) is emptied when the focused target changes, and host
+  document updates are not undo steps.
 - A target without a page shows an empty card. The first typing appends the
   page to the end of the note; focusing alone never changes the text, and a
   read-only note is not written.
