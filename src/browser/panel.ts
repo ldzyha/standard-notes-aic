@@ -868,7 +868,7 @@ export class BrowserPanel {
       if (!id || !this.valid(generation)) return;
       if (!(await this.flushAllDrafts()))
         throw new Error(
-          "Save or export your unsaved drafts before changing files.",
+          "Save your unsaved draft, or export and discard it, before changing files.",
         );
       const status = await this.sourceWork(() =>
         this.send<BrowserStatus>({
