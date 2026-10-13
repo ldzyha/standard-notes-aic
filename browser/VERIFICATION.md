@@ -2,6 +2,25 @@
 
 [English](VERIFICATION.md) · [Українська](VERIFICATION.uk.md)
 
+## One note file — October 13, 2026
+
+The panel edits one note file (`aic.md` in the connected folder, or the connected
+file) and shows the page bound to the active tab's URL. Per-URL note files, the
+links index, the notes tree, history, ancestors, related links, pin, file
+linking, page deletion and folder scanning were removed. Everything below about
+those features is history and does not describe current behaviour.
+
+Verified only by synthetic Vitest suites with simulated browser APIs and DOM; no
+installed extension was run in Chrome or Edge. A test of a folder holding files
+of the earlier layout, an unfinished `.aic/links.pending.json` and a held
+`.aic/write.lock` confirms that `aic.md` is created only by the first save and
+that every earlier file and the `.aic` directory stay byte-identical.
+`npm run format:check`, `npm run lint`, `npm run typecheck`, `npm run build`,
+`npm run build:pwa` and `npm run build:browser` passed. `npm test`: 1197 of 1199
+tests passed; two registry checks in `ui-registry-contract` failed on `aic-notes`
+paths (`src/webview/host-changes.js`, `test/templates.test.js`) that belong to
+separate unfinished work in that repository.
+
 ## Continue after restart and shared-file refresh — October 2, 2026
 
 The final `npm run check` passed on **Node 22.23.3**: **1,325 tests in 112 files**,
