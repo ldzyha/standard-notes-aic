@@ -11,14 +11,11 @@ AIC does not add encryption, passwords, encrypted backups or legacy conversion.
 Masking and copy-without-reveal remain shared display behavior for typed fields.
 External storage, such as a user-managed Drive folder, owns protection and sync.
 
-Browser notes use real Markdown files. `.aic/links.json` in a selected folder
-records only file/URL/scope metadata. Files without URL links open directly in the
-connected file tree. Current follows the active URL until a file is selected;
-Shared belongs to the origin and Global to the selected folder. Selecting an
-empty context does not create a file; new documents have no automatic AIC block.
-All three scopes directly edit ordinary Markdown with optional AIC blocks, using
-the same editor and acknowledged save barrier. Source path and Download copy
-follow the active scope; Global stays selected across browser page changes.
+The browser extension edits one real Markdown note file: `aic.md` in the selected
+folder, created by the first save, or the selected file. No other file in the
+folder is read or written. Connecting or viewing a page does not create a file;
+new documents have no automatic AIC block. Source path and Download note file
+refer to that file; Download page exports the focused page.
 Remembered unavailable locations show one Continue action after the handle is
 ready. Reconnect is only offered when access needs renewal; an explicit AIC tab
 can obtain the same browser grant, which the original panel rechecks on return.
@@ -119,15 +116,9 @@ instead of the hidden native caret, with host-aware color and a 2 px stroke.
 Focus visibility remains owned by CodeMirror; reduced motion stops blinking and
 forced colors use the system text color.
 
-Browser **Notes** projects saved pages into one connected domain/path tree with
-expandable folders and SVG folder/document icons. It retains useful path groups
-without single-page ladders and has no separate recent-page list. It does not
-rewrite URLs or persist display trees. Visible note labels are bounded and omit
-raw query/fragment text; the exact stored URL remains the navigation target and
-note identity. Existing blank note records stay visible in the tree.
-Each browser page note is a separate plain Markdown file; structured values stay
-masked. The worker owns file
-commits and URL metadata. There is no AIC account, encryption or synchronization.
+The browser panel has no notes tree or recent-page list; it shows the page of the
+one note file bound to the active tab. Structured values stay masked. The worker
+owns file commits. There is no AIC account, encryption or synchronization.
 
 Above the current editor, a compact chain exposes only metadata links for saved
 same-origin path-segment ancestors. Query-bearing lookalikes and siblings are not
@@ -637,16 +628,15 @@ explicit distribution manifest, not maintained independently in the extension.
 - Publication is a separate acceptance step: verify package/tag/archive versions,
   Pages deployment and the live manifest before announcing deployment.
 
-## Browser pinned-note provenance
+## Browser page focus
 
-`src/browser/panel.ts` owns the panel-local pin and separately tracks the active
-page. Pinned tab changes preserve the editor, selection and Undo history. Pin and
-unpin use the existing draft save coordinator; changing the connected source or
-disposing the panel clears the pin.
-`src/browser/related-links.ts` adds deduplicated, escaped active-page links to a
-Related links section only on editor input transactions. Generated links share
-Undo and persistence with the edit. Shared core and storage schema are unchanged.
-Coverage: `browser-panel`, `browser-related-links` and the feature registry checks.
+`src/browser/panel.ts` mounts one editor for the note file and calls
+`focusTarget` with the active tab's URL (without its fragment) on every tab
+change. Refocusing keeps the document, selection, Undo history and an unsaved
+draft. Text read again from disk reaches the editor through `updateDocument`
+as an external change and never replaces a dirty draft; the save then reports
+the conflict. Coverage: `browser-panel`, `browser-folder-flow` and the feature
+registry checks.
 
 ## Portable agent instructions
 
@@ -664,8 +654,8 @@ Browser transfer actions live in the bounded More options menu and use shared
 labels and a narrow width cap. File and folder actions replace encrypted backups. Accessible
 labels retain the complete action, and shared primitives preserve focus styles
 and coarse-pointer touch targets. Navigation, help and confirmation surfaces
-retain their own width and lifecycle. Coverage: `browser-panel-actions`,
-`browser-panel-ux` and responsive browser validation.
+retain their own width and lifecycle. Coverage: `browser-panel-actions`
+and responsive browser validation.
 
 ## Portable file notes
 
@@ -764,16 +754,17 @@ Coverage: `pwa-ui`, `pwa-ai-controls` and separate responsive-browser validation
 ## One note at a time
 
 Each host shows exactly one note. The PWA shows the file selected in the tree.
-The browser panel shows the note for the active tab's exact URL, the pinned
-page, or a file selected from the tree; **Follow active tab** returns to URL
-navigation and **Link file to current page** is available for selected folder
-files. There are no Current, Shared or Global tabs.
+The browser panel shows the one note file of the connected source: `aic.md` in
+the connected folder, or the connected file. It focuses the page bound to the
+active tab's URL by a `--- <url>` line; a URL without a page shows an empty card
+and the page is appended on the first typing. A tab without an http(s) URL shows
+the whole note. There are no per-URL note files, notes tree, history, pin or
+file linking, and no Current, Shared or Global tabs.
 
-Files written by the retired Shared and Global tabs (`shared/<id>.md`,
-`global.md`) and any `*.note.md` sidecars stay on disk as ordinary Markdown and
-open from the file tree. Their `.aic/links.json` entries remain valid and are
-preserved when the index is rewritten. The browser folder index holds only
-file/URL metadata; document content stays in Markdown.
+Files written by earlier versions (`pages/*.md`, `shared/<id>.md`, `global.md`,
+other `*.md`, `.aic/links.json`, `.aic/links.pending.json`, `.aic/write.lock`)
+stay on disk untouched and are no longer read. Stored recovery drafts from those
+versions stay reviewable and exportable and are never applied to the note file.
 
 PWA saves update connected original Markdown files. On browsers with native
 write support, cached copies remain read-only until a destination is connected.

@@ -6,33 +6,24 @@
 [Releases and installation](https://aic.dzyha.com/releases) ·
 [How to write documents](https://aic.dzyha.com/how-to)
 
-AIC edits local Markdown files in a browser side panel. The PWA, browser extension
-and VS Code use the same Markdown and fenced `aic` syntax. Browser notes can also
-be linked to page URLs. This page describes the prepared plain-file version;
+AIC edits one local Markdown note file in a browser side panel and shows the
+part of it that belongs to the page you are on. The PWA, browser extension
+and VS Code use the same Markdown and fenced `aic` syntax. This page describes the prepared plain-file version;
 package publication and store approval are verified separately.
 
 ## Open files and start writing
 
-Choose **Open file** or **Open folder** through the browser's file picker. Notes are
-saved directly to those files. A folder opens a file tree; select a note to edit
-it. **More options → New file** creates a blank document at a selected destination
-or a named path inside the connected folder. Add Markdown or an AIC block when needed.
+Choose **Open folder** or **Open file** through the browser's file picker. A
+folder uses the file `aic.md` inside it; a file is used as it is. Notes are saved
+directly to that one file. A missing `aic.md` is created by your first edit, not
+by opening the folder. An existing `aic.md` is used unchanged. AIC reads and
+writes no other file in the folder. The note file can be up to 512 KiB; a larger
+file is not opened or saved and is never truncated.
 
 A remembered location shows its name and one **Continue** button when access needs
 renewal. The button becomes available once the saved file handle is ready; it
 requests access to that same location without choosing it again. Use **More options**
 to open a different file or folder.
-
-Folder scanning shows entries checked, notes ready and the current path; the total
-is unknown, so progress has no percentage. **Use found notes** stops the scan and
-keeps notes already read. Use **Scan again** after stopping, or **More options →
-Refresh folder**, to rescan explicitly. Once connected, ordinary note loads,
-tab changes and saves reuse the indexed files rather than scanning the folder again.
-
-When a folder scan finds notes, the **Notes** tree opens automatically. Large
-trees load child rows on expansion and show 100 rows per level at a time; **Show
-more** reveals the next rows. Search covers all indexed notes, including those
-outside the currently displayed rows.
 
 The selected location and save status stay visible. Wait for the disk-save
 confirmation before closing. If the file changed elsewhere, was deleted or lost
@@ -67,42 +58,37 @@ text. File encryption is managed by your device or filesystem.
 
 ## Notes and web pages
 
-For a folder connection, **Link file to current page** associates the selected
-file with the exact page URL. Choose **Follow active tab** to resume page-based
-navigation after selecting files. Merely visiting a page does not create a note. A folder stores URL associations in
-`.aic/links.json`; the note content remains in Markdown files.
-
-The panel shows one note at a time: the note for the active tab's exact URL, the
-pinned page, or a file selected from the tree. The visible path and **Download
-copy** refer to that note. After choosing an independent file, **Follow active
-tab** restores the page context.
-
-Inside a note, a `---` line after a blank line starts a new page and
+Inside the note file, a `---` line after a blank line starts a new page and
 `--- https://example.com/docs` binds the following page to exactly that
-address. When no note is linked to the exact URL, the panel opens the first
-folder note with a page bound to it and saves edits to that file. **Open
-target** on a page card opens its address in a new tab.
+address. The panel shows only the page bound to the active tab's address, as one
+card. An address without a page shows an empty card; the page is added at the end
+of the file when you start typing. Merely visiting a page writes nothing.
+**Open target** on the card opens its address in a new tab.
 
-Earlier versions also had Shared (one file per origin, `shared/<id>.md`) and
-Global (`global.md`) tabs. Those files are never deleted or rewritten: they stay
-in the folder as ordinary Markdown, open from the file tree, and keep their
-`.aic/links.json` entries.
-The file tree remains the way to browse documents independently of the website.
-A single-file connection edits just that file, without URL linking.
+Changing tabs changes the page shown; the file, Undo history and an unsaved draft
+stay. A tab without an `http` or `https` address, such as a browser settings page,
+shows the whole note as cards. A change made to the file elsewhere appears when
+the panel gets focus or the tab changes, unless you have an unsaved draft; then
+the save reports **File changed** and the draft is kept.
 
-Pinning keeps a note selected while navigating. When typing in a pinned note,
-related page links are ordinary Markdown and share the edit's Undo operation.
-Switching pages alone does not add content. Pinning belongs to the open panel.
+Earlier versions kept one Markdown file per page (`pages/`), Shared
+(`shared/<id>.md`) and Global (`global.md`) files and a `.aic/links.json` index.
+Those files are never deleted, moved or rewritten and are no longer read or
+shown: they stay in the folder as ordinary Markdown. There is no import into
+`aic.md`; copy text from them yourself when needed. Recovery copies of drafts
+from those versions stay under **Review recovered drafts** and are never applied
+automatically.
 
 ## Editing and importing
 
 - Use Preview or Markdown source, slash snippets, and shared block controls.
   The same source opens in the PWA and VS Code.
 - Page or selection import reads content only after your click and site-access
-  approval. It appends to the chosen note; it does not modify the website.
+  approval. It is added at the end of the shown page; it does not modify the website.
   Protected pages, forms, editable controls and inaccessible frames are excluded.
-- **Insert from file…** appends another Markdown file to Current. **Open file**
-  changes the selected source; **Download copy** downloads the active note.
+- **Insert from file…** adds another Markdown file at the end of the shown page.
+  **Download page** downloads the shown page; **Download note file** downloads
+  the whole note.
 - Copy and Markdown export include the exact chosen content, including masked
   secrets. Clipboard history and destination applications are outside AIC's control.
 - `|`, `*|`, `#|`, `_|`, `1|` and `0|` retain their ordinary, secret,

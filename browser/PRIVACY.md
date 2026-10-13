@@ -16,18 +16,18 @@ Opening a source link uses ordinary browser navigation.
 ## Files and browser-local data
 
 You choose a Markdown file or folder and grant access through the browser picker.
-Note content is plain Markdown on disk. In a folder, `.aic/links.json` stores URL,
-scope, note identifier, relative path and revision metadata, without duplicating
-Markdown content. File handles and connection metadata are remembered locally in
+Note content is plain Markdown on disk in one note file: `aic.md` in the chosen
+folder, or the chosen file. AIC reads and writes no other file in the folder.
+File handles and connection metadata are remembered locally in
 IndexedDB. Browser-local storage can also hold cached metadata, preferences and
 plain draft recovery checkpoints. AIC does not use `storage.sync`.
 
-A page note links to an exact URL, including its query and fragment. That
-association does not copy text into other notes or insert it into websites. Active-tab
-navigation is limited to the panel's browser window. AIC does not read the
-browser history database or collect background browsing history. The navigation
-tree shows saved files and their explicit links; opening a page alone creates
-no note.
+A page of the note is bound to a page address by a `--- <address>` line in the
+note file; the address is written without its fragment when you first type on
+that page. Nothing is written for a page you only visit, and AIC keeps no list
+of visited pages. Active-tab tracking is limited to the panel's browser window.
+AIC does not read the browser history database or collect background browsing
+history.
 
 There is no app password, encrypted workspace or legacy-file converter. AIC does
 not open or migrate old `.aicnotes` files, and does not delete existing old files

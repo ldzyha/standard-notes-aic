@@ -739,10 +739,10 @@ the changes and independently ran the complete suite, builds and Edge smoke.
 The old encrypted-runtime harnesses have been retired. Two of their script names
 now run Vitest suites with simulated browser APIs and DOMs:
 
-| Command                                         | Current verification scope                                                         |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `node scripts/browser-panel-regression.mjs`     | Draft saves, panel actions, deletion, navigation, ancestor notes and related links |
-| `node scripts/browser-extension-regression.mjs` | Plain-file adapter/concurrency, service/recovery, build and package contracts      |
+| Command                                         | Current verification scope                                                     |
+| ----------------------------------------------- | ------------------------------------------------------------------------------ |
+| `node scripts/browser-panel-regression.mjs`     | Draft saves, panel actions, page focus, reconnect and the one-note folder flow |
+| `node scripts/browser-extension-regression.mjs` | One-note file adapter, service/recovery, build and package contracts           |
 
 History: on October 2 a third entrypoint, `scripts/browser-domain-regression.mjs`,
 covered the Shared/Global scopes, independent drafts and ancestor navigation. The
