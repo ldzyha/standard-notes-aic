@@ -433,7 +433,11 @@ export const SLASH_SNIPPET_GROUP_NAMES = Object.freeze({
 
 const GROUP_ORDER = Object.freeze(["blocks", "sections", "diagrams"]);
 
-/** One fixed group order; hosts may still pass their page-content flag. */
+/**
+ * The group order of the unfiltered catalogue; hosts may still pass their
+ * page-content flag. `slashSnippetCompletions` puts the group holding the best
+ * match first while a query is typed.
+ */
 export function slashSnippetSections() {
   return Object.freeze(
     Object.fromEntries(

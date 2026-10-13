@@ -21,5 +21,9 @@ export function pageForTarget(
   pages: readonly NotePage[],
   target: string,
 ): number;
-/** Exact text to insert at the end of `text` to start a page for `target`. */
+/**
+ * Exact text to insert at the end of `text` to start a page for `target`; an
+ * open code fence is left as written. Returns "" for a target that cannot be
+ * bound: an empty one, or one that would not read back as the last page.
+ */
 export function appendPageText(text: string, target: string): string;
