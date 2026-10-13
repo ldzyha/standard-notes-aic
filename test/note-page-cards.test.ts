@@ -16,7 +16,7 @@ afterEach(() => document.body.replaceChildren());
 
 const NOTE = [
   "---\ntitle: Notebook\n---\nIntro\n",
-  "--- src/a.ts\nAlpha\n\n```md\n\n--- inside a fence\n```\n",
+  "--- src/a.ts\nAlpha\n\n```md\n\n---\ninside a fence\n```\n",
   "--- https://example.com/docs\nDocs\n",
   "---\nLoose\n",
   "--- src/z.ts\nOmega",
@@ -77,7 +77,7 @@ describe("note page cards", () => {
       "src/z.ts",
     ]);
     // Frontmatter, the fenced `---` and page 1 get no header.
-    expect(view.dom.textContent).toContain("--- inside a fence");
+    expect(view.dom.textContent).toContain("---inside a fence");
     expect(view.dom.textContent).not.toContain("--- src/a.ts");
     const unbound = cards()[2]!;
     expect(unbound.querySelector('[role="separator"]')).not.toBeNull();
@@ -150,7 +150,7 @@ describe("focused note page", () => {
     const seen = view.state.doc;
     expect(focusPageTarget(view, "SRC\\a.ts")).toBe(true);
     expect(titles()).toEqual(["SRC\\a.ts"]);
-    expect(page()).toBe("Alpha\n\n```md\n\n--- inside a fence\n```");
+    expect(page()).toBe("Alpha\n\n```md\n\n---\ninside a fence\n```");
     expect(visible()).toBe(page());
     expect(view.state.selection.main.head).toBe(NOTE.indexOf("Alpha"));
     cards()[0]!.querySelector("button")!.click();
@@ -301,7 +301,7 @@ describe("focused note page", () => {
     ["", "--- t\nx"],
     ["One\n", "One\n\n--- t\nx"],
     ["One\n\n", "One\n\n--- t\nx"],
-    ["One\n\n```js\nopen", "One\n\n```js\nopen\n```\n\n--- t\nx"],
+    ["One\n\n```js\nopen", "One\n\n```js\nopen\n\n--- t\nx"],
     // The page exists but has no line of its own yet.
     ["One\n\n--- t", "One\n\n--- t\nx"],
     ["--- t\n\n--- u\nU", "--- t\n\n--- u\nU\n\n--- t\nx"],
@@ -338,6 +338,49 @@ describe("focused note page", () => {
     expect(page()).toBe("\n```\nopen fenceDocs");
     expect(visible()).toBe(page());
     expect(others(view)).toEqual([before, after]);
+    view.destroy();
+  });
+
+  it("keeps an unclosed fence typed in one card out of the other pages", () => {
+    const source =
+      "Intro\n\n--- /a\nA\n\n--- /b\nBBB line\n\n--- /c\nCCC line\n";
+    const { view, text, page, visible } = mount(source);
+    const type = (insert: string) =>
+      view.dispatch({
+        ...view.state.replaceSelection(insert),
+        userEvent: "input.type",
+      });
+    focusPageTarget(view, "/a");
+    view.dispatch({ selection: { anchor: focusedPage(view.state)!.to } });
+    type("\n```js");
+    type("\n");
+    type("code");
+    const fenced =
+      "Intro\n\n--- /a\nA\n```js\ncode\n\n--- /b\nBBB line\n\n--- /c\nCCC line\n";
+    expect(text()).toBe(fenced);
+
+    focusPageTarget(view, "/b");
+    expect(focusedPage(view.state)).toMatchObject({ exists: true });
+    expect(page()).toBe("BBB line");
+    expect(visible()).toBe("BBB line");
+    view.dispatch({ selection: { anchor: focusedPage(view.state)!.to } });
+    type("x");
+    expect(text()).toBe(fenced.replace("BBB line", "BBB linex"));
+
+    // Re-focus and a fresh parse of the saved text agree on every page.
+    focusPageTarget(view, null);
+    focusPageTarget(view, "/a");
+    expect(page()).toBe("A\n```js\ncode");
+    focusPageTarget(view, "/c");
+    expect(page()).toBe("CCC line\n");
+    const pages = notePages(text());
+    expect(pages.map((item) => item.target)).toEqual([null, "/a", "/b", "/c"]);
+    expect(pages.map((item) => text().slice(item.content, item.to))).toEqual([
+      "Intro\n\n",
+      "A\n```js\ncode\n\n",
+      "BBB linex\n\n",
+      "CCC line\n",
+    ]);
     view.destroy();
   });
 

@@ -118,11 +118,36 @@ describe("note pages", () => {
     "ignores separators inside a %s fence",
     (open) => {
       const close = open.replace(/[a-z-]+$/u, "");
-      const source = `A\n\n${open}\n# Section\n\n---\n\n--- /x\n${close}\n\n---\nB`;
+      const source = `A\n\n${open}\n# Section\n\n---\n\n---  \n${close}\n\n---\nB`;
       expect(targets(source)).toEqual([null, null]);
       expect(texts(source)[1]).toBe("B");
     },
   );
+
+  it("starts a page at a bound separator even inside a fence", () => {
+    const fenced = "A\n\n```md\n\n--- /x\n```\n\n---\nB";
+    // The closing line now opens a fence in page /x, which hides the bare rule.
+    expect(targets(fenced)).toEqual([null, "/x"]);
+    expect(texts(fenced)).toEqual(["A\n\n```md\n\n", "```\n\n---\nB"]);
+    // Without the blank line before it the line stays fenced text.
+    expect(targets("A\n\n```md\ntext\n--- /x\n```")).toEqual([null]);
+    // Accepted edge: a fenced diff with a blank line before `--- a/file`.
+    expect(targets("```diff\n\n--- a/file\n+++ b/file\n```")).toEqual([
+      null,
+      "a/file",
+    ]);
+  });
+
+  it("ends an unclosed fence with its page", () => {
+    const source =
+      "--- /a\nA\n```js\ncode\n\n--- /b\nBBB\n\n---\nLoose\n\n--- /c\n~~~\n\n---\nC";
+    expect(targets(source)).toEqual(["/a", "/b", null, "/c"]);
+    expect(texts(source).slice(1)).toEqual([
+      "BBB\n\n",
+      "Loose\n\n",
+      "~~~\n\n---\nC",
+    ]);
+  });
 
   it("needs a matching closing fence and treats an unclosed fence as open", () => {
     expect(notePages("````\n```\n\n---\n````\n\n---\nB")).toHaveLength(2);
@@ -222,8 +247,10 @@ describe("note page targets", () => {
       ["One\n  ", "\n--- src/a.ts\n"],
       ["---\na: 1\n---\n", "\n--- src/a.ts\n"],
       ["One\r\nTwo", "\r\n\r\n--- src/a.ts\r\n"],
-      // A fence left open would swallow the separator, so it is closed first.
-      ["One\n\n~~~~js\ncode", "\n~~~~\n\n--- src/a.ts\n"],
+      // An open fence is left as written: a bound separator ends it.
+      ["One\n\n~~~~js\ncode", "\n\n--- src/a.ts\n"],
+      ["One\n\n```js\ncode\n", "\n--- src/a.ts\n"],
+      ["x\r\n```\r\n", "\r\n--- src/a.ts\r\n"],
     ];
     for (const [text, appended] of cases) {
       expect(appendPageText(text, " src/a.ts\n")).toBe(appended);

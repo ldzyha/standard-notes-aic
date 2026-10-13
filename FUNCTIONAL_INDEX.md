@@ -783,8 +783,12 @@ metadata is written. Owner: `src/core/note-pages.js`.
 - The line must begin the body or follow a blank line, so `---` under a
   paragraph remains a setext heading. `----`, `- - -`, `***`, `___` and indented
   rules stay ordinary rules.
-- Leading frontmatter and anything inside a ``` or ~~~ fence, including `aic`
-  and Mermaid blocks, is never a page break. A note that begins with a bare
+- Leading frontmatter is never a page break. A bare `---` inside a ``` or ~~~
+  fence, including `aic` and Mermaid blocks, is not one either. A bound
+  separator (`--- <target>` after a blank line) always starts a page, also
+  inside a fence, and a fence never continues into the next page: an unclosed
+  fence ends with its page. A fenced diff with a blank line before
+  `--- a/file` therefore splits there. A note that begins with a bare
   `---` and has a later bare `---` line is read as frontmatter.
 - A separator with nothing before it binds page 1; a separator on the last
   line starts an empty last page.

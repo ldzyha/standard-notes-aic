@@ -4,8 +4,14 @@ import { BrowserPanel } from "../src/browser/panel";
 import type { ActivePage, BrowserApi, Request } from "../src/browser/api";
 import type { BrowserNote } from "../src/browser/library";
 import { focusedPage } from "../src/core/note-page-cards.js";
+import { importCapturedPage } from "../src/browser/import-page";
 import type { RecoverySnapshot } from "../src/browser/recovery-store";
 
+vi.mock("../src/browser/import-page", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("../src/browser/import-page")>();
+  return { ...actual, importCapturedPage: vi.fn(actual.importCapturedPage) };
+});
 vi.mock("../src/browser/markdown-storage", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../src/browser/markdown-storage")>()),
   chooseBrowserSource: vi.fn(async () => "browser-panel-test"),
@@ -330,6 +336,34 @@ describe("browser panel", () => {
       ),
     );
     expect(root.textContent).toContain("Imported into this page’s note.");
+  });
+
+  it("keeps an imported unbalanced fence inside the focused page", async () => {
+    const fake = fixture();
+    vi.mocked(importCapturedPage).mockReturnValueOnce({
+      markdown: `Imported\n\n\`\`\`js\ncode\n\n--- ${B}\nnot a page\n\n---\nrule`,
+      title: "Imported",
+      url: A,
+      warnings: [],
+    });
+    const { root } = await mount(fake);
+    await shows(root, A);
+    button(root, "Import current content").click();
+    const imported = `--- ${A}\nOriginal\n\nImported\n\n\`\`\`js\ncode\n\n\\--- ${B}\nnot a page\n\n***\nrule\n\n--- ${B}\nSecond\n`;
+    await vi.waitFor(() => expect(fake.note.markdown).toBe(imported));
+    // The other page still shows its own text and typing there adds no page.
+    fake.go(B);
+    await shows(root, B);
+    expect(focusedPage(editor(root).state)).toMatchObject({ exists: true });
+    expect(
+      editor(root).state.sliceDoc(focusedPage(editor(root).state)!.from),
+    ).toBe("Second\n");
+    type(root, "More ");
+    await vi.waitFor(() =>
+      expect(fake.note.markdown).toBe(
+        imported.replace(`--- ${B}\nSecond`, `--- ${B}\nMore Second`),
+      ),
+    );
   });
 
   it("creates the page when importing into a URL without one", async () => {
