@@ -72,8 +72,8 @@ user-selected filesystem sync or normal browser update services.
 
 - `storage`: local connection metadata, preferences, caches and plain draft
   recovery checkpoints. File access is granted separately through the picker.
-- `tabs`: identify the active page in the panel's window and open or activate
-  explicitly linked URLs; no browser history database permission.
+- `tabs`: identify the active page in the panel's window and open a page
+  address from the note in a new tab; no browser history database permission.
 - `sidePanel`: display the notes panel in Chrome and Edge.
 - `scripting`: explicit, read-only page or selection capture after site approval.
 - Optional HTTP(S) site access: requested for the chosen origin during import,

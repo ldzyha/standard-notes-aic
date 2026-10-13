@@ -235,7 +235,7 @@
     },
     {
       "id": "tree",
-      "purpose": "Hierarchical or ordered navigation metadata with groups, items, rows, labels, and actions; it never owns note content. Connected navigation uses native nested lists and disclosure groups, with compact SVG folder/document icons, ownership guide lines, single-line labels and touch-aware rows. Browser and PWA share the same geometry.",
+      "purpose": "Hierarchical or ordered navigation metadata with groups, items, rows, labels, and actions; it never owns note content. Connected navigation uses native nested lists and disclosure groups, with compact SVG folder/document icons, ownership guide lines, single-line labels and touch-aware rows.",
       "hosts": ["standard-notes", "standalone", "pwa"],
       "bem": {
         "block": "aic-tree",

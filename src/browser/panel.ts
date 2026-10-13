@@ -152,8 +152,7 @@ export class BrowserPanel {
       // A title change of the shown page does not move the note.
       if (
         id === this.page?.tabId &&
-        (!change.url || change.url === this.page.url) &&
-        change.status !== "complete"
+        (!change.url || change.url === this.page.url)
       )
         return;
       if (
