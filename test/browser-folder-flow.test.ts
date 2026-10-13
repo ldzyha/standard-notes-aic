@@ -359,6 +359,118 @@ describe("one note file, one page per tab", () => {
     );
   });
 
+  it("saves a dirty page onto a file whose other pages changed on disk", async () => {
+    const h = harness({
+      "aic.md": `Intro\n\n--- ${PROJECT}\nProject page\n\n--- ${OTHER}\nOther page\n`,
+    });
+    const { root, view } = await open(h);
+    vi.useFakeTimers();
+    type(view, "Mine ");
+    // Another program rewrites other pages and appends one, before the save.
+    const disk = `Intro changed\n\n--- ${PROJECT}\nProject page\n\n--- ${OTHER}\nOther page, edited elsewhere\n\n--- https://example.test/new\nNew\n`;
+    h.files.put("aic.md", disk);
+    await vi.advanceTimersByTimeAsync(2000);
+    vi.useRealTimers();
+    const merged = disk.replace("Project page", "Mine Project page");
+    await vi.waitFor(() => expect(h.files.text("aic.md")).toBe(merged));
+    expect(view.state.doc.toString()).toBe(merged);
+    expect(pageText(view)).toBe("Mine Project page");
+    expect(root.querySelector(".browser-draft-error")).toBeNull();
+    // The draft now starts from the disk text: the next edit saves plainly.
+    type(view, "Again ");
+    await vi.waitFor(() =>
+      expect(h.files.text("aic.md")).toBe(
+        merged.replace("Mine Project", "Again Mine Project"),
+      ),
+    );
+  });
+
+  it("appends a new dirty page to a file that changed on disk", async () => {
+    const h = harness({ "aic.md": "Intro\n" });
+    const { root, view } = await open(h);
+    vi.useFakeTimers();
+    type(view, "First words");
+    h.files.put("aic.md", `Intro\n\n--- ${OTHER}\nAdded elsewhere`);
+    await vi.advanceTimersByTimeAsync(2000);
+    vi.useRealTimers();
+    await vi.waitFor(() =>
+      expect(h.files.text("aic.md")).toBe(
+        `Intro\n\n--- ${OTHER}\nAdded elsewhere\n\n--- ${PROJECT}\nFirst words`,
+      ),
+    );
+    expect(pageText(view)).toBe("First words");
+    expect(root.querySelector(".browser-draft-error")).toBeNull();
+  });
+
+  it("keeps a conflict on the same page exportable and reloads the disk text only on discard", async () => {
+    const h = harness({
+      "aic.md": `--- ${PROJECT}\nProject page\n\n--- ${OTHER}\nOther page\n`,
+    });
+    const { root, view } = await open(h);
+    vi.useFakeTimers();
+    type(view, "Mine ");
+    const draft = view.state.doc.toString();
+    const disk = `--- ${PROJECT}\nProject page, edited elsewhere\n\n--- ${OTHER}\nOther page\n`;
+    h.files.put("aic.md", disk);
+    await vi.advanceTimersByTimeAsync(2000);
+    vi.useRealTimers();
+    const warning = () =>
+      root.querySelector<HTMLElement>(".browser-draft-error");
+    await vi.waitFor(() =>
+      expect(warning()?.textContent).toContain(
+        "Another window may have changed this note",
+      ),
+    );
+    expect(h.files.text("aic.md")).toBe(disk);
+    expect(view.state.doc.toString()).toBe(draft);
+    // Retrying never overwrites the page that changed on disk.
+    button(warning()!, "Retry save").click();
+    await vi.waitFor(() => expect(warning()).not.toBeNull());
+    expect(h.files.text("aic.md")).toBe(disk);
+    expect(view.state.doc.toString()).toBe(draft);
+
+    const blobs: Blob[] = [];
+    vi.stubGlobal(
+      "URL",
+      class extends URL {
+        static override createObjectURL(blob: Blob) {
+          blobs.push(blob);
+          return "blob:draft";
+        }
+        static override revokeObjectURL() {}
+      },
+    );
+    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(
+      () => undefined,
+    );
+    button(warning()!, "Export unsaved draft").click();
+    expect(
+      await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsText(blobs[0]!);
+      }),
+    ).toBe(draft);
+
+    // Keeping the draft changes nothing.
+    button(warning()!, "Discard my changes and reload…").click();
+    button(root, "Keep my draft").click();
+    expect(view.state.doc.toString()).toBe(draft);
+    button(warning()!, "Discard my changes and reload…").click();
+    button(root, "Discard and reload").click();
+    await vi.waitFor(() => expect(view.state.doc.toString()).toBe(disk));
+    expect(warning()).toBeNull();
+    expect(pageText(view)).toBe("Project page, edited elsewhere");
+    expect(h.files.text("aic.md")).toBe(disk);
+    // Nothing is pending any more, so saving works again.
+    type(view, "Now ");
+    await vi.waitFor(() =>
+      expect(h.files.text("aic.md")).toBe(
+        disk.replace("Project page,", "Now Project page,"),
+      ),
+    );
+  });
+
   it("reopens the note through one Continue action after permissions reset", async () => {
     const h = harness();
     const initial = await open(h);

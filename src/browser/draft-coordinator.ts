@@ -16,6 +16,8 @@ export interface DraftState<
   dirty: boolean;
   saving: boolean;
   error: string | null;
+  /** The last save found other text in storage; cleared by a save or discard. */
+  conflict: boolean;
 }
 
 export type SaveDocument<RecordType extends VersionedDocument> = (
@@ -29,6 +31,27 @@ export interface DraftContextAdapter<
 > {
   contextForRecord(record: RecordType): Context;
 }
+
+/**
+ * Recovery from a save conflict. `reload` reads the stored document again and
+ * `rebase` returns the draft text carried onto it, or null when the two cannot
+ * be combined without losing text. `adopted` reports a draft whose text the
+ * coordinator replaced with the rebased text, so that the view can show it.
+ */
+export interface DraftConflictRecovery<
+  RecordType extends VersionedDocument,
+  Context extends object,
+> {
+  reload(id: string): Promise<RecordType>;
+  rebase(
+    baseText: string,
+    draftText: string,
+    stored: RecordType,
+  ): string | null;
+  adopted(draft: DraftState<RecordType, Context>): void;
+}
+
+const REBASE_ATTEMPTS = 2;
 
 interface Entry<RecordType extends VersionedDocument, Context extends object> {
   draft: DraftState<RecordType, Context>;
@@ -59,7 +82,7 @@ function errorCode(error: unknown): unknown {
 function errorMessage(error: unknown): string {
   const code = errorCode(error);
   if (code === "conflict") {
-    return "Could not save. Another window may have changed this note. Export your draft before reopening.";
+    return "Could not save. Another window may have changed this note. Export your draft, or discard your changes to load the saved note.";
   }
   if (code === "permission") {
     return "File editing needs permission. Reconnect access to save; your draft is unchanged.";
@@ -84,6 +107,10 @@ export class DraftCoordinator<
     private readonly onChangeFn: (
       draft: DraftState<RecordType, Context>,
     ) => void = () => undefined,
+    private readonly recovery: DraftConflictRecovery<
+      RecordType,
+      Context
+    > | null = null,
   ) {}
 
   // Revisions are hashes of the file bytes: equality tokens, never a counter.
@@ -147,6 +174,7 @@ export class DraftCoordinator<
           dirty: false,
           saving: false,
           error: null,
+          conflict: false,
         },
         baseText: incoming.markdown,
         timer: null,
@@ -165,6 +193,7 @@ export class DraftCoordinator<
       entry.draft.text = incoming.markdown;
       entry.baseText = incoming.markdown;
       entry.draft.error = null;
+      entry.draft.conflict = false;
       entry.blocked = false;
     }
     this.activeKey = entry.draft.key;
@@ -188,22 +217,71 @@ export class DraftCoordinator<
     return snapshot(entry.draft);
   }
 
-  /** Surface a concurrent remote change without discarding the local draft. */
-  markConflict(key: string): DraftState<RecordType, Context> | undefined {
+  /**
+   * Drop the local draft and take `record` as the stored document. Nothing is
+   * written. Refused while a write is in flight: it must settle first.
+   */
+  discard(
+    key: string,
+    record: RecordType,
+  ): DraftState<RecordType, Context> | undefined {
     if (this.disposed) return undefined;
     const entry = this.entries.get(key);
-    if (!entry) return undefined;
-    // An in-flight write must finish its own revision check first.
-    if (!entry.draft.dirty || entry.inFlight || entry.draft.saving)
-      return snapshot(entry.draft);
+    if (!entry || record.id !== key || entry.inFlight || entry.draft.saving)
+      return undefined;
     this.clearTimer(entry);
-    entry.blocked = true;
-    entry.draft.error = errorMessage({ code: "conflict" });
+    entry.draft.record = { ...record };
+    entry.draft.context = { ...this.adapter.contextForRecord(record) };
+    entry.draft.text = entry.baseText = record.markdown;
+    entry.draft.dirty = false;
+    entry.draft.error = null;
+    entry.draft.conflict = false;
+    entry.blocked = false;
     this.emit(entry);
     return snapshot(entry.draft);
   }
 
+  /**
+   * After a conflict: read the stored document and carry the draft onto it.
+   * True when the draft now starts from the stored text and can be saved.
+   */
+  private async rebase(
+    entry: Entry<RecordType, Context>,
+    id: string,
+  ): Promise<boolean> {
+    const recovery = this.recovery;
+    if (!recovery) return false;
+    let stored: RecordType;
+    try {
+      stored = await recovery.reload(id);
+    } catch {
+      return false;
+    }
+    if (this.disposed || !stored || stored.id !== id) return false;
+    // Synchronous from here: the draft text read is the text replaced.
+    let text: string | null;
+    try {
+      text = recovery.rebase(entry.baseText, entry.draft.text, stored);
+    } catch {
+      text = null;
+    }
+    if (text === null) return false;
+    entry.draft.record = { ...stored };
+    entry.baseText = stored.markdown;
+    entry.draft.text = text;
+    entry.draft.dirty = text !== stored.markdown;
+    entry.draft.error = null;
+    entry.draft.conflict = false;
+    try {
+      recovery.adopted(snapshot(entry.draft));
+    } catch {
+      // A view callback must not interrupt the save that follows.
+    }
+    return true;
+  }
+
   private async drain(entry: Entry<RecordType, Context>): Promise<boolean> {
+    let rebases = 0;
     while (!this.disposed && entry.draft.dirty && !entry.blocked) {
       this.clearTimer(entry);
       const markdown = entry.draft.text;
@@ -231,13 +309,25 @@ export class DraftCoordinator<
         entry.baseText = saved.markdown;
         entry.draft.dirty = entry.draft.text !== saved.markdown;
         entry.draft.error = null;
+        entry.draft.conflict = false;
         entry.draft.saving = false;
         this.emit(entry);
       } catch (error) {
         if (this.disposed) return false;
+        const conflict = errorCode(error) === "conflict";
+        if (conflict && rebases < REBASE_ATTEMPTS) {
+          rebases += 1;
+          if (await this.rebase(entry, currentRecord.id)) {
+            entry.draft.saving = false;
+            this.emit(entry);
+            continue;
+          }
+          if (this.disposed) return false;
+        }
         entry.draft.saving = false;
         entry.draft.dirty = true;
         entry.draft.error = errorMessage(error);
+        entry.draft.conflict = conflict;
         entry.blocked = true;
         this.emit(entry);
         return false;

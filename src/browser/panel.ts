@@ -1,6 +1,6 @@
 import { AicEditor } from "../editor";
 import { request, type Request, type ActivePage, type BrowserApi } from "./api";
-import { BrowserDrafts, type Draft } from "./drafts";
+import { BrowserDrafts, rebaseFocusedPage, type Draft } from "./drafts";
 import { applyUiComponent, createUiButton } from "../core/ui-system.js";
 import { createEditorHelp } from "../core/editor-help.js";
 import type { BrowserNote } from "./library";
@@ -1035,6 +1035,31 @@ export class BrowserPanel {
           if (this.noteId === draft.key) this.reflectDraft(draft);
           this.renderDraftWarnings();
         },
+        {
+          // A save conflict: read the file again and carry the focused page
+          // of the draft onto it when that page did not change on disk.
+          reload: async () => {
+            if (!this.valid(generation))
+              throw new Error("The notes location changed.");
+            return this.send<BrowserNote>({ type: "load" });
+          },
+          rebase: (base, text, stored) =>
+            this.valid(generation) && this.noteId === stored.id
+              ? rebaseFocusedPage(
+                  base,
+                  text,
+                  stored.markdown,
+                  this.editor?.focusedPage?.target ?? null,
+                )
+              : null,
+          adopted: (draft) => {
+            if (!this.valid(generation) || this.noteId !== draft.key) return;
+            // The disk text with this page's draft, as an external change.
+            this.editor?.switchDocument(draft.key, draft.text);
+            this.focusPage();
+            this.renderFileLocation();
+          },
+        },
       );
     }
     if (!this.editor) this.renderPage();
@@ -1078,7 +1103,8 @@ export class BrowserPanel {
 
   /**
    * Read the active tab and the note file again, then show the tab's page.
-   * The mounted editor, its undo history and an unsaved draft are kept.
+   * The mounted editor and an unsaved draft are kept; the undo history is
+   * emptied when the tab's page target changes.
    */
   private async refreshContext(): Promise<void> {
     if (!this.canUseLibrary() || this.windowId === null) return;
@@ -1422,6 +1448,12 @@ export class BrowserPanel {
         ),
         this.button("Export unsaved draft", () => this.exportDraft(draft.key)),
       );
+      if (draft.conflict)
+        warning.append(
+          this.button("Discard my changes and reload…", (button) =>
+            this.confirmDiscardDraft(draft.key, button),
+          ),
+        );
       target.append(warning);
     }
   }
@@ -1526,6 +1558,31 @@ export class BrowserPanel {
     // The click has consumed the URL; do not retain plaintext blobs in a panel.
     URL.revokeObjectURL(url);
     this.urls.delete(url);
+  }
+
+  /** After a confirmation, drop the unsaved draft and show the file on disk. */
+  private confirmDiscardDraft(id: string, trigger: HTMLButtonElement): void {
+    const generation = this.generation;
+    const confirm = this.showPopover("Discard my changes", trigger);
+    if (!confirm) return;
+    confirm.append(
+      this.el(
+        "p",
+        "",
+        "Discard your unsaved changes and load the note file as it is on disk? Export the draft first if you need it. The file is not changed.",
+      ),
+      this.button("Keep my draft", () => this.closeOverlay(true)),
+      this.button("Discard and reload", async () => {
+        if (!this.valid(generation) || !this.drafts) return;
+        const note = await this.send<BrowserNote>({ type: "load" });
+        if (!this.valid(generation) || !this.drafts) return;
+        this.closeOverlay(true);
+        if (!this.drafts.discard(id, note))
+          throw new Error("A save is still in progress. Try again.");
+        this.showNote(note);
+        this.tell("Loaded the note file from disk.");
+      }),
+    );
   }
 
   /** The whole note file as drafted, including pages that are not shown. */

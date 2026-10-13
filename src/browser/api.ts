@@ -83,7 +83,7 @@ export type Request = { sourceId?: string } & (
   | {
       type: "connect-source";
       bindingId: string;
-      mode?: "open" | "create" | "migrate";
+      mode?: "open" | "migrate";
     }
   | { type: "unlock"; password: string }
   | { type: "lock" }

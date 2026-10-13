@@ -775,7 +775,7 @@
     {
       "id": "browser.page-notes",
       "group": "browser-adapter",
-      "purpose": "Show the page of the note file bound to the active tab's URL by its `--- <url>` separator, as one focused card with Open target as its only action; a URL without a page shows an empty card and the page is appended on the first typing. Tab changes refocus the same editor without changing the document, its undo history or an unsaved draft; a tab without an http(s) URL shows the whole note. A change to the file made elsewhere is taken in as an external update when the panel regains focus or the tab changes, never over an unsaved draft. File status stays unsaved through pending writes, and failed saves retain the draft.",
+      "purpose": "Show the page of the note file bound to the active tab's URL by its `--- <url>` separator, as one focused card with Open target as its only action; a URL without a page shows an empty card and the page is appended on the first typing. Tab changes refocus the same editor without changing the document or an unsaved draft, and a change of target empties the undo history; a tab without an http(s) URL shows the whole note. A change to the file made elsewhere is taken in as an external update when the panel regains focus or the tab changes, never over an unsaved draft. File status stays unsaved through pending writes, and failed saves retain the draft. A save that finds the file changed on disk rebases the draft when only its focused page differs and that page is unchanged on disk; otherwise the conflict keeps the draft exportable and offers a confirmed discard that loads the disk text.",
       "hosts": ["browser"],
       "canonicalOwners": [
         "standard-notes-aic/src/browser/drafts.ts",

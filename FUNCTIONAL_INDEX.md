@@ -632,10 +632,15 @@ explicit distribution manifest, not maintained independently in the extension.
 
 `src/browser/panel.ts` mounts one editor for the note file and calls
 `focusTarget` with the active tab's URL (without its fragment) on every tab
-change. Refocusing keeps the document, selection, Undo history and an unsaved
-draft. Text read again from disk reaches the editor through `updateDocument`
-as an external change and never replaces a dirty draft; the save then reports
-the conflict. Coverage: `browser-panel`, `browser-folder-flow` and the feature
+change. Refocusing keeps the document and an unsaved draft; a change of
+target empties the Undo history. Text read again from disk reaches the editor
+through `updateDocument` as an external change and never replaces a dirty
+draft. A save that finds the file changed reads it again: when the focused
+page is the same on disk as where the draft started, the draft's page is
+written into the disk text and every other byte of the file is kept;
+otherwise the save reports the conflict, the draft stays exportable and
+**Discard my changes and reload** loads the disk text after a confirmation.
+Coverage: `browser-panel`, `browser-folder-flow` and the feature
 registry checks.
 
 ## Portable agent instructions

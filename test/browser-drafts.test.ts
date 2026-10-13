@@ -1,5 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AUTOSAVE_DELAY_MS, BrowserDrafts } from "../src/browser/drafts";
+import {
+  AUTOSAVE_DELAY_MS,
+  BrowserDrafts,
+  rebaseFocusedPage,
+} from "../src/browser/drafts";
 import type { BrowserNote } from "../src/browser/library";
 
 function note(id: string, markdown = "Original", revision = 1): BrowserNote {
@@ -193,5 +197,152 @@ describe("browser note drafts", () => {
     expect(drafts.get("a")).toBeUndefined();
     expect(drafts.dirtyDrafts()).toEqual([]);
     expect(notify).not.toHaveBeenCalled();
+  });
+  it("rebases a conflicting draft onto the reloaded file and saves it", async () => {
+    const stored = note("a", "Disk\n\n--- t\nPage", 7);
+    const save = vi.fn(
+      async (id: string, markdown: string, revision: number) => {
+        if (revision !== stored.revision) throw { code: "conflict" };
+        return note(id, markdown, revision + 1);
+      },
+    );
+    const adopted = vi.fn();
+    const rebase = vi.fn((base: string, text: string, disk: BrowserNote) =>
+      rebaseFocusedPage(base, text, disk.markdown, "t"),
+    );
+    const drafts = new BrowserDrafts(save, undefined, {
+      reload: async () => ({ ...stored }),
+      rebase,
+      adopted,
+    });
+    drafts.activate(note("a", "Base\n\n--- t\nPage", 1));
+    drafts.edit("a", "Base\n\n--- t\nMy page");
+    expect(await drafts.flush("a")).toBe(true);
+    expect(rebase).toHaveBeenCalledExactlyOnceWith(
+      "Base\n\n--- t\nPage",
+      "Base\n\n--- t\nMy page",
+      stored,
+    );
+    expect(save).toHaveBeenLastCalledWith("a", "Disk\n\n--- t\nMy page", 7);
+    expect(adopted).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ text: "Disk\n\n--- t\nMy page", dirty: true }),
+    );
+    expect(drafts.get("a")).toMatchObject({
+      text: "Disk\n\n--- t\nMy page",
+      dirty: false,
+      conflict: false,
+      error: null,
+    });
+    drafts.dispose();
+  });
+
+  it("stays in conflict when the draft cannot be rebased, until it is discarded", async () => {
+    const save = vi.fn(async () => {
+      throw { code: "conflict" };
+    });
+    const stored = note("a", "Disk", 9);
+    const reload = vi.fn(async () => ({ ...stored }));
+    const adopted = vi.fn();
+    const drafts = new BrowserDrafts(save, undefined, {
+      reload,
+      rebase: () => null,
+      adopted,
+    });
+    drafts.activate(note("a", "Base", 1));
+    drafts.edit("a", "Mine");
+    expect(await drafts.flush("a")).toBe(false);
+    expect(drafts.get("a")).toMatchObject({
+      text: "Mine",
+      dirty: true,
+      conflict: true,
+    });
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(adopted).not.toHaveBeenCalled();
+    expect(drafts.hasPendingChanges()).toBe(true);
+    // Another note's text is never taken.
+    expect(drafts.discard("a", note("b", "Other", 2))).toBeUndefined();
+    expect(drafts.discard("a", stored)).toMatchObject({
+      text: "Disk",
+      dirty: false,
+      conflict: false,
+      error: null,
+    });
+    expect(drafts.hasPendingChanges()).toBe(false);
+    expect(await drafts.flushAll()).toBe(true);
+    expect(save).toHaveBeenCalledTimes(1);
+    drafts.dispose();
+  });
+
+  it("gives up after repeated conflicts instead of looping", async () => {
+    let revision = 1;
+    const save = vi.fn(async () => {
+      throw { code: "conflict" };
+    });
+    const drafts = new BrowserDrafts(save, undefined, {
+      reload: async () => note("a", "Disk", (revision += 1)),
+      rebase: (_base, text) => text,
+      adopted: () => undefined,
+    });
+    drafts.activate(note("a", "Base", 1));
+    drafts.edit("a", "Mine");
+    expect(await drafts.flush("a")).toBe(false);
+    expect(save).toHaveBeenCalledTimes(3);
+    expect(drafts.get("a")).toMatchObject({ text: "Mine", conflict: true });
+    drafts.dispose();
+  });
+});
+
+describe("rebasing the focused page", () => {
+  const A = "https://example.com/a";
+  const B = "https://example.com/b";
+  const base = `Intro\n\n--- ${A}\nAlpha\n\n--- ${B}\nBeta\n`;
+
+  it("splices the page into disk text and keeps every other byte", () => {
+    const draft = base.replace("Alpha", "Alpha\nmine");
+    const disk = `Intro 2\r\n\n--- ${A}\nAlpha\n\n\n--- ${B}\nBeta 2\n\n--- c\nC`;
+    expect(rebaseFocusedPage(base, draft, disk, A)).toBe(
+      disk.replace("Alpha", "Alpha\nmine"),
+    );
+    // The last page gains the blank line the disk text put after it.
+    const last = base.replace("Beta", "Beta mine");
+    const appended = `${base}\n--- c\nC\n`;
+    expect(rebaseFocusedPage(base, last, appended, `${B}#x`)).toBe(
+      appended.replace("Beta", "Beta mine"),
+    );
+    // An emptied page stays empty and keeps its separator a separator.
+    expect(rebaseFocusedPage(base, base.replace("Alpha", ""), disk, A)).toBe(
+      disk.replace("Alpha", ""),
+    );
+  });
+
+  it("appends a page the draft created", () => {
+    const draft = `${base}\n--- c\nMine`;
+    const disk = base.replace("Beta\n", "Beta 2");
+    expect(rebaseFocusedPage(base, draft, disk, "c")).toBe(
+      `${disk}\n\n--- c\nMine`,
+    );
+    // The same page created on disk too is a conflict.
+    expect(
+      rebaseFocusedPage(base, draft, `${disk}\n\n--- c\nTheirs`, "c"),
+    ).toBe(null);
+  });
+
+  it("refuses whenever text could be lost", () => {
+    const draft = base.replace("Alpha", "Mine");
+    for (const [disk, target] of [
+      [base.replace("Alpha", "Theirs"), A],
+      [base.replace(`--- ${A}\nAlpha\n\n`, ""), A],
+      [base, null],
+      [base, "https://example.com/none"],
+      // The draft also changed another page.
+      [base, B],
+    ] as const)
+      expect(rebaseFocusedPage(base, draft, disk, target)).toBeNull();
+    expect(
+      rebaseFocusedPage(base, draft.replace("Beta", "Beta mine"), base, A),
+    ).toBeNull();
+    expect(
+      rebaseFocusedPage(base, draft.replace("Intro", "Intro mine"), base, A),
+    ).toBeNull();
   });
 });
