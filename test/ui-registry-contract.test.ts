@@ -121,7 +121,7 @@ describe("shared design and feature registry contract", () => {
       expect.arrayContaining([
         "aic-notes/src/webview/main.js",
         "aic-notes/src/secondary/provider.js",
-        "aic-notes/src/notes/relationships.js",
+        "aic-notes/src/webview/host-changes.js",
       ]),
     );
     expect(pages.verification).toEqual(

@@ -275,7 +275,7 @@
     {
       "id": "core.link-actions",
       "group": "shared-editor",
-      "purpose": "Open or copy safe external links and route verified local links through the owning host.",
+      "purpose": "Open or copy safe external links and route verified local links through the owning host. VS Code resolves workspace-contained links and opens a valid `#Lx` or `#Lx-Ly` line range in the target file.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/link-actions.ts",
@@ -285,7 +285,8 @@
         "standard-notes-aic/src/link-actions.ts",
         "aic-notes/vendor/markdown/link-actions.js",
         "aic-notes/vendor/markdown/handlers/link.js",
-        "aic-notes/src/notes/navigation.js"
+        "aic-notes/src/notes/navigation.js",
+        "aic-notes/src/notes/selection-model.js"
       ],
       "entrypoints": [
         "standard-notes-aic/src/editor.ts",
@@ -570,14 +571,13 @@
       "verification": [
         "standard-notes-aic/test/slash-snippets.test.ts",
         "aic-notes/test/slash-snippets.test.js",
-        "aic-notes/test/native-slash-provider.test.js",
-        "aic-notes/test/templates.test.js"
+        "aic-notes/test/native-slash-provider.test.js"
       ]
     },
     {
       "id": "core.note-pages",
       "group": "shared-editor",
-      "purpose": "Show one note as page cards: a blank-line separated `---` line starts a page and `--- <path-or-url>` binds the following page to a navigation target. A page matches a target only when their normalized forms are equal; the first match wins. Pages are a derived view; the note stays one file. In preview each separator line is a card header that names the target and offers one host action, Open target; a selection on the line shows its source, and whole-note source mode shows plain text. A host can focus one target: only that page is shown, user edits are confined to it, and a target without a page shows an empty card that is appended to the note on first typing. The PWA and Standard Notes show the whole note as cards. The browser panel opens the loaded note that has a page for exactly the active URL when no note is linked to that URL. VS Code Linked Note opens the active file's sidecar on its bound page, or the workspace note with the most specific bound page when no sidecar exists.",
+      "purpose": "Show one note as page cards: a blank-line separated `---` line starts a page and `--- <path-or-url>` binds the following page to a navigation target. A page matches a target only when their normalized forms are equal; the first match wins. Pages are a derived view; the note stays one file. In preview each separator line is a card header that names the target and offers one host action, Open target; a selection on the line shows its source, and whole-note source mode shows plain text. A host can focus one target: only that page is shown, user edits are confined to it, and a target without a page shows an empty card that is appended to the note on first typing. The PWA and Standard Notes show the whole note as cards. The browser panel opens the loaded note that has a page for exactly the active URL when no note is linked to that URL. VS Code Linked Note shows one workspace note, `<workspaceFolder>/aic.md`, focused on the page bound to the active file's workspace-relative path; a file without a page shows an empty card and the page is appended on the first edit. Text sent by the extension host is marked as an external change so it also applies outside the focused page.",
       "hosts": ["standard-notes", "standalone", "browser", "pwa", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/core/note-pages.js",
@@ -587,7 +587,8 @@
         "standard-notes-aic/src/core/note-pages.js",
         "standard-notes-aic/src/core/note-pages.d.ts",
         "standard-notes-aic/src/core/note-page-cards.js",
-        "standard-notes-aic/src/core/note-page-cards.d.ts"
+        "standard-notes-aic/src/core/note-page-cards.d.ts",
+        "aic-notes/src/webview/host-changes.js"
       ],
       "entrypoints": [
         "standard-notes-aic/src/editor.ts",
@@ -595,7 +596,7 @@
         "standard-notes-aic/src/pwa/main.ts",
         "aic-notes/src/webview/main.js",
         "aic-notes/src/secondary/provider.js",
-        "aic-notes/src/notes/relationships.js"
+        "aic-notes/src/webview/host-changes.js"
       ],
       "verification": [
         "standard-notes-aic/test/note-pages.test.ts",
@@ -605,7 +606,8 @@
         "standard-notes-aic/test/browser-folder-flow.test.ts",
         "standard-notes-aic/test/pwa-ui.test.ts",
         "aic-notes/test/note-routing.test.js",
-        "aic-notes/test/web-host.test.js"
+        "aic-notes/test/web-host.test.js",
+        "aic-notes/test/host-changes.test.js"
       ]
     },
     {
@@ -871,7 +873,7 @@
     {
       "id": "vscode.extension-composition",
       "group": "vscode-adapter",
-      "purpose": "Register commands, views, editors, nesting defaults and lifecycle ownership in desktop and browser extension hosts from one entrypoint. Bundle a Node-free browser host using Web Crypto, UTF-8 encoders and workspace.fs; retain TextDocument save/undo ownership and validate workspace-contained virtual URIs and provider write capability.",
+      "purpose": "Register commands, views, editors and lifecycle ownership in desktop and browser extension hosts from one entrypoint. Bundle a Node-free browser host using Web Crypto, UTF-8 encoders and workspace.fs; retain TextDocument save/undo ownership and validate workspace-contained virtual URIs and provider write capability.",
       "hosts": ["vscode"],
       "canonicalOwners": [
         "aic-notes/src/extension.js",
@@ -893,34 +895,6 @@
         "aic-notes/test/function-index.test.js",
         "aic-notes/test/web-host.test.js",
         "aic-notes/test/web-resources.test.js"
-      ]
-    },
-    {
-      "id": "vscode.sidecar-identity",
-      "group": "vscode-adapter",
-      "purpose": "Map files, folders, and workspace roots to canonical .note.md sidecars and memory-only placeholders without note-of-note recursion. Default new files and placeholders contain zero bytes; explicitly configured templates are preserved.",
-      "hosts": ["vscode"],
-      "canonicalOwners": [
-        "aic-notes/src/notes/paths.js",
-        "aic-notes/src/notes/target.js",
-        "aic-notes/src/notes/create.js",
-        "aic-notes/src/notes/templates.js"
-      ],
-      "sourceFiles": [
-        "aic-notes/src/notes/paths.js",
-        "aic-notes/src/notes/target.js",
-        "aic-notes/src/notes/create.js",
-        "aic-notes/src/notes/templates.js"
-      ],
-      "entrypoints": [
-        "aic-notes/src/extension.js",
-        "aic-notes/src/secondary/provider.js"
-      ],
-      "verification": [
-        "aic-notes/test/paths.test.js",
-        "aic-notes/test/note-routing.test.js",
-        "aic-notes/test/templates.test.js",
-        "aic-notes/test/note-creation.test.js"
       ]
     },
     {
@@ -954,90 +928,31 @@
     {
       "id": "vscode.secondary-pane",
       "group": "vscode-adapter",
-      "purpose": "Follow or pin the active source's sidecar, show the nearest existing parent for an active note, preserve drafts, and provide explicit source/target navigation. Constrain the linked editor to the active panel height so long notes scroll inside CodeMirror and the footer remains visible.",
+      "purpose": "Show the workspace note `<workspaceFolder>/aic.md` in the Secondary Side Bar, following the active file: only the page bound to that file is shown, and with several workspace folders the active file's folder chooses the note. Open Note Page for Current File reveals the pane and creates nothing; the note file and the page are written by the first saved edit. Open target opens the bound file. Drafts are flushed before navigation and never replaced by a file change; saving a note deleted while shown is rejected and its draft is kept. Existing `*.note.md` files are no longer followed. Constrain the linked editor to the active panel height so long notes scroll inside CodeMirror and the footer remains visible.",
       "hosts": ["vscode"],
       "canonicalOwners": [
         "aic-notes/src/secondary/provider.js",
         "aic-notes/src/secondary/model.js",
-        "aic-notes/src/notes/parent-context.js"
+        "aic-notes/src/notes/create.js"
       ],
       "sourceFiles": [
         "aic-notes/src/secondary/provider.js",
         "aic-notes/src/secondary/model.js",
-        "aic-notes/src/notes/parent-context.js",
+        "aic-notes/src/notes/create.js",
         "aic-notes/src/webview/theme.css"
       ],
       "entrypoints": [
         "aic-notes/src/extension.js",
-        "aic-notes/src/webview/main.js"
+        "aic-notes/src/webview/main.js",
+        "aic-notes/src/notes/navigation.js"
       ],
       "verification": [
         "aic-notes/test/secondary-provider.test.js",
         "aic-notes/test/secondary-model.test.js",
         "aic-notes/test/note-routing.test.js",
         "aic-notes/test/note-transition-races.test.js",
+        "aic-notes/test/release-contract.test.js",
         "aic-notes/scripts/browser-secondary-regression.mjs"
-      ]
-    },
-    {
-      "id": "vscode.linked-note-context",
-      "group": "vscode-adapter",
-      "purpose": "Resolve linked-note relationships and source navigation, keep the compact header free of duplicated file dates, and optionally configure ordinary Explorer nesting without an extension-specific tree. Reject saves of deleted existing Markdown files and linked notes while retaining their drafts; genuine untitled files and new note placeholders can still be created.",
-      "hosts": ["vscode"],
-      "canonicalOwners": [
-        "aic-notes/src/notes/relationships.js",
-        "aic-notes/src/notes/navigation.js",
-        "aic-notes/src/notes/nesting.js"
-      ],
-      "sourceFiles": [
-        "aic-notes/src/notes/relationships.js",
-        "aic-notes/src/notes/navigation.js",
-        "aic-notes/src/notes/nesting.js"
-      ],
-      "entrypoints": [
-        "aic-notes/src/extension.js",
-        "aic-notes/src/secondary/provider.js"
-      ],
-      "verification": [
-        "aic-notes/test/relationships.test.js",
-        "aic-notes/test/note-routing.test.js",
-        "aic-notes/test/release-contract.test.js"
-      ]
-    },
-    {
-      "id": "vscode.selection-links",
-      "group": "vscode-adapter",
-      "purpose": "Insert a deduplicated source-selection reference into the live linked-note draft and reopen verified local source ranges.",
-      "hosts": ["vscode"],
-      "canonicalOwners": [
-        "aic-notes/src/notes/selection.js",
-        "aic-notes/src/notes/selection-model.js"
-      ],
-      "sourceFiles": [
-        "aic-notes/src/notes/selection.js",
-        "aic-notes/src/notes/selection-model.js"
-      ],
-      "entrypoints": [
-        "aic-notes/src/extension.js",
-        "aic-notes/src/editor/provider.js",
-        "aic-notes/src/secondary/provider.js"
-      ],
-      "verification": [
-        "aic-notes/test/selection-model.test.js",
-        "aic-notes/test/note-routing.test.js"
-      ]
-    },
-    {
-      "id": "vscode.local-delete",
-      "group": "vscode-adapter",
-      "purpose": "Confirm and move one sidecar or a selected folder's indexed sidecars to Trash, with an explicit permanent fallback only when necessary.",
-      "hosts": ["vscode"],
-      "canonicalOwners": ["aic-notes/src/notes/delete.js"],
-      "sourceFiles": ["aic-notes/src/notes/delete.js"],
-      "entrypoints": ["aic-notes/src/extension.js"],
-      "verification": [
-        "aic-notes/test/note-routing.test.js",
-        "aic-notes/test/note-transition-races.test.js"
       ]
     },
     {

@@ -278,7 +278,7 @@
         "standard-notes-aic/src/core/ui-system.js",
         "standard-notes-aic/src/core/ui-system.css",
         "standard-notes-aic/src/browser/panel.ts",
-        "aic-notes/src/notes/relationships.js"
+        "aic-notes/src/webview/main.js"
       ],
       "legacyHooks": {
         "shared": [".cm-aic-properties-metadata", ".cm-aic-note-relations"],
