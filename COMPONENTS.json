@@ -51,12 +51,7 @@
           ".cm-aic-security-panel-button",
           ".aic-db-button"
         ],
-        "browser": [
-          ".browser-button",
-          ".browser-icon-button",
-          ".browser-add-content",
-          ".browser-lock-button"
-        ],
+        "browser": [".browser-button", ".browser-icon-button"],
         "vscode": [".aic-save-button", ".aicn-error-fix"]
       },
       "adoption": "partial"
@@ -82,7 +77,7 @@
           ".cm-md-preview-header",
           ".aic-db-toolbar"
         ],
-        "browser": [".browser-toolbar", ".browser-page-identity"],
+        "browser": [".browser-toolbar"],
         "vscode": [".aic-save-controls"]
       },
       "adoption": "partial"
@@ -185,7 +180,6 @@
           ".aic-db-field",
           ".aic-db-field-label"
         ],
-        "browser": [".browser-field"],
         "vscode": [".cm-snippetField"]
       },
       "adoption": "partial"
@@ -235,7 +229,6 @@
           ".cm-aic-details-summary",
           ".cm-aic-details-body"
         ],
-        "browser": [".browser-delete-confirm"],
         "vscode": [".aicn-error-card"]
       },
       "adoption": "partial"
@@ -243,7 +236,7 @@
     {
       "id": "tree",
       "purpose": "Hierarchical or ordered navigation metadata with groups, items, rows, labels, and actions; it never owns note content. Connected navigation uses native nested lists and disclosure groups, with compact SVG folder/document icons, ownership guide lines, single-line labels and touch-aware rows. Browser and PWA share the same geometry.",
-      "hosts": ["standard-notes", "standalone", "browser", "pwa"],
+      "hosts": ["standard-notes", "standalone", "pwa"],
       "bem": {
         "block": "aic-tree",
         "elements": [
@@ -259,8 +252,7 @@
       },
       "canonicalOwners": [
         "standard-notes-aic/src/core/ui-system.js",
-        "standard-notes-aic/src/core/ui-system.css",
-        "standard-notes-aic/src/browser/navigation.ts"
+        "standard-notes-aic/src/core/ui-system.css"
       ],
       "legacyHooks": {
         "shared": [
@@ -269,14 +261,6 @@
           ".cm-aic-note-relation-label",
           ".cm-aic-note-relation-marker",
           ".cm-aic-note-relation-kind"
-        ],
-        "browser": [
-          ".browser-navigation",
-          ".browser-library",
-          ".browser-domain",
-          ".browser-path-label",
-          ".browser-history",
-          ".browser-page-ancestors"
         ]
       },
       "adoption": "partial"
@@ -298,15 +282,7 @@
       ],
       "legacyHooks": {
         "shared": [".cm-aic-properties-metadata", ".cm-aic-note-relations"],
-        "browser": [
-          ".browser-page-identity",
-          ".browser-page-title",
-          ".browser-page-origin",
-          ".browser-page-ancestors",
-          ".browser-ancestor-current",
-          ".browser-note",
-          ".browser-empty-context"
-        ],
+        "browser": [".browser-note"],
         "vscode": [
           ".aic-main-note-surface",
           ".aic-secondary-surface",

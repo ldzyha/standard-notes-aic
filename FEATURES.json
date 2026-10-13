@@ -744,7 +744,7 @@
     {
       "id": "browser.markdown-files",
       "group": "browser-adapter",
-      "purpose": "Edit a selected plain .md file or a folder of Markdown files directly. The browser worker serializes mutations, checks original bytes and revisions before writes and reports On disk only after acknowledgement. Folder .aic/links.json records URL/path metadata separately from Markdown content. Index entries written by the retired Shared and Global notes stay valid and are preserved as written; their files open as ordinary Markdown files. Existing unassociated files open without navigation; explicit linking associates a file with the active URL. Local handle bindings and acknowledged plain draft checkpoints survive reload; recovery exports copies and never replays into deleted files. No passwords, crypto, encrypted backup or legacy conversion are part of AIC. Folder scans publish inspected/found/loaded counts and bounded filename summaries, race each read against cancellation and a 30-second deadline, retain safe partial results, and ignore late results. Ordinary loads use the current observation; Refresh folder explicitly rescans. Open panels retain live native source handles independently of worker lifetime. Permission status distinguishes read and write grants; reconnect requests the retained handle from a user gesture and never probes a slow directory before returning.",
+      "purpose": "Edit one plain Markdown note file directly: `aic.md` in the connected folder, or the connected file. A missing `aic.md` is created by the first save, never by connecting or viewing. The browser worker serializes mutations and writes the whole file by compare-and-swap against the bytes it last read, so a change made elsewhere is reported as a conflict; the file is limited to 512 KiB and is never truncated. No other file in the folder is listed, read or written: Markdown files and `.aic` metadata of the earlier one-note-per-page layout stay untouched. Draft recovery copies, including copies of earlier page, Shared and Global drafts, stay reviewable and exportable and are never applied to the note file.",
       "hosts": ["browser"],
       "canonicalOwners": [
         "standard-notes-aic/src/browser/markdown-storage.ts",
@@ -763,12 +763,9 @@
       ],
       "verification": [
         "standard-notes-aic/test/browser-markdown-storage.test.ts",
-        "standard-notes-aic/test/browser-markdown-concurrency.test.ts",
         "standard-notes-aic/test/browser-service.test.ts",
-        "standard-notes-aic/test/browser-library.test.ts",
         "standard-notes-aic/test/browser-recovery-store.test.ts",
         "standard-notes-aic/test/browser-panel.test.ts",
-        "standard-notes-aic/test/browser-scan.test.ts",
         "standard-notes-aic/test/browser-source-access.test.ts",
         "standard-notes-aic/test/browser-folder-flow.test.ts"
       ]
@@ -776,75 +773,35 @@
     {
       "id": "browser.page-notes",
       "group": "browser-adapter",
-      "purpose": "Create on first edit, save, export, copy, and delete exact-URL page notes while retaining failed local drafts. Pin a saved note while browsing and add deduplicated active-page related links atomically when typing. The panel shows exactly one note: the active page, the pinned page or the selected file. File status stays unsaved through pending writes, including undo compensation, and settles after disk acknowledgement. Pending snapshots feed the plain recovery owner until that acknowledgement; restored copies require explicit export or confirmed dismissal and never recreate deleted notes. New notes and deleted-note placeholders start as empty Markdown, with no automatic AIC block. Untouched blank pages create no record. Opening, restoring and refreshing sources show stable live progress controls outside the inert editor. Use found notes stops the scan. The file tree mounts folders lazily, pages 100 rows per level and searches every indexed note. Permission recovery preserves the current draft, selection and source identity, rejects stale status adoption and reports success only after ready/write access. File-backed save acknowledgements use opaque content revision tokens with exact identity and submitted-text checks. A remembered unavailable source offers one Continue action after its native handle is warm; fresh setup offers Open folder and Open file, with New file and source changes in More. Reconnect is shown only when needed. An explicit Open AIC in tab fallback shares the source, and returning focus can resume a grant without repicking.",
+      "purpose": "Show the page of the note file bound to the active tab's URL by its `--- <url>` separator, as one focused card with Open target as its only action; a URL without a page shows an empty card and the page is appended on the first typing. Tab changes refocus the same editor without changing the document, its undo history or an unsaved draft; a tab without an http(s) URL shows the whole note. A change to the file made elsewhere is taken in as an external update when the panel regains focus or the tab changes, never over an unsaved draft. File status stays unsaved through pending writes, and failed saves retain the draft.",
       "hosts": ["browser"],
       "canonicalOwners": [
         "standard-notes-aic/src/browser/drafts.ts",
         "standard-notes-aic/src/browser/draft-coordinator.ts",
-        "standard-notes-aic/src/browser/panel.ts",
-        "standard-notes-aic/src/browser/library.ts",
-        "standard-notes-aic/src/browser/related-links.ts"
+        "standard-notes-aic/src/browser/panel.ts"
       ],
       "sourceFiles": [
         "standard-notes-aic/src/browser/drafts.ts",
         "standard-notes-aic/src/browser/draft-coordinator.ts",
-        "standard-notes-aic/src/browser/panel.ts",
-        "standard-notes-aic/src/browser/related-links.ts"
+        "standard-notes-aic/src/browser/panel.ts"
       ],
       "entrypoints": [
         "standard-notes-aic/src/browser/main.ts",
         "standard-notes-aic/src/browser/service.ts"
       ],
       "verification": [
-        "standard-notes-aic/test/browser-drafts.test.ts",
-        "standard-notes-aic/test/browser-panel.test.ts",
-        "standard-notes-aic/test/browser-panel-delete.test.ts",
-        "standard-notes-aic/test/browser-library.test.ts",
-        "standard-notes-aic/test/browser-related-links.test.ts",
-        "standard-notes-aic/test/browser-panel-scan.test.ts",
-        "standard-notes-aic/test/browser-panel-reconnect.test.ts",
         "standard-notes-aic/test/browser-draft-file-service.test.ts",
-        "standard-notes-aic/test/browser-folder-flow.test.ts"
-      ]
-    },
-    {
-      "id": "browser.page-ancestor-context",
-      "group": "browser-adapter",
-      "purpose": "Project saved metadata-only page ancestors from the exact origin and strict URL path into a compact root-to-current navigation chain.",
-      "hosts": ["browser"],
-      "canonicalOwners": ["standard-notes-aic/src/browser/page-ancestors.ts"],
-      "sourceFiles": ["standard-notes-aic/src/browser/page-ancestors.ts"],
-      "entrypoints": ["standard-notes-aic/src/browser/panel.ts"],
-      "verification": [
-        "standard-notes-aic/test/browser-page-ancestors.test.ts",
-        "standard-notes-aic/test/browser-panel-ancestors.test.ts"
-      ]
-    },
-    {
-      "id": "browser.navigation-history",
-      "group": "browser-adapter",
-      "purpose": "Show saved notes in a compact connected domain/path tree with native disclosure groups, shared SVG icons and bounded safe labels. Retain recent metadata only for pages with meaningful saved notes, omit unrelated browsing history, and open known stored destinations without changing exact URLs.",
-      "hosts": ["browser"],
-      "canonicalOwners": [
-        "standard-notes-aic/src/browser/navigation.ts",
-        "standard-notes-aic/src/browser/library.ts"
-      ],
-      "sourceFiles": ["standard-notes-aic/src/browser/navigation.ts"],
-      "entrypoints": [
-        "standard-notes-aic/src/browser/panel.ts",
-        "standard-notes-aic/src/browser/service.ts"
-      ],
-      "verification": [
-        "standard-notes-aic/test/browser-navigation.test.ts",
-        "standard-notes-aic/test/browser-panel-ux.test.ts",
-        "standard-notes-aic/test/browser-library.test.ts",
-        "standard-notes-aic/test/browser-service.test.ts"
+        "standard-notes-aic/test/browser-drafts.test.ts",
+        "standard-notes-aic/test/browser-folder-flow.test.ts",
+        "standard-notes-aic/test/browser-panel-actions.test.ts",
+        "standard-notes-aic/test/browser-panel-reconnect.test.ts",
+        "standard-notes-aic/test/browser-panel.test.ts"
       ]
     },
     {
       "id": "browser.capture-import",
       "group": "browser-adapter",
-      "purpose": "Capture the explicitly selected current page content or selection, sanitize it into Markdown, resolve safe links, and append page or file content after permission and navigation-race checks; shared outline icons distinguish page capture, file import and file export in the browser header; native paste remains editor-owned.",
+      "purpose": "Capture the explicitly selected current page content or selection, sanitize it into Markdown, resolve safe links, and insert page or file content at the end of the focused page of the note, creating the page when the URL has none, after permission and navigation-race checks; inserted lines that would start another page are rewritten; native paste remains editor-owned.",
       "hosts": ["browser"],
       "canonicalOwners": [
         "standard-notes-aic/src/browser/capture-page.ts",
@@ -859,32 +816,30 @@
         "standard-notes-aic/src/browser/service.ts"
       ],
       "verification": [
+        "standard-notes-aic/test/browser-folder-flow.test.ts",
         "standard-notes-aic/test/browser-page-import.test.ts",
-        "standard-notes-aic/test/browser-service.test.ts",
+        "standard-notes-aic/test/browser-panel-actions.test.ts",
         "standard-notes-aic/test/browser-panel.test.ts",
-        "standard-notes-aic/test/browser-panel-actions.test.ts"
+        "standard-notes-aic/test/browser-service.test.ts"
       ]
     },
     {
       "id": "browser.markdown-export",
       "group": "browser-adapter",
-      "purpose": "Export current or recovered Markdown copies explicitly without altering the original files. Imported Markdown uses the existing editor save owner. App-level encrypted backups and legacy conversion are removed.",
+      "purpose": "Download the focused page, the whole note file, an unsaved draft or a recovered draft copy explicitly as Markdown without altering the original file. Imported Markdown uses the existing editor save owner. App-level encrypted backups and legacy conversion are removed.",
       "hosts": ["browser"],
-      "canonicalOwners": ["standard-notes-aic/src/browser/library.ts"],
-      "sourceFiles": ["standard-notes-aic/src/browser/library.ts"],
+      "canonicalOwners": ["standard-notes-aic/src/browser/panel.ts"],
+      "sourceFiles": ["standard-notes-aic/src/browser/panel.ts"],
       "entrypoints": [
         "standard-notes-aic/src/browser/panel.ts",
         "standard-notes-aic/src/browser/service.ts"
       ],
-      "verification": [
-        "standard-notes-aic/test/browser-library.test.ts",
-        "standard-notes-aic/test/browser-panel.test.ts"
-      ]
+      "verification": ["standard-notes-aic/test/browser-panel.test.ts"]
     },
     {
       "id": "browser.panel-security-lifecycle",
       "group": "browser-adapter",
-      "purpose": "Own side-panel context, trusted message boundaries, private-window consent, visibility teardown and stale async cancellation. The compact header contains Notes and More options. Named file/folder, pin, capture, Markdown transfer and help actions use left-aligned SVG rows. Source changes retain pending drafts; no password or Lock gate.",
+      "purpose": "Own side-panel context, trusted message boundaries, private-window consent, visibility teardown and stale async cancellation. The compact header contains More options only. Named file/folder, capture, Markdown transfer and help actions use left-aligned SVG rows. Source changes retain pending drafts; no password or Lock gate.",
       "hosts": ["browser"],
       "canonicalOwners": [
         "standard-notes-aic/src/browser/panel.ts",
@@ -905,11 +860,12 @@
         "standard-notes-aic/src/browser/worker.ts"
       ],
       "verification": [
-        "standard-notes-aic/test/browser-panel-ux.test.ts",
         "standard-notes-aic/test/browser-platform.test.ts",
         "standard-notes-aic/test/browser-service.test.ts",
         "standard-notes-aic/test/browser-build-config.test.ts",
-        "standard-notes-aic/scripts/browser-lifecycle-regression.mjs"
+        "standard-notes-aic/scripts/browser-lifecycle-regression.mjs",
+        "standard-notes-aic/test/browser-panel.test.ts",
+        "standard-notes-aic/test/browser-panel-reconnect.test.ts"
       ]
     },
     {
