@@ -311,7 +311,7 @@ try {
       "pending direct read does not open an AIC panel",
     );
     assert.equal(await button("Paste latest").count(), 0);
-    await button("Edit security block").tap();
+    await button("Edit AIC block").tap();
     await page.evaluate((text) => securityQa.resolveRead(text), secret);
     assert.equal(await value(), source);
     assert.ok(!(await root.innerHTML()).includes(secret));

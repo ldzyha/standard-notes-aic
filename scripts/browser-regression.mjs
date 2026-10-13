@@ -257,7 +257,7 @@ try {
   await filter.fill("");
   assert.equal(await value(), typedSource);
   await typed
-    .getByRole("button", { name: "Edit security block", exact: true })
+    .getByRole("button", { name: "Edit AIC block", exact: true })
     .click();
   assert.equal(await root.locator(".cm-aic-security").count(), 0);
   assert.equal(await value(), typedSource);

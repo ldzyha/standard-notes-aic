@@ -428,8 +428,8 @@ unreproduced Standard Notes PWA crash.
   Tests: `security-field-actions`, `security-block-ui`.
 
 - `core/security-model`, `security-block` and `security-otp` own the single fenced
-  `aic` Markdown grammar in both hosts. `/security` inserts a parseable example;
-  section labels are optional. `Label*: value` masks a field and `Label: value`
+  `aic` Markdown grammar in both hosts. `/aic` inserts a parseable example;
+  section labels are optional. `Label *| value` masks a value and `Label | value`
   leaves it visible, independent of the label text.
   Preview excludes the block, including quoted/list-contained fences, from Standard Notes
   plain-text metadata; each save also clears stale `preview_html`. Copy
@@ -477,7 +477,7 @@ unverified environments.
 
 | Area / owner                                       | Implemented contract                                                                                                                                                                                                      | Explicit limitation                                                                       |
 | -------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Core templates (`slash-snippets`, `note-template`) | Questions, early answers, contextual section levels; `/noise`, `/wave`, `/implementation`, `/context`, `/entity-map`; no compulsory Purpose/Proposal or new metadata                                                      | Prompts do not classify tasks, group notes or create cross-scale navigation               |
+| Core templates (`slash-snippets`, `note-template`) | `/aic`, Markdown blocks, DDK sections (title, italic question, answer) at contextual heading levels, and Mermaid diagrams; no compulsory metadata                                                                         | Prompts do not classify tasks, group notes or create cross-scale navigation               |
 | Mermaid source and preview                         | The Markdown fence is editable directly; an adjacent live preview renders flowchart, class and sequence syntax. Preview offers Copy, Edit and Cut; diagrams retain their natural size and shrink to fit the editor width. | Mermaid syntax errors remain visible in the preview; source stays intact.                 |
 | Shared formatting (`formatting`)                   | Heading/paragraph and numbered/bullet/checkbox-list commands preserve selection and protected structures; one operation is one Undo                                                                                       | Applies inside AIC editors; not a new native-editor or operating-system shortcut          |
 | Stability                                          | Geometry-safe preview spacing; identity-bound history/popovers; exact host save acknowledgement and metadata-aware locking                                                                                                | Host acknowledgement means local pre-sync acceptance, not confirmed cloud synchronization |
@@ -485,7 +485,6 @@ unverified environments.
 Usage: `/` inserts a template; Mermaid **Edit** reveals its Markdown source and a live preview.
 Ctrl/Cmd+S saves through the host. Automatic sizing does not rewrite content; the
 preview uses its full height without internal scrollbars.
-Entity-map links are ordinary Markdown references, not implemented drill-down.
 
 ## Global invariants
 
@@ -544,7 +543,7 @@ navigation and lifecycle checks. They are separate from authenticated host verif
 | `preview-ranges`                                               | Atomic navigation for replacement decorations and explicit source reveal                                                                 | editor, code-fence-core, details                                             |
 | `code-fence-preview`, `code-fence-extension`                   | Text-safe cards, permanent Copy/Edit/Cut, discovery, read-only and clipboard/source routing; security fences have their own renderer     | code-fence-core, editor, security-block-ui                                   |
 | `code-languages`                                               | Shared aliases for bundled CodeMirror language support                                                                                   | language, editor                                                             |
-| `slash-snippets`, `note-template`                              | Grouped shared catalog, contextual queries, thinking fields, sections and `/security`; no implicit save                                  | slash-snippets, security-block-ui, editor                                    |
+| `slash-snippets`, `note-template`                              | Grouped shared catalog, contextual queries, placeholder fields, sections and `/aic`; no implicit save                                    | slash-snippets, security-block-ui, editor                                    |
 | `formatting`, `indentation`                                    | Heading/list transactions and Enter/Tab behavior preserve protected source, selection, snippet navigation and Undo                       | formatting, indentation, commands                                            |
 | `task-marker`                                                  | Exact checkbox mutation, read-only checks, keyboard activation and ARIA; detached controls are inert                                     | shared-controls-regression, editor                                           |
 | `details-model`                                                | One-pass non-nested details grammar, fence exclusion and immutable-document cache                                                        | details, shared-controls-regression                                          |
@@ -595,10 +594,8 @@ explicit distribution manifest, not maintained independently in the extension.
 - Native mouse selection inside preview remains selectable and copyable without
   rerendering the widget. CodeMirror selections reveal intersected source;
   outer `Ctrl/Cmd+A` reveals the complete note. A nested input keeps its own selection.
-- Slash on an otherwise empty Markdown line opens the contextual shared catalog. Empty notes rank
-  complete pages first; existing pages rank sections first; `Tab` advances through inserted
-  perspective questions. Group headers separate page structure, assurance, references, data,
-  diagrams, and content. Code and read-only contexts never activate it.
+- Slash on an otherwise empty Markdown line opens the shared catalog; `Tab` advances
+  through inserted placeholders. Group headers separate blocks, sections and diagrams. Code and read-only contexts never activate it.
 
 ## Parity boundary
 

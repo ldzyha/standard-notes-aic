@@ -1295,7 +1295,7 @@ class SecurityBlockWidget extends WidgetType {
     ]);
     wrapper.setAttribute(
       "aria-label",
-      isProperties ? "Properties" : "Security block",
+      isProperties ? "Properties" : "AIC block",
     );
     const header = document.createElement("div");
     header.className = "cm-md-preview-header";
@@ -1334,8 +1334,8 @@ class SecurityBlockWidget extends WidgetType {
     title.textContent = isProperties
       ? "Properties"
       : parsed.ok
-        ? (parsed.model.title ?? "Security")
-        : "Security";
+        ? (parsed.model.title ?? "AIC block")
+        : "AIC block";
     const actions = document.createElement("span");
     actions.className = "cm-md-preview-actions";
     applyUiComponent(actions, "card", [], "actions");
@@ -1344,7 +1344,7 @@ class SecurityBlockWidget extends WidgetType {
     if (capacityMessages.length) {
       const capacity = document.createElement("div");
       capacity.className = "cm-aic-security-capacity";
-      capacity.setAttribute("aria-label", "Security block limits");
+      capacity.setAttribute("aria-label", "AIC block limits");
       for (const text of capacityMessages) {
         const item = document.createElement("span");
         item.textContent = text;
@@ -1361,7 +1361,7 @@ class SecurityBlockWidget extends WidgetType {
       const handle = document.createElement("button");
       handle.type = "button";
       handle.className = "cm-aic-security-drag";
-      handle.setAttribute("aria-label", "Reorder security block");
+      handle.setAttribute("aria-label", "Reorder AIC block");
       header.prepend(handle);
       this.cleanups.push(
         this.cardOrdering.register(wrapper, handle, () =>
@@ -1440,14 +1440,14 @@ class SecurityBlockWidget extends WidgetType {
     actions.append(
       button(
         document,
-        isProperties ? "Copy properties" : "Copy security block",
+        isProperties ? "Copy properties" : "Copy AIC block",
         "copy",
         async (control) => {
           const block = this.currentBlock(view);
           if (!block || !wrapper.isConnected) return;
           await copyValue(
             view.state.sliceDoc(block.from, block.to),
-            isProperties ? "properties" : "security block",
+            isProperties ? "properties" : "AIC block",
             headerStatus,
             control,
           );
@@ -1459,7 +1459,7 @@ class SecurityBlockWidget extends WidgetType {
       actions.append(
         button(
           document,
-          isProperties ? "Edit properties" : "Edit security block",
+          isProperties ? "Edit properties" : "Edit AIC block",
           "edit",
           () =>
             this.editSource(
@@ -1472,7 +1472,7 @@ class SecurityBlockWidget extends WidgetType {
       actions.append(
         button(
           document,
-          isProperties ? "Cut properties" : "Cut security block",
+          isProperties ? "Cut properties" : "Cut AIC block",
           "cut",
           async () => {
             if (view.state.readOnly || !wrapper.isConnected) return;
@@ -1482,7 +1482,7 @@ class SecurityBlockWidget extends WidgetType {
             if (
               !(await copyValue(
                 source,
-                isProperties ? "properties" : "security block",
+                isProperties ? "properties" : "AIC block",
                 headerStatus,
               ))
             )

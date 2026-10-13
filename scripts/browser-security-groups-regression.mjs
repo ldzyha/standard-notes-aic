@@ -424,7 +424,7 @@ try {
           );
           assert.equal(
             await card
-              .getByRole("button", { name: "Edit security block", exact: true })
+              .getByRole("button", { name: "Edit AIC block", exact: true })
               .count(),
             0,
           );
@@ -538,7 +538,7 @@ try {
         page,
         cards
           .nth(0)
-          .getByRole("button", { name: "Reorder security block", exact: true }),
+          .getByRole("button", { name: "Reorder AIC block", exact: true }),
         cards.nth(1),
       );
       await page.waitForFunction(

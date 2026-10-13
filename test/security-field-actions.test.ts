@@ -151,7 +151,7 @@ describe("security field actions", () => {
       (_result, index) => scheduled.mock.calls[index]?.[1] === 3000,
     )?.value;
     expect(deadline).toBeDefined();
-    control("Edit security block").click();
+    control("Edit AIC block").click();
     expect(cleared).toHaveBeenCalledWith(deadline);
     expect(host.querySelector(".cm-aic-security-panel")).toBeNull();
     pending.resolve("late-secret");
@@ -190,7 +190,7 @@ describe("security field actions", () => {
     const filled = source.replace("Password *|", "Password *| original-secret");
     const { host, view, control } = fixture(filled + "\n\nOutside");
     expect(host.querySelector('[aria-label="Paste Password"]')).toBeNull();
-    control("Edit security block").click();
+    control("Edit AIC block").click();
     const from = view.state.doc.toString().indexOf(" original-secret");
     view.dispatch({
       changes: { from, to: from + " original-secret".length, insert: "" },
@@ -408,7 +408,7 @@ describe("security field actions", () => {
     expect(host.querySelector('[aria-label="Generate TOTP"]')).toBeNull();
     control("Generate Password").click();
     expect(host.textContent).toContain("Generate");
-    control("Edit security block").click();
+    control("Edit AIC block").click();
     expect(host.querySelector(".cm-aic-security-panel")).toBeNull();
     expect(host.querySelector(".cm-aic-security")).toBeNull();
     view.dispatch({ selection: { anchor: view.state.doc.length } });

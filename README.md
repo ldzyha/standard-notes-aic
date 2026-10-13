@@ -386,16 +386,13 @@ The shared editor features below are included in the release source. Automated s
 checks cover the implementation. They do not certify authenticated Standard Notes
 clients or a live Linux session.
 
-- Type `/page` or `/section` for Core-aligned questions, early answers and contextual detail, without
-  compulsory Purpose/Proposal sections. `/context` links parent and shared descriptions without
-  copying them; section headings nest under the current Markdown heading.
-- Use `/noise` to investigate uncertainty, then `/wave` in the same note for a result, prerequisites,
-  dependency-ordered actions and verification. `/implementation` adds steps with error handling.
+- Type `/section` for a title, one italic question and its answer; section headings nest under the
+  current Markdown heading. `/glossary`, `/bibliography`, `/high-level-design`, `/detailed-view`,
+  `/error-handling`, `/test-cases` and `/open-question` insert the matching DDK sections.
   These are editable prompts, not automatic task states or extra required properties.
 - Basic blocks are `/list` (unordered), `/list-numbered` (ordered), `/checklist` (checkboxes)
   and `/table` (a simple table). `/checkbox` and `/tasklist` also find `/checklist`.
-  Each list item holds one idea; no heading or metadata is imposed. Specialized `/mapping-table`,
-  `/comparison` and `/tasks` remain separate choices in Tables & lists.
+  Each list item holds one idea; no heading or metadata is imposed.
 - Insert `/flowchart`, `/class-diagram`, `/sequence` or `/entity-map`. **Edit** reveals the
   Markdown source and a live preview below it. **Copy** copies the Mermaid source. The diagram
   keeps its natural size, shrinks to fit narrow panels, and uses its full content height. There
@@ -412,8 +409,7 @@ clients or a live Linux session.
   agent adapter or standalone writer is enabled. Host-owned live-document transactions are required
   before agents can safely update a note that may have an unsaved editor draft.
 
-The entity map is an overview of composition and relationships; `/timeline` remains chronological
-and source-edited. Automatic drill-down/cross-scale links, noise/wave grouping UI, multiselect,
+Automatic drill-down/cross-scale links, noise/wave grouping UI, multiselect,
 subgraph authoring and full arbitrary Mermaid support are **not implemented**. Standard Notes does
 not automatically populate blank notes or create VS Code project structures. Existing notes remain
 unchanged until edited. Save-acknowledgement, note-identity, popup, lock and cursor-navigation fixes
@@ -447,14 +443,19 @@ a second editor or convert note data.
 ## Slash templates
 
 On an otherwise empty Markdown line, type `/` and continue typing to filter the shared template
-catalog. Empty notes put complete pages first; an existing page puts its sections first. Choose a
-template with the keyboard or pointer, then use `Tab` to move through its highlighted thinking
-questions and replace each answer in place.
+catalog. Choose a template with the keyboard or pointer, then use `Tab` to move through its
+highlighted placeholders and replace each one in place.
 
-The compact menu separates Pages, Structure, Review, References, Tables & lists, Diagrams, and
-Blocks. Its examples include progressive documentation, architecture,
-capability and decision pages; focused sections; tables and comparisons; Mermaid
-flow/class/sequence/timeline diagrams; code, details, tasks and synthesis. Slash completion is
+The compact menu has three groups:
+
+- **Blocks** - `/aic` (AIC block for fields, secrets and codes; `/security`, `/password`, `/2fa`
+  and `/properties` also find it), `/list`, `/list-numbered`, `/checklist`, `/table`, `/code` and
+  `/details`.
+- **Sections** - `/section`, `/glossary`, `/bibliography`, `/high-level-design`, `/detailed-view`,
+  `/error-handling`, `/test-cases` and `/open-question`.
+- **Diagrams** - `/flowchart`, `/sequence` and `/state-diagram` (Mermaid).
+
+Slash completion is
 disabled in fenced/inline code and in locked notes, so `/` remains ordinary Markdown there. AIC
 Notes uses this same catalog in both ordinary `.md` documents and contextual `.note.md` notes.
 

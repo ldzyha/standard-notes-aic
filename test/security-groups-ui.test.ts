@@ -77,11 +77,11 @@ afterEach(() => {
 
 describe("shared compact Security and Properties groups", () => {
   it.each([
-    [note, "Copy security block", "Edit security block"],
+    [note, "Copy AIC block", "Edit AIC block"],
     [
       "```aic\n# Properties\nEmail | public@example.test\n```\nBody",
-      "Copy security block",
-      "Edit security block",
+      "Copy AIC block",
+      "Edit AIC block",
     ],
   ])(
     "keeps the filter between the title and actions in the shared header: %s",
@@ -285,7 +285,7 @@ describe("shared compact Security and Properties groups", () => {
     const { host, view, onCopy } = fixture(note, true);
     expect(host.querySelector(".cm-aic-security-drag")).toBeNull();
     expect(host.querySelector(".cm-aic-security-add")).toBeNull();
-    expect(host.querySelector('[aria-label="Edit security block"]')).toBeNull();
+    expect(host.querySelector('[aria-label="Edit AIC block"]')).toBeNull();
     search(host, "Password");
     control(host, "Copy Password label").click();
     expect(onCopy).toHaveBeenCalledWith("Password", "Password label");
@@ -358,7 +358,7 @@ describe("shared compact Security and Properties groups", () => {
     const doc = note + "\n\nParagraph between\n\n" + second + "\n\nTail";
     const { host, view, saves } = fixture(doc);
     const handles = host.querySelectorAll<HTMLButtonElement>(
-      '[aria-label="Reorder security block"]',
+      '[aria-label="Reorder AIC block"]',
     );
     expect(handles).toHaveLength(2);
     move(handles[0]!);

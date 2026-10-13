@@ -69,7 +69,7 @@ describe("shared security block", () => {
     expect(
       sectionOnly.host.querySelector(".cm-md-preview-header strong")
         ?.textContent,
-    ).toBe("Security");
+    ).toBe("AIC block");
     expect(
       sectionOnly.host.querySelector(
         ".cm-aic-security-section > .cm-aic-security-section-header > .cm-aic-security-section-title",
@@ -87,7 +87,7 @@ describe("shared security block", () => {
     const unnamed = fixture(source.replace("## Main", "##"));
     expect(
       unnamed.host.querySelector(".cm-md-preview-header strong")?.textContent,
-    ).toBe("Security");
+    ).toBe("AIC block");
     expect(
       unnamed.host.querySelector(
         ".cm-aic-security-section > .cm-aic-security-section-header > .cm-aic-security-section-title",
@@ -96,8 +96,7 @@ describe("shared security block", () => {
   });
   it("uses the common slash snippet", () => {
     expect(
-      DOCUMENTATION_SNIPPETS.find((item) => item.command === "security")
-        ?.template,
+      DOCUMENTATION_SNIPPETS.find((item) => item.command === "aic")?.template,
     ).toBe(securityTemplate());
   });
 
@@ -117,8 +116,8 @@ describe("shared security block", () => {
   it("copies explicit values and opens only the safe URL", () => {
     const { host, onCopy, onOpen } = fixture();
     expect(onCopy).not.toHaveBeenCalled();
-    control(host, "Copy security block").click();
-    expect(onCopy).toHaveBeenCalledWith(source, "security block");
+    control(host, "Copy AIC block").click();
+    expect(onCopy).toHaveBeenCalledWith(source, "AIC block");
     control(host, "Copy Password label").click();
     expect(onCopy).toHaveBeenCalledWith("Password", "Password label");
     control(host, "Copy Password value").click();
@@ -129,7 +128,7 @@ describe("shared security block", () => {
 
   it("edits as raw Markdown and restores preview on leaving the source", () => {
     const { host, view } = fixture(source + "\n\nAfter");
-    control(host, "Edit security block").click();
+    control(host, "Edit AIC block").click();
     expect(host.querySelector(".cm-aic-security-form")).toBeNull();
     expect(host.querySelector(".cm-aic-security")).toBeNull();
     view.dispatch({ selection: { anchor: view.state.doc.length } });
@@ -192,18 +191,16 @@ describe("shared security block", () => {
     expect(host.textContent).toContain(
       "Write each value after |, *|, #|, _|, 1| or 0|.",
     );
-    control(host, "Edit security block").click();
+    control(host, "Edit AIC block").click();
     expect(view.state.doc.toString()).toBe(invalid);
     expect(host.querySelector(".cm-aic-security")).toBeNull();
   });
 
   it("omits modifying controls in read-only mode", () => {
     const { host } = fixture(source, true);
-    expect(host.querySelector('[aria-label="Edit security block"]')).toBeNull();
-    expect(
-      host.querySelector('[aria-label="Copy security block"]'),
-    ).not.toBeNull();
-    expect(host.querySelector('[aria-label="Cut security block"]')).toBeNull();
+    expect(host.querySelector('[aria-label="Edit AIC block"]')).toBeNull();
+    expect(host.querySelector('[aria-label="Copy AIC block"]')).not.toBeNull();
+    expect(host.querySelector('[aria-label="Cut AIC block"]')).toBeNull();
   });
 
   it("keeps an unstarred TOTP field visible like every other unstarred field", () => {

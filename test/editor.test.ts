@@ -325,7 +325,7 @@ describe("AIC editor integration", () => {
     expect(properties).not.toBeNull();
 
     const edit = properties!.querySelector<HTMLButtonElement>(
-      '[aria-label="Edit security block"]',
+      '[aria-label="Edit AIC block"]',
     );
     expect(edit).not.toBeNull();
     expect(edit!.textContent).toBe("");
@@ -557,7 +557,7 @@ describe("AIC editor integration", () => {
     {
       name: "security",
       block: "```aic\n## Main\nPassword *| synthetic-secret\n```",
-      action: "Cut security block",
+      action: "Cut AIC block",
     },
     {
       name: "properties",

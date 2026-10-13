@@ -175,7 +175,7 @@ describe("Properties share the AIC renderer", () => {
   });
   it("uses explicit source Edit and keeps read-only fields copyable without mutation controls", () => {
     const writable = fixture();
-    control(writable.host, "Edit security block").click();
+    control(writable.host, "Edit AIC block").click();
     expect(writable.host.querySelector(".cm-aic-security")).toBeNull();
     writable.view.dispatch({
       selection: { anchor: writable.view.state.doc.length },
@@ -183,7 +183,7 @@ describe("Properties share the AIC renderer", () => {
     expect(writable.host.querySelector(".cm-aic-security")).not.toBeNull();
     const readOnly = fixture(properties, true);
     expect(
-      readOnly.host.querySelector('[aria-label="Edit security block"]'),
+      readOnly.host.querySelector('[aria-label="Edit AIC block"]'),
     ).toBeNull();
     expect(
       readOnly.host.querySelector('[aria-label="Paste Email"]'),

@@ -88,6 +88,7 @@ export function createEditorHelp(document, { host }) {
       ],
     ]),
     section(document, "AIC field syntax", [
+      ["/aic", "insert an AIC block for fields, secrets and codes"],
       ["Label | value", "add a plain-text value"],
       ["Label *| value", "mark the next value as secret"],
       ["Label #| seed", "mark the next value as a TOTP seed"],

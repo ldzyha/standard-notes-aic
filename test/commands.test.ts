@@ -1,12 +1,9 @@
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { afterEach, describe, expect, it } from "vitest";
-import { parseSecurityDocument } from "../src/core/security-model.js";
 import {
   aicKeymap,
   continueList,
-  insertMermaid,
-  insertProperties,
   setBlockKind,
   toggleBold,
   toggleList,
@@ -87,34 +84,9 @@ describe("AIC Markdown commands", () => {
     expect(aicKeymap.some(({ key }) => key === " ")).toBe(false);
   });
 
-  it("inserts an ordinary aic Properties block at the cursor with an editable empty line", () => {
-    const view = editor("Body", { anchor: 4 });
-    expect(insertProperties(view)).toBe(true);
-    const inserted = view.state.doc.toString();
-    expect(inserted).toBe("Body\n```aic\n# Properties\n\n```");
-    const cursor = view.state.selection.main.head;
-    view.dispatch({ changes: { from: cursor, insert: "Name | value" } });
-    expect(view.state.doc.toString()).toContain("Name | value\n```");
-    expect(parseSecurityDocument(view.state.doc.toString().slice(5)).ok).toBe(
-      true,
-    );
-    view.destroy();
-  });
-
-  it("preserves selected text when inserting a robust Mermaid fence", () => {
-    const source = "flowchart LR\n  A --> B\n  ```";
-    const view = editor(source, { anchor: 0, head: source.length });
-    expect(insertMermaid(view)).toBe(true);
-    expect(view.state.doc.toString()).toBe(
-      "````mermaid\nflowchart LR\n  A --> B\n  ```\n````",
-    );
-    view.destroy();
-  });
-
   it("does not mutate a read-only note", () => {
     const view = editor("word", { anchor: 0, head: 4 }, true);
     expect(toggleBold(view)).toBe(false);
-    expect(insertProperties(view)).toBe(false);
     expect(view.state.doc.toString()).toBe("word");
     view.destroy();
   });

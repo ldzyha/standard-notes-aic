@@ -224,9 +224,7 @@ it("keeps read-only typed previews masked and label/value copying independent", 
   expect(
     view.dom.querySelector('[aria-label="Add row after Account"]'),
   ).toBeNull();
-  expect(
-    view.dom.querySelector('[aria-label="Edit security block"]'),
-  ).toBeNull();
+  expect(view.dom.querySelector('[aria-label="Edit AIC block"]')).toBeNull();
   view.dom
     .querySelector<HTMLButtonElement>('[aria-label="Copy Account label"]')!
     .click();

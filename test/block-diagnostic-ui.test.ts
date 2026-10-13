@@ -318,7 +318,7 @@ describe("safe block source locations", () => {
   it("makes the existing header Edit action go to the same error", () => {
     const { host, view } = fixture(merged);
     host
-      .querySelector<HTMLButtonElement>('[aria-label="Edit security block"]')!
+      .querySelector<HTMLButtonElement>('[aria-label="Edit AIC block"]')!
       .click();
     expect(view.state.selection.main.head).toBe(
       merged.indexOf("# Second card"),

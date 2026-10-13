@@ -549,7 +549,7 @@
     {
       "id": "core.slash-templates",
       "group": "authoring",
-      "purpose": "Offer grouped slash templates and placeholder navigation for pages, sections, assurance, references, data, diagrams, and primitive content.",
+      "purpose": "Offer grouped slash templates and placeholder navigation for the AIC block, Markdown blocks, DDK sections and Mermaid diagrams.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/core/slash-snippets.js",

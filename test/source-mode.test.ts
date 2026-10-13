@@ -290,7 +290,7 @@ describe("per-block source Escape", () => {
     {
       name: "security",
       text: "Before\n\n```aic\n# Synthetic card\n## Accounts\nPassword *| synthetic-hidden-secret | note\n---\n## Other\nAccount | visible-account\n```\n\nAfter",
-      edit: '[aria-label="Edit security block"]',
+      edit: '[aria-label="Edit AIC block"]',
       preview: ".cm-aic-security",
     },
     {

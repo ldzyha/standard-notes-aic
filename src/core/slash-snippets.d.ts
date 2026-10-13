@@ -4,20 +4,13 @@ import type {
 } from "@codemirror/autocomplete";
 import type { EditorState, Extension } from "@codemirror/state";
 
-export const SLASH_SNIPPETS_CORE_VERSION: "1.2.0";
+export const SLASH_SNIPPETS_CORE_VERSION: "2.0.0";
 export const SLASH_SNIPPET_PLACEHOLDER: string;
 
 export type DocumentationSnippet = Readonly<{
   command: string;
-  kind: "page" | "section" | "block";
-  group:
-    | "pages"
-    | "structure"
-    | "assurance"
-    | "references"
-    | "data"
-    | "diagrams"
-    | "content";
+  kind: "section" | "block";
+  group: "blocks" | "sections" | "diagrams";
   title: string;
   question: string;
   template: string;
@@ -30,7 +23,7 @@ export const SLASH_SNIPPET_GROUP_NAMES: Readonly<
 >;
 
 export function slashSnippetSections(
-  hasPageContent: boolean,
+  hasPageContent?: boolean,
 ): Readonly<
   Record<
     DocumentationSnippet["group"],

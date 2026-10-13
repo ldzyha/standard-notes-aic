@@ -1,8 +1,6 @@
 import type { KeyBinding } from "@codemirror/view";
 import type { EditorView } from "@codemirror/view";
-import { planMermaidFenceInsertion } from "./mermaid-source";
 import { parseListLine } from "./core/formatting.js";
-import { AIC_EMPTY_DOCUMENT } from "./core/security-model.js";
 
 export { parseListLine, setBlockKind, toggleList } from "./core/formatting.js";
 export type { BlockKind, ListKind } from "./core/formatting.js";
@@ -141,80 +139,6 @@ export const insertLink: AicCommand = (view) => {
   view.focus();
   return true;
 };
-
-function blockSpacing(document: string, from: number, to: number) {
-  return {
-    before: from > 0 && document[from - 1] !== "\n" ? "\n" : "",
-    after: to < document.length && document[to] !== "\n" ? "\n" : "",
-  };
-}
-
-function insertBlock(
-  view: EditorView,
-  body: string,
-  cursorOffset: number,
-): boolean {
-  if (!writable(view)) return false;
-  const { from, to } = view.state.selection.main;
-  const document = view.state.doc.toString();
-  const { before, after } = blockSpacing(document, from, to);
-  const insert = `${before}${body}${after}`;
-  view.dispatch({
-    changes: { from, to, insert },
-    selection: { anchor: from + before.length + cursorOffset },
-    userEvent: "input",
-  });
-  view.focus();
-  return true;
-}
-
-export const insertTable: AicCommand = (view) => {
-  const body = "| Column 1 | Column 2 |\n| --- | --- |\n| value | value |";
-  return insertBlock(view, body, body.indexOf("Column 1"));
-};
-
-export const insertProperties: AicCommand = (view) => {
-  return insertBlock(
-    view,
-    AIC_EMPTY_DOCUMENT.trimEnd(),
-    "```aic\n# Properties\n".length,
-  );
-};
-
-export const insertCodeFence: AicCommand = (view) => {
-  if (!writable(view)) return false;
-  const { from, to } = view.state.selection.main;
-  const selected = view.state.sliceDoc(from, to);
-  let longest = 0;
-  for (const line of selected.split("\n")) {
-    const match = line.match(/^[ \t]*(`+)/u);
-    if (match?.[1]) longest = Math.max(longest, match[1].length);
-  }
-  const fence = "`".repeat(Math.max(3, longest + 1));
-  const source = selected || "code";
-  const body = `${fence}text\n${source}${source.endsWith("\n") ? "" : "\n"}${fence}`;
-  return insertBlock(view, body, body.indexOf("text"));
-};
-
-export const insertMermaid: AicCommand = (view) => {
-  if (!writable(view)) return false;
-  const selection = view.state.selection.main;
-  const plan = planMermaidFenceInsertion({
-    doc: view.state.doc.toString(),
-    from: selection.from,
-    to: selection.to,
-  });
-  view.dispatch({
-    changes: plan.changes,
-    selection: plan.selection,
-    userEvent: "input",
-  });
-  view.focus();
-  return true;
-};
-
-export const insertHorizontalRule: AicCommand = (view) =>
-  insertBlock(view, "---", 3);
 
 export const aicKeymap: readonly KeyBinding[] = [
   { key: "Mod-b", run: toggleBold },

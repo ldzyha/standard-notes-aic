@@ -136,7 +136,7 @@ for (const [browserName, executablePath] of browsers) {
               .nth(1)
               .locator(":scope > .cm-md-preview-header > strong")
               .textContent(),
-            "Security",
+            "AIC block",
           );
 
           const work = cards

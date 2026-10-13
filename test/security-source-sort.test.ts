@@ -111,9 +111,9 @@ describe("sort on finishing source editing", () => {
     const source = fenced(body);
     const { view, host, button, saves } = fixture(source);
     expect(view.state.doc.toString()).toBe(source);
-    button("Copy security block").click();
+    button("Copy AIC block").click();
     expect(saves).toEqual([]);
-    button("Edit security block").click();
+    button("Edit AIC block").click();
     view.dispatch({ selection: { anchor: source.indexOf("last") } });
     expect(view.state.doc.toString()).toBe(source);
     view.dispatch({ selection: { anchor: view.state.doc.length } });
@@ -130,7 +130,7 @@ describe("sort on finishing source editing", () => {
   it("sorts after Escape, including the final source edit without sorting during typing", () => {
     const source = fenced(body);
     const { view, host, button, saves } = fixture(source);
-    button("Edit security block").click();
+    button("Edit AIC block").click();
     const from = source.indexOf("Alpha");
     view.dispatch({
       changes: { from, to: from + 5, insert: "Beta" },
@@ -169,7 +169,7 @@ describe("sort on finishing source editing", () => {
     const editor = new AicEditor(host, { initialText: source, onSave });
     try {
       host
-        .querySelector<HTMLButtonElement>('[aria-label="Edit security block"]')!
+        .querySelector<HTMLButtonElement>('[aria-label="Edit AIC block"]')!
         .click();
       expect(host.querySelector(".cm-aic-security")).toBeNull();
       editor.view.contentDOM.focus();
@@ -251,7 +251,7 @@ describe("sort on finishing source editing", () => {
     );
     expect(view.state.doc.toString()).toBe(fenced(body));
     expect(saves).toEqual([true]);
-    button("Copy security block").click();
+    button("Copy AIC block").click();
     expect(view.state.doc.toString()).toBe(fenced(body));
   });
 });

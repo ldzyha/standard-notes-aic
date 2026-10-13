@@ -70,7 +70,7 @@ describe("icon-only security copy feedback", () => {
   it("uses the same feedback for section and whole-block copy icons", async () => {
     const { control } = fixture();
     vi.useFakeTimers();
-    for (const label of ["Copy section Work", "Copy security block"]) {
+    for (const label of ["Copy section Work", "Copy AIC block"]) {
       const copy = control(label);
       copy.click();
       await settle();
@@ -108,12 +108,12 @@ describe("icon-only security copy feedback", () => {
   it("retains visible cut failure feedback when reusing the block's status", async () => {
     const { view, onCopy, control, status } = fixture();
     const original = view.state.doc;
-    const copy = control("Copy security block");
+    const copy = control("Copy AIC block");
     copy.click();
     await settle();
     expect(copy.dataset.aicIcon).toBe("check");
     onCopy.mockReturnValueOnce(false);
-    control("Cut security block").click();
+    control("Cut AIC block").click();
     await settle();
     expect(copy.dataset.aicIcon).toBe("copy");
     expect(status()!.textContent).toBe("Copy failed");
@@ -149,7 +149,7 @@ describe("icon-only security copy feedback", () => {
     );
     lock.click();
     expect(lock.dataset.aicIcon).toBe("lock");
-    control("Edit security block").click();
+    control("Edit AIC block").click();
     finishDetached(true);
     await settle();
     expect(lock.isConnected).toBe(false);

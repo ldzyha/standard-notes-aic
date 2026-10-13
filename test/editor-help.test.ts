@@ -12,6 +12,9 @@ describe("shared editor help", () => {
       expect(guide.classList.contains("aic-menu--compact")).toBe(true);
       expect(guide.getAttribute("aria-label")).toBe("AIC editor guide");
       expect(guide.textContent).toContain("Ctrl/Cmd+Shift+7, 8 and 9");
+      expect(guide.textContent).toContain(
+        "/aic — insert an AIC block for fields, secrets and codes",
+      );
       expect(guide.textContent).toContain("Label *| value");
       expect(guide.textContent).toContain("Label #| seed");
       expect(guide.textContent).toContain("Card _| number | expiry *| CVV");

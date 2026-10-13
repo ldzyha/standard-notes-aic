@@ -247,9 +247,7 @@ for (const [browserName, executablePath] of browsers) {
           ]);
 
           if (theme === "light" && width === 600) {
-            await page
-              .getByRole("button", { name: "Edit security block" })
-              .click();
+            await page.getByRole("button", { name: "Edit AIC block" }).click();
             const native = await page.evaluate(() => {
               const text = window.inlineEditor.value;
               const start = text.indexOf("public-native-fixture");
