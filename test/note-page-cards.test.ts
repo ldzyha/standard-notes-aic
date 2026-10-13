@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { history, redo, undo } from "@codemirror/commands";
+import { history, redo, undo, undoDepth } from "@codemirror/commands";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import {
@@ -8,6 +8,8 @@ import {
   focusedPage,
   notePageCards,
   notePageCardsPreview,
+  notePageHistory,
+  pageExternalAnnotations,
   pageExternalChange,
 } from "../src/core/note-page-cards.js";
 import { notePages } from "../src/core/note-pages.js";
@@ -24,7 +26,11 @@ const NOTE = [
 
 function mount(
   doc: string,
-  options: { readOnly?: boolean; preview?: boolean } = {},
+  options: {
+    readOnly?: boolean;
+    preview?: boolean;
+    plainHistory?: boolean;
+  } = {},
 ) {
   const onOpenTarget = vi.fn();
   const view = new EditorView({
@@ -32,7 +38,7 @@ function mount(
     state: EditorState.create({
       doc,
       extensions: [
-        history(),
+        options.plainHistory ? history() : notePageHistory(),
         EditorState.allowMultipleSelections.of(true),
         EditorState.readOnly.of(options.readOnly ?? false),
         notePageCards({ onOpenTarget }),
@@ -412,6 +418,112 @@ describe("focused note page", () => {
     view.dispatch(view.state.replaceSelection("x"));
     expect(text()).toBe("xIntro");
     view.destroy();
+  });
+
+  describe("undo history", () => {
+    const source = "Intro\n\n--- a\nA\n\n--- b\nB\n";
+    const type = (view: EditorView, insert: string) =>
+      view.dispatch({
+        ...view.state.replaceSelection(insert),
+        userEvent: "input.type",
+      });
+    const inside = (view: EditorView) => {
+      const { from, to } = focusedPage(view.state)!;
+      const head = view.state.selection.main.head;
+      return head >= from && head <= to;
+    };
+
+    it("never undoes or redoes an edit made under another focus", () => {
+      const { view, text, page } = mount(source);
+      focusPageTarget(view, "a");
+      type(view, "x");
+      type(view, "\n");
+      type(view, "y");
+      const edited = "Intro\n\n--- a\nx\nyA\n\n--- b\nB\n";
+      expect(text()).toBe(edited);
+      focusPageTarget(view, "b");
+      for (let step = 0; step < 4; step += 1) {
+        expect(undo(view)).toBe(false);
+        expect(redo(view)).toBe(false);
+      }
+      expect(text()).toBe(edited);
+      expect(page()).toBe("B\n");
+      expect(inside(view)).toBe(true);
+
+      // Undo in the new page stops at the moment it was focused.
+      type(view, "z");
+      expect(text()).toBe(edited.replace("B\n", "zB\n"));
+      undo(view);
+      undo(view);
+      expect(text()).toBe(edited);
+      expect(inside(view)).toBe(true);
+      redo(view);
+      expect(text()).toBe(edited.replace("B\n", "zB\n"));
+
+      // Leaving the focus for the whole note is a change of focus too.
+      focusPageTarget(view, null);
+      expect(undo(view)).toBe(false);
+      expect(text()).toBe(edited.replace("B\n", "zB\n"));
+      view.destroy();
+    });
+
+    it("keeps the history of one page across a same-target focus", () => {
+      const { view, text } = mount(source);
+      focusPageTarget(view, "a");
+      type(view, "x");
+      expect(focusPageTarget(view, " a\n")).toBe(true);
+      expect(undoDepth(view.state)).toBe(1);
+      undo(view);
+      expect(text()).toBe(source);
+      redo(view);
+      expect(text()).toBe(source.replace("A", "xA"));
+      view.destroy();
+    });
+
+    it("leaves whole-note undo alone while nothing is focused", () => {
+      const { view, text } = mount(source);
+      view.dispatch({ selection: { anchor: 0 } });
+      type(view, "1");
+      view.dispatch({ selection: { anchor: view.state.doc.length } });
+      type(view, "2");
+      expect(text()).toBe(`1${source}2`);
+      undo(view);
+      undo(view);
+      expect(text()).toBe(source);
+      redo(view);
+      redo(view);
+      expect(text()).toBe(`1${source}2`);
+      view.destroy();
+    });
+
+    it("does not make a host update an undo step", () => {
+      const { view, text, page } = mount(source);
+      focusPageTarget(view, "b");
+      type(view, "z");
+      view.dispatch({
+        changes: { from: 0, to: 5, insert: "Changed outside" },
+        annotations: pageExternalAnnotations(),
+      });
+      const external = "Changed outside\n\n--- a\nA\n\n--- b\nzB\n";
+      expect(text()).toBe(external);
+      expect(undoDepth(view.state)).toBe(1);
+      undo(view);
+      expect(text()).toBe(external.replace("zB", "B"));
+      expect(undo(view)).toBe(false);
+      expect(text()).toBe(external.replace("zB", "B"));
+      expect(page()).toBe("B\n");
+      view.destroy();
+    });
+
+    it("keeps a host's own history() working, without the reset", () => {
+      const { view, text } = mount(source, { plainHistory: true });
+      focusPageTarget(view, "a");
+      type(view, "x");
+      focusPageTarget(view, "b");
+      expect(undoDepth(view.state)).toBe(1);
+      expect(text()).toBe(source.replace("A", "xA"));
+      view.destroy();
+    });
   });
 
   it("lets host updates through and resolves the page again", () => {

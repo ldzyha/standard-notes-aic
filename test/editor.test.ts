@@ -868,6 +868,27 @@ describe("AIC editor integration", () => {
     editor.destroy();
   });
 
+  it("keeps undo inside the focused page and out of host updates", () => {
+    const host = document.createElement("div");
+    document.body.append(host);
+    const editor = new AicEditor(host, { onChange: vi.fn() });
+    editor.switchDocument("pages", "--- a\nA\n\n--- b\nB\n");
+    editor.focusTarget("a");
+    editor.view.dispatch({
+      ...editor.view.state.replaceSelection("x"),
+      userEvent: "input.type",
+    });
+    editor.focusTarget("b");
+    expect(undo(editor.view)).toBe(false);
+    expect(editor.value).toBe("--- a\nxA\n\n--- b\nB\n");
+    expect(editor.focusedPage).toMatchObject({ target: "b", text: "B\n" });
+
+    editor.updateDocument("--- a\nDisk\n\n--- b\nB\n");
+    expect(undo(editor.view)).toBe(false);
+    expect(editor.value).toBe("--- a\nDisk\n\n--- b\nB\n");
+    editor.destroy();
+  });
+
   it("writes a focused page that does not exist only on first typing", () => {
     const host = document.createElement("div");
     document.body.append(host);

@@ -1,17 +1,12 @@
 import { closeBrackets, closeBracketsKeymap } from "@codemirror/autocomplete";
-import { defaultKeymap, history, historyKeymap } from "@codemirror/commands";
+import { defaultKeymap, historyKeymap } from "@codemirror/commands";
 import {
   bracketMatching,
   defaultHighlightStyle,
   indentOnInput,
   syntaxHighlighting,
 } from "@codemirror/language";
-import {
-  Compartment,
-  EditorState,
-  Transaction,
-  type Extension,
-} from "@codemirror/state";
+import { Compartment, EditorState, type Extension } from "@codemirror/state";
 import {
   crosshairCursor,
   drawSelection,
@@ -32,7 +27,8 @@ import {
   focusedPage,
   notePageCards,
   notePageCardsPreview,
-  pageExternalChange,
+  notePageHistory,
+  pageExternalAnnotations,
   type FocusedPage,
 } from "./core/note-page-cards.js";
 import { makeSecurityBlockExtension } from "./core/security-block.js";
@@ -250,7 +246,7 @@ export class AicEditor {
       markdownFormatting(),
       aicMarkdownLanguage(),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-      history(),
+      notePageHistory(),
       highlightSpecialChars(),
       drawSelection(),
       dropCursor(),
@@ -394,10 +390,7 @@ export class AicEditor {
     try {
       this.view.dispatch({
         changes: { from, to: currentTo, insert: next.slice(from, nextTo) },
-        annotations: [
-          Transaction.addToHistory.of(false),
-          pageExternalChange.of(true),
-        ],
+        annotations: pageExternalAnnotations(),
       });
       this.view.requestMeasure();
     } finally {

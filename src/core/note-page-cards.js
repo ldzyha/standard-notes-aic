@@ -1,10 +1,13 @@
+import { history } from "@codemirror/commands";
 import {
   Annotation,
+  Compartment,
   EditorSelection,
   EditorState,
   Facet,
   StateEffect,
   StateField,
+  Transaction,
 } from "@codemirror/state";
 import { Decoration, WidgetType } from "@codemirror/view";
 import {
@@ -31,7 +34,19 @@ export const PAGE_PLACEHOLDER = "Write a note for this target…";
 /** Marks a host update of the whole document (external file change). */
 export const pageExternalChange = Annotation.define();
 
+/**
+ * Annotations for a host update of the document: it passes the confinement,
+ * the page is found again, and it never becomes an undo step.
+ */
+export function pageExternalAnnotations() {
+  return [pageExternalChange.of(true), Transaction.addToHistory.of(false)];
+}
+
 const focusEffect = StateEffect.define();
+const historyCompartment = new Compartment();
+const historyConfig = Facet.define({
+  combine: (configs) => configs[0] ?? null,
+});
 const openTarget = Facet.define({
   combine: (handlers) => handlers.find(Boolean) ?? null,
 });
@@ -127,17 +142,12 @@ function clampSelection(selection, focus) {
   );
 }
 
-function isHistory(transaction) {
-  return transaction.isUserEvent("undo") || transaction.isUserEvent("redo");
-}
-
 const confinement = EditorState.transactionFilter.of((transaction) => {
   const focus = transaction.startState.field(focusField, false);
   if (
     focus &&
     transaction.docChanged &&
-    !transaction.annotation(pageExternalChange) &&
-    !isHistory(transaction)
+    !transaction.annotation(pageExternalChange)
   ) {
     // A change reaching another page is dropped whole; effects (source mode,
     // preview state) still apply so their owners stay consistent.
@@ -346,6 +356,16 @@ export function notePageCards({ onOpenTarget } = {}) {
   ];
 }
 
+/**
+ * Undo history owned by the page cards: use it instead of CodeMirror's
+ * `history()`. Undo and redo bypass transaction filters, so the history is
+ * emptied whenever the focused target changes; an undo step can then never
+ * reach an edit made under another focus. `config` is CodeMirror's.
+ */
+export function notePageHistory(config = {}) {
+  return [historyConfig.of(config), historyCompartment.of(history(config))];
+}
+
 /** Card headers for the whole note; install with the preview extensions. */
 export function notePageCardsPreview() {
   return headerField;
@@ -358,8 +378,22 @@ export function notePageCardsPreview() {
 export function focusPageTarget(view, target) {
   const next = target === null ? null : cleanTarget(target);
   if (next !== null && !appendPageText("", next)) return false;
-  if (view.state.field(focusField, false) === undefined) return false;
-  view.dispatch({ effects: focusEffect.of(next), scrollIntoView: true });
+  const focus = view.state.field(focusField, false);
+  if (focus === undefined) return false;
+  const config = view.state.facet(historyConfig);
+  const reset =
+    config !== null &&
+    historyCompartment.get(view.state) !== undefined &&
+    (focus ? focus.target : null) !== next;
+  view.dispatch({
+    // The history state lives in a field: only removing it empties it.
+    effects: reset
+      ? [focusEffect.of(next), historyCompartment.reconfigure([])]
+      : focusEffect.of(next),
+    scrollIntoView: true,
+  });
+  if (reset)
+    view.dispatch({ effects: historyCompartment.reconfigure(history(config)) });
   return true;
 }
 
