@@ -1,10 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { undo } from "@codemirror/commands";
 import { EditorView } from "@codemirror/view";
 import { BrowserPanel } from "../src/browser/panel";
-import { chooseBrowserSource } from "../src/browser/markdown-storage";
 import type { ActivePage, BrowserApi, Request } from "../src/browser/api";
-import type { BrowserLibrary, BrowserNote } from "../src/browser/library";
+import type { BrowserNote } from "../src/browser/library";
+import { focusedPage } from "../src/core/note-page-cards.js";
 import type { RecoverySnapshot } from "../src/browser/recovery-store";
 
 vi.mock("../src/browser/markdown-storage", async (importOriginal) => ({
@@ -34,23 +33,15 @@ function deferred<T>() {
   });
   return { promise, resolve };
 }
-const note = (url: string, markdown = "Private body"): BrowserNote => ({
-  id: url,
-  url,
-  title: `Note ${url}`,
-  markdown,
-  createdAt: 1,
-  updatedAt: 1,
-  revision: 1,
-});
+const A = "https://example.com/a";
+const B = "https://example.com/b";
+const NOTE = `--- ${A}\nOriginal\n\n--- ${B}\nSecond\n`;
 
 function fixture(
   options: {
     state?: "unselected" | "unavailable" | "ready";
     private?: boolean;
-    fileSource?: boolean;
-    warnings?: string[];
-    notes?: BrowserNote[];
+    markdown?: string;
   } = {},
 ) {
   let state = options.state ?? "ready";
@@ -59,12 +50,13 @@ function fixture(
     tabId: 7,
     windowId: 2,
     title: "Active page",
-    url: "https://example.com/a",
+    url: A,
   };
-  const library: BrowserLibrary = {
-    version: 3,
-    notes: options.notes ?? [],
-    history: [],
+  const note: BrowserNote = {
+    id: "file-note",
+    filePath: "aic.md",
+    markdown: options.markdown ?? NOTE,
+    revision: 1,
   };
   const changed = event<[Record<string, unknown>, string]>();
   const activated = event<[{ tabId: number; windowId: number }]>();
@@ -83,41 +75,31 @@ function fixture(
   const recoveries = new Map<string, RecoverySnapshot>();
   const status = () => ({
     state,
-    warnings: options.warnings ?? [],
-    ...(options.fileSource
-      ? {
-          source: {
-            kind: "directory",
-            id: "browser-panel-test",
-            name: "notes.md",
-          },
-        }
-      : {}),
+    source: { kind: "directory", id: "browser-panel-test", name: "notes" },
+    access: { read: "granted", write: "granted" },
   });
   const api = {
     runtime: {
+      getURL: (path: string) => `chrome-extension://fixture/${path}`,
       sendMessage: async (message: Request) => {
         messages.push(message);
-        const custom = override?.(message);
-        if (custom) return { ok: true, value: await custom };
-        let value: unknown;
+        try {
+          const custom = override?.(message);
+          if (custom) return { ok: true, value: await custom };
+        } catch (error) {
+          return {
+            ok: false,
+            error: (error as Error).message,
+            code: (error as { code?: string }).code,
+          };
+        }
+        let value: unknown = null;
         switch (message.type) {
           case "status":
             value = status();
             break;
-          case "scan-status":
-            value = { scan: null, notes: [], next: 0 };
-            break;
-          case "refresh-files":
-            value = status();
-            break;
           case "connect-source":
             state = "ready";
-            value = status();
-            break;
-          case "lock":
-            state = "unavailable";
-            changed.emit({ "aic-browser-unlock": { oldValue: {} } }, "session");
             value = status();
             break;
           case "checkpoint-drafts":
@@ -137,70 +119,28 @@ function fixture(
             break;
           case "dismiss-recovery":
             recoveries.delete(message.clientId);
-            value = null;
             break;
           case "context":
             value = page;
             break;
           case "load":
-          case "visit":
-            value = structuredClone(library);
+            value = { ...note };
             break;
-          case "create": {
-            const created = note(message.page.url, message.markdown);
-            library.notes.push(created);
-            value = structuredClone(created);
-            break;
-          }
-          case "create-file": {
-            const created = {
-              ...note("", message.markdown),
-              id: `file-${library.notes.length}`,
-              filePath: message.path,
-              title: message.path,
-            };
-            library.notes.push(created);
-            value = structuredClone(created);
-            break;
-          }
-          case "link-file": {
-            const existing = library.notes.find(
-              (item) => item.id === message.id,
-            )!;
-            existing.url = message.page.url;
-            value = structuredClone(existing);
-            break;
-          }
-          case "save": {
-            const existing = library.notes.find(
-              (item) => item.id === message.id,
-            )!;
-            Object.assign(existing, {
+          case "save":
+            Object.assign(note, {
               markdown: message.markdown,
               revision: message.revision + 1,
             });
-            value = structuredClone(existing);
-            break;
-          }
-          case "navigate":
-            page = {
-              tabId: 8,
-              windowId: 2,
-              title: "Navigated",
-              url: message.url,
-            };
-            value = null;
+            value = { ...note };
             break;
           case "capture":
             value = {
               url: message.page.url,
               title: "Imported",
-              html: "<p>Captured content</p>",
+              html: "<p>Captured content</p><hr><p>After the rule</p>",
               truncated: false,
             };
             break;
-          default:
-            value = null;
         }
         return { ok: true, value };
       },
@@ -222,13 +162,12 @@ function fixture(
     openedTab,
     messages,
     recoveries,
-    library,
+    note,
     changed,
     activated,
-    updated,
-    removed,
-    setPage: (next: ActivePage | null) => {
-      page = next;
+    go: (url: string | null, tabId = 9) => {
+      page = url ? { tabId, windowId: 2, title: "Next page", url } : null;
+      activated.emit({ tabId, windowId: 2 });
     },
     override: (callback: typeof override) => {
       override = callback;
@@ -237,32 +176,22 @@ function fixture(
 }
 
 const panels: BrowserPanel[] = [];
-function mount(api: BrowserApi) {
+async function mount(fake: ReturnType<typeof fixture>, wait = true) {
   const root = document.createElement("div");
   document.body.append(root);
-  const panel = new BrowserPanel(root, api);
+  const panel = new BrowserPanel(root, fake.api);
   panels.push(panel);
+  await panel.ready;
+  if (wait)
+    await vi.waitFor(() =>
+      expect(root.querySelector(".cm-editor")).not.toBeNull(),
+    );
   return { root, panel };
 }
 function button(root: HTMLElement, label: string) {
   if (
-    [
-      "Pin note",
-      "Unpin note",
-      "Import current content",
-      "Insert from Markdown file",
-      "Download copy",
-      "AIC guide",
-      "Open file",
-      "Open folder",
-      "Open file…",
-      "Open folder…",
-      "New file",
-      "Follow active tab",
-      "Link file to current page",
-      "Refresh folder",
-    ].includes(label) &&
-    !root.querySelector(`button[aria-label="${label}"]`)
+    !root.querySelector(`button[aria-label="${label}"]`) &&
+    !root.querySelector(".browser-popover")
   )
     root
       .querySelector<HTMLButtonElement>('button[aria-label="More options"]')!
@@ -276,8 +205,41 @@ function editor(root: HTMLElement) {
     root.querySelector<HTMLElement>(".cm-editor")!,
   )!;
 }
-function importPage(root: HTMLElement) {
-  button(root, "Import current content").click();
+function shows(root: HTMLElement, target: string | null) {
+  return vi.waitFor(() =>
+    expect(focusedPage(editor(root).state)?.target ?? null).toBe(target),
+  );
+}
+function type(root: HTMLElement, text: string) {
+  const view = editor(root);
+  view.dispatch({
+    changes: { from: focusedPage(view.state)!.from, insert: text },
+  });
+}
+function downloads() {
+  const blobs: Blob[] = [];
+  vi.stubGlobal(
+    "URL",
+    class extends URL {
+      static override createObjectURL(blob: Blob) {
+        blobs.push(blob);
+        return "blob:synthetic";
+      }
+      static override revokeObjectURL() {}
+    },
+  );
+  vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+  return () =>
+    Promise.all(
+      blobs.map(
+        (blob) =>
+          new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsText(blob);
+          }),
+      ),
+    );
 }
 afterEach(() => {
   for (const panel of panels.splice(0)) panel.destroy();
@@ -290,21 +252,20 @@ afterEach(() => {
 describe("browser panel", () => {
   it("opens files and folders without any credentials or encrypted actions", async () => {
     const fake = fixture({ state: "unselected" });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
+    const { root } = await mount(fake, false);
     expect(root.textContent).toContain("Open your notes");
     const gate = root.querySelector(".browser-files-gate")!;
     expect(
-      [...gate.querySelectorAll("button")].map((button) =>
-        button.getAttribute("aria-label"),
+      [...gate.querySelectorAll("button")].map((item) =>
+        item.getAttribute("aria-label"),
       ),
     ).toEqual(["Open folder", "Open file"]);
-    expect(gate.querySelector('[aria-label="New file"]')).toBeNull();
     expect(root.querySelector('input[type="password"]')).toBeNull();
-    button(root, "More options").click();
-    expect(button(root, "New file")).not.toBeNull();
     expect(root.textContent).not.toMatch(/encrypt|unlock|passphrase|backup/iu);
-    expect(button(root, "Lock")).toBeNull();
+    button(gate as HTMLElement, "Open folder").click();
+    await vi.waitFor(() =>
+      expect(root.querySelector(".cm-editor")).not.toBeNull(),
+    );
     expect(
       fake.messages.some((message) =>
         ["setup", "unlock", "lock"].includes(message.type),
@@ -312,856 +273,164 @@ describe("browser panel", () => {
     ).toBe(false);
   });
 
-  it("opens the note and page bound to the active URL and saves to that note's file", async () => {
-    const markdown =
-      "Index\n\n--- https://example.com\nSite\n\n--- https://example.com/a\nPage A";
-    const notebook = { ...note("", markdown), id: "notebook" };
-    const fake = fixture({
-      notes: [
-        { ...note("", "--- https://example.com\nLess specific"), id: "site" },
-        notebook,
-      ],
-    });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    const view = editor(root);
-    expect(view.state.doc.toString()).toBe(markdown);
-    expect(view.state.selection.main.head).toBe(markdown.indexOf("Page A"));
-    const cards = [...root.querySelectorAll(".aic-card--page")];
-    expect(
-      cards.map((card) => card.querySelector(".aic-card__title")?.textContent),
-    ).toEqual(["https://example.com", "https://example.com/a"]);
-    cards[1]!
-      .querySelector<HTMLButtonElement>('[aria-label="Open target"]')!
-      .click();
-    expect(fake.openedTab).toHaveBeenCalledExactlyOnceWith({
-      url: "https://example.com/a",
-      windowId: 2,
-    });
-
-    // A same-page title update neither remounts the editor nor moves the caret.
-    view.dispatch({ selection: { anchor: 0 } });
-    fake.updated.emit(7, { title: "Renamed" }, { id: 7, windowId: 2 });
-    expect(editor(root)).toBe(view);
-    expect(view.state.selection.main.head).toBe(0);
-
-    view.dispatch({
-      changes: { from: markdown.length, insert: " edited" },
-      userEvent: "input.type",
-    });
-    await vi.waitFor(() =>
-      expect(fake.messages).toContainEqual({
-        type: "save",
-        id: "notebook",
-        markdown: `${markdown} edited`,
-        revision: 1,
-      }),
-    );
-    expect(fake.messages.some((message) => message.type === "create")).toBe(
-      false,
-    );
-    expect(fake.library.notes).toHaveLength(2);
-  });
-
-  it("opens a bound page only for exactly its URL and prefers an exact URL note", async () => {
-    const markdown = "Index\n\n--- https://example.com/docs\nDocs";
-    const fake = fixture({
-      notes: [
-        { ...note("", markdown), id: "notebook" },
-        note(
-          "https://example.com/docs/exact",
-          "Exact\n\n--- https://example.com/docs/exact\nOwn page",
-        ),
-      ],
-    });
-    fake.setPage({
-      tabId: 7,
-      windowId: 2,
-      title: "Docs",
-      url: "https://example.com/docs/?v=2#top",
-    });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    expect(editor(root).state.doc.toString()).toBe(markdown);
-    expect(editor(root).state.selection.main.head).toBe(
-      markdown.indexOf("Docs"),
-    );
-
-    fake.setPage({
-      tabId: 7,
-      windowId: 2,
-      title: "Exact",
-      url: "https://example.com/docs/exact",
-    });
-    fake.updated.emit(
-      7,
-      { url: "https://example.com/docs/exact" },
-      { id: 7, windowId: 2, active: true },
-    );
-    await vi.waitFor(() =>
-      expect(editor(root).state.doc.toString()).toContain("Own page"),
-    );
-    expect(editor(root).state.selection.main.head).toBe(
-      editor(root).state.doc.toString().indexOf("Own page"),
-    );
-
-    fake.setPage({
-      tabId: 7,
-      windowId: 2,
-      title: "Other",
-      url: "https://example.com/docsx",
-    });
-    fake.updated.emit(
-      7,
-      { url: "https://example.com/docsx" },
-      { id: 7, windowId: 2, active: true },
-    );
-    await vi.waitFor(() =>
-      expect(
-        root.querySelector(".cm-editor") && editor(root).state.doc.toString(),
-      ).toBe(""),
-    );
-    expect(root.querySelector(".aic-card--page")).toBeNull();
-
-    // A URL below the bound one is a different target.
-    fake.setPage({
-      tabId: 7,
-      windowId: 2,
-      title: "API",
-      url: "https://example.com/docs/api",
-    });
-    fake.updated.emit(
-      7,
-      { url: "https://example.com/docs/api" },
-      { id: 7, windowId: 2, active: true },
-    );
-    await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(editor(root).state.doc.toString()).toBe("");
-  });
-
-  it("keeps available notes editable while showing skipped-file notices", async () => {
-    const fake = fixture({
-      fileSource: true,
-      warnings: [
-        "Skipped archive/large.md: the file exceeds the note size limit.",
-      ],
-      notes: [note("https://example.com/a", "Available note")],
-    });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    expect(editor(root).state.doc.toString()).toBe("Available note");
-    expect(root.querySelector(".aic-context__status")?.textContent).toBe(
-      "On disk",
-    );
-    expect(button(root, "Folder notices").textContent).toBe("1 notice");
-    button(root, "Folder notices").click();
-    expect(root.querySelector(".browser-overlay")?.textContent).toContain(
-      "Skipped archive/large.md",
-    );
-    expect(root.querySelector('input[type="password"]')).toBeNull();
-  });
-
-  it("cancels a new-file picker without selecting or creating anything", async () => {
-    vi.mocked(chooseBrowserSource).mockResolvedValueOnce(null);
-    const fake = fixture({ state: "unselected" });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    button(root, "New file").click();
-    await vi.waitFor(() =>
-      expect(root.querySelector<HTMLElement>(".browser-content")?.inert).toBe(
-        false,
-      ),
-    );
-    expect(
-      fake.messages.some((message) => message.type === "connect-source"),
-    ).toBe(false);
-    expect(root.dataset.state).toBe("unselected");
-  });
-
-  it("opens a plain file directly and keeps it selected across active-tab changes", async () => {
-    const file = {
-      ...note("", "# Plain file"),
-      id: "plain-file",
-      filePath: "project/readme.md",
-      title: "readme.md",
-    };
-    const fake = fixture({ notes: [file] });
-    fake.override((message) =>
-      message.type === "status"
-        ? Promise.resolve({
-            state: "ready",
-            source: { kind: "file", id: "browser-plain", name: "readme.md" },
-          })
-        : undefined,
-    );
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    expect(editor(root).state.doc.toString()).toBe("# Plain file");
-    expect(root.querySelector('[role="tablist"]')).toBeNull();
-    expect(root.querySelector('input[type="password"]')).toBeNull();
-    fake.setPage({
-      tabId: 8,
-      windowId: 2,
-      title: "Other",
-      url: "https://other.example",
-    });
-    fake.activated.emit({ tabId: 8, windowId: 2 });
-    await Promise.resolve();
-    expect(editor(root).state.doc.toString()).toBe("# Plain file");
-    editor(root).dispatch({ changes: { from: 12, insert: " edit" } });
-    const closing = new Event("beforeunload", { cancelable: true });
-    window.dispatchEvent(closing);
-    await vi.waitFor(() =>
-      expect(fake.library.notes[0]!.markdown).toBe("# Plain file edit"),
-    );
-    expect(fake.messages.some((message) => message.type === "create")).toBe(
-      false,
-    );
-  });
-
-  it("renders a connected folder tree and opens a file without navigating the browser", async () => {
-    const file = {
-      ...note("", "# File"),
-      id: "standalone",
-      filePath: "project/research/note.md",
-      title: "note.md",
-    };
-    const fake = fixture({ fileSource: true, notes: [file] });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    button(root, "Notes").click();
-    const open = button(root, "note.md");
-    expect(
-      open.closest("details")?.querySelector("summary")?.textContent,
-    ).toContain("research");
-    open.click();
-    await vi.waitFor(() =>
-      expect(editor(root).state.doc.toString()).toBe("# File"),
-    );
-    expect(fake.messages.some((message) => message.type === "navigate")).toBe(
-      false,
-    );
-    button(root, "Link file to current page").click();
-    await vi.waitFor(() =>
-      expect(fake.library.notes[0]!.url).toBe("https://example.com/a"),
-    );
-    expect(fake.library.notes[0]!.markdown).toBe("# File");
-  });
-
-  it("creates a blank Markdown file in the selected folder", async () => {
-    const fake = fixture({ fileSource: true });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    button(root, "New file").click();
-    const input = root.querySelector<HTMLInputElement>(
-      'input[aria-label="File name"]',
-    )!;
-    input.value = "projects/start.md";
-    input
-      .closest("form")!
-      .dispatchEvent(new Event("submit", { cancelable: true }));
-    await vi.waitFor(() =>
-      expect(fake.library.notes[0]?.filePath).toBe("projects/start.md"),
-    );
-    expect(fake.library.notes[0]!.markdown).toBe("");
-    await vi.waitFor(() =>
-      expect(root.querySelector(".browser-page-title")?.textContent).toBe(
-        "projects/start.md",
-      ),
-    );
-    expect(editor(root).state.doc.toString()).toBe("");
-  });
-
-  it("renders large project trees lazily while searching all notes", async () => {
-    const notes = Array.from({ length: 360 }, (_, index) => ({
-      ...note("", `Document ${index}`),
-      id: `file-${index}`,
-      title: `note-${index}.md`,
-      filePath: `project-${Math.floor(index / 30)}/note-${index}.md`,
-    }));
-    const fake = fixture({ fileSource: true, notes });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    button(root, "Notes").click();
-    expect(
-      root.querySelectorAll('.browser-library button[title$=".md"]'),
-    ).toHaveLength(0);
-    const project = root.querySelector<HTMLDetailsElement>(
-      '[data-folder-path="project-0"]',
-    )!;
-    project.open = true;
-    project.dispatchEvent(new Event("toggle"));
-    expect(
-      root.querySelectorAll('.browser-library button[title$=".md"]'),
-    ).toHaveLength(30);
-    const search = root.querySelector<HTMLInputElement>(".browser-filter")!;
-    search.value = "note-359.md";
-    search.dispatchEvent(new Event("input"));
-    expect(button(root, "note-359.md")).not.toBeNull();
-    expect(
-      root.querySelectorAll('.browser-library button[title$=".md"]'),
-    ).toHaveLength(1);
-  });
-
-  it("pages a large flat folder without discarding later file matches", async () => {
-    const notes = Array.from({ length: 230 }, (_, index) => ({
-      ...note("", `Document ${index}`),
-      id: `file-${index}`,
-      title: `note-${index}.md`,
-      filePath: `note-${index}.md`,
-    }));
-    const { root, panel } = mount(fixture({ fileSource: true, notes }).api);
-    await panel.ready;
-    button(root, "Notes").click();
-    expect(
-      root.querySelectorAll('.browser-library button[title$=".md"]'),
-    ).toHaveLength(100);
-    button(root, "Show more in this folder").click();
-    expect(
-      root.querySelectorAll('.browser-library button[title$=".md"]'),
-    ).toHaveLength(200);
-    button(root, "Show more in this folder").click();
-    expect(
-      root.querySelectorAll('.browser-library button[title$=".md"]'),
-    ).toHaveLength(230);
-    expect(button(root, "Show more in this folder")).toBeNull();
-  });
-
-  it("retains dirty text when another panel switches the selected file", async () => {
-    const fake = fixture({
-      notes: [note("https://example.com/a", "Original")],
-    });
-    fake.override((message) =>
-      message.type === "status"
-        ? Promise.resolve({
-            state: "ready",
-            source: {
-              kind: "file",
-              id: "browser-first",
-              name: "first.md",
-            },
-          })
-        : undefined,
-    );
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    const view = editor(root);
-    view.dispatch({ changes: { from: 8, insert: " unsaved" } });
-    fake.changed.emit(
-      {
-        "aic-browser-markdown-source": {
-          newValue: { id: "browser-second", name: "second.md" },
-        },
-      },
-      "local",
-    );
-    fake.changed.emit({ "aic-browser-unlock": { oldValue: {} } }, "session");
-    expect(editor(root)).toBe(view);
-    expect(view.state.doc.toString()).toBe("Original unsaved");
-    expect(root.textContent).toContain("Save or export this draft");
-  });
-
-  it("pins the editor, links only pages typed about, and unpins to the active page", async () => {
-    const fake = fixture({
-      notes: [note("https://example.com/a", "Research")],
-    });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    const view = editor(root);
-    button(root, "Pin note").click();
-    await vi.waitFor(() =>
-      expect(button(root, "Unpin note")?.getAttribute("aria-pressed")).toBe(
-        "true",
-      ),
-    );
-    expect(root.querySelector(".browser-page-origin")?.textContent).toContain(
-      "Pinned",
-    );
-    expect(root.querySelectorAll(".browser-toolbar button")).toHaveLength(2);
-    const source = {
-      tabId: 8,
-      windowId: 2,
-      title: "Source article",
-      url: "https://source.example/article",
-    };
-    fake.setPage(source);
-    fake.activated.emit({ tabId: 8, windowId: 2 });
-    await vi.waitFor(() =>
-      expect(fake.messages.filter((m) => m.type === "context")).toHaveLength(2),
-    );
-    await Promise.resolve();
-    expect(editor(root)).toBe(view);
-    expect(view.state.doc.toString()).toBe("Research");
-    view.dispatch({
-      changes: { from: 8, insert: " notes" },
-      selection: { anchor: 14 },
-      userEvent: "input.type",
-    });
-    expect(view.state.doc.toString()).toContain(
-      "- [Source article](<https://source.example/article>)",
-    );
-    expect(view.state.selection.main.anchor).toBe(14);
-    undo(view);
-    expect(view.state.doc.toString()).toBe("Research");
-    view.dispatch({
-      changes: { from: 8, insert: " new" },
-      userEvent: "input.type",
-    });
-    view.dispatch({
-      changes: { from: 12, insert: " notes" },
-      userEvent: "input.type",
-    });
-    expect(
-      view.state.doc.toString().match(/https:\/\/source.example\/article/gu),
-    ).toHaveLength(1);
-    button(root, "Save note").click();
-    await vi.waitFor(() =>
-      expect(fake.library.notes[0]!.markdown).toContain("## Related links"),
-    );
-    expect(fake.library.notes).toHaveLength(1);
-    button(root, "Unpin note").click();
-    await vi.waitFor(() =>
-      expect(root.querySelector(".browser-page-title")?.textContent).toBe(
-        "Source article",
-      ),
-    );
-    expect(editor(root)).not.toBe(view);
-  });
-
-  it("keeps the pin across hide/show and ignores obsolete unlock-session changes", async () => {
-    const fake = fixture({ notes: [note("https://example.com/a")] });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    button(root, "Pin note").click();
-    await vi.waitFor(() => expect(button(root, "Unpin note")).not.toBeNull());
-    const visibility = vi.spyOn(document, "visibilityState", "get");
-    visibility.mockReturnValue("hidden");
-    document.dispatchEvent(new Event("visibilitychange"));
-    fake.setPage({
-      tabId: 8,
-      windowId: 2,
-      title: "Other",
-      url: "https://other.example",
-    });
-    visibility.mockReturnValue("visible");
-    document.dispatchEvent(new Event("visibilitychange"));
-    await vi.waitFor(() =>
-      expect(root.querySelector(".cm-editor")).not.toBeNull(),
-    );
-    expect(editor(root).state.doc.toString()).toBe("Private body");
-    expect(button(root, "Unpin note")).not.toBeNull();
-    fake.changed.emit({ "aic-browser-unlock": { oldValue: {} } }, "session");
-    expect(button(root, "Unpin note")).not.toBeNull();
-    expect(root.querySelector(".cm-editor")).not.toBeNull();
-  });
-
-  it("keeps failed drafts open when unpinning cannot save", async () => {
-    const fake = fixture({ notes: [note("https://example.com/a")] });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    button(root, "Pin note").click();
-    await vi.waitFor(() => expect(button(root, "Unpin note")).not.toBeNull());
-    const view = editor(root);
-    view.dispatch({
-      changes: { from: 0, insert: "Draft " },
-      userEvent: "input.type",
-    });
-    fake.override((message) =>
-      message.type === "save"
-        ? Promise.reject(new Error("Disk full"))
-        : undefined,
-    );
-    button(root, "Unpin note").click();
-    await vi.waitFor(() =>
-      expect(root.textContent).toContain(
-        "Save or export your unsaved draft before changing its pin",
-      ),
-    );
-    expect(editor(root)).toBe(view);
-    expect(button(root, "Unpin note")).not.toBeNull();
-  });
-
-  it("saves a new draft before pinning and imports the active page into that note", async () => {
+  it("shows only the page of the active tab and follows tab changes without remounting", async () => {
     const fake = fixture();
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    expect(button(root, "Pin note").disabled).toBe(true);
+    const { root } = await mount(fake);
+    await shows(root, A);
     const view = editor(root);
-    view.dispatch({
-      changes: { from: view.state.doc.length, insert: "Research" },
-      userEvent: "input.type",
-    });
-    expect(button(root, "Pin note").disabled).toBe(false);
-    button(root, "Pin note").click();
-    await vi.waitFor(() => expect(button(root, "Unpin note")).not.toBeNull());
-    expect(fake.library.notes).toHaveLength(1);
-    const source = {
-      tabId: 8,
-      windowId: 2,
-      title: "Source",
-      url: "https://source.example/article",
-    };
-    fake.setPage(source);
-    fake.activated.emit({ tabId: 8, windowId: 2 });
+    expect(root.querySelectorAll(".cm-editor")).toHaveLength(1);
+    expect(root.querySelector(".browser-toolbar")!.textContent).toBe(">_ AIC⋯");
+    fake.go(`${B}#section`);
+    await shows(root, B);
+    expect(editor(root)).toBe(view);
+    expect(view.state.doc.toString()).toBe(NOTE);
+    // Reading pages never saves.
+    expect(fake.messages.map((message) => message.type)).not.toContain("save");
+    expect(
+      fake.messages.every((message) =>
+        [
+          "status",
+          "context",
+          "load",
+          "list-recovery",
+          "checkpoint-drafts",
+        ].includes(message.type),
+      ),
+    ).toBe(true);
+    fake.go(null, 10);
+    await shows(root, null);
+    expect(editor(root)).toBe(view);
+  });
+
+  it("opens a page target in a tab from its card", async () => {
+    const fake = fixture();
+    const { root } = await mount(fake);
+    await shows(root, A);
+    root
+      .querySelector<HTMLButtonElement>(
+        '.aic-card--page [aria-label="Open target"]',
+      )!
+      .click();
     await vi.waitFor(() =>
-      expect(fake.messages.filter((m) => m.type === "context")).toHaveLength(2),
+      expect(fake.openedTab).toHaveBeenCalledWith({ url: A, windowId: 2 }),
     );
-    await Promise.resolve();
+  });
+
+  it("imports captured content into the focused page, not the end of the file", async () => {
+    const fake = fixture();
+    const { root } = await mount(fake);
+    await shows(root, A);
+    button(root, "Import current content").click();
+    expect(fake.api.permissions.request).toHaveBeenCalledWith({
+      origins: ["https://example.com/*"],
+    });
+    await vi.waitFor(() =>
+      expect(fake.note.markdown).toBe(
+        `--- ${A}\nOriginal\n\nCaptured content\n\n***\n\nAfter the rule\n\n--- ${B}\nSecond\n`,
+      ),
+    );
+    expect(root.textContent).toContain("Imported into this page’s note.");
+  });
+
+  it("creates the page when importing into a URL without one", async () => {
+    const fake = fixture({ markdown: "Intro\n" });
+    const { root } = await mount(fake);
+    await shows(root, A);
+    expect(focusedPage(editor(root).state)).toMatchObject({ exists: false });
     button(root, "Import current content").click();
     await vi.waitFor(() =>
-      expect(fake.library.notes[0]!.markdown).toContain("Captured content"),
+      expect(fake.note.markdown).toBe(
+        `Intro\n\n--- ${A}\nCaptured content\n\n***\n\nAfter the rule`,
+      ),
     );
-    expect(fake.messages).toContainEqual({
-      type: "capture",
-      page: source,
-      mode: "auto",
-      allowPrivate: false,
-    });
-    expect(fake.library.notes[0]!.url).toBe("https://example.com/a");
-    expect(editor(root)).toBe(view);
   });
 
-  it("preserves the caret when a related link is inserted before the edited section", async () => {
-    const text = "## Related links\n\n## Conclusions\n\nText";
-    const fake = fixture({ notes: [note("https://example.com/a", text)] });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    button(root, "Pin note").click();
-    await vi.waitFor(() => expect(button(root, "Unpin note")).not.toBeNull());
-    fake.setPage({
-      tabId: 8,
-      windowId: 2,
-      title: "Source",
-      url: "https://source.example/article",
-    });
-    fake.activated.emit({ tabId: 8, windowId: 2 });
-    await vi.waitFor(() =>
-      expect(fake.messages.filter((m) => m.type === "context")).toHaveLength(2),
-    );
-    await Promise.resolve();
-    const view = editor(root);
-    view.dispatch({
-      changes: { from: text.length, insert: "!" },
-      selection: { anchor: text.length + 1 },
-      userEvent: "input.type",
-    });
-    expect(view.state.doc.toString().endsWith("Text!")).toBe(true);
-    expect(view.state.selection.main.anchor).toBe(view.state.doc.length);
-  });
-
-  it("keeps a new blank document unsaved until the first edit", async () => {
+  it("downloads the focused page or, by its own action, the whole note file", async () => {
     const fake = fixture();
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    const initial = editor(root);
-    const seed = "";
-    expect(initial.state.doc.toString()).toBe(seed);
-    expect(root.querySelector(".cm-aic-security")).toBeNull();
-    expect(
-      root.querySelector<HTMLElement>(".aic-editor")?.dataset.saveState,
-    ).toBe("placeholder");
-    button(root, "Notes").click();
-    expect(fake.messages.some((message) => message.type === "create")).toBe(
-      false,
-    );
-    expect(editor(root)).toBe(initial);
-    initial.dispatch({
-      changes: { from: seed.length, insert: "My note" },
-      selection: { anchor: seed.length + "My note".length },
-    });
-    button(root, "Save note").click();
-    await vi.waitFor(() =>
-      expect(fake.messages).toContainEqual({
-        type: "create",
-        page: {
-          tabId: 7,
-          windowId: 2,
-          title: "Active page",
-          url: "https://example.com/a",
-        },
-        markdown: `${seed}My note`,
-        allowPrivate: false,
-        ifAbsent: true,
-      }),
-    );
-    expect(editor(root)).toBe(initial);
-    expect(initial.state.selection.main.anchor).toBe(seed.length + 7);
-  });
-
-  it("warns before closing while an undone first-create is still in flight", async () => {
-    const fake = fixture();
-    const creating = deferred<BrowserNote>();
-    const compensating = deferred<BrowserNote>();
-    fake.override((message) =>
-      message.type === "create"
-        ? creating.promise
-        : message.type === "save"
-          ? compensating.promise
-          : undefined,
-    );
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    const view = editor(root);
-    const seed = view.state.doc.toString();
-    const leaving = () => new Event("beforeunload", { cancelable: true });
-    const pristine = leaving();
-    expect(window.dispatchEvent(pristine)).toBe(true);
-    expect(pristine.defaultPrevented).toBe(false);
-
-    const changed = `${seed}Temporary text`;
-    view.dispatch({ changes: { from: seed.length, insert: "Temporary text" } });
-    button(root, "Save note").click();
-    await vi.waitFor(() =>
-      expect(fake.messages.some((message) => message.type === "create")).toBe(
-        true,
-      ),
-    );
-    view.dispatch({ changes: { from: 0, to: changed.length, insert: seed } });
-    expect(view.state.doc.toString()).toBe(seed);
-    const pendingCreate = leaving();
-    expect(window.dispatchEvent(pendingCreate)).toBe(false);
-    expect(pendingCreate.defaultPrevented).toBe(true);
-
-    creating.resolve(note("https://example.com/a", changed));
-    await vi.waitFor(() =>
-      expect(fake.messages).toContainEqual({
-        type: "save",
-        id: "https://example.com/a",
-        markdown: seed,
-        revision: 1,
-      }),
-    );
-    const pendingCompensation = leaving();
-    expect(window.dispatchEvent(pendingCompensation)).toBe(false);
-    compensating.resolve({
-      ...note("https://example.com/a", seed),
-      revision: 2,
-    });
-    await vi.waitFor(() =>
-      expect(
-        root.querySelector<HTMLElement>(".aic-editor")?.dataset.saveState,
-      ).toBe("saved"),
-    );
-    const settled = leaving();
-    expect(window.dispatchEvent(settled)).toBe(true);
-    expect(settled.defaultPrevented).toBe(false);
-  });
-
-  it("saves a first edit after returning from a quick tab switch without a manual retry", async () => {
-    const fake = fixture();
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    const seed = editor(root).state.doc.toString();
-    editor(root).dispatch({
-      changes: { from: seed.length, insert: "Draft from first tab" },
-    });
-    fake.setPage({
-      tabId: 9,
-      windowId: 2,
-      title: "Second page",
-      url: "https://example.com/b",
-    });
-    fake.activated.emit({ tabId: 9, windowId: 2 });
-    await vi.waitFor(() =>
-      expect(root.querySelector(".browser-page-title")?.textContent).toBe(
-        "Second page",
-      ),
-    );
-    await vi.waitFor(() =>
-      expect(root.textContent).toContain(
-        "Return to this page to save your new note, or export the draft.",
-      ),
-    );
-    expect(fake.messages.some((message) => message.type === "create")).toBe(
-      false,
-    );
-
-    fake.setPage({
-      tabId: 7,
-      windowId: 2,
-      title: "Active page",
-      url: "https://example.com/a",
-    });
-    fake.activated.emit({ tabId: 7, windowId: 2 });
-    await vi.waitFor(() =>
-      expect(editor(root).state.doc.toString()).toBe(
-        `${seed}Draft from first tab`,
-      ),
-    );
-    await vi.waitFor(() =>
-      expect(fake.messages).toContainEqual({
-        type: "create",
-        page: {
-          tabId: 7,
-          windowId: 2,
-          title: "Active page",
-          url: "https://example.com/a",
-        },
-        markdown: `${seed}Draft from first tab`,
-        allowPrivate: false,
-        ifAbsent: true,
-      }),
-    );
-    await vi.waitFor(() =>
-      expect(
-        root.querySelector<HTMLElement>(".aic-editor")?.dataset.saveState,
-      ).toBe("saved"),
-    );
-  });
-
-  it("gates private windows before context/history access and keeps consent only in the panel", async () => {
-    const fake = fixture({ private: true });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    expect(root.textContent).toContain("after private browsing ends");
-    expect(fake.messages.map((item) => item.type)).toEqual(["status"]);
-    button(root, "Use AIC in this private window").click();
-    await vi.waitFor(() =>
-      expect(root.querySelector(".cm-editor")).not.toBeNull(),
-    );
-    expect(fake.messages.some((item) => item.type === "create")).toBe(false);
-    expect(fake.messages).toContainEqual({
-      type: "context",
-      windowId: 2,
-      allowPrivate: true,
-    });
-    const other = mount(fake.api);
-    await other.panel.ready;
-    expect(other.root.dataset.privateConsent).toBe("required");
-  });
-
-  it("clears the previous editor synchronously on own-window changes and ignores other windows", async () => {
-    const fake = fixture({ notes: [note("https://example.com/a")] });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    const original = editor(root);
-    fake.activated.emit({ tabId: 11, windowId: 3 });
-    expect(editor(root)).toBe(original);
-    fake.setPage({
-      tabId: 9,
-      windowId: 2,
-      title: "Second",
-      url: "https://example.com/b",
-    });
-    fake.activated.emit({ tabId: 9, windowId: 2 });
-    expect(root.querySelector(".cm-editor")).toBeNull();
-    expect(root.textContent).not.toContain("Private body");
-    await vi.waitFor(() =>
-      expect(root.querySelector(".cm-editor")).not.toBeNull(),
-    );
-    expect(root.querySelector(".cm-aic-security")).toBeNull();
-    expect(root.querySelector(".browser-page-title")!.textContent).toBe(
-      "Second",
-    );
-    expect(root.querySelector<HTMLElement>(".browser-page-origin")!.title).toBe(
-      "example.com/b",
-    );
-  });
-
-  it("waits for persistence ACK without resetting the editor or cursor", async () => {
-    const original = note("https://example.com/a", "Text");
-    const fake = fixture({ notes: [original] });
-    const pending = deferred<BrowserNote>();
-    fake.override((message) =>
-      message.type === "save" ? pending.promise : undefined,
-    );
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    const view = editor(root);
-    view.dispatch({
-      changes: { from: 4, insert: " edited" },
-      selection: { anchor: 8 },
-    });
-    button(root, "Save note").click();
-    expect(
-      root.querySelector<HTMLElement>(".aic-editor")!.dataset.saveFeedback,
-    ).toBe("saving");
-    expect(view.state.selection.main.anchor).toBe(8);
-    pending.resolve({ ...original, markdown: "Text edited", revision: 2 });
-    await vi.waitFor(() =>
-      expect(
-        root.querySelector<HTMLElement>(".aic-editor")!.dataset.saveFeedback,
-      ).toBe("saved"),
-    );
-    expect(editor(root)).toBe(view);
-    expect(view.state.selection.main.anchor).toBe(8);
+    const { root } = await mount(fake);
+    await shows(root, A);
+    const texts = downloads();
+    button(root, "Download page").click();
+    button(root, "Download note file").click();
+    expect(await texts()).toEqual(["Original", NOTE]);
   });
 
   it("shows file status through edit, pending disk write, and settled acknowledgement", async () => {
-    const original = note("https://example.com/a", "Text");
-    const fake = fixture({ notes: [original], fileSource: true });
+    const fake = fixture();
     const pending = deferred<BrowserNote>();
     fake.override((message) =>
       message.type === "save" ? pending.promise : undefined,
     );
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
+    const { root } = await mount(fake);
+    await shows(root, A);
     const statusText = () =>
       root.querySelector(".browser-file-location .aic-context__status")
         ?.textContent;
     expect(statusText()).toBe("On disk");
-    editor(root).dispatch({ changes: { from: 4, insert: " edited" } });
+    type(root, "Edited ");
     expect(statusText()).toBe("Unsaved");
-    button(root, "Save note").click();
     await vi.waitFor(() => expect(fake.recoveries.size).toBe(1));
+    expect([...fake.recoveries.values()][0]!.entries[0]).toMatchObject({
+      scope: "current",
+      context: { url: "file:file-note", title: "aic.md" },
+      text: NOTE.replace("Original", "Edited Original"),
+    });
+    await vi.waitFor(() =>
+      expect(fake.messages.some((item) => item.type === "save")).toBe(true),
+    );
     expect(statusText()).toBe("Unsaved");
-    pending.resolve({ ...original, markdown: "Text edited", revision: 2 });
+    pending.resolve({
+      ...fake.note,
+      markdown: NOTE.replace("Original", "Edited Original"),
+      revision: 2,
+    });
     await vi.waitFor(() => expect(statusText()).toBe("On disk"));
     await vi.waitFor(() => expect(fake.recoveries.size).toBe(0));
   });
 
-  it("keeps the newest recovery text when reload interrupts an older save and never replays it to disk", async () => {
-    const original = note("https://example.com/a", "Original");
-    const fake = fixture({ notes: [original], fileSource: true });
-    const firstSave = deferred<BrowserNote>();
+  it("says the note file is too large when a save exceeds the cap and keeps the draft", async () => {
+    const fake = fixture();
     fake.override((message) =>
-      message.type === "save" ? firstSave.promise : undefined,
+      message.type === "save"
+        ? Promise.reject(
+            Object.assign(new Error("The note file is too large"), {
+              code: "quota",
+            }),
+          )
+        : undefined,
     );
-    const one = mount(fake.api);
-    await one.panel.ready;
-    editor(one.root).dispatch({ changes: { from: 8, insert: " first" } });
-    button(one.root, "Save note").click();
-    editor(one.root).dispatch({ changes: { from: 14, insert: " latest" } });
+    const { root } = await mount(fake);
+    await shows(root, A);
+    type(root, "Edited ");
     await vi.waitFor(() =>
-      expect([...fake.recoveries.values()][0]?.entries[0]?.text).toBe(
-        "Original first latest",
+      expect(root.querySelector(".browser-draft-error")?.textContent).toContain(
+        "aic.md: The note file is too large to save (limit 512 KiB). Nothing was truncated",
       ),
     );
-    window.dispatchEvent(new Event("pagehide"));
-    expect(one.root.textContent).toBe("");
-    firstSave.resolve({ ...original, markdown: "Original first", revision: 2 });
-    await Promise.resolve();
-    const two = mount(fake.api);
-    await two.panel.ready;
-    expect(two.root.textContent).toContain("1 draft recovery copy available.");
-    expect(editor(two.root).state.doc.toString()).toBe("Original");
-    expect(
-      fake.messages.filter((message) => message.type === "save"),
-    ).toHaveLength(1);
-    button(two.root, "Review recovered drafts").click();
-    expect(two.root.textContent).toContain(
-      "Save a Markdown copy to review them",
-    );
-    expect(two.root.textContent).not.toContain("Original first latest");
-    expect(button(two.root, "Save recovered copy: Note")).not.toBeNull();
-    expect(fake.recoveries.size).toBe(1);
-    button(two.root, "Dismiss this recovery copy…").click();
-    expect(fake.recoveries.size).toBe(1);
-    button(two.root, "Keep recovery copy").click();
-    expect(fake.recoveries.size).toBe(1);
+    expect(editor(root).state.doc.toString()).toContain("Edited Original");
+    expect(fake.note.markdown).toBe(NOTE);
+    const texts = downloads();
+    button(root, "Export unsaved draft").click();
+    expect(await texts()).toEqual([
+      NOTE.replace("Original", "Edited Original"),
+    ]);
   });
 
-  it("keeps recovery copies of retired Shared and Global drafts reviewable and exportable", async () => {
-    const fake = fixture({
-      notes: [note("https://example.com/a", "Original")],
-      fileSource: true,
-    });
+  it("keeps recovery copies of earlier page, Shared and Global drafts reviewable and exportable, and never applies them", async () => {
+    const fake = fixture();
     fake.recoveries.set("old-panel", {
       clientId: "old-panel",
-      sourceId: "browser-test",
+      sourceId: "browser-panel-test",
       sequence: 3,
       updatedAt: 1,
       entries: [
+        {
+          scope: "current",
+          key: "pending:https://example.com/old",
+          context: { url: "https://example.com/old", title: "Old page" },
+          record: null,
+          text: "Unsaved page draft",
+        },
         {
           scope: "shared",
           key: "pending:https://example.com",
@@ -1179,349 +448,93 @@ describe("browser panel", () => {
       ],
     });
     const before = structuredClone(fake.recoveries.get("old-panel"));
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    expect(root.textContent).toContain("2 draft recovery copies available.");
-    expect(root.querySelector('[role="tab"]')).toBeNull();
-    const blobs: Blob[] = [];
-    vi.stubGlobal(
-      "URL",
-      class extends URL {
-        static override createObjectURL(blob: Blob) {
-          blobs.push(blob);
-          return "blob:synthetic-recovery";
-        }
-        static override revokeObjectURL() {}
-      },
+    const { root } = await mount(fake);
+    await shows(root, A);
+    await vi.waitFor(() =>
+      expect(root.textContent).toContain("3 draft recovery copies available."),
     );
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    const texts = downloads();
     button(root, "Review recovered drafts").click();
+    button(root, "Save recovered copy: Old page").click();
     button(root, "Save recovered copy: Shared · example.com").click();
     button(root, "Save recovered copy: Global").click();
-    const texts = await Promise.all(
-      blobs.map(
-        (blob) =>
-          new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.readAsText(blob);
-          }),
-      ),
-    );
-    expect(texts).toEqual(["Unsaved shared draft", "Unsaved global draft"]);
-    // Exporting and editing the page note never drop the stored copy.
-    editor(root).dispatch({ changes: { from: 8, insert: " edited" } });
+    expect(await texts()).toEqual([
+      "Unsaved page draft",
+      "Unsaved shared draft",
+      "Unsaved global draft",
+    ]);
+    expect(editor(root).state.doc.toString()).toBe(NOTE);
+    type(root, "Edited ");
     await vi.waitFor(() =>
       expect(fake.messages.some((item) => item.type === "save")).toBe(true),
     );
+    expect(fake.note.markdown).not.toContain("Unsaved");
     expect(fake.recoveries.get("old-panel")).toEqual(before);
     expect(fake.messages.some((item) => item.type === "dismiss-recovery")).toBe(
       false,
     );
   });
 
-  it("checkpoints an Undo back to the baseline while an older write is still pending", async () => {
-    const original = note("https://example.com/a", "Original");
-    const fake = fixture({ notes: [original], fileSource: true });
-    const pending = deferred<BrowserNote>();
-    fake.override((message) =>
-      message.type === "save" ? pending.promise : undefined,
-    );
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    const view = editor(root);
-    view.dispatch({
-      changes: { from: 8, insert: " changed" },
-      userEvent: "input.type",
-    });
-    button(root, "Save note").click();
-    expect(undo(view)).toBe(true);
-    expect(view.state.doc.toString()).toBe("Original");
-    await vi.waitFor(() =>
-      expect([...fake.recoveries.values()][0]?.entries[0]?.text).toBe(
-        "Original",
-      ),
-    );
-    window.dispatchEvent(new Event("pagehide"));
-    pending.resolve({ ...original, markdown: "Original changed", revision: 2 });
-    await Promise.resolve();
-    expect([...fake.recoveries.values()][0]?.entries[0]?.text).toBe("Original");
-  });
-
-  it("does not recreate a deleted original from a recovery checkpoint", async () => {
-    const fake = fixture({ fileSource: true });
-    fake.recoveries.set("old-panel", {
-      clientId: "old-panel",
-      sourceId: "browser-panel-test",
-      sequence: 1,
-      updatedAt: 1,
-      entries: [
-        {
-          scope: "current",
-          key: "deleted-note",
-          context: { url: "https://example.com/a", title: "Deleted original" },
-          record: { id: "deleted-note", revision: 1, markdown: "Old" },
-          text: "Recovered edit",
-        },
-      ],
-    });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    expect(root.textContent).toContain("1 draft recovery copy available.");
-    expect(editor(root).state.doc.toString()).toBe("");
-    expect(fake.messages.some((message) => message.type === "create")).toBe(
-      false,
-    );
-    expect(fake.library.notes).toEqual([]);
-  });
-
-  it("requests capture permission inside the click and appends to the existing note", async () => {
-    const fake = fixture({
-      notes: [note("https://example.com/a", "Existing")],
-    });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    importPage(root);
-    expect(fake.api.permissions.request).toHaveBeenCalledWith({
-      origins: ["https://example.com/*"],
-    });
-    await vi.waitFor(() =>
-      expect(editor(root).state.doc.toString()).toBe(
-        "Existing\n\nCaptured content",
-      ),
-    );
-    expect(fake.messages.some((item) => item.type === "capture")).toBe(true);
-  });
-
-  it("removes listeners and cancels pending autosave on disposal", async () => {
-    const fake = fixture({
-      notes: [note("https://example.com/a", "Original")],
-    });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    vi.useFakeTimers();
-    editor(root).dispatch({ changes: { from: 8, insert: " unsaved" } });
-    panel.destroy();
-    expect(fake.changed.listeners.size).toBe(0);
-    expect(fake.activated.listeners.size).toBe(0);
-    expect(fake.updated.listeners.size).toBe(0);
-    expect(fake.removed.listeners.size).toBe(0);
-    await vi.advanceTimersByTimeAsync(500);
-    expect(fake.messages.some((item) => item.type === "save")).toBe(false);
-    expect(root.textContent).toBe("");
-  });
-
-  it("keeps editor identity, undo, and cursor during same-page metadata updates", async () => {
-    const fake = fixture({
-      notes: [note("https://example.com/a", "Original")],
-    });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    const view = editor(root);
-    view.dispatch({ selection: { anchor: 3 } });
-    fake.updated.emit(
-      7,
-      { title: "New page title", status: "complete" },
-      { id: 7, windowId: 2, active: true },
-    );
-    expect(editor(root)).toBe(view);
-    expect(view.state.selection.main.anchor).toBe(3);
-    expect(root.querySelector(".browser-page-title")!.textContent).toBe(
-      "New page title",
-    );
-  });
-
-  it("retains an import that failed to create a note and blocks switching files", async () => {
+  it("dispatches a final save before pagehide clears plaintext", async () => {
     const fake = fixture();
-    fake.override((message) =>
-      message.type === "create"
-        ? Promise.reject(new Error("Storage full"))
-        : undefined,
-    );
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    importPage(root);
-    await vi.waitFor(() =>
-      expect(button(root, "Export unsaved draft")).not.toBeNull(),
-    );
-    button(root, "Open file…").click();
-    await vi.waitFor(() =>
-      expect(root.textContent).toContain("Save or export your unsaved drafts"),
-    );
-    expect(root.dataset.state).toBe("ready");
-    expect(fake.messages.some((message) => message.type === "lock")).toBe(
-      false,
-    );
-  });
-
-  it("does not claim a captured append was saved when persistence fails", async () => {
-    const fake = fixture({
-      notes: [note("https://example.com/a", "Existing")],
-    });
-    fake.override((message) =>
-      message.type === "save"
-        ? Promise.reject(new Error("Storage full"))
-        : undefined,
-    );
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    importPage(root);
-    await vi.waitFor(() =>
-      expect(root.querySelector(".browser-feedback")!.textContent).toContain(
-        "unsaved draft",
-      ),
-    );
-    expect(root.textContent).not.toContain("Imported into this page");
-    expect(editor(root).state.doc.toString()).toContain("Captured content");
-  });
-
-  it("has no lock control and dispatches a final save before pagehide clears plaintext", async () => {
-    const original = note("https://example.com/a", "Original");
-    const fake = fixture({ notes: [original] });
     const pending = deferred<BrowserNote>();
     fake.override((message) =>
       message.type === "save" ? pending.promise : undefined,
     );
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    expect(button(root, "Lock")).toBeNull();
-    editor(root).dispatch({ changes: { from: 8, insert: " edited" } });
+    const { root } = await mount(fake);
+    await shows(root, A);
+    type(root, "Edited ");
     window.dispatchEvent(new Event("pagehide"));
     expect(fake.messages).toContainEqual({
       type: "save",
-      id: original.id,
-      markdown: "Original edited",
+      sourceId: "browser-panel-test",
+      id: "file-note",
+      markdown: NOTE.replace("Original", "Edited Original"),
       revision: 1,
     });
     expect(root.textContent).toBe("");
     expect(fake.changed.listeners.size).toBe(0);
-    pending.resolve({ ...original, markdown: "Original edited", revision: 2 });
-    await Promise.resolve();
-    await Promise.resolve();
-    expect(root.textContent).toBe("");
-    expect(root.querySelector(".cm-editor")).toBeNull();
   });
 
-  it("initiates a best-effort save on visibility hidden and removes the old editor", async () => {
-    const fake = fixture({
-      notes: [note("https://example.com/a", "Original")],
-    });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    const view = editor(root);
-    view.dispatch({ changes: { from: 8, insert: " edited" } });
-    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+  it("saves and removes the editor when hidden, ignores tab changes while hidden and resumes on the current page", async () => {
+    const fake = fixture();
+    const { root } = await mount(fake);
+    await shows(root, A);
+    type(root, "Edited ");
+    const visibility = vi.spyOn(document, "visibilityState", "get");
+    visibility.mockReturnValue("hidden");
     document.dispatchEvent(new Event("visibilitychange"));
     expect(fake.messages.some((message) => message.type === "save")).toBe(true);
     expect(root.querySelector(".cm-editor")).toBeNull();
     expect(root.textContent).not.toContain("Original");
-  });
-
-  it("does not track hidden tab changes and refreshes the current page on visibility resume", async () => {
-    const fake = fixture({
-      notes: [
-        note("https://example.com/a", "Previous secret"),
-        note("https://example.com/b", "Current note"),
-      ],
-    });
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    const visibility = vi.spyOn(document, "visibilityState", "get");
-    visibility.mockReturnValue("hidden");
-    document.dispatchEvent(new Event("visibilitychange"));
-    const count = fake.messages.length;
-    fake.setPage({
-      tabId: 9,
-      windowId: 2,
-      title: "Second page",
-      url: "https://example.com/b",
-    });
-    fake.activated.emit({ tabId: 9, windowId: 2 });
-    fake.updated.emit(
-      9,
-      { url: "https://example.com/b", status: "complete" },
-      { id: 9, windowId: 2, active: true },
+    await vi.waitFor(() =>
+      expect(fake.note.markdown).toContain("Edited Original"),
     );
+    const count = fake.messages.length;
+    fake.go(B);
     expect(fake.messages).toHaveLength(count);
-    expect(root.querySelector(".cm-editor")).toBeNull();
     visibility.mockReturnValue("visible");
     document.dispatchEvent(new Event("visibilitychange"));
-    expect(root.textContent).not.toContain("Previous secret");
     await vi.waitFor(() =>
       expect(root.querySelector(".cm-editor")).not.toBeNull(),
     );
-    expect(editor(root).state.doc.toString()).toBe("Current note");
-    expect(fake.messages.slice(count).map((message) => message.type)).toEqual([
-      "context",
-      "visit",
-    ]);
+    await shows(root, B);
+    expect(editor(root).state.doc.toString()).toContain("Edited Original");
   });
 
-  it("does not visit after a context request finishes while hidden", async () => {
-    const fake = fixture();
-    const pending = deferred<ActivePage | null>();
-    fake.override((message) =>
-      message.type === "context" ? pending.promise : undefined,
-    );
-    const { panel } = mount(fake.api);
+  it("asks for consent before using a private window", async () => {
+    const fake = fixture({ private: true });
+    const { root } = await mount(fake, false);
+    expect(root.querySelector(".cm-editor")).toBeNull();
+    expect(fake.messages.map((item) => item.type)).not.toContain("load");
+    button(root, "Use AIC in this private window").click();
     await vi.waitFor(() =>
-      expect(fake.messages.some((message) => message.type === "context")).toBe(
-        true,
-      ),
+      expect(root.querySelector(".cm-editor")).not.toBeNull(),
     );
-    vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
-    document.dispatchEvent(new Event("visibilitychange"));
-    pending.resolve({
-      tabId: 7,
+    expect(fake.messages).toContainEqual({
+      type: "context",
       windowId: 2,
-      title: "Hidden",
-      url: "https://example.com/a",
+      allowPrivate: true,
     });
-    await panel.ready;
-    expect(fake.messages.some((message) => message.type === "visit")).toBe(
-      false,
-    );
-  });
-
-  it("retains failed imports in one editable draft and exports their combined text", async () => {
-    const fake = fixture();
-    fake.override((message) =>
-      message.type === "create"
-        ? Promise.reject(new Error("Storage full"))
-        : undefined,
-    );
-    const { root, panel } = mount(fake.api);
-    await panel.ready;
-    importPage(root);
-    await vi.waitFor(() =>
-      expect(button(root, "Export unsaved draft")).not.toBeNull(),
-    );
-    const firstText = editor(root).state.doc.toString();
-    expect(firstText).toContain("Captured content");
-    importPage(root);
-    await vi.waitFor(() =>
-      expect(
-        fake.messages.filter((message) => message.type === "capture"),
-      ).toHaveLength(2),
-    );
-    expect(
-      root.querySelectorAll('button[aria-label="Export unsaved draft"]'),
-    ).toHaveLength(1);
-    const combined = editor(root).state.doc.toString();
-    expect(combined.startsWith(firstText)).toBe(true);
-    expect(combined.match(/Captured content/gu)).toHaveLength(2);
-    const revoke = vi.fn();
-    vi.stubGlobal(
-      "URL",
-      class extends URL {
-        static override createObjectURL = vi.fn(() => "blob:recovery");
-        static override revokeObjectURL = revoke;
-      },
-    );
-    vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
-    button(root, "Export unsaved draft").click();
-    expect(revoke).toHaveBeenCalledWith("blob:recovery");
-    expect(editor(root).state.doc.toString()).toBe(combined);
-    expect(button(root, "Export unsaved draft")).not.toBeNull();
   });
 });

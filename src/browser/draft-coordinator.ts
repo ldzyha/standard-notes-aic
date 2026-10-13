@@ -11,7 +11,7 @@ export interface DraftState<
 > {
   key: string;
   context: Context;
-  record: RecordType | null;
+  record: RecordType;
   text: string;
   dirty: boolean;
   saving: boolean;
@@ -23,20 +23,11 @@ export type SaveDocument<RecordType extends VersionedDocument> = (
   markdown: string,
   expectedRevision: number,
 ) => Promise<RecordType>;
-export type CreateDocument<
-  RecordType extends VersionedDocument,
-  Context extends object,
-> = (context: Context, markdown: string) => Promise<RecordType>;
-
 export interface DraftContextAdapter<
   RecordType extends VersionedDocument,
   Context extends object,
 > {
-  contextKey(context: Context): string;
   contextForRecord(record: RecordType): Context;
-  pageChangedMessage?: string;
-  /** Return a stable storage identity when revisions are opaque CAS tokens. */
-  opaqueRevisionKey?(record: RecordType): string | undefined;
 }
 
 interface Entry<RecordType extends VersionedDocument, Context extends object> {
@@ -45,7 +36,6 @@ interface Entry<RecordType extends VersionedDocument, Context extends object> {
   timer: ReturnType<typeof setTimeout> | null;
   inFlight: Promise<boolean> | null;
   blocked: boolean;
-  retryOnActivation: boolean;
 }
 
 export const AUTOSAVE_DELAY_MS = 350;
@@ -56,12 +46,8 @@ function snapshot<RecordType extends VersionedDocument, Context extends object>(
   return {
     ...draft,
     context: { ...draft.context },
-    record: draft.record ? { ...draft.record } : null,
+    record: { ...draft.record },
   };
-}
-
-function placeholderKey(contextKey: string): string {
-  return `pending:${contextKey}`;
 }
 
 function errorCode(error: unknown): unknown {
@@ -70,7 +56,7 @@ function errorCode(error: unknown): unknown {
     : null;
 }
 
-function errorMessage(error: unknown, pageChangedMessage: string): string {
+function errorMessage(error: unknown): string {
   const code = errorCode(error);
   if (code === "conflict") {
     return "Could not save. Another window may have changed this note. Export your draft before reopening.";
@@ -79,10 +65,9 @@ function errorMessage(error: unknown, pageChangedMessage: string): string {
     return "File editing needs permission. Reconnect access to save; your draft is unchanged.";
   }
   if (code === "quota") {
-    return "Browser storage is full. Your draft is still here; export a backup or free space, then retry.";
+    return "The note file is too large to save (limit 512 KiB). Nothing was truncated; your draft is still here. Shorten the note or export the draft.";
   }
-  if (code === "page_changed") return pageChangedMessage;
-  return "Could not save to browser storage. Your draft is still here; retry or export it.";
+  return "Could not save the note file. Your draft is still here; retry or export it.";
 }
 
 export class DraftCoordinator<
@@ -99,34 +84,17 @@ export class DraftCoordinator<
     private readonly onChangeFn: (
       draft: DraftState<RecordType, Context>,
     ) => void = () => undefined,
-    private readonly createFn?: CreateDocument<RecordType, Context>,
   ) {}
 
-  private acceptsRevision(
-    current: RecordType | null,
-    incoming: RecordType,
-    acknowledgement: boolean,
-  ): boolean {
-    if (!Number.isSafeInteger(incoming.revision) || incoming.revision < 1)
-      return false;
-    const previousKey = current
-      ? this.adapter.opaqueRevisionKey?.(current)
-      : undefined;
-    const incomingKey = this.adapter.opaqueRevisionKey?.(incoming);
-    if (previousKey !== undefined || (!current && incomingKey !== undefined)) {
-      if (current && incomingKey !== previousKey) return false;
-      // File hashes are equality tokens, never a timestamp or a counter.
-      // Reusing a token for different text is not a valid observation or ACK.
-      return (
-        !current ||
-        incoming.revision !== current.revision ||
-        incoming.markdown === current.markdown
-      );
-    }
-    if (incomingKey !== undefined) return false;
-    return acknowledgement
-      ? incoming.revision === (current ? current.revision + 1 : 1)
-      : incoming.revision >= (current?.revision ?? 0);
+  // Revisions are hashes of the file bytes: equality tokens, never a counter.
+  // Reusing a token for different text is not a valid observation or ACK.
+  private acceptsRevision(current: RecordType, incoming: RecordType): boolean {
+    return (
+      Number.isSafeInteger(incoming.revision) &&
+      incoming.revision >= 1 &&
+      (incoming.revision !== current.revision ||
+        incoming.markdown === current.markdown)
+    );
   }
 
   private emit(entry: Entry<RecordType, Context>): void {
@@ -168,9 +136,7 @@ export class DraftCoordinator<
     if (this.disposed) throw new Error("Draft coordinator has been disposed.");
     const incoming = { ...record };
     const context = this.adapter.contextForRecord(incoming);
-    let entry =
-      this.entries.get(incoming.id) ??
-      this.entries.get(placeholderKey(this.adapter.contextKey(context)));
+    let entry = this.entries.get(incoming.id);
     if (!entry) {
       entry = {
         draft: {
@@ -186,14 +152,13 @@ export class DraftCoordinator<
         timer: null,
         inFlight: null,
         blocked: false,
-        retryOnActivation: false,
       };
       this.entries.set(incoming.id, entry);
     } else if (
       !entry.draft.dirty &&
       !entry.draft.saving &&
       !entry.inFlight &&
-      this.acceptsRevision(entry.draft.record, incoming, false)
+      this.acceptsRevision(entry.draft.record, incoming)
     ) {
       entry.draft.record = incoming;
       entry.draft.context = { ...context };
@@ -208,47 +173,6 @@ export class DraftCoordinator<
     return snapshot(entry.draft);
   }
 
-  activatePlaceholder(
-    context: Context,
-    seed = "",
-  ): DraftState<RecordType, Context> {
-    if (this.disposed) throw new Error("Draft coordinator has been disposed.");
-    const key = placeholderKey(this.adapter.contextKey(context));
-    let entry = this.entries.get(key);
-    if (!entry) {
-      entry = {
-        draft: {
-          key,
-          context: { ...context },
-          record: null,
-          text: seed,
-          dirty: false,
-          saving: false,
-          error: null,
-        },
-        baseText: seed,
-        timer: null,
-        inFlight: null,
-        blocked: false,
-        retryOnActivation: false,
-      };
-      this.entries.set(key, entry);
-    } else if (!entry.draft.dirty && !entry.draft.saving) {
-      entry.draft.context = { ...context };
-    }
-    if (entry.retryOnActivation && entry.draft.dirty && !entry.inFlight) {
-      entry.blocked = false;
-      entry.retryOnActivation = false;
-      entry.draft.error = null;
-      this.clearTimer(entry);
-      this.scheduleAutoSave(entry);
-    }
-    this.activeKey = key;
-    this.pruneInactive();
-    this.emit(entry);
-    return snapshot(entry.draft);
-  }
-
   edit(key: string, text: string): DraftState<RecordType, Context> | undefined {
     if (this.disposed) return undefined;
     const entry = this.entries.get(key);
@@ -258,7 +182,6 @@ export class DraftCoordinator<
     entry.draft.dirty = text !== entry.baseText;
     entry.draft.error = null;
     entry.blocked = false;
-    entry.retryOnActivation = false;
     this.clearTimer(entry);
     if (entry.draft.dirty && !entry.inFlight) this.scheduleAutoSave(entry);
     this.emit(entry);
@@ -275,8 +198,7 @@ export class DraftCoordinator<
       return snapshot(entry.draft);
     this.clearTimer(entry);
     entry.blocked = true;
-    entry.retryOnActivation = false;
-    entry.draft.error = errorMessage({ code: "conflict" }, "");
+    entry.draft.error = errorMessage({ code: "conflict" });
     this.emit(entry);
     return snapshot(entry.draft);
   }
@@ -289,21 +211,17 @@ export class DraftCoordinator<
       entry.draft.saving = true;
       this.emit(entry);
       try {
-        const saved = currentRecord
-          ? await this.saveFn(
-              currentRecord.id,
-              markdown,
-              currentRecord.revision,
-            )
-          : await this.createFn?.({ ...entry.draft.context }, markdown);
+        const saved = await this.saveFn(
+          currentRecord.id,
+          markdown,
+          currentRecord.revision,
+        );
         if (this.disposed) return false;
         if (
           !saved ||
           !saved.id ||
-          this.adapter.contextKey(this.adapter.contextForRecord(saved)) !==
-            this.adapter.contextKey(entry.draft.context) ||
-          (currentRecord && saved.id !== currentRecord.id) ||
-          !this.acceptsRevision(currentRecord, saved, true) ||
+          saved.id !== currentRecord.id ||
+          !this.acceptsRevision(currentRecord, saved) ||
           saved.markdown !== markdown ||
           entry.draft.record !== currentRecord
         ) {
@@ -314,20 +232,13 @@ export class DraftCoordinator<
         entry.draft.dirty = entry.draft.text !== saved.markdown;
         entry.draft.error = null;
         entry.draft.saving = false;
-        entry.retryOnActivation = false;
         this.emit(entry);
       } catch (error) {
         if (this.disposed) return false;
         entry.draft.saving = false;
         entry.draft.dirty = true;
-        entry.draft.error = errorMessage(
-          error,
-          this.adapter.pageChangedMessage ??
-            "Return to this page to save your new note, or export the draft.",
-        );
+        entry.draft.error = errorMessage(error);
         entry.blocked = true;
-        entry.retryOnActivation =
-          !currentRecord && errorCode(error) === "page_changed";
         this.emit(entry);
         return false;
       }
@@ -344,7 +255,6 @@ export class DraftCoordinator<
     if (entry.inFlight) return entry.inFlight;
     if (explicit && entry.blocked) {
       entry.blocked = false;
-      entry.retryOnActivation = false;
       entry.draft.error = null;
       this.emit(entry);
     }
@@ -368,16 +278,6 @@ export class DraftCoordinator<
     return entry ? this.requestSave(entry, true) : Promise.resolve(false);
   }
 
-  /** Capture our own acknowledgement even when an inactive entry is pruned. */
-  async flushSnapshot(
-    key: string,
-  ): Promise<DraftState<RecordType, Context> | undefined> {
-    const entry = this.entries.get(key);
-    if (!entry || !(await this.requestSave(entry, true)) || this.disposed)
-      return undefined;
-    return snapshot(entry.draft);
-  }
-
   async flushAll(): Promise<boolean> {
     const pending = [...this.entries.values()]
       .filter((entry) => entry.draft.dirty || entry.inFlight)
@@ -388,29 +288,6 @@ export class DraftCoordinator<
   get(key: string): DraftState<RecordType, Context> | undefined {
     const entry = this.entries.get(key);
     return entry ? snapshot(entry.draft) : undefined;
-  }
-
-  getForContext(
-    contextKey: string,
-  ): DraftState<RecordType, Context> | undefined {
-    const entry = [...this.entries.values()].find(
-      (item) => this.adapter.contextKey(item.draft.context) === contextKey,
-    );
-    return entry ? snapshot(entry.draft) : undefined;
-  }
-
-  /** Forget only an acknowledged, idle draft after its storage record was deleted. */
-  forget(key: string): boolean {
-    const entry = this.entries.get(key);
-    if (!entry) return true;
-    if (entry.draft.dirty || entry.draft.saving || entry.inFlight) return false;
-    this.clearTimer(entry);
-    entry.draft.text = "";
-    entry.baseText = "";
-    if (entry.draft.record) entry.draft.record.markdown = "";
-    this.entries.delete(key);
-    if (this.activeKey === key) this.activeKey = null;
-    return true;
   }
 
   dirtyDrafts(): DraftState<RecordType, Context>[] {
@@ -445,7 +322,7 @@ export class DraftCoordinator<
       this.clearTimer(entry);
       entry.draft.text = "";
       entry.baseText = "";
-      if (entry.draft.record) entry.draft.record.markdown = "";
+      entry.draft.record.markdown = "";
     }
     this.entries.clear();
     this.activeKey = null;

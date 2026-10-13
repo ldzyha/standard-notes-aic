@@ -1,26 +1,10 @@
-import { ChangeSet, EditorState, StateEffect } from "@codemirror/state";
-import { EditorView } from "@codemirror/view";
-import { relatedPageLink } from "./related-links";
 import { AicEditor } from "../editor";
 import { request, type Request, type ActivePage, type BrowserApi } from "./api";
 import { BrowserDrafts, type Draft } from "./drafts";
-import { savedPageAncestors } from "./page-ancestors";
 import { applyUiComponent, createUiButton } from "../core/ui-system.js";
 import { createEditorHelp } from "../core/editor-help.js";
-import { notePages, pageForTarget } from "../core/note-pages.js";
-import {
-  buildDomainTree,
-  type BrowserLibrary,
-  type BrowserNote,
-} from "./library";
-import {
-  displayPageLocation,
-  displayPageTitle,
-  navigationLabels,
-  projectDomain,
-  type NavigationItem,
-} from "./navigation";
-import { importCapturedPage } from "./import-page";
+import type { BrowserNote } from "./library";
+import { importCapturedPage, keepInsidePage } from "./import-page";
 import type { PageCapture } from "./capture-page";
 import type { RecoveryDraft, RecoverySnapshot } from "./recovery-store";
 import {
@@ -29,17 +13,14 @@ import {
   FILE_SOURCE_KEY,
   type BrowserFileLocation,
   type BrowserStatus,
-  type BrowserScan,
-  type BrowserScanStatus,
-  type ScanNoteSummary,
 } from "./markdown-storage";
 
-const PLACEHOLDER_TEXT = "";
-const emptyLibrary = (): BrowserLibrary => ({
-  version: 3,
-  notes: [],
-  history: [],
-});
+/** The page of the note a tab is bound to: its URL without the fragment. */
+function pageTarget(url: string): string {
+  const target = new URL(url);
+  target.hash = "";
+  return target.href;
+}
 
 /** One panel owns its window context and ephemeral plaintext. The worker owns storage. */
 export class BrowserPanel {
@@ -48,7 +29,6 @@ export class BrowserPanel {
   private contextGeneration = 0;
   private disposed = false;
   private state: BrowserStatus["state"] = "unselected";
-  private selectedFileId: string | null = null;
   private source: BrowserFileLocation | undefined;
   private sourceError = "";
   private sourceErrorCode = "";
@@ -58,27 +38,14 @@ export class BrowserPanel {
   private warmedSourceId: string | null = null;
   private checkingAccess = false;
   private selectingSource = false;
-  private sourceWarnings: string[] = [];
+  private legacyNotes = false;
   private sourceChanged = false;
-  private scan: BrowserScan | null = null;
-  private scanNotes: ScanNoteSummary[] = [];
-  private scanOffset = 0;
-  private scanStopping = false;
-  private scanTimer: ReturnType<typeof setTimeout> | null = null;
-  private fileOperation: {
-    label: string;
-    candidateId?: string;
-    poll: Promise<void> | null;
-    finishing: boolean;
-  } | null = null;
+  /** A connect, reconnect or first status read owns the source until it settles. */
+  private sourceBusy = false;
   private windowId: number | null = null;
   private privateWindow = false;
   private allowPrivate = false;
   private page: ActivePage | null = null;
-  private pinnedPage: ActivePage | null = null;
-  private activePage: ActivePage | null = null;
-  private activeGeneration = 0;
-  private library = emptyLibrary();
   private readonly recoveryClientId = crypto.randomUUID();
   private recoverySequence = 0;
   private recoverySignature = "";
@@ -88,13 +55,7 @@ export class BrowserPanel {
   private editorGeneration = 0;
   private noteId: string | null = null;
   private drafts: BrowserDrafts | null = null;
-  private libraryReload: Promise<void> | null = null;
-  private libraryReloadRevision = 0;
-  private filter = "";
   private importing = false;
-  private deleting = false;
-  private libraryRefreshDeferred = false;
-  private contextLoading = false;
   private overlayTrigger: HTMLButtonElement | null = null;
   private markdownImport: {
     input: HTMLInputElement;
@@ -107,7 +68,6 @@ export class BrowserPanel {
   private readonly toolbar: HTMLElement;
   private readonly feedback: HTMLElement;
   private readonly fileLocation: HTMLElement;
-  private readonly scanView: HTMLElement;
   private readonly content: HTMLElement;
   private readonly overlay: HTMLElement;
 
@@ -121,10 +81,6 @@ export class BrowserPanel {
     applyUiComponent(this.toolbar, "toolbar", ["compact"]);
     this.fileLocation = this.el("div", "browser-file-location");
     applyUiComponent(this.fileLocation, "context", ["document"]);
-    this.scanView = this.el("section", "browser-scan");
-    applyUiComponent(this.scanView, "notice", ["info"]);
-    this.scanView.setAttribute("aria-label", "Folder scan");
-    this.scanView.hidden = true;
     this.feedback = this.el("div", "browser-feedback");
     applyUiComponent(this.feedback, "notice");
     this.feedback.setAttribute("role", "status");
@@ -135,7 +91,6 @@ export class BrowserPanel {
     root.replaceChildren(
       this.toolbar,
       this.fileLocation,
-      this.scanView,
       this.feedback,
       this.content,
       this.overlay,
@@ -173,8 +128,8 @@ export class BrowserPanel {
         this.sourceChanged = true;
       if (area === "local" && changedFile) {
         // The awaited source operation mounts its result once. Its own storage
-        // event must not initialize a second scan or dispose the active monitor.
-        if (this.fileOperation) return;
+        // event must not initialize the panel a second time.
+        if (this.sourceBusy) return;
         if (this.sourceChanged && this.hasPendingDrafts()) {
           this.tell(
             "The selected location changed in another panel. Save or export this draft before reconnecting.",
@@ -185,36 +140,22 @@ export class BrowserPanel {
         if (this.sourceChanged) {
           this.clearPlaintext();
           void this.initialize();
-          return;
         }
       }
-      if (area === "local" && changes["aic-browser-markdown-change"])
-        this.refreshLibrary();
     });
     this.listen(api.tabs.onActivated, (info) => {
-      if (
-        info.windowId === this.windowId &&
-        info.tabId !== this.activePage?.tabId
-      )
+      if (info.windowId === this.windowId && info.tabId !== this.page?.tabId)
         this.contextChanged();
     });
     this.listen(api.tabs.onUpdated, (id, change, tab) => {
       if (tab.windowId !== this.windowId) return;
+      // A title change of the shown page does not move the note.
       if (
         id === this.page?.tabId &&
-        (!change.url || change.url === this.page.url)
-      ) {
-        if (change.title !== undefined) {
-          this.page.title = change.title;
-          const title = this.toolbar.querySelector(".browser-page-title");
-          if (title) {
-            const label = displayPageTitle(this.page);
-            title.textContent = label;
-            (title as HTMLElement).title = label;
-          }
-        }
+        (!change.url || change.url === this.page.url) &&
+        change.status !== "complete"
+      )
         return;
-      }
       if (
         tab.windowId === this.windowId &&
         (tab.active || id === this.page?.tabId) &&
@@ -256,8 +197,6 @@ export class BrowserPanel {
         this.setImporting(false);
         this.dropEditor();
         this.page = null;
-        this.activePage = null;
-        ++this.activeGeneration;
         this.closeOverlay();
         this.content.replaceChildren();
         this.tell("");
@@ -271,6 +210,7 @@ export class BrowserPanel {
     };
     const focus = () => {
       void this.resumeGrantedAccess();
+      void this.reloadNote();
     };
     this.document.defaultView?.addEventListener("focus", focus);
     this.cleanups.push(() =>
@@ -430,62 +370,17 @@ export class BrowserPanel {
   }
 
   private renderToolbar(): void {
-    this.toolbar.replaceChildren();
-    if (this.canUseLibrary()) {
-      this.toolbar.append(
-        this.iconButton(
-          "Notes",
-          "",
-          (button) => this.showNavigation(button),
-          "folder",
-        ),
-      );
-      const identity = this.el("div", "browser-page-identity");
-      const title = this.el(
-        "strong",
-        "browser-page-title",
-        this.selectedFileId
-          ? (this.library.notes.find((note) => note.id === this.selectedFileId)
-              ?.filePath ?? "Markdown file")
-          : this.contextLoading
-            ? "Loading page…"
-            : this.page
-              ? displayPageTitle(this.page)
-              : "Your notes",
-      );
-      title.title = title.textContent ?? "Your notes";
-      identity.append(title);
-      if (this.page && !this.selectedFileId) {
-        const source = this.el(
-          "small",
-          "browser-page-origin",
-          `${new URL(this.page.url).host}${this.pinnedPage ? " · Pinned" : ""}`,
-        );
-        source.title = displayPageLocation(this.page.url);
-        identity.append(source);
-      }
-      this.toolbar.append(identity);
-    } else {
-      this.toolbar.append(this.el("span", "browser-brand", ">_ AIC"));
-    }
     const more = this.iconButton("More options", "⋯", (button) =>
       this.showMoreMenu(button),
     );
-    this.toolbar.append(more);
-    for (const button of this.toolbar.querySelectorAll<HTMLButtonElement>(
-      "button",
-    )) {
-      button.classList.remove("aic-button--compact");
-      applyUiComponent(button, "button", ["touch"]);
-      if (
-        ["Notes", "More options"].includes(
-          button.getAttribute("aria-label") || "",
-        )
-      ) {
-        button.setAttribute("aria-haspopup", "dialog");
-        button.setAttribute("aria-expanded", "false");
-      }
-    }
+    more.classList.remove("aic-button--compact");
+    applyUiComponent(more, "button", ["touch"]);
+    more.setAttribute("aria-haspopup", "dialog");
+    more.setAttribute("aria-expanded", "false");
+    this.toolbar.replaceChildren(
+      this.el("span", "browser-brand", ">_ AIC"),
+      more,
+    );
   }
 
   private showPopover(
@@ -510,25 +405,8 @@ export class BrowserPanel {
     const box = this.showPopover("More options", trigger);
     if (!box) return;
     this.overlay.dataset.layout = "actions";
-    if (this.page && !this.selectedFileId && this.canUseLibrary()) {
-      const noteId = this.noteId;
-      const pin = this.menuButton(
-        this.pinnedPage ? "Unpin note" : "Pin note",
-        "pin",
-        () => {
-          this.closeOverlay(true);
-          if (this.noteId === noteId) return this.togglePin();
-        },
-      );
-      pin.dataset.pinNote = "true";
-      pin.setAttribute("aria-pressed", String(Boolean(this.pinnedPage)));
-      const draft = noteId ? this.drafts?.get(noteId) : null;
-      pin.disabled = !this.pinnedPage && !draft?.note && !draft?.dirty;
-      pin.title = pin.disabled
-        ? "Write a note before pinning it"
-        : this.pinnedPage
-          ? "Unpin note and follow the active tab"
-          : "Keep this note open and link pages you write about";
+    const noteId = this.noteId;
+    if (this.page && noteId && this.editor?.focusedPage) {
       const capture = this.menuButton(
         "Import current content",
         "import-page",
@@ -548,35 +426,21 @@ export class BrowserPanel {
         },
         "Insert from file…",
       );
-      markdown.title = "Append Markdown from another file to this note";
+      markdown.title = "Append Markdown from another file to this page";
       for (const button of [capture, markdown]) {
         button.dataset.importAction = "true";
         button.disabled = this.importing;
         button.setAttribute("aria-description", button.title);
       }
-      box.append(this.menuHeading("Current note"), pin, capture, markdown);
-      const page = { ...this.page };
-      const pageDraft = this.drafts?.getForPage(page.url);
-      const hasNote =
-        !!pageDraft?.note ||
-        !!pageDraft?.dirty ||
-        this.library.notes.some((item) => item.url === page.url);
-      if (
-        hasNote ||
-        this.library.history.some((item) => item.url === page.url)
-      ) {
-        const remove = this.menuButton(
-          hasNote
-            ? this.source?.kind === "directory"
-              ? "Unlink page"
-              : "Delete local note"
-            : "Remove page from history",
-          "trash",
-          () => this.showDeletePage(page.url, page.title, trigger),
-        );
-        remove.disabled = this.importing || this.deleting;
-        box.append(remove);
-      }
+      box.append(
+        this.menuHeading("This page"),
+        capture,
+        markdown,
+        this.menuButton("Download page", "export-file", () => {
+          this.closeOverlay(true);
+          if (this.noteId === noteId) this.exportPage();
+        }),
+      );
     }
     if (this.canUseLibrary()) {
       if (box.childElementCount) box.append(this.menuSeparator());
@@ -594,7 +458,6 @@ export class BrowserPanel {
       this.menuButton("Open folder…", "folder", () =>
         this.connectFile("folder"),
       ),
-      this.menuButton("New file", "note-add", () => this.newFile(trigger)),
     );
     if (this.source?.id && this.state === "ready" && this.needsFilePermission())
       box.append(
@@ -608,36 +471,20 @@ export class BrowserPanel {
           this.openTab(this.api.runtime.getURL("browser/index.html")),
         ),
       );
-    if (this.source?.kind === "directory" && this.state === "ready")
+    if (noteId)
       box.append(
-        this.menuButton("Refresh folder", "folder", () => this.refreshFiles()),
-      );
-    if (this.selectedFileId) {
-      if (this.source?.kind === "directory")
-        box.append(
-          this.menuButton("Follow active tab", "link", async () => {
-            if (!(await this.flushAllDrafts()))
-              throw new Error("Save or export this draft first.");
-            this.selectedFileId = null;
-            this.pinnedPage = null;
-            this.closeOverlay();
-            await this.refreshContext();
-          }),
-        );
-      if (this.source?.kind === "directory")
-        box.append(
-          this.menuButton("Link file to current page", "link", () =>
-            this.linkSelectedFile(),
-          ),
-        );
-    }
-    const exportKey = this.noteId;
-    if (exportKey)
-      box.append(
-        this.menuButton("Download copy", "export-file", () => {
+        this.menuButton("Download note file", "export-file", () => {
           this.closeOverlay(true);
-          this.exportDraft(exportKey);
+          this.exportDraft(noteId);
         }),
+      );
+    if (this.legacyNotes && this.canUseLibrary())
+      box.append(
+        this.el(
+          "p",
+          "browser-menu-hint",
+          "Earlier page notes stay in this folder as Markdown files.",
+        ),
       );
     box.append(
       this.menuSeparator(),
@@ -674,184 +521,6 @@ export class BrowserPanel {
     box.append(createEditorHelp(this.document, { host: "browser" }));
     box.tabIndex = -1;
     box.focus();
-  }
-
-  private showDeletePage(
-    url: string,
-    title: string,
-    trigger: HTMLButtonElement,
-  ): void {
-    if (!this.canUseLibrary() || this.importing || this.deleting) return;
-    const generation = this.generation;
-    const context = this.contextGeneration;
-    const draft = this.drafts?.getForPage(url);
-    const record =
-      draft?.note ?? this.library.notes.find((item) => item.url === url);
-    const expected = record
-      ? { id: record.id, revision: record.revision }
-      : null;
-    const hasNote = !!record || !!draft?.dirty || !!draft?.saving;
-    const unlink = this.source?.kind === "directory";
-    this.closeOverlay();
-    const box = this.showPopover("Delete local page", trigger);
-    if (!box) return;
-    box.classList.add("browser-delete-confirm");
-    box.append(
-      this.el(
-        "h2",
-        "",
-        hasNote
-          ? unlink
-            ? "Unlink this page?"
-            : "Delete this local note?"
-          : "Remove this recent page?",
-      ),
-      this.el("p", "browser-delete-title", displayPageTitle({ url, title })),
-      this.el(
-        "p",
-        "browser-menu-hint",
-        unlink
-          ? "Remove the URL connection. The Markdown file stays in the folder and remains available in Files."
-          : hasNote
-            ? "Delete the local note and its history entry. This cannot be undone without a backup. The website and other notes stay unchanged."
-            : "Remove this page from AIC history. The website and other notes stay unchanged.",
-      ),
-    );
-    const cancel = this.button("Cancel", () => this.closeOverlay(true));
-    const confirm = this.button(
-      hasNote ? (unlink ? "Unlink page" : "Delete note") : "Remove page",
-      async () => {
-        if (!this.valid(generation, context) || this.deleting || this.importing)
-          return;
-        this.deleting = true;
-        this.content.inert = true;
-        this.toolbar.inert = true;
-        confirm.disabled = true;
-        cancel.disabled = true;
-        box.setAttribute("aria-busy", "true");
-        this.tell("Removing local page…", "progress");
-        const drafts = this.drafts;
-        let focusPlaceholder = false;
-        try {
-          const pending = drafts?.getForPage(url);
-          const acknowledged = pending
-            ? await drafts!.flushSnapshot(pending.key)
-            : null;
-          if (pending && !acknowledged) {
-            throw new Error(
-              "Nothing was deleted. Save or export the unsaved draft, then retry.",
-            );
-          }
-          if (!this.valid(generation, context)) return;
-          // Only our own acknowledged save may advance the confirmed revision.
-          const saved = acknowledged?.note;
-          if (expected && saved && saved.id !== expected.id) {
-            throw new Error(
-              "This page changed elsewhere. Reopen it before deleting.",
-            );
-          }
-          const expectedNote = saved
-            ? { id: saved.id, revision: saved.revision }
-            : expected;
-          const library = await this.send<BrowserLibrary>({
-            type: "delete-page",
-            url,
-            expectedNote,
-          });
-          if (!this.valid(generation)) return;
-          const forgotten = !pending || drafts?.forget(pending.key);
-          if (!this.valid(generation, context)) {
-            // The commit succeeded, but a newer context owns the visible UI now.
-            this.refreshLibrary();
-            return;
-          }
-          this.library = library;
-          this.closeOverlay();
-          if (!forgotten) {
-            throw new Error(
-              "The stored note was deleted, but a new local edit remains. Export that draft before reopening.",
-            );
-          }
-          if (this.page?.url === url) {
-            this.pinnedPage = null;
-            // Destroy the old editor and its undo history.
-            this.noteId = null;
-            this.editor?.destroy();
-            this.editor = null;
-            this.content.querySelector(".browser-note")?.remove();
-            this.mountEditor(
-              drafts!.activatePlaceholder(this.page, PLACEHOLDER_TEXT),
-            );
-            focusPlaceholder = true;
-          }
-          this.renderToolbar();
-          this.renderLibrary();
-          this.renderPageAncestors();
-          this.tell(
-            hasNote
-              ? unlink
-                ? "Page unlinked. The Markdown file is kept in the folder."
-                : "Note deleted. Start a new note on the blank page."
-              : "Page removed from AIC history.",
-            "success",
-          );
-        } catch (error) {
-          if (this.valid(generation)) this.fail(error);
-        } finally {
-          if (this.valid(generation)) {
-            this.deleting = false;
-            this.content.inert = false;
-            this.toolbar.inert = false;
-            if (focusPlaceholder && this.valid(generation, context))
-              this.content
-                .querySelector<HTMLElement>(".browser-note .cm-content")
-                ?.focus();
-            confirm.disabled = false;
-            cancel.disabled = false;
-            box.removeAttribute("aria-busy");
-            if (this.libraryRefreshDeferred) {
-              this.libraryRefreshDeferred = false;
-              this.refreshLibrary();
-            }
-          }
-        }
-      },
-    );
-    box.append(cancel, confirm);
-    cancel.focus();
-  }
-
-  private showNavigation(trigger: HTMLButtonElement): void {
-    if (!this.canUseLibrary()) return;
-    const box = this.showPopover("Notes", trigger);
-    if (!box) return;
-    box.append(this.el("h2", "", "Notes"));
-    this.appendNavigation(box);
-    const filter = box.querySelector<HTMLInputElement>("input");
-    if (filter && !filter.hidden) filter.focus();
-    else {
-      box.tabIndex = -1;
-      box.focus();
-    }
-  }
-
-  private appendNavigation(parent: HTMLElement): void {
-    const nav = this.el("section", "browser-navigation");
-    const filter = this.el("input", "browser-filter");
-    filter.type = "search";
-    filter.placeholder = "Find notes";
-    filter.setAttribute("aria-label", "Find notes by title or location");
-    filter.value = this.filter;
-    filter.addEventListener("input", () => {
-      this.filter = filter.value;
-      this.renderLibrary();
-    });
-    const tree = this.el("nav", "browser-library");
-    tree.setAttribute("aria-label", "Saved notes");
-    applyUiComponent(tree, "tree", ["compact", "connected"]);
-    nav.append(filter, tree);
-    parent.append(nav);
-    this.renderLibrary();
   }
 
   private hasPendingDrafts(): boolean {
@@ -920,12 +589,10 @@ export class BrowserPanel {
                     "error",
                   );
               });
-          this.sourceWarnings = status.warnings ?? [];
+          this.legacyNotes = !!status.legacyNotes;
           this.sourceChanged = false;
           this.renderFileLocation();
-        } else if (
-          ["save", "create", "delete-page", "import"].includes(message.type)
-        ) {
+        } else if (message.type === "save") {
           this.sourceError = "";
           this.sourceErrorCode = "";
           if (this.sourceAccessState)
@@ -970,14 +637,7 @@ export class BrowserPanel {
         { variant: "ghost" },
       );
       reconnect.classList.add("browser-reconnect");
-      const notice = this.button("Folder notices", () => {
-        const box = this.showPopover("Folder notices", notice);
-        if (box)
-          for (const message of this.sourceWarnings)
-            box.append(this.el("p", "", message));
-      });
-      notice.classList.add("browser-source-notices");
-      this.fileLocation.append(path, status, reconnect, notice);
+      this.fileLocation.append(path, status, reconnect);
     }
     const path =
       this.fileLocation.querySelector<HTMLElement>(".aic-context__path")!;
@@ -986,14 +646,11 @@ export class BrowserPanel {
     )!;
     const reconnect =
       this.fileLocation.querySelector<HTMLButtonElement>(".browser-reconnect")!;
-    const notice = this.fileLocation.querySelector<HTMLButtonElement>(
-      ".browser-source-notices",
-    )!;
     const selected = ["file", "directory"].includes(this.source.kind);
     path.textContent = selected
       ? [
           this.source.kind === "directory" ? this.source.name : "",
-          this.drafts?.get(this.noteId ?? "")?.note?.filePath,
+          this.drafts?.get(this.noteId ?? "")?.note.filePath,
         ]
           .filter(Boolean)
           .join("/") ||
@@ -1036,237 +693,6 @@ export class BrowserPanel {
           ? "dirty"
           : "saved";
     status.title = this.sourceError;
-    notice.hidden = !this.sourceWarnings.length;
-    notice.textContent = notice.hidden
-      ? ""
-      : `${this.sourceWarnings.length} ${this.sourceWarnings.length === 1 ? "notice" : "notices"}`;
-  }
-
-  private renderScan(): void {
-    const running = !!this.fileOperation;
-    this.scanView.hidden = !running && this.scan?.phase !== "cancelled";
-    if (this.scanView.hidden) return;
-    // Progress updates only text. Keep actions mounted so pointer/keyboard input
-    // cannot land on a discarded element while an I/O update arrives.
-    if (!this.scanView.childElementCount) {
-      const row = this.el("div", "browser-scan__row");
-      const text = this.el("div", "browser-scan__text");
-      const counts = this.el("span", "browser-scan__counts");
-      counts.setAttribute("role", "status");
-      counts.setAttribute("aria-live", "polite");
-      text.append(this.el("strong", "browser-scan__title"), counts);
-      const action = this.button(
-        "Cancel scan",
-        () => {
-          if (this.fileOperation) return this.stopScan();
-          return this.source?.id === this.scan?.sourceId
-            ? this.refreshFiles()
-            : this.connectFile("folder");
-        },
-        { variant: "ghost" },
-      );
-      row.append(text, action);
-      const progress = this.el("progress", "browser-scan__progress");
-      progress.setAttribute(
-        "aria-label",
-        "Reading the selected folder; total size is not yet known",
-      );
-      const found = this.el("details", "browser-scan__found");
-      found.append(this.el("summary", "", "Found notes"), this.el("ul"));
-      this.scanView.append(
-        row,
-        progress,
-        this.el("span", "browser-scan__path"),
-        found,
-      );
-    }
-    const setText = (selector: string, value: string) => {
-      const element = this.scanView.querySelector<HTMLElement>(selector)!;
-      if (element.textContent !== value) element.textContent = value;
-      return element;
-    };
-    setText(
-      ".browser-scan__title",
-      !running
-        ? "Scan stopped"
-        : this.scanStopping
-          ? "Stopping scan…"
-          : this.scan?.phase === "reading"
-            ? "Reading notes…"
-            : this.fileOperation!.label,
-    );
-    setText(
-      ".browser-scan__counts",
-      this.scan
-        ? `${this.scan.inspected.toLocaleString("en-US")} entries checked · ${this.scan.loaded.toLocaleString("en-US")} notes ready${this.scan.found > this.scan.loaded ? ` · ${this.scan.found.toLocaleString("en-US")} found` : ""}`
-        : "Preparing file access…",
-    );
-    const action = this.scanView.querySelector<HTMLButtonElement>("button")!;
-    const label = running
-      ? this.scan?.loaded
-        ? "Use found notes"
-        : "Cancel scan"
-      : this.source?.id === this.scan?.sourceId
-        ? "Scan again"
-        : "Open folder";
-    action.setAttribute("aria-label", label);
-    if (action.textContent !== label) action.textContent = label;
-    action.disabled =
-      running &&
-      (!this.scan ||
-        this.scanStopping ||
-        ["complete", "failed", "cancelled"].includes(this.scan.phase));
-    action.title = running
-      ? "Stop scanning. Already read notes remain available."
-      : "Read this folder again for added, changed or removed files.";
-    this.scanView.querySelector<HTMLElement>("progress")!.hidden = !running;
-    const path = setText(".browser-scan__path", this.scan?.path ?? "");
-    path.title = this.scan?.path ?? "";
-    path.hidden = !running || !this.scan?.path;
-    const found = this.scanView.querySelector<HTMLDetailsElement>("details")!;
-    found.hidden = !running || this.scanNotes.length === 0;
-    const signature = JSON.stringify(
-      this.scanNotes.map((note) => note.filePath),
-    );
-    if (found.dataset.paths !== signature) {
-      found.dataset.paths = signature;
-      found.querySelector("ul")!.replaceChildren(
-        ...this.scanNotes.map((note) => {
-          const item = this.el("li", "", note.filePath);
-          item.title = note.filePath;
-          return item;
-        }),
-      );
-    }
-  }
-
-  private async pollScan(
-    operation: NonNullable<BrowserPanel["fileOperation"]>,
-    schedule = true,
-  ): Promise<void> {
-    if (this.disposed || this.fileOperation !== operation) return;
-    if (operation.poll) {
-      await operation.poll;
-      return;
-    }
-    // A tick and the final drain share one cursor. Never ask for the same page
-    // concurrently: an older response could append duplicates or regress progress.
-    const pending = (async () => {
-      try {
-        const result = await request<BrowserScanStatus>(this.api, {
-          type: "scan-status",
-          ...(this.scan ? { id: this.scan.id, after: this.scanOffset } : {}),
-        });
-        if (this.disposed || this.fileOperation !== operation) return;
-        if (
-          result?.scan &&
-          (!operation.candidateId ||
-            result.scan.sourceId === operation.candidateId)
-        ) {
-          if (this.scan?.id !== result.scan.id) {
-            this.scanNotes = [];
-            this.scanOffset = 0;
-          }
-          this.scan = result.scan;
-          this.scanOffset = result.next;
-          this.scanNotes.push(
-            ...result.notes.slice(0, Math.max(0, 8 - this.scanNotes.length)),
-          );
-          this.renderScan();
-        }
-      } catch {
-        // The main operation owns errors. A progress read cannot invalidate it.
-      }
-    })();
-    operation.poll = pending;
-    try {
-      await pending;
-    } finally {
-      if (operation.poll === pending) operation.poll = null;
-    }
-    if (
-      schedule &&
-      !operation.finishing &&
-      !this.disposed &&
-      this.fileOperation === operation
-    )
-      this.scanTimer = setTimeout(() => void this.pollScan(operation), 300);
-  }
-
-  private async withFileProgress<T>(
-    label: string,
-    work: () => Promise<T>,
-    candidateId?: string,
-  ): Promise<T> {
-    const operation: NonNullable<BrowserPanel["fileOperation"]> = {
-      label,
-      candidateId,
-      poll: null,
-      finishing: false,
-    };
-    this.fileOperation = operation;
-    this.scan = null;
-    this.scanOffset = 0;
-    this.scanNotes = [];
-    this.scanStopping = false;
-    this.renderScan();
-    try {
-      const result = work();
-      void this.pollScan(operation);
-      return await result;
-    } finally {
-      operation.finishing = true;
-      if (this.fileOperation === operation) {
-        if (this.scanTimer) clearTimeout(this.scanTimer);
-        this.scanTimer = null;
-      }
-      // Drain the last tick before reading the final page with its advanced cursor.
-      await operation.poll;
-      await this.pollScan(operation, false);
-      if (this.fileOperation === operation) {
-        this.fileOperation = null;
-        if (!this.disposed) this.renderScan();
-      }
-    }
-  }
-
-  private async stopScan(): Promise<void> {
-    if (!this.scan || !this.fileOperation || this.scanStopping) return;
-    this.scanStopping = true;
-    this.renderScan();
-    try {
-      await request(this.api, { type: "cancel-scan", id: this.scan.id });
-    } catch (error) {
-      this.scanStopping = false;
-      this.renderScan();
-      this.fail(error);
-    }
-  }
-
-  private async refreshFiles(): Promise<void> {
-    if (!this.source?.id || this.fileOperation) return;
-    this.closeOverlay();
-    this.content.inert = this.toolbar.inert = true;
-    try {
-      if (!(await this.flushAllDrafts()))
-        throw new Error("Save or export your draft before refreshing files.");
-      const selected = this.selectedFileId;
-      const pinned = this.pinnedPage;
-      const status = await this.withFileProgress(
-        "Scanning folder…",
-        () => this.send<BrowserStatus>({ type: "refresh-files" }),
-        this.source.id,
-      );
-      if (this.disposed) return;
-      this.clearPlaintext();
-      this.state = status.state;
-      this.selectedFileId = selected;
-      this.pinnedPage = pinned;
-      this.render();
-      if (this.canUseLibrary()) await this.startEditing();
-    } finally {
-      this.content.inert = this.toolbar.inert = false;
-    }
   }
 
   private needsFilePermission(): boolean {
@@ -1291,7 +717,7 @@ export class BrowserPanel {
       this.checkingAccess ||
       this.selectingSource ||
       this.reconnecting ||
-      this.fileOperation ||
+      this.sourceBusy ||
       this.sourceChanged ||
       !this.source?.id ||
       this.document.visibilityState === "hidden" ||
@@ -1311,7 +737,7 @@ export class BrowserPanel {
         !this.valid(generation) ||
         this.reconnecting ||
         this.selectingSource ||
-        this.fileOperation ||
+        this.sourceBusy ||
         this.source?.id !== sourceId ||
         status.source.id !== sourceId ||
         status.state !== "ready" ||
@@ -1327,7 +753,6 @@ export class BrowserPanel {
       this.sourceError = status.sourceError ?? "";
       this.sourceErrorCode = status.sourceErrorCode ?? "";
       this.sourceAccessState = status.access;
-      this.sourceWarnings = status.warnings ?? [];
       if (this.state !== "ready") {
         this.state = "ready";
         this.render();
@@ -1345,7 +770,7 @@ export class BrowserPanel {
     if (this.privateWindow && !this.allowPrivate)
       throw new Error("Read and accept the private-window notice first.");
     if (!this.source?.id) return this.connectFile("file");
-    if (this.reconnecting || this.fileOperation) return;
+    if (this.reconnecting || this.sourceBusy) return;
     const sourceId = this.source.id;
     const generation = this.generation;
     const current = () =>
@@ -1361,18 +786,14 @@ export class BrowserPanel {
       await permission;
       if (!current()) return;
       this.closeOverlay();
-      const status = await this.withFileProgress(
-        "Reconnecting files…",
-        async () => {
-          if (!(await this.flushAllDrafts()))
-            throw new Error(
-              "File access restored. Retry saving the unsaved draft.",
-            );
-          if (!current()) return null;
-          return request<BrowserStatus>(this.api, { type: "status", sourceId });
-        },
-        sourceId,
-      );
+      const status = await this.sourceWork(async () => {
+        if (!(await this.flushAllDrafts()))
+          throw new Error(
+            "File access restored. Retry saving the unsaved draft.",
+          );
+        if (!current()) return null;
+        return request<BrowserStatus>(this.api, { type: "status", sourceId });
+      });
       if (!current() || !status) return;
       if (status.source.id !== sourceId) {
         this.sourceChanged = true;
@@ -1424,10 +845,19 @@ export class BrowserPanel {
     }
   }
 
-  private async connectFile(mode: "file" | "folder" | "create"): Promise<void> {
+  private async sourceWork<T>(work: () => Promise<T>): Promise<T> {
+    this.sourceBusy = true;
+    try {
+      return await work();
+    } finally {
+      this.sourceBusy = false;
+    }
+  }
+
+  private async connectFile(mode: "file" | "folder"): Promise<void> {
     if (this.privateWindow && !this.allowPrivate)
       throw new Error("Read and accept the private-window notice first.");
-    if (this.selectingSource || this.reconnecting || this.fileOperation) return;
+    if (this.selectingSource || this.reconnecting || this.sourceBusy) return;
     this.selectingSource = true;
     const generation = this.generation;
     // Freeze input until the old draft is acknowledged and the new source is mounted.
@@ -1441,15 +871,12 @@ export class BrowserPanel {
         throw new Error(
           "Save or export your unsaved drafts before changing files.",
         );
-      const status = await this.withFileProgress(
-        mode === "folder" ? "Scanning folder…" : "Opening file…",
-        () =>
-          this.send<BrowserStatus>({
-            type: "connect-source",
-            bindingId: id,
-            mode: mode === "create" ? "create" : "open",
-          }),
-        id,
+      const status = await this.sourceWork(() =>
+        this.send<BrowserStatus>({
+          type: "connect-source",
+          bindingId: id,
+          mode: "open",
+        }),
       );
       if (this.disposed) return;
       this.clearPlaintext();
@@ -1462,16 +889,6 @@ export class BrowserPanel {
       this.closeOverlay();
       this.render();
       if (this.canUseLibrary()) await this.startEditing();
-      if (
-        mode === "folder" &&
-        this.source?.id === id &&
-        this.library.notes.length
-      ) {
-        const navigation = this.toolbar.querySelector<HTMLButtonElement>(
-          '[aria-label="Notes"]',
-        );
-        if (navigation) this.showNavigation(navigation);
-      }
     } catch (error) {
       // Refresh the chosen location without discarding a pending draft.
       if (!this.hasPendingDrafts() && !this.disposed)
@@ -1491,101 +908,6 @@ export class BrowserPanel {
     }
   }
 
-  private async selectFile(id: string): Promise<void> {
-    const generation = this.generation;
-    this.content.inert = true;
-    try {
-      if (!(await this.flushAllDrafts()))
-        throw new Error("Save or export this draft before switching files.");
-      if (!this.valid(generation)) return;
-      this.dropEditor();
-      ++this.contextGeneration;
-      this.selectedFileId = id;
-      this.pinnedPage = null;
-      this.closeOverlay();
-      this.renderPage();
-      this.renderFileLocation();
-    } finally {
-      this.content.inert = false;
-    }
-  }
-
-  private newFile(trigger: HTMLButtonElement): Promise<void> | void {
-    if (this.source?.kind !== "directory") return this.connectFile("create");
-    this.closeOverlay();
-    const box = this.showPopover("New Markdown file", trigger);
-    if (!box) return;
-    const form = this.el("form");
-    const label = this.el("label", "browser-field", "File name");
-    const path = this.el("input");
-    path.setAttribute("aria-label", "File name");
-    path.placeholder = "note.md";
-    path.value = "note.md";
-    path.required = true;
-    label.append(path);
-    const submit = this.button("Create file", () => {});
-    submit.type = "submit";
-    form.append(label, submit);
-    const generation = this.generation;
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      submit.disabled = true;
-      this.content.inert = true;
-      void (async () => {
-        if (!(await this.flushAllDrafts()))
-          throw new Error("Save or export this draft first.");
-        if (!this.valid(generation)) return;
-        const note = await this.send<BrowserNote>({
-          type: "create-file",
-          path: path.value,
-          markdown: "",
-        });
-        if (!this.valid(generation)) return;
-        this.library.notes.push(note);
-        await this.selectFile(note.id);
-      })()
-        .catch((error: unknown) => {
-          if (this.valid(generation)) this.fail(error);
-        })
-        .finally(() => {
-          if (this.valid(generation)) {
-            submit.disabled = false;
-            this.content.inert = false;
-          }
-        });
-    });
-    box.append(form);
-    path.focus();
-    path.select();
-  }
-
-  private async linkSelectedFile(): Promise<void> {
-    if (!this.selectedFileId || this.windowId === null) return;
-    const generation = this.generation;
-    const id = this.selectedFileId;
-    if (!(await this.flushAllDrafts()))
-      throw new Error("Save this file before linking it.");
-    const page = await this.send<ActivePage | null>({
-      type: "context",
-      windowId: this.windowId,
-      allowPrivate: this.allowPrivate,
-    });
-    if (!this.valid(generation)) return;
-    if (!page) throw new Error("Open a web page to link this file.");
-    const note = await this.send<BrowserNote>({
-      type: "link-file",
-      id,
-      page,
-      allowPrivate: this.allowPrivate,
-    });
-    if (!this.valid(generation)) return;
-    this.library.notes = this.library.notes.map((item) =>
-      item.id === note.id ? note : item,
-    );
-    this.closeOverlay();
-    this.tell("File linked to the current page.");
-  }
-
   private async initialize(): Promise<void> {
     const generation = this.generation;
     try {
@@ -1595,12 +917,9 @@ export class BrowserPanel {
         throw new Error("This browser window is unavailable.");
       this.windowId = current.id;
       this.privateWindow = !!current.incognito;
-      const status =
-        this.privateWindow && !this.allowPrivate
-          ? await this.send<BrowserStatus>({ type: "status" })
-          : await this.withFileProgress("Opening your notes…", () =>
-              this.send<BrowserStatus>({ type: "status" }),
-            );
+      const status = await this.sourceWork(() =>
+        this.send<BrowserStatus>({ type: "status" }),
+      );
       if (!this.valid(generation)) return;
       this.state = status.state;
       this.render();
@@ -1714,36 +1033,12 @@ export class BrowserPanel {
         },
         (draft) => {
           if (!this.valid(generation)) return;
-          if (draft.note) {
-            const index = this.library.notes.findIndex(
-              (note) => note.id === draft.note!.id,
-            );
-            const metadataChanged =
-              index < 0 ||
-              this.library.notes[index]!.title !== draft.note.title ||
-              this.library.notes[index]!.url !== draft.note.url;
-            if (index < 0) this.library.notes.push(draft.note);
-            else this.library.notes[index] = draft.note;
-            if (metadataChanged) this.renderPageAncestors();
-          }
           if (this.noteId === draft.key) this.reflectDraft(draft);
           this.renderDraftWarnings();
         },
-        async (page, markdown) => {
-          if (!this.valid(generation))
-            throw new Error("The notes location changed.");
-          if (!this.page || this.page.url !== page.url)
-            throw { code: "page_changed" };
-          return this.send<BrowserNote>({
-            type: "create",
-            page: { ...this.page },
-            markdown,
-            allowPrivate: this.allowPrivate,
-            ifAbsent: true,
-          });
-        },
       );
     }
+    if (!this.editor) this.renderPage();
     await this.refreshContext();
     await this.loadRecoveredDrafts();
   }
@@ -1772,62 +1067,7 @@ export class BrowserPanel {
   }
 
   private contextChanged(): void {
-    if (!this.canUseLibrary()) return;
-    if (this.selectedFileId) {
-      void this.refreshActivePage();
-      this.refreshLibrary();
-    } else if (this.pinnedPage) void this.refreshActivePage();
-    else void this.refreshContext();
-  }
-
-  private async refreshActivePage(): Promise<void> {
-    const active = ++this.activeGeneration;
-    this.activePage = null;
-    if (!this.canUseLibrary() || this.windowId === null) return;
-    const generation = this.generation;
-    try {
-      const page = await this.send<ActivePage | null>({
-        type: "context",
-        windowId: this.windowId,
-        allowPrivate: this.allowPrivate,
-      });
-      if (
-        this.valid(generation) &&
-        active === this.activeGeneration &&
-        this.canUseLibrary()
-      )
-        this.activePage = page;
-    } catch (error) {
-      if (this.valid(generation) && active === this.activeGeneration)
-        this.fail(error);
-    }
-  }
-
-  private async togglePin(): Promise<void> {
-    if (!this.page || !this.noteId || this.importing || this.deleting) return;
-    const generation = this.generation;
-    const context = this.contextGeneration;
-    if (!(await this.flushAllDrafts())) {
-      this.tell(
-        "Save or export your unsaved draft before changing its pin.",
-        "error",
-      );
-      return;
-    }
-    if (!this.valid(generation, context)) return;
-    if (this.pinnedPage) {
-      this.pinnedPage = null;
-      await this.refreshContext();
-      this.toolbar
-        .querySelector<HTMLButtonElement>('[aria-label="More options"]')
-        ?.focus();
-    } else if (this.drafts?.get(this.noteId)?.note) {
-      this.pinnedPage = { ...this.page };
-      this.renderToolbar();
-      this.toolbar
-        .querySelector<HTMLButtonElement>('[aria-label="More options"]')
-        ?.focus();
-    }
+    if (this.canUseLibrary()) void this.refreshContext();
   }
 
   private dropEditor(): void {
@@ -1837,30 +1077,17 @@ export class BrowserPanel {
     this.editor = null;
   }
 
+  /**
+   * Read the active tab and the note file again, then show the tab's page.
+   * The mounted editor, its undo history and an unsaved draft are kept.
+   */
   private async refreshContext(): Promise<void> {
     if (!this.canUseLibrary() || this.windowId === null) return;
-    if (this.pinnedPage) {
-      await this.refreshActivePage();
-      if (!this.canUseLibrary() || !this.pinnedPage) return;
-      if (!this.page) {
-        this.page = { ...this.pinnedPage };
-        this.renderPage();
-      }
-      this.refreshLibrary();
-      return;
-    }
-    this.activePage = null;
-    ++this.activeGeneration;
     this.clearMarkdownImport();
     const generation = this.generation;
     const context = ++this.contextGeneration;
-    this.contextLoading = true;
     this.setImporting(false);
-    this.dropEditor();
-    this.page = null;
     this.closeOverlay();
-    this.tell("");
-    this.renderPage();
     try {
       const page = await this.send<ActivePage | null>({
         type: "context",
@@ -1868,93 +1095,74 @@ export class BrowserPanel {
         allowPrivate: this.allowPrivate,
       });
       if (!this.valid(generation, context)) return;
-      const library = await this.send<BrowserLibrary>({
-        type: "visit",
-        windowId: this.windowId,
-        allowPrivate: this.allowPrivate,
-      });
-      if (!this.valid(generation, context)) return;
+      const note = await this.send<BrowserNote>({ type: "load" });
+      if (!this.valid(generation, context) || !this.drafts) return;
       this.page = page;
-      this.activePage = page;
-      this.library = library;
-      if (this.source?.kind === "file" && !this.selectedFileId)
-        this.selectedFileId = library.notes[0]?.id ?? null;
-      this.contextLoading = false;
-      this.renderPage();
+      this.showNote(note);
     } catch (error) {
-      if (this.valid(generation, context)) {
-        this.contextLoading = false;
-        this.renderPage();
-        this.fail(error);
-      }
+      if (!this.valid(generation, context)) return;
+      if (!this.editor) this.renderPage(null);
+      this.fail(error);
     }
   }
 
-  private renderPage(): void {
+  /**
+   * Pick up a change made to the note file elsewhere (another window, an
+   * editor on disk) without touching the tab context or a running import.
+   */
+  private async reloadNote(): Promise<void> {
+    if (!this.canUseLibrary() || !this.editor) return;
+    const generation = this.generation;
+    const context = this.contextGeneration;
+    try {
+      const note = await this.send<BrowserNote>({ type: "load" });
+      if (this.valid(generation, context) && this.editor) this.showNote(note);
+    } catch {
+      // Passive: `send` marks the file status; the next save reports details.
+    }
+  }
+
+  /** Text read from disk reaches the editor as an external change. */
+  private showNote(note: BrowserNote): void {
+    if (!this.drafts) return;
+    // A dirty or saving draft is never replaced; its save reports the conflict.
+    const draft = this.drafts.activate(note);
+    if (!this.editor || this.noteId !== draft.key) this.renderPage(draft);
+    else this.editor.switchDocument(draft.key, draft.text);
+    this.focusPage();
+    this.renderFileLocation();
+  }
+
+  /** An http(s) tab shows only its page; any other tab shows the whole note. */
+  private focusPage(): void {
+    const editor = this.editor;
+    if (!editor) return;
+    const target = this.page ? pageTarget(this.page.url) : null;
+    if ((editor.focusedPage?.target ?? null) === target) return;
+    if (target === null || !editor.focusTarget(target))
+      editor.focusTarget(null);
+  }
+
+  private renderPage(draft?: Draft | null): void {
     if (!this.canUseLibrary()) return;
-    this.renderToolbar();
+    this.dropEditor();
     this.content.replaceChildren();
-    if (this.contextLoading) {
+    if (draft) this.mountEditor(draft);
+    else if (draft === undefined)
       this.content.append(
-        this.el("p", "browser-loading", "Loading this page’s note…"),
+        this.el("p", "browser-loading", "Loading your note…"),
       );
-      return;
-    }
-    if (this.selectedFileId) {
-      const note = this.library.notes.find(
-        (item) => item.id === this.selectedFileId,
-      );
-      if (note) this.mountEditor(this.drafts!.activate(note));
-      else
-        this.content.append(
-          this.el(
-            "p",
-            "browser-empty-context",
-            "This file is no longer available. Open its location again.",
-          ),
-        );
-    } else if (this.page && this.source?.kind !== "file") {
-      this.content.append(this.el("nav", "browser-page-ancestors"));
-      this.renderPageAncestors();
-      const url = this.page.url;
-      // The note linked to this exact URL wins; otherwise the first loaded
-      // note with a `--- <url>` page for exactly this URL opens on that page.
-      // Bound pages are read from already loaded text on each navigation.
-      const note =
-        this.library.notes.find((item) => item.url === url) ??
-        this.library.notes.find(
-          (item) =>
-            item.markdown.includes("---") &&
-            pageForTarget(notePages(item.markdown), url) >= 0,
-        );
-      this.mountEditor(
-        note
-          ? this.drafts!.activate(note)
-          : this.drafts!.activatePlaceholder(this.page, PLACEHOLDER_TEXT),
-      );
-      const view = this.editor!.view;
-      const pages = notePages(view.state.doc.toString());
-      const page = note ? pages[pageForTarget(pages, url)] : undefined;
-      if (page)
-        view.dispatch({
-          selection: { anchor: page.content },
-          effects: EditorView.scrollIntoView(page.content, { y: "start" }),
-        });
-    } else {
-      const empty = this.el("section", "browser-empty-context");
-      empty.append(this.el("p", "", "Open a web page to start a note."));
-      this.content.append(empty);
-      this.appendNavigation(this.content);
-    }
-    const warnings = this.el("div", "browser-draft-warnings");
-    this.content.append(warnings);
+    this.content.append(this.el("div", "browser-draft-warnings"));
     this.renderDraftWarnings();
   }
 
   private mountEditor(draft: Draft): void {
     const generation = this.generation;
-    const context = this.contextGeneration;
     const editorGeneration = ++this.editorGeneration;
+    const current = () =>
+      this.valid(generation) &&
+      this.editorGeneration === editorGeneration &&
+      this.noteId === draft.key;
     this.noteId = draft.key;
     const host = this.el("section", "browser-note");
     const editorHost = this.el("div", "browser-editor-host");
@@ -1964,78 +1172,21 @@ export class BrowserPanel {
       initialText: draft.text,
       showEditorHelp: false,
       onChange: (text) => {
-        if (
-          this.valid(generation, context) &&
-          this.editorGeneration === editorGeneration &&
-          this.noteId === draft.key &&
-          !this.deleting
-        )
-          this.drafts?.edit(draft.key, text);
+        if (current()) this.drafts?.edit(draft.key, text);
       },
-      onSave: () =>
-        this.valid(generation, context) &&
-        this.editorGeneration === editorGeneration &&
-        this.noteId === draft.key &&
-        !this.deleting
-          ? this.drafts!.flush(draft.key)
-          : false,
+      onSave: () => (current() ? this.drafts!.flush(draft.key) : false),
       onOpenTarget: (target) => {
         if (/^https?:\/\//iu.test(target))
           void this.openTab(target).catch((error) => this.fail(error));
       },
     });
     this.editor.switchDocument(draft.key, draft.text);
-    this.editor.view.dispatch({
-      effects: StateEffect.appendConfig.of(
-        EditorState.transactionFilter.of((transaction) => {
-          if (
-            !transaction.docChanged ||
-            !transaction.isUserEvent("input") ||
-            !this.pinnedPage ||
-            !this.activePage ||
-            this.deleting
-          )
-            return transaction;
-          const change = relatedPageLink(
-            transaction.newDoc.toString(),
-            this.activePage,
-            this.pinnedPage.url,
-          );
-          return change
-            ? [
-                transaction,
-                {
-                  changes: change,
-                  selection: transaction.newSelection.map(
-                    ChangeSet.of(change, transaction.newDoc.length),
-                    -1,
-                  ),
-                  sequential: true,
-                },
-              ]
-            : transaction;
-        }),
-      ),
-    });
-    if (!draft.note && !draft.dirty && draft.text === PLACEHOLDER_TEXT)
-      this.editor.view.dispatch({ selection: { anchor: draft.text.length } });
     this.reflectDraft(draft);
-    this.renderToolbar();
   }
 
   private reflectDraft(draft: Draft): void {
-    const pin =
-      this.overlay.querySelector<HTMLButtonElement>("[data-pin-note]");
-    if (pin) {
-      pin.disabled = !this.pinnedPage && !draft.note && !draft.dirty;
-      pin.title = pin.disabled
-        ? "Write a note before pinning it"
-        : this.pinnedPage
-          ? "Unpin note and follow the active tab"
-          : "Keep this note open and link pages you write about";
-    }
     this.editor?.setSaveState(
-      draft.dirty ? "dirty" : draft.note ? "saved" : "placeholder",
+      draft.dirty ? "dirty" : "saved",
       draft.saving,
       draft.error
         ? "failed"
@@ -2043,92 +1194,8 @@ export class BrowserPanel {
           ? "saving"
           : draft.dirty
             ? "dirty"
-            : draft.note
-              ? "saved"
-              : "none",
+            : "saved",
     );
-  }
-
-  private renderPageAncestors(): void {
-    const nav = this.content.querySelector<HTMLElement>(
-      ".browser-page-ancestors",
-    );
-    if (!nav || !this.page) return;
-    const parents = savedPageAncestors(this.page.url, this.library.notes);
-    nav.replaceChildren();
-    nav.hidden = parents.length === 0;
-    nav.setAttribute("aria-label", "Parent page notes");
-    applyUiComponent(nav, "tree", ["ancestors"]);
-    if (!parents.length) return;
-    const list = this.el("ol");
-    for (const parent of parents) {
-      const item = this.el("li");
-      const link = this.button(displayPageTitle(parent), () =>
-        this.navigate(parent.url),
-      );
-      link.title = displayPageLocation(parent.url);
-      item.append(link);
-      list.append(item);
-    }
-    const current = this.el(
-      "li",
-      "browser-ancestor-current",
-      displayPageTitle(this.page),
-    );
-    current.setAttribute("aria-current", "page");
-    current.title = displayPageLocation(this.page.url);
-    list.append(current);
-    nav.append(list);
-  }
-
-  private refreshLibrary(): void {
-    if (!this.canUseLibrary()) return;
-    if (this.deleting) {
-      this.libraryRefreshDeferred = true;
-      return;
-    }
-    ++this.libraryReloadRevision;
-    if (this.libraryReload) return;
-    const generation = this.generation;
-    const operation = (async () => {
-      let processed = -1;
-      while (
-        this.valid(generation) &&
-        this.canUseLibrary() &&
-        processed !== this.libraryReloadRevision
-      ) {
-        processed = this.libraryReloadRevision;
-        const context = this.contextGeneration;
-        const library = await this.send<BrowserLibrary>({
-          type: "load",
-        });
-        // A newer reload request may overtake this read. Read again.
-        if (
-          !this.valid(generation, context) ||
-          processed !== this.libraryReloadRevision
-        )
-          continue;
-        if (this.deleting) {
-          this.libraryRefreshDeferred = true;
-          continue;
-        }
-        this.library.notes = library.notes;
-        this.library.history = library.history;
-        this.renderLibrary();
-        this.renderPageAncestors();
-      }
-    })()
-      .catch(() => {
-        if (this.valid(generation))
-          this.tell(
-            "Saved notes could not refresh. Reopen the panel to retry.",
-            "error",
-          );
-      })
-      .finally(() => {
-        if (this.libraryReload === operation) this.libraryReload = null;
-      });
-    this.libraryReload = operation;
   }
 
   private async flushAllDrafts(): Promise<boolean> {
@@ -2149,7 +1216,7 @@ export class BrowserPanel {
         scope: "current",
         key: draft.key,
         context: { ...draft.page },
-        record: draft.note && {
+        record: {
           id: draft.note.id,
           revision: draft.note.revision,
           markdown: draft.note.markdown,
@@ -2248,10 +1315,11 @@ export class BrowserPanel {
           ),
         );
       for (const [index, draft] of snapshot.entries.entries()) {
-        // Recovery copies of retired Shared/Global notes stay exportable.
+        // Copies of the earlier per-page, Shared and Global notes stay
+        // exportable; none is ever applied to the note file.
         const label =
           draft.scope === "current"
-            ? displayPageTitle(draft.context)
+            ? draft.context.title.trim() || draft.context.url
             : draft.scope === "shared"
               ? `Shared · ${new URL(draft.context.origin).host}`
               : "Global";
@@ -2347,11 +1415,7 @@ export class BrowserPanel {
       if (!draft.error) continue;
       const warning = this.el("div", "browser-draft-error");
       warning.append(
-        this.el(
-          "p",
-          "",
-          `${displayPageTitle(draft.page)} (${displayPageLocation(draft.page.url)}): ${draft.error}`,
-        ),
+        this.el("p", "", `${draft.note.filePath}: ${draft.error}`),
         this.button("Retry save", () =>
           this.needsFilePermission()
             ? this.reconnectFile()
@@ -2363,252 +1427,10 @@ export class BrowserPanel {
     }
   }
 
-  private renderLibrary(): void {
-    const nav =
-      this.overlay.querySelector(".browser-library") ??
-      this.content.querySelector(".browser-library");
-    if (!nav) return;
-    nav.replaceChildren();
-    const query = this.filter.toLocaleLowerCase();
-    const matches = (item: { title: string; url: string }) =>
-      `${displayPageTitle(item)}\n${displayPageLocation(item.url)}`
-        .toLocaleLowerCase()
-        .includes(query);
-    const domains = buildDomainTree(
-      this.library.notes.filter(
-        (note) => !note.filePath && note.url && matches(note),
-      ),
-    );
-    const activeHost = this.page ? new URL(this.page.url).host : null;
-    domains.sort(
-      (a, b) => Number(b.host === activeHost) - Number(a.host === activeHost),
-    );
-    const noteLabels = navigationLabels(
-      this.library.notes.filter(
-        (note) => !note.filePath && note.url && matches(note),
-      ),
-    );
-    const treeIcon = (name: string, element: "icon" | "toggle" = "icon") => {
-      const icon = this.el("span", "cm-aic-icon-button");
-      applyUiComponent(icon, "tree", [], element);
-      icon.dataset.aicIcon = name;
-      icon.setAttribute("aria-hidden", "true");
-      return icon;
-    };
-    const groupList = () =>
-      applyUiComponent(this.el("ul"), "tree", [], "group");
-    const pageLink = (page: BrowserNote): HTMLElement => {
-      const label = noteLabels.get(page.url) ?? displayPageTitle(page);
-      const item = applyUiComponent(this.el("li"), "tree", [], "item");
-      const row = applyUiComponent(
-        this.el("div", "browser-page-row"),
-        "tree",
-        [],
-        "row",
-      );
-      row.dataset.current = String(page.url === this.page?.url);
-      const button = this.button(label, () => this.navigate(page.url));
-      applyUiComponent(button, "button", ["ghost"]);
-      button.title = displayPageLocation(page.url);
-      button.replaceChildren(
-        treeIcon("document"),
-        applyUiComponent(
-          this.el("span", "browser-page-label", label),
-          "tree",
-          [],
-          "label",
-        ),
-      );
-      if (page.url === this.page?.url)
-        button.setAttribute("aria-current", "page");
-      const remove = this.iconButton(
-        `Delete local note: ${label}`,
-        "",
-        () =>
-          this.showDeletePage(
-            page.url,
-            page.title,
-            this.toolbar.querySelector<HTMLButtonElement>(
-              '[aria-label="Notes"]',
-            ) ?? button,
-          ),
-        "trash",
-      );
-      remove.classList.add("browser-page-delete");
-      remove.disabled = this.importing || this.deleting;
-      row.append(button, remove);
-      item.append(row);
-      return item;
-    };
-    const groupHeader = (label: string, className = "") => {
-      const summary = applyUiComponent(this.el("summary"), "tree", [], "row");
-      summary.append(
-        treeIcon("chevron", "toggle"),
-        treeIcon("folder"),
-        applyUiComponent(
-          this.el("span", className, label),
-          "tree",
-          [],
-          "label",
-        ),
-      );
-      return summary;
-    };
-    const appendItems = (items: NavigationItem[], parent: HTMLElement) => {
-      for (const entry of items) {
-        if (entry.kind === "note") {
-          parent.append(pageLink(entry.note));
-          continue;
-        }
-        const item = applyUiComponent(this.el("li"), "tree", [], "item");
-        const group = this.el("details", "browser-path");
-        group.open = true;
-        group.append(groupHeader(entry.label, "browser-path-label"));
-        const children = groupList();
-        appendItems(entry.items, children);
-        group.append(children);
-        item.append(group);
-        parent.append(item);
-      }
-    };
-    const tree = groupList();
-    for (const domain of domains) {
-      const item = applyUiComponent(this.el("li"), "tree", [], "item");
-      const group = this.el("details", "browser-domain");
-      group.open =
-        !!query ||
-        !this.page ||
-        domain.host === activeHost ||
-        domains.length === 1;
-      group.append(groupHeader(domain.host));
-      const list = groupList();
-      appendItems(projectDomain(domain), list);
-      group.append(list);
-      item.append(group);
-      tree.append(item);
-    }
-    const files = this.library.notes
-      .filter(
-        (note) =>
-          note.filePath &&
-          `${note.filePath}\n${note.title}`.toLocaleLowerCase().includes(query),
-      )
-      .sort((left, right) => left.filePath!.localeCompare(right.filePath!));
-    type FileBranch = {
-      path: string;
-      name: string;
-      folders: Map<string, FileBranch>;
-      notes: BrowserNote[];
-    };
-    const root: FileBranch = {
-      path: "",
-      name: "",
-      folders: new Map(),
-      notes: [],
-    };
-    for (const note of files) {
-      const parts = note.filePath!.split("/");
-      parts.pop();
-      let parent = root;
-      for (const segment of parts) {
-        let branch = parent.folders.get(segment);
-        if (!branch) {
-          branch = {
-            path: parent.path ? `${parent.path}/${segment}` : segment,
-            name: segment,
-            folders: new Map(),
-            notes: [],
-          };
-          parent.folders.set(segment, branch);
-        }
-        parent = branch;
-      }
-      parent.notes.push(note);
-    }
-    const selectedPath = this.library.notes.find(
-      (note) => note.id === this.selectedFileId || note.id === this.noteId,
-    )?.filePath;
-    const appendLevel = (branch: FileBranch, parent: HTMLElement) => {
-      const entries = [...branch.folders.values(), ...branch.notes];
-      let shown = 0;
-      const more = this.button(
-        `Show more in ${branch.path || "this folder"}`,
-        () => appendNext(),
-        { variant: "ghost" },
-      );
-      const moreItem = applyUiComponent(this.el("li"), "tree", [], "item");
-      moreItem.append(more);
-      const appendNext = () => {
-        moreItem.remove();
-        const end = Math.min(shown + 100, entries.length);
-        for (; shown < end; shown++) {
-          const entry = entries[shown]!;
-          const item = applyUiComponent(this.el("li"), "tree", [], "item");
-          if ("folders" in entry) {
-            const group = this.el("details", "browser-path");
-            group.dataset.folderPath = entry.path;
-            group.open =
-              files.length <= 200 ||
-              !!query ||
-              !!selectedPath?.startsWith(`${entry.path}/`);
-            group.append(groupHeader(entry.name));
-            const children = groupList();
-            let mounted = false;
-            const mount = () => {
-              if (!group.open || mounted) return;
-              mounted = true;
-              appendLevel(entry, children);
-            };
-            mount();
-            group.addEventListener("toggle", mount);
-            group.append(children);
-            item.append(group);
-          } else {
-            const button = this.button(
-              entry.filePath!.split("/").at(-1)!,
-              () => this.selectFile(entry.id),
-              {
-                variant: "ghost",
-                icon: "document",
-              },
-            );
-            applyUiComponent(button, "tree", [], "row");
-            const label =
-              button.querySelector<HTMLElement>(".aic-button__label");
-            if (label) applyUiComponent(label, "tree", [], "label");
-            button.title = entry.filePath!;
-            if (entry.id === this.selectedFileId || entry.id === this.noteId)
-              button.setAttribute("aria-current", "page");
-            item.append(button);
-          }
-          parent.append(item);
-        }
-        if (shown < entries.length) parent.append(moreItem);
-      };
-      appendNext();
-    };
-    appendLevel(root, tree);
-    if (domains.length || files.length) nav.append(tree);
-    else
-      nav.append(
-        this.el(
-          "p",
-          "browser-empty",
-          query ? "No matching notes." : "No notes yet.",
-        ),
-      );
-    const filter =
-      nav.parentElement?.querySelector<HTMLInputElement>(".browser-filter");
-    if (filter) filter.hidden = this.library.notes.length === 0 && !query;
-  }
-
   private capture(mode: "auto" | "page" | "selection"): Promise<void> | void {
     if (!this.page || !this.canUseLibrary()) return;
     this.requireImportReady();
-    if (!this.activePage)
-      throw new Error("Wait for an active web page before importing content.");
-    const page = { ...this.activePage };
-    const active = this.activeGeneration;
+    const page = { ...this.page };
     const generation = this.generation;
     const context = this.contextGeneration;
     // This call must remain synchronous inside the deliberate click gesture.
@@ -2628,8 +1450,7 @@ export class BrowserPanel {
     return (async () => {
       if (!(await permission))
         throw new Error("Site access was not granted. Nothing was imported.");
-      if (!this.valid(generation, context) || active !== this.activeGeneration)
-        return;
+      if (!this.valid(generation, context)) return;
       const capture = await this.send<PageCapture>({
         type: "capture",
         page,
@@ -2637,7 +1458,6 @@ export class BrowserPanel {
         allowPrivate: this.allowPrivate,
       });
       if (!this.valid(generation, context)) return;
-      if (active !== this.activeGeneration) return;
       const imported = importCapturedPage(capture);
       if (!imported.markdown) {
         this.tell(
@@ -2663,52 +1483,36 @@ export class BrowserPanel {
       throw new Error("An import is already in progress. Wait for its result.");
   }
 
+  /** Insert at the end of the focused page; core creates a missing page. */
   private async appendMarkdown(markdown: string): Promise<void> {
-    if (this.editor && this.noteId) {
-      const length = this.editor.view.state.doc.length;
-      const draft = this.drafts!.get(this.noteId);
-      const replaceSeed =
-        !draft?.note &&
-        !draft?.dirty &&
-        !draft?.saving &&
-        draft?.text === PLACEHOLDER_TEXT;
-      const from = replaceSeed ? 0 : length;
-      const separator = from ? "\n\n" : "";
-      this.editor.view.dispatch({
-        changes: { from, to: length, insert: `${separator}${markdown}` },
-        selection: { anchor: from + separator.length },
-        scrollIntoView: true,
-      });
-      this.editor.focus();
-      if (!(await this.drafts!.flush(this.noteId)))
-        throw new Error(
-          "Imported content remains in an unsaved draft. Retry save or export it.",
-        );
-    } else throw new Error("Open a web page before importing content.");
-  }
-
-  private async navigate(url: string): Promise<void> {
-    if (this.windowId === null || !this.canUseLibrary()) return;
-    const generation = this.generation;
-    const context = this.contextGeneration;
-    if (!(await this.flushAllDrafts())) {
-      if (this.valid(generation, context))
-        this.tell(
-          "Navigation paused: save or export your unsaved draft before leaving.",
-        );
-      return;
-    }
-    if (!this.valid(generation, context)) return;
-    await this.send({
-      type: "navigate",
-      windowId: this.windowId,
-      url,
-      allowPrivate: this.allowPrivate,
+    const editor = this.editor;
+    const page = editor?.focusedPage;
+    if (!editor || !this.noteId || !page)
+      throw new Error("Open a web page before importing content.");
+    const view = editor.view;
+    const before = view.state.doc.length;
+    // One blank line between the page's text and the inserted content.
+    const separator = !page.text.trim()
+      ? ""
+      : /\n[ \t]*\n$/u.test(page.text)
+        ? ""
+        : page.text.endsWith("\n")
+          ? "\n"
+          : "\n\n";
+    view.dispatch({
+      changes: {
+        from: page.to,
+        insert: `${separator}${keepInsidePage(markdown)}`,
+      },
+      scrollIntoView: true,
     });
-    if (this.valid(generation, context)) {
-      this.pinnedPage = null;
-      await this.refreshContext();
-    }
+    if (view.state.doc.length === before)
+      throw new Error("The content could not be added to this page.");
+    editor.focus();
+    if (!(await this.drafts!.flush(this.noteId)))
+      throw new Error(
+        "Imported content remains in an unsaved draft. Retry save or export it.",
+      );
   }
 
   private download(text: string, filename: string, type: string): void {
@@ -2725,16 +1529,26 @@ export class BrowserPanel {
     this.urls.delete(url);
   }
 
+  /** The whole note file as drafted, including pages that are not shown. */
   private exportDraft(id: string): void {
     const draft = this.drafts?.get(id);
     if (!draft) return;
     this.download(
       draft.text,
-      "aic-unsaved-draft.md",
+      draft.dirty ? "aic-unsaved-draft.md" : "aic.md",
       "text/markdown;charset=utf-8",
     );
     this.tell(
       "Exported plaintext Markdown, including any secrets. Keep the file private.",
+    );
+  }
+
+  private exportPage(): void {
+    const page = this.editor?.focusedPage;
+    if (!page) return;
+    this.download(page.text, "aic-page.md", "text/markdown;charset=utf-8");
+    this.tell(
+      "Exported this page as plaintext Markdown, including any secrets. Keep the file private.",
     );
   }
 
@@ -2839,27 +1653,16 @@ export class BrowserPanel {
     this.clearMarkdownImport();
     ++this.generation;
     ++this.contextGeneration;
-    this.deleting = false;
-    this.libraryRefreshDeferred = false;
     this.content.inert = false;
     this.toolbar.inert = false;
     this.dropEditor();
     this.drafts?.dispose();
     this.drafts = null;
-    this.libraryReload = null;
-    ++this.libraryReloadRevision;
-    this.library = emptyLibrary();
     this.recovered = [];
     this.recoverySignature = "";
     this.recoveryError = "";
     this.page = null;
-    this.selectedFileId = null;
-    this.pinnedPage = null;
-    this.activePage = null;
-    ++this.activeGeneration;
-    this.filter = "";
     this.importing = false;
-    this.contextLoading = false;
     this.root.dataset.importing = "false";
     this.allowPrivate = false;
     for (const input of this.root.querySelectorAll("input")) input.value = "";
@@ -2889,9 +1692,6 @@ export class BrowserPanel {
 
   destroy(): void {
     if (this.disposed) return;
-    if (this.scanTimer) clearTimeout(this.scanTimer);
-    this.scanTimer = null;
-    this.fileOperation = null;
     this.clearPlaintext();
     this.disposed = true;
     this.sourceAccess.clear();

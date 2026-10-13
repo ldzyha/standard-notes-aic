@@ -2,7 +2,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { EditorView } from "@codemirror/view";
 import { BrowserPanel } from "../src/browser/panel";
 import type { ActivePage, BrowserApi, Request } from "../src/browser/api";
-import type { BrowserLibrary, BrowserNote } from "../src/browser/library";
+import type { BrowserNote } from "../src/browser/library";
+import { focusedPage } from "../src/core/note-page-cards.js";
 
 function event<T extends unknown[]>() {
   const listeners = new Set<(...args: T) => unknown>();
@@ -36,24 +37,15 @@ const secondPage: ActivePage = {
   title: "Second page",
   url: "https://fixture.example/second",
 };
-const note = (page: ActivePage, markdown: string): BrowserNote => ({
-  id: page.url,
-  url: page.url,
-  title: page.title,
-  markdown,
-  createdAt: 1,
-  updatedAt: 1,
-  revision: 1,
-});
+const NOTE = `--- ${firstPage.url}\nFirst\n\n--- ${secondPage.url}\nSecond\n`;
 
-function fixture(
-  notes = [note(firstPage, "First"), note(secondPage, "Second")],
-) {
+function fixture(markdown = NOTE) {
   let page = firstPage;
-  const library: BrowserLibrary = {
-    version: 3,
-    notes,
-    history: [],
+  const note: BrowserNote = {
+    id: "file-note",
+    filePath: "aic.md",
+    markdown,
+    revision: 1,
   };
   const changed = event<[Record<string, unknown>, string]>();
   const activated = event<[{ tabId: number; windowId: number }]>();
@@ -75,12 +67,11 @@ function fixture(
         let value: unknown = null;
         if (message.type === "status") value = { state: "ready" };
         if (message.type === "context") value = page;
-        if (message.type === "visit") value = structuredClone(library);
+        if (message.type === "load") value = { ...note };
         if (message.type === "save") {
-          const saved = library.notes.find((item) => item.id === message.id)!;
-          saved.markdown = message.markdown;
-          saved.revision += 1;
-          value = structuredClone(saved);
+          note.markdown = message.markdown;
+          note.revision += 1;
+          value = { ...note };
         }
         return { ok: true, value };
       },
@@ -108,11 +99,10 @@ function fixture(
 function button(root: HTMLElement, label: string): HTMLButtonElement {
   if (
     [
-      "Pin note",
-      "Unpin note",
       "Import current content",
       "Insert from Markdown file",
-      "Download copy",
+      "Download page",
+      "Download note file",
       "AIC guide",
     ].includes(label) &&
     !root.querySelector(`button[aria-label="${label}"]`)
@@ -127,10 +117,16 @@ function button(root: HTMLElement, label: string): HTMLButtonElement {
   return result!;
 }
 
-function editorText(root: HTMLElement): string {
+function view(root: HTMLElement): EditorView {
   return EditorView.findFromDOM(
     root.querySelector<HTMLElement>(".cm-editor")!,
-  )!.state.doc.toString();
+  )!;
+}
+/** Text of the page the panel shows. */
+function editorText(root: HTMLElement): string {
+  const state = view(root).state;
+  const page = focusedPage(state)!;
+  return state.sliceDoc(page.from, page.to).trim();
 }
 
 const panels: BrowserPanel[] = [];
@@ -141,8 +137,8 @@ afterEach(() => {
 });
 
 describe("browser panel direct actions", () => {
-  it("focuses an enabled menu action when the current note cannot be pinned yet", async () => {
-    const fake = fixture([]);
+  it("focuses the first menu action on an empty page", async () => {
+    const fake = fixture("");
     const root = document.createElement("div");
     document.body.append(root);
     const panel = new BrowserPanel(root, fake.api);
@@ -150,7 +146,7 @@ describe("browser panel direct actions", () => {
     await panel.ready;
 
     button(root, "More options").click();
-    expect(button(root, "Pin note").disabled).toBe(true);
+    expect(root.querySelector('[aria-label="Pin note"]')).toBeNull();
     expect(document.activeElement).toBe(button(root, "Import current content"));
   });
 
@@ -178,7 +174,7 @@ describe("browser panel direct actions", () => {
     expect(editorText(root)).toBe("First");
   });
 
-  it("keeps exactly two header controls and readable actions in More", async () => {
+  it("keeps one header control and readable actions in More", async () => {
     const fake = fixture();
     const root = document.createElement("div");
     document.body.append(root);
@@ -191,7 +187,7 @@ describe("browser panel direct actions", () => {
     ];
     expect(
       headerButtons.map((button) => button.getAttribute("aria-label")),
-    ).toEqual(["Notes", "More options"]);
+    ).toEqual(["More options"]);
     for (const control of headerButtons) {
       expect(control.classList.contains("aic-button--touch")).toBe(true);
       expect(control.classList.contains("aic-button--compact")).toBe(false);
@@ -201,26 +197,35 @@ describe("browser panel direct actions", () => {
     ).toBeNull();
     button(root, "More options").click();
     for (const [label, caption] of [
-      ["Pin note", "Pin note"],
       ["Import current content", "Import current content"],
       ["Insert from Markdown file", "Insert from file…"],
-      ["Download copy", "Download copy"],
+      ["Download page", "Download page"],
+      ["Download note file", "Download note file"],
       ["AIC guide", "AIC guide"],
     ]) {
       const action = button(root, label!);
       expect(action.closest(".browser-popover")).not.toBeNull();
       expect(action.textContent).toBe(caption);
-      expect(action.title).not.toBe("");
     }
+    for (const removed of [
+      "Notes",
+      "Pin note",
+      "New file",
+      "Delete local note",
+      "Unlink page",
+      "Follow active tab",
+      "Link file to current page",
+      "Refresh folder",
+    ])
+      expect(root.querySelector(`[aria-label="${removed}"]`)).toBeNull();
     expect(root.querySelector('[aria-label="Add content"]')).toBeNull();
     expect(
       root.querySelector('[aria-label="Paste from clipboard"]'),
     ).toBeNull();
     expect(root.querySelector('[aria-label="Copy note"]')).toBeNull();
     expect(root.querySelector(".browser-menu-group")?.textContent).toBe(
-      "Current note",
+      "This page",
     );
-    expect(button(root, "Delete local note")).not.toBeNull();
     expect(button(root, "Open file…").textContent).toBe("Open file…");
     expect(button(root, "Open folder…").textContent).toBe("Open folder…");
     expect(
@@ -238,19 +243,16 @@ describe("browser panel direct actions", () => {
     expect(guide?.textContent).not.toMatch(
       /browser-vault|passphrase|encrypted backup/iu,
     );
-    const view = EditorView.findFromDOM(
-      root.querySelector<HTMLElement>(".cm-editor")!,
-    )!;
-    view.dispatch({ selection: { anchor: 2 } });
+    const editor = view(root);
+    const caret = focusedPage(editor.state)!.from + 2;
+    editor.dispatch({ selection: { anchor: caret } });
     for (let index = 0; index < 2; index++) {
       root.dispatchEvent(
         new KeyboardEvent("keydown", { key: "Escape", bubbles: true }),
       );
       expect(document.activeElement).toBe(button(root, "More options"));
-      expect(
-        EditorView.findFromDOM(root.querySelector<HTMLElement>(".cm-editor")!),
-      ).toBe(view);
-      expect(view.state.selection.main.head).toBe(2);
+      expect(view(root)).toBe(editor);
+      expect(editor.state.selection.main.head).toBe(caret);
       button(root, "AIC guide").click();
       expect(
         root.querySelector('[role="dialog"][aria-label="AIC guide"]'),
@@ -285,11 +287,10 @@ describe("browser panel direct actions", () => {
     await Promise.resolve();
     expect(editorText(root)).toBe("Second");
     expect(root.dataset.importing).toBe("false");
-    expect(
-      fake.messages.some(
-        (message) => message.type === "save" || message.type === "create",
-      ),
-    ).toBe(false);
+    expect(fake.messages.some((message) => message.type === "save")).toBe(
+      false,
+    );
+    expect(view(root).state.doc.toString()).toBe(NOTE);
   });
 
   it("drops a late file read after a tab switch", async () => {
@@ -319,10 +320,9 @@ describe("browser panel direct actions", () => {
     await Promise.resolve();
     expect(editorText(root)).toBe("Second");
     expect(root.dataset.importing).toBe("false");
-    expect(
-      fake.messages.some(
-        (message) => message.type === "save" || message.type === "create",
-      ),
-    ).toBe(false);
+    expect(fake.messages.some((message) => message.type === "save")).toBe(
+      false,
+    );
+    expect(view(root).state.doc.toString()).toBe(NOTE);
   });
 });

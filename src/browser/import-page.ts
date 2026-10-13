@@ -1,3 +1,4 @@
+import { notePages } from "../core/note-pages.js";
 import type { PageCapture } from "./capture-page";
 
 export interface ImportedPage {
@@ -356,4 +357,22 @@ export function importCapturedPage(snapshot: PageCapture): ImportedPage {
     url: sourceUrl,
     warnings,
   };
+}
+
+/**
+ * Text inserted into a page of the note must stay in that page: a line that
+ * would start another page (`---` or `--- target` after a blank line) is
+ * rewritten as a thematic break or as literal text.
+ */
+export function keepInsidePage(markdown: string): string {
+  let text = `\n${markdown}`;
+  for (const page of notePages(text).reverse()) {
+    if (page.separator < 0) continue;
+    const at = page.separator;
+    text =
+      page.target === null
+        ? `${text.slice(0, at)}***${text.slice(at + 3)}`
+        : `${text.slice(0, at)}\\${text.slice(at)}`;
+  }
+  return text.slice(1);
 }

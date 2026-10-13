@@ -5,7 +5,6 @@ import {
   FILE_SOURCE_KEY,
   reconnectBrowserSource,
 } from "../src/browser/markdown-storage";
-import type { BrowserLibrary } from "../src/browser/library";
 import { markdownFixture } from "./helpers/browser-markdown-fixture";
 
 const cryptoModule = "node:crypto";
@@ -26,59 +25,69 @@ async function harness(initial: Record<string, string>, single?: string) {
       Object.assign(local, value);
     },
   };
-  let storage = new BrowserMarkdownStorage(persistence, fixture.bindings);
+  const open = () => new BrowserMarkdownStorage(persistence, fixture.bindings);
+  const storage = open();
   await storage.connect("browser-test");
-  return {
-    fixture,
-    local,
-    storage,
-    restart: () =>
-      (storage = new BrowserMarkdownStorage(persistence, fixture.bindings)),
-  };
-}
-function changed(library: BrowserLibrary, markdown: string): BrowserLibrary {
-  const copy = structuredClone(library);
-  copy.notes[0]!.markdown = markdown;
-  copy.notes[0]!.revision++;
-  return copy;
+  return { fixture, local, storage, restart: open };
 }
 
-describe("plain Markdown source storage", () => {
-  it("opens actual files without passwords or changing bytes, preserving old opaque caches", async () => {
-    const h = await harness({
-      "project/readme.md": "# Original\n",
-      "notes.txt": "not a note",
-    });
-    expect(await h.storage.read()).toMatchObject({
-      notes: [
-        { url: "", filePath: "project/readme.md", markdown: "# Original\n" },
-      ],
-    });
-    expect(
-      [...h.fixture.entries].filter(([name]) => name.startsWith(".aic")),
-    ).toEqual([]);
+/** Earlier one-note-per-page folder, with a save that never finished. */
+const legacyFolder = () => ({
+  "pages/page-1.md": "# Earlier page note\n",
+  "shared/shared-1.md": "Shared\r\nnote",
+  "global.md": "﻿Global",
+  "project/readme.md": "# Other Markdown\n",
+  ".aic/links.json": JSON.stringify({
+    format: "aic-markdown-links",
+    version: 1,
+    entries: [
+      {
+        id: "page-1",
+        path: "pages/page-1.md",
+        scope: "current",
+        url: "https://example.test/a",
+        title: "A",
+        createdAt: 1,
+        updatedAt: 2,
+        revision: 3,
+        fingerprint: "0".repeat(64),
+      },
+    ],
+  }),
+  ".aic/links.pending.json": JSON.stringify({
+    format: "aic-links-pending",
+    version: 1,
+    baseText: "an index that is no longer on disk",
+    nextText: "{}",
+    writes: [{ path: "pages/page-1.md", fingerprint: "1".repeat(64) }],
+  }),
+  ".aic/write.lock": "",
+});
+
+describe("the one note file", () => {
+  it("writes a connected file as exact Markdown across repeated saves and a restart", async () => {
+    const h = await harness({ "note.md": "Original" }, "note.md");
+    const opened = await h.storage.read();
+    expect(opened).toMatchObject({ filePath: "note.md", markdown: "Original" });
+    const first = await h.storage.save(
+      opened.id,
+      "First edit",
+      opened.revision,
+    );
+    await h.storage.save(first.id, "Second edit", first.revision);
+    expect(h.fixture.text("note.md")).toBe("Second edit");
+    expect([...h.fixture.entries.keys()].sort()).toEqual(["", "note.md"]);
+    expect((await h.restart().read()).markdown).toBe("Second edit");
     expect(h.local[FILE_SOURCE_KEY]).toMatchObject({
-      kind: "directory",
+      kind: "file",
       id: "browser-test",
     });
     expect(h.local["aic-browser-library"]).toEqual({ untouched: true });
     expect(h.local["aic-browser-file-source"]).toEqual({ untouched: true });
   });
 
-  it("writes a single file as exact Markdown and supports repeated saves and restart", async () => {
-    const h = await harness({ "note.md": "Original" }, "note.md");
-    await h.storage.write(changed(await h.storage.read(), "First edit"));
-    const first = h.storage.snapshot();
-    await h.storage.write(changed(first, "Second edit"));
-    expect(h.fixture.text("note.md")).toBe("Second edit");
-    expect(
-      [...h.fixture.entries.keys()].filter((key) => key.startsWith(".aic")),
-    ).toEqual([]);
-    expect((await h.restart().read()).notes[0]?.markdown).toBe("Second edit");
-  });
-
   it("preserves UTF-8 BOM and CRLF when native File.text would strip the BOM", async () => {
-    const h = await harness({ "note.md": "\uFEFF# Note\r\n" }, "note.md");
+    const h = await harness({ "note.md": "﻿# Note\r\n" }, "note.md");
     const native = h.fixture.file("note.md");
     native.getFile = async () => {
       const bytes = new TextEncoder().encode(h.fixture.text("note.md")!);
@@ -91,313 +100,123 @@ describe("plain Markdown source storage", () => {
     h.fixture.handles.set("browser-test", native);
     const storage = h.restart();
     const opened = await storage.read();
-    expect(opened.notes[0]?.markdown).toBe("\uFEFF# Note\r\n");
-    await storage.write(changed(opened, "\uFEFF# Updated\r\n"));
-    expect(h.fixture.text("note.md")).toBe("\uFEFF# Updated\r\n");
+    expect(opened.markdown).toBe("﻿# Note\r\n");
+    await storage.save(opened.id, "﻿# Updated\r\n", opened.revision);
+    expect(h.fixture.text("note.md")).toBe("﻿# Updated\r\n");
   });
 
-  it("rejects external changes and deleted originals without recreating or overwriting them", async () => {
-    const h = await harness({ "note.md": "Original" });
-    const before = await h.storage.read();
-    h.fixture.put("note.md", "External edit");
+  it("uses a folder's aic.md and creates it only with the first save", async () => {
+    const h = await harness({ "readme.md": "# Not the note\n" });
+    const opened = await h.storage.read();
+    expect(opened).toMatchObject({ filePath: "aic.md", markdown: "" });
+    expect(h.storage.legacyNotes).toBe(false);
+    // Connecting, reading again and an unchanged save create nothing.
+    await h.storage.save(opened.id, "", opened.revision);
+    expect([...h.fixture.entries.keys()].sort()).toEqual(["", "readme.md"]);
+    const saved = await h.storage.save(
+      opened.id,
+      "--- https://example.test/a\nFirst",
+      opened.revision,
+    );
+    expect(h.fixture.text("aic.md")).toBe("--- https://example.test/a\nFirst");
+    expect([...h.fixture.entries.keys()].sort()).toEqual([
+      "",
+      "aic.md",
+      "readme.md",
+    ]);
+    expect(h.fixture.text("readme.md")).toBe("# Not the note\n");
+    // The folder is never listed: only aic.md is opened by name.
+    expect(h.fixture.state.scans).toBe(0);
+    expect(await h.restart().read()).toEqual(saved);
+    expect(h.local[FILE_SOURCE_KEY]).toMatchObject({ kind: "directory" });
+  });
+
+  it("adopts an existing aic.md byte for byte", async () => {
+    const text =
+      "---\r\ntitle: Mine\r\n---\r\n\r\nIntro\r\n\r\n--- /b\r\nB\r\n";
+    const h = await harness({ "aic.md": text });
+    expect((await h.storage.read()).markdown).toBe(text);
+    expect(h.fixture.text("aic.md")).toBe(text);
+    expect(h.fixture.entries.get("aic.md")).toMatchObject({ writes: 0 });
+  });
+
+  it("leaves every file of the earlier per-page layout untouched and saves despite its pending journal and lock", async () => {
+    const h = await harness(legacyFolder());
+    const before = structuredClone([...h.fixture.entries]);
+    // A crashed window may still hold the old folder lock.
+    await h.fixture
+      .file(".aic/write.lock")
+      .createWritable({ keepExistingData: true, mode: "exclusive" });
+    const opened = await h.storage.read();
+    expect(opened).toMatchObject({ filePath: "aic.md", markdown: "" });
+    expect(h.storage.legacyNotes).toBe(true);
+    expect([...h.fixture.entries]).toEqual(before);
+    const saved = await h.storage.save(opened.id, "New note", opened.revision);
+    await h.storage.save(saved.id, "New note, edited", saved.revision);
+    expect(h.fixture.text("aic.md")).toBe("New note, edited");
+    expect(
+      [...h.fixture.entries].filter(([path]) => path !== "aic.md"),
+    ).toEqual(before);
+    expect(h.fixture.state.scans).toBe(0);
+  });
+
+  it("rejects external changes and a deleted note file without overwriting or recreating it", async () => {
+    for (const single of [undefined, "aic.md"]) {
+      const h = await harness({ "aic.md": "Original" }, single);
+      const before = await h.storage.read(false);
+      h.fixture.put("aic.md", "External edit");
+      await expect(
+        h.storage.save(before.id, "Stale draft", before.revision),
+      ).rejects.toMatchObject({ code: "conflict" });
+      expect(h.fixture.text("aic.md")).toBe("External edit");
+      // Reading again adopts the change; the stale token stays rejected.
+      const current = await h.storage.read();
+      expect(current.markdown).toBe("External edit");
+      await expect(
+        h.storage.save(before.id, "Stale draft", before.revision),
+      ).rejects.toMatchObject({ code: "conflict" });
+      h.fixture.remove("aic.md");
+      await expect(
+        h.storage.save(current.id, "Must not recreate", current.revision),
+      ).rejects.toBeDefined();
+      expect(h.fixture.entries.has("aic.md")).toBe(false);
+    }
+  });
+
+  it("lets only one of two windows create the note file", async () => {
+    const h = await harness({});
+    const other = h.restart();
+    const first = await h.storage.read();
+    const second = await other.read();
+    await h.storage.save(first.id, "From the first window", first.revision);
     await expect(
-      h.storage.write(changed(before, "Stale draft")),
+      other.save(second.id, "From the second window", second.revision),
     ).rejects.toMatchObject({ code: "conflict" });
-    expect(h.fixture.text("note.md")).toBe("External edit");
-    h.fixture.remove("note.md");
+    expect(h.fixture.text("aic.md")).toBe("From the first window");
+  });
+
+  it("keeps the 512 KiB cap on the whole note without truncating", async () => {
+    const large = "x".repeat(512 * 1024 + 1);
+    const h = await harness({ "aic.md": "Small" });
+    const opened = await h.storage.read();
     await expect(
-      h.storage.write(changed(before, "Must not recreate")),
-    ).rejects.toBeDefined();
-    expect(h.fixture.entries.has("note.md")).toBe(false);
-  });
-
-  it("keeps found notes after large non-Markdown selections and applies nested ignore rules", async () => {
-    const data: Record<string, string> = {
-      ".gitignore": "build/\nignored.md\n",
-      ".ignore": "*.private.md\n",
-      "root.md": "Root",
-      "nested/.ignore": "hidden.md\n",
-      "nested/visible.md": "Nested",
-      "nested/hidden.md": "Ignored",
-      "ignored.md": "Ignored",
-      "note.private.md": "Ignored",
-      "build/readme.md": "Ignored",
-      "node_modules/readme.md": "Ignored",
-      ".git/readme.md": "Ignored",
-    };
-    for (let i = 0; i < 10_100; i++) data[`asset-${i}.js`] = "// source";
-    const h = await harness(data);
-    expect(
-      (await h.storage.read()).notes.map((note) => note.filePath).sort(),
-    ).toEqual(["nested/visible.md", "root.md"]);
-  });
-
-  it("does not apply the old vault's 500-note cap to a selected folder", async () => {
-    const data = Object.fromEntries(
-      Array.from({ length: 501 }, (_, n) => [`note-${n}.md`, "Body"]),
-    );
-    const h = await harness(data);
-    expect((await h.storage.read()).notes).toHaveLength(501);
-  });
-
-  it("keeps readable notes and reports oversized/unreadable siblings without blocking saves", async () => {
-    const h = await harness({
-      "good.md": "Original",
-      "large.md": "x".repeat(512 * 1024 + 1),
+      h.storage.save(opened.id, large, opened.revision),
+    ).rejects.toMatchObject({
+      code: "quota",
+      message: expect.stringContaining("note file is too large"),
     });
-    const library = await h.storage.read();
-    expect(library.notes.map((note) => note.filePath)).toEqual(["good.md"]);
-    expect(h.storage.warnings.join(" ")).toContain("large.md");
-    const scans = h.fixture.state.scans;
-    await h.storage.read(false);
-    await h.storage.write(changed(library, "Saved good note"));
-    expect(h.fixture.state.scans).toBe(scans);
-    expect(h.fixture.text("good.md")).toBe("Saved good note");
-  });
-
-  it("retains metadata for files excluded later and never writes Markdown inside metadata", async () => {
-    const h = await harness({ "one.md": "First", "two.md": "Second" });
-    const initial = await h.storage.read();
-    initial.notes[1]!.url = "https://example.test/hidden";
-    await h.storage.write(initial);
-    const beforeIndex = JSON.parse(h.fixture.text(".aic/links.json")!);
-    h.fixture.put(".ignore", "two.md\n");
-    const visible = await h.storage.read();
-    await h.storage.write(changed(visible, "Changed first"));
-    const afterIndex = JSON.parse(h.fixture.text(".aic/links.json")!);
-    expect(
-      afterIndex.entries.find(
-        (entry: { path: string }) => entry.path === "two.md",
-      ),
-    ).toEqual(
-      beforeIndex.entries.find(
-        (entry: { path: string }) => entry.path === "two.md",
-      ),
-    );
-    expect(h.fixture.text(".aic/links.json")).not.toContain("Changed first");
-    expect(h.fixture.text("two.md")).toBe("Second");
-  });
-
-  it("acknowledges committed Markdown plus durable metadata intent and recovers identity after restart", async () => {
-    const index = JSON.stringify({
-      format: "aic-markdown-links",
-      version: 1,
-      entries: [],
+    expect(h.fixture.text("aic.md")).toBe("Small");
+    h.fixture.put("aic.md", large);
+    await expect(h.storage.read()).rejects.toMatchObject({
+      code: "invalid",
+      message: expect.stringContaining("note file is too large"),
     });
-    const h = await harness({ ".aic/links.json": index });
-    h.fixture.entries.get(".aic/links.json")!.failClose = true;
-    const next = await h.storage.read();
-    next.notes.push({
-      id: "created-page",
-      url: "https://example.test/page",
-      title: "Page",
-      markdown: "Saved actual text",
-      createdAt: 1,
-      updatedAt: 1,
-      revision: 1,
-    });
-    await h.storage.write(next);
-    expect(h.fixture.text("pages/created-page.md")).toBe("Saved actual text");
-    expect(h.fixture.text(".aic/links.pending.json")).not.toContain(
-      "Saved actual text",
-    );
-    const reopened = h.restart();
-    expect((await reopened.read()).notes).toMatchObject([
-      {
-        id: "created-page",
-        url: "https://example.test/page",
-        markdown: "Saved actual text",
-      },
-    ]);
-    await reopened.write(changed(reopened.snapshot(), "Second real edit"));
-    expect(
-      [...h.fixture.entries.keys()].filter((path) => path.endsWith(".md")),
-    ).toEqual(["pages/created-page.md"]);
-    h.fixture.entries.get(".aic/links.json")!.failClose = false;
-    const finalStorage = h.restart();
-    const restored = await finalStorage.read();
-    expect(restored.notes[0]).toMatchObject({
-      id: "created-page",
-      markdown: "Second real edit",
-      revision: 2,
-    });
-    expect(h.fixture.text(".aic/links.pending.json")).not.toBe("");
-    await finalStorage.write(changed(restored, "Final edit"));
-    expect(h.fixture.text(".aic/links.pending.json")).toBe("");
-  });
-
-  it("does not replay pending links over externally modified sidecar metadata", async () => {
-    const initial = JSON.stringify({
-      format: "aic-markdown-links",
-      version: 1,
-      entries: [],
-    });
-    const h = await harness({
-      ".aic/links.json": initial,
-      "note.md": "Before",
-    });
-    h.fixture.entries.get(".aic/links.json")!.failClose = true;
-    await h.storage.write(changed(await h.storage.read(), "Committed body"));
-    h.fixture.put(
-      ".aic/links.json",
-      JSON.stringify(
-        { format: "aic-markdown-links", version: 1, entries: [] },
-        null,
-        2,
-      ),
-    );
-    h.fixture.entries.get(".aic/links.json")!.failClose = false;
-    const reopened = h.restart();
-    const library = await reopened.read();
-    expect(reopened.warnings.join(" ")).toContain("changed");
-    await expect(
-      reopened.write(changed(library, "Must not write")),
-    ).rejects.toMatchObject({ code: "conflict" });
-    expect(h.fixture.text("note.md")).toBe("Committed body");
-  });
-
-  it("opens a folder with retired Shared and Global links, keeps their files and round-trips the index", async () => {
-    const sha = async (text: string) =>
-      Array.from(
-        new Uint8Array(
-          await webcrypto.subtle.digest(
-            "SHA-256",
-            new TextEncoder().encode(text),
-          ),
-        ),
-        (n) => n.toString(16).padStart(2, "0"),
-      ).join("");
-    const shared = "```aic\nShared | value\n```";
-    const global = "# Global\n";
-    const legacy = [
-      {
-        id: "shared-1",
-        path: "shared/shared-1.md",
-        scope: "shared",
-        origin: "https://example.test",
-        createdAt: 3,
-        updatedAt: 4,
-        revision: 2,
-        fingerprint: await sha(shared),
-      },
-      {
-        id: "global-1",
-        path: "global.md",
-        scope: "global",
-        createdAt: 5,
-        updatedAt: 6,
-        revision: 7,
-        fingerprint: await sha(global),
-      },
-    ];
-    const h = await harness({
-      "pages/page-1.md": "Page",
-      "shared/shared-1.md": shared,
-      "global.md": global,
-      ".aic/links.json": JSON.stringify({
-        format: "aic-markdown-links",
-        version: 1,
-        entries: [
-          {
-            id: "page-1",
-            path: "pages/page-1.md",
-            scope: "current",
-            url: "https://example.test/a",
-            title: "A",
-            createdAt: 1,
-            updatedAt: 2,
-            revision: 1,
-            fingerprint: await sha("Page"),
-          },
-          ...legacy,
-        ],
-      }),
-    });
-    const retired = () =>
-      (
-        JSON.parse(h.fixture.text(".aic/links.json")!) as {
-          entries: { id: string; scope: string }[];
-        }
-      ).entries
-        .filter((entry) => entry.scope !== "current")
-        .sort((a, b) => b.id.localeCompare(a.id));
-    const library = await h.storage.read();
-    expect(Object.keys(library).sort()).toEqual([
-      "history",
-      "notes",
-      "version",
-    ]);
-    // Retired links open as ordinary Markdown files, not as page notes.
-    expect(
-      library.notes
-        .map(({ id, url, filePath, markdown, revision }) => ({
-          id,
-          url,
-          filePath,
-          markdown,
-          revision,
-        }))
-        .sort((a, b) => b.id.localeCompare(a.id)),
-    ).toEqual([
-      {
-        id: "shared-1",
-        url: "",
-        filePath: "shared/shared-1.md",
-        markdown: shared,
-        revision: 2,
-      },
-      {
-        id: "page-1",
-        url: "https://example.test/a",
-        filePath: "pages/page-1.md",
-        markdown: "Page",
-        revision: 1,
-      },
-      {
-        id: "global-1",
-        url: "",
-        filePath: "global.md",
-        markdown: global,
-        revision: 7,
-      },
-    ]);
-    // Saving another note rewrites the index and keeps both retired entries verbatim.
-    const edited = structuredClone(library);
-    const pageNote = edited.notes.find((note) => note.id === "page-1")!;
-    pageNote.markdown = "Page edited";
-    pageNote.revision++;
-    await h.storage.write(edited);
-    expect(h.fixture.text("pages/page-1.md")).toBe("Page edited");
-    expect(retired()).toEqual(legacy);
-    expect(h.fixture.text("shared/shared-1.md")).toBe(shared);
-    expect(h.fixture.text("global.md")).toBe(global);
-    // Editing a retired file as a plain note keeps its link scope and origin.
-    const next = h.storage.snapshot();
-    const sharedNote = next.notes.find((note) => note.id === "shared-1")!;
-    sharedNote.markdown = "Shared edited";
-    sharedNote.revision++;
-    await h.storage.write(next);
-    expect(h.fixture.text("shared/shared-1.md")).toBe("Shared edited");
-    expect(retired()).toEqual([
-      {
-        ...legacy[0],
-        revision: sharedNote.revision,
-        fingerprint: await sha("Shared edited"),
-      },
-      legacy[1],
-    ]);
-    const reopened = await h.restart().read();
-    expect(reopened.notes.map((note) => note.id).sort()).toEqual([
-      "global-1",
-      "page-1",
-      "shared-1",
-    ]);
-    expect(retired()).toHaveLength(2);
-    expect(h.fixture.text("global.md")).toBe(global);
+    expect(h.fixture.text("aic.md")).toBe(large);
+    expect(h.fixture.entries.get("aic.md")).toMatchObject({ writes: 0 });
   });
 
   it("restores permission to the retained source without changing file contents", async () => {
-    const h = await harness({ "note.md": "Original" });
+    const h = await harness({ "aic.md": "Original" });
     h.fixture.state.allowed = false;
     await expect(h.storage.read()).rejects.toMatchObject({
       code: "permission",
@@ -405,6 +224,6 @@ describe("plain Markdown source storage", () => {
     const access = new BrowserSourceAccess(h.fixture.bindings);
     await access.warm("browser-test");
     await reconnectBrowserSource("browser-test", access);
-    expect((await h.storage.read()).notes[0]?.markdown).toBe("Original");
+    expect((await h.storage.read()).markdown).toBe("Original");
   });
 });

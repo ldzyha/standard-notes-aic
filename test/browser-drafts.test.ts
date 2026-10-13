@@ -1,24 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTOSAVE_DELAY_MS, BrowserDrafts } from "../src/browser/drafts";
-import type { BrowserNote, PageContext } from "../src/browser/library";
-import { AIC_EMPTY_DOCUMENT } from "../src/core/security-model.js";
-
-const placeholder = AIC_EMPTY_DOCUMENT;
-const newPage: PageContext = {
-  url: "https://example.com/new",
-  title: "New",
-};
+import type { BrowserNote } from "../src/browser/library";
 
 function note(id: string, markdown = "Original", revision = 1): BrowserNote {
-  return {
-    id,
-    url: `https://example.com/${id}`,
-    title: id,
-    markdown,
-    createdAt: 1,
-    updatedAt: revision,
-    revision,
-  };
+  return { id, filePath: `${id}.md`, markdown, revision };
 }
 
 function deferred<T>() {
@@ -35,49 +20,6 @@ describe("browser note drafts", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it("starts an untouched new page blank and creates only its exact first edit", async () => {
-    const create = vi.fn(async (_page: PageContext, markdown: string) =>
-      note("new", markdown),
-    );
-    const save = vi.fn();
-    const drafts = new BrowserDrafts(save, undefined, create);
-    const initial = drafts.activatePlaceholder(newPage);
-    expect(initial.text).toBe("");
-    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS * 2);
-    expect(create).not.toHaveBeenCalled();
-    drafts.edit(initial.key, "My first note");
-    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS);
-    expect(create).toHaveBeenCalledWith(newPage, "My first note");
-    drafts.dispose();
-  });
-
-  it("forgets only idle acknowledged drafts and starts a clean placeholder after deletion", async () => {
-    const pending = deferred<BrowserNote>();
-    const drafts = new BrowserDrafts(() => pending.promise);
-    drafts.activate(note("a"));
-    expect(drafts.getForPage("https://example.com/a")?.key).toBe("a");
-    drafts.edit("a", "Edited");
-    expect(drafts.forget("a")).toBe(false);
-    const saving = drafts.flush("a");
-    expect(drafts.forget("a")).toBe(false);
-    pending.resolve(note("a", "Edited", 2));
-    await saving;
-    expect(drafts.forget("a")).toBe(true);
-    expect(drafts.getForPage("https://example.com/a")).toBeUndefined();
-    const fresh = drafts.activatePlaceholder(
-      { url: "https://example.com/a", title: "a" },
-      placeholder,
-    );
-    expect(fresh).toMatchObject({
-      text: placeholder,
-      note: null,
-      dirty: false,
-    });
-    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS * 2);
-    expect(drafts.hasPendingChanges()).toBe(false);
-    drafts.dispose();
-  });
-
   it("debounces autosave and returns only independent snapshots", async () => {
     const save = vi.fn(
       async (_id: string, markdown: string, revision: number) =>
@@ -87,9 +29,9 @@ describe("browser note drafts", () => {
     const drafts = new BrowserDrafts(save, (draft) => changed.push(draft.text));
     const original = note("a");
     const first = drafts.activate(original);
-    first.note!.markdown = "Mutated";
+    first.note.markdown = "Mutated";
     original.markdown = "Mutated too";
-    expect(drafts.get("a")?.note?.markdown).toBe("Original");
+    expect(drafts.get("a")?.note.markdown).toBe("Original");
 
     drafts.edit("a", "First");
     await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS - 1);
@@ -104,7 +46,7 @@ describe("browser note drafts", () => {
       dirty: false,
       saving: false,
     });
-    expect(drafts.get("a")?.note?.revision).toBe(2);
+    expect(drafts.get("a")?.note.revision).toBe(2);
     expect(changed).toContain("Second");
     drafts.dispose();
   });
@@ -209,16 +151,14 @@ describe("browser note drafts", () => {
     drafts.activate(note("a"));
     drafts.edit("a", "Changed");
     await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS);
-    expect(drafts.get("a")?.error).toContain("storage is full");
+    expect(drafts.get("a")?.error).toContain("note file is too large");
     expect(drafts.dirtyDrafts()).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS * 10);
     expect(save).toHaveBeenCalledTimes(1);
     expect(await drafts.flush("a")).toBe(true);
     drafts.edit("a", "Newest");
     expect(await drafts.flush("a")).toBe(false);
-    expect(drafts.get("a")?.error).toContain(
-      "Could not save to browser storage",
-    );
+    expect(drafts.get("a")?.error).toContain("Could not save the note file");
     expect(await drafts.flush("a")).toBe(true);
     drafts.dispose();
   });
@@ -253,201 +193,5 @@ describe("browser note drafts", () => {
     expect(drafts.get("a")).toBeUndefined();
     expect(drafts.dirtyDrafts()).toEqual([]);
     expect(notify).not.toHaveBeenCalled();
-  });
-
-  it("keeps an untouched placeholder in memory and cancels autosave after undo", async () => {
-    const save = vi.fn();
-    const create = vi.fn();
-    const drafts = new BrowserDrafts(save, undefined, create);
-    const first = drafts.activatePlaceholder(newPage, placeholder);
-    expect(first).toMatchObject({
-      key: `pending:${newPage.url}`,
-      note: null,
-      text: placeholder,
-      dirty: false,
-    });
-    first.page.title = "Outside mutation";
-    expect(drafts.get(first.key)?.page.title).toBe("New");
-    expect(await drafts.flush(first.key)).toBe(true);
-    expect(await drafts.flushAll()).toBe(true);
-    drafts.edit(first.key, `${placeholder}Draft`);
-    drafts.edit(first.key, placeholder);
-    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS * 2);
-    expect(create).not.toHaveBeenCalled();
-    expect(save).not.toHaveBeenCalled();
-    expect(drafts.dirtyDrafts()).toEqual([]);
-    drafts.dispose();
-  });
-
-  it("keeps its key and later edits through the first-create acknowledgment", async () => {
-    const first = deferred<BrowserNote>();
-    const second = deferred<BrowserNote>();
-    const create = vi.fn(() => first.promise);
-    const save = vi.fn(() => second.promise);
-    const drafts = new BrowserDrafts(save, undefined, create);
-    const key = drafts.activatePlaceholder(newPage, placeholder).key;
-    drafts.edit(key, "First");
-    const flushing = drafts.flush(key);
-    expect(create).toHaveBeenCalledExactlyOnceWith(newPage, "First");
-    drafts.edit(key, "Latest");
-    first.resolve(note("new", "First"));
-    await Promise.resolve();
-    expect(save).toHaveBeenCalledExactlyOnceWith("new", "Latest", 1);
-    expect(drafts.get(key)).toMatchObject({
-      key,
-      text: "Latest",
-      dirty: true,
-      saving: true,
-      note: { id: "new", markdown: "First" },
-    });
-    second.resolve(note("new", "Latest", 2));
-    expect(await flushing).toBe(true);
-    expect(drafts.get(key)).toMatchObject({
-      key,
-      text: "Latest",
-      dirty: false,
-      saving: false,
-      note: { id: "new", revision: 2 },
-    });
-    expect(drafts.activate(note("new", "Latest", 2)).key).toBe(key);
-    drafts.dispose();
-  });
-
-  it("retains a failed first-create draft and retries only after an explicit action", async () => {
-    const create = vi
-      .fn()
-      .mockRejectedValueOnce({ code: "conflict", message: "untrusted" })
-      .mockResolvedValueOnce(note("new", "Changed"));
-    const drafts = new BrowserDrafts(vi.fn(), undefined, create);
-    const key = drafts.activatePlaceholder(newPage, placeholder).key;
-    drafts.edit(key, "Changed");
-    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS);
-    expect(drafts.get(key)).toMatchObject({
-      note: null,
-      text: "Changed",
-      dirty: true,
-    });
-    expect(drafts.get(key)?.error).toContain("Another window");
-    expect(drafts.get(key)?.error).not.toContain("untrusted");
-    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS * 10);
-    expect(create).toHaveBeenCalledTimes(1);
-    expect(await drafts.flush(key)).toBe(true);
-    expect(drafts.get(key)?.note?.id).toBe("new");
-    drafts.dispose();
-  });
-
-  it("does not overwrite a dirty placeholder when a note appears elsewhere", async () => {
-    const create = vi.fn(async () => {
-      throw { code: "conflict" };
-    });
-    const drafts = new BrowserDrafts(vi.fn(), undefined, create);
-    const key = drafts.activatePlaceholder(newPage, placeholder).key;
-    drafts.edit(key, "Local draft");
-    expect(drafts.activate(note("new", "Remote"))).toMatchObject({
-      key,
-      note: null,
-      text: "Local draft",
-      dirty: true,
-    });
-    expect(await drafts.flush(key)).toBe(false);
-    expect(drafts.get(key)?.text).toBe("Local draft");
-    drafts.dispose();
-  });
-
-  it("retries only a page-changed first create when the source page is activated again", async () => {
-    const create = vi
-      .fn()
-      .mockRejectedValueOnce({ code: "page_changed" })
-      .mockResolvedValueOnce(note("new", "Local draft"));
-    const drafts = new BrowserDrafts(vi.fn(), undefined, create);
-    const key = drafts.activatePlaceholder(newPage, placeholder).key;
-    drafts.edit(key, "Local draft");
-    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS);
-    expect(drafts.get(key)?.error).toBe(
-      "Return to this page to save your new note, or export the draft.",
-    );
-    expect(drafts.get(key)).toMatchObject({
-      note: null,
-      text: "Local draft",
-      dirty: true,
-    });
-    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS * 3);
-    expect(create).toHaveBeenCalledTimes(1);
-    expect(drafts.activatePlaceholder(newPage, placeholder).text).toBe(
-      "Local draft",
-    );
-    await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS);
-    expect(create).toHaveBeenCalledTimes(2);
-    expect(drafts.get(key)).toMatchObject({
-      text: "Local draft",
-      dirty: false,
-      note: { id: "new", markdown: "Local draft" },
-    });
-    drafts.dispose();
-  });
-
-  it.each(["storage", "conflict"])(
-    "does not automatically retry %s errors on source activation",
-    async (code) => {
-      const create = vi.fn(async () => {
-        throw { code };
-      });
-      const drafts = new BrowserDrafts(vi.fn(), undefined, create);
-      const key = drafts.activatePlaceholder(newPage, placeholder).key;
-      drafts.edit(key, "Local draft");
-      await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS);
-      drafts.activatePlaceholder(newPage, placeholder);
-      await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS * 3);
-      expect(create).toHaveBeenCalledTimes(1);
-      expect(drafts.get(key)?.text).toBe("Local draft");
-      drafts.dispose();
-    },
-  );
-
-  it("counts an undone edit as pending until its in-flight create is compensated", async () => {
-    const createPending = deferred<BrowserNote>();
-    const savePending = deferred<BrowserNote>();
-    const create = vi.fn(() => createPending.promise);
-    const save = vi.fn(() => savePending.promise);
-    const recoverable: string[][] = [];
-    const drafts = new BrowserDrafts(
-      save,
-      () => recoverable.push(drafts.pendingDrafts().map((draft) => draft.text)),
-      create,
-    );
-    const key = drafts.activatePlaceholder(newPage, placeholder).key;
-    expect(drafts.hasPendingChanges()).toBe(false);
-    drafts.edit(key, "Changed");
-    const flushing = drafts.flush(key);
-    drafts.edit(key, placeholder);
-    expect(drafts.get(key)?.dirty).toBe(false);
-    expect(drafts.hasPendingChanges()).toBe(true);
-    expect(drafts.dirtyDrafts()).toEqual([]);
-    expect(drafts.pendingDrafts()).toMatchObject([
-      { key, text: placeholder, note: null, saving: true },
-    ]);
-    const snapshot = drafts.pendingDrafts()[0]!;
-    snapshot.text = "External mutation";
-    expect(drafts.pendingDrafts()[0]?.text).toBe(placeholder);
-    expect(recoverable.at(-1)).toEqual([placeholder]);
-    createPending.resolve(note("new", "Changed"));
-    await Promise.resolve();
-    expect(save).toHaveBeenCalledExactlyOnceWith("new", placeholder, 1);
-    expect(drafts.hasPendingChanges()).toBe(true);
-    expect(drafts.pendingDrafts()).toMatchObject([
-      {
-        key,
-        text: placeholder,
-        note: { id: "new", markdown: "Changed", revision: 1 },
-        saving: true,
-      },
-    ]);
-    savePending.resolve(note("new", placeholder, 2));
-    expect(await flushing).toBe(true);
-    expect(drafts.hasPendingChanges()).toBe(false);
-    expect(drafts.pendingDrafts()).toEqual([]);
-    expect(recoverable.at(-1)).toEqual([]);
-    drafts.dispose();
-    expect(drafts.hasPendingChanges()).toBe(false);
   });
 });

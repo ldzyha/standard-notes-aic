@@ -5,11 +5,10 @@ import {
 } from "./markdown-storage";
 import { BrowserFileError } from "./file-errors";
 import { BrowserDraftRecovery } from "./recovery-store";
-import { LibraryStore, normalizePageUrl } from "./library";
+import { normalizePageUrl } from "./library";
 import { capturePage } from "./capture-page";
 import type { ActivePage, BrowserApi, BrowserTab, Request } from "./api";
 
-export const LIBRARY_KEY = "aic-browser-library";
 export const SESSION_KEY = "aic-browser-unlock";
 
 export class BrowserActionError extends Error {
@@ -44,7 +43,7 @@ export function createBrowserService(
   const files = new BrowserMarkdownStorage(api.storage.local, bindings);
   const recovery = new BrowserDraftRecovery(api.storage.local);
   let sourceGeneration = 0;
-  // Only this worker writes the library. Panels never write storage directly.
+  // Only this worker writes the note file. Panels never write storage directly.
   // Restrict access before any operation, not only during installation.
   const ready = api.storage.local.setAccessLevel({
     accessLevel: "TRUSTED_CONTEXTS",
@@ -60,9 +59,7 @@ export function createBrowserService(
   const status = async (): Promise<BrowserStatus> => {
     await ready;
     const source = await files.location();
-    const scan = files.scanStatus().scan ?? undefined;
-    if (source.kind === "unselected")
-      return { state: "unselected", source, scan };
+    if (source.kind === "unselected") return { state: "unselected", source };
     try {
       let access = await files.access();
       if (access.read !== "granted")
@@ -86,8 +83,7 @@ export function createBrowserService(
                 "Allow file editing to save changes. Reconnect files; your draft is unchanged.",
             }
           : {}),
-        warnings: [...files.warnings],
-        scan: files.scanStatus().scan ?? undefined,
+        ...(files.legacyNotes ? { legacyNotes: true as const } : {}),
       };
     } catch (error) {
       return {
@@ -95,7 +91,6 @@ export function createBrowserService(
         source,
         sourceErrorCode:
           error instanceof BrowserFileError ? error.code : "storage",
-        scan: files.scanStatus().scan ?? undefined,
         sourceError:
           error instanceof Error
             ? error.message
@@ -124,53 +119,17 @@ export function createBrowserService(
     if (!input || typeof input !== "object" || !("type" in input))
       throw new BrowserActionError("Invalid AIC request.");
     const message = input as Request;
-    const run = <T>(
-      operation: (store: LibraryStore) => Promise<T>,
-      persist = true,
-    ) =>
+    const run = <T>(operation: () => Promise<T>) =>
       queued(async () => {
         await ready;
         await files.assertSource(message.sourceId);
-        let current = await files.read(false);
-        let changed = false;
-        const store = new LibraryStore({
-          read: async () => current,
-          write: async (next) => {
-            if (persist) {
-              await files.write(next);
-              changed = true;
-            }
-            current = next;
-          },
-        });
-        const result = await operation(store);
-        if (changed && result && typeof result === "object" && "id" in result) {
-          const saved = files.snapshot();
-          const record = saved.notes.find((item) => item.id === result.id);
-          if (record) return record as T;
-        }
-        return result;
+        return operation();
       });
     switch (message.type) {
-      case "scan-status":
-        await ready;
-        return files.scanStatus(message.id, message.after);
-      case "cancel-scan":
-        await ready;
-        return files.cancelScan(message.id);
-      case "refresh-files":
-        return queued(async () => {
-          await ready;
-          await files.assertSource(message.sourceId);
-          await files.read(true);
-          return status();
-        });
       case "status":
         return queued(status);
       case "connect-source":
-        return queued(async () => {
-          await ready;
-          await files.assertSource(message.sourceId);
+        return run(async () => {
           if (message.mode === "migrate")
             throw new BrowserActionError(
               "Open a Markdown file or folder. Encrypted libraries are not supported.",
@@ -188,7 +147,13 @@ export function createBrowserService(
           "AIC edits Markdown files directly. Passwords and encrypted libraries are not supported.",
         );
       case "load":
-        return run((store) => store.load());
+        // Read the note file again so a change made on disk reaches the panel.
+        return run(() => files.read(true));
+      case "save":
+        return run(async () => {
+          await files.read(false);
+          return files.save(message.id, message.markdown, message.revision);
+        });
       case "checkpoint-drafts":
       case "list-recovery":
       case "dismiss-recovery": {
@@ -213,74 +178,9 @@ export function createBrowserService(
       }
       case "context":
         return context(message.windowId, message.allowPrivate === true);
-      case "visit": {
-        const page = await context(
-          message.windowId,
-          message.allowPrivate === true,
-        );
-        return run(
-          (store) =>
-            page
-              ? store.visit({ url: page.url, title: page.title })
-              : store.load(),
-          false,
-        );
-      }
-      case "create": {
-        const page = await requireCurrent(
-          message.page,
-          message.allowPrivate === true,
-        );
-        return run(async (store) => {
-          if (message.ifAbsent === true)
-            return store.create(
-              { url: page.url, title: page.title },
-              message.markdown,
-              { ifAbsent: true },
-            );
-          const existing = (await store.load()).notes.find(
-            (note) => note.url === page.url,
-          );
-          // Two panels may explicitly import into the same previously unnoted URL.
-          // Serialize the append with the vault write; never discard the second import.
-          if (
-            existing &&
-            typeof message.markdown === "string" &&
-            message.markdown.length
-          )
-            return store.save(
-              existing.id,
-              `${existing.markdown}${existing.markdown ? "\n\n" : ""}${message.markdown}`,
-              existing.revision,
-            );
-          return store.create(
-            { url: page.url, title: page.title },
-            message.markdown,
-          );
-        });
-      }
-      case "create-file":
-        return run((store) => store.createFile(message.path, message.markdown));
-      case "link-file": {
-        const page = await requireCurrent(
-          message.page,
-          message.allowPrivate === true,
-        );
-        return run((store) =>
-          store.linkFile(message.id, { url: page.url, title: page.title }),
-        );
-      }
-      case "save":
-        return run((store) =>
-          store.save(message.id, message.markdown, message.revision),
-        );
-      case "delete-page":
-        return run((store) =>
-          store.deletePage(message.url, message.expectedNote),
-        );
       case "capture": {
         const generation = sourceGeneration;
-        await run((store) => store.load());
+        await run(() => files.read(false));
         const page = await requireCurrent(
           message.page,
           message.allowPrivate === true,
@@ -304,43 +204,12 @@ export function createBrowserService(
           throw new BrowserActionError(
             "The page changed during import. Retry on the intended page.",
           );
-        await run((store) => store.load());
+        await run(() => files.read(false));
         if (generation !== sourceGeneration)
           throw new BrowserActionError(
             "Import cancelled because the selected files changed.",
           );
         return result.result;
-      }
-      case "navigate": {
-        const generation = sourceGeneration;
-        const url = normalizePageUrl(message.url);
-        // Only navigate to known library/history URLs, never arbitrary input from a webpage.
-        const library = await run((store) => store.load());
-        if (
-          ![...library.notes, ...library.history].some(
-            (item) => item.url === url,
-          )
-        )
-          throw new BrowserActionError(
-            "This page is not in your local AIC library.",
-          );
-        if (!Number.isInteger(message.windowId) || message.windowId < 0)
-          throw new BrowserActionError("Browser window is unavailable.");
-        const tabs = await api.tabs.query({ windowId: message.windowId });
-        if (tabs.some((tab) => tab.incognito) && message.allowPrivate !== true)
-          throw new BrowserActionError(
-            "Allow AIC in this private window before opening saved pages. Notes in your files persist after the window closes.",
-          );
-        if (generation !== sourceGeneration)
-          throw new BrowserActionError(
-            "Navigation cancelled because the selected files changed.",
-          );
-        const existing = tabs.find((tab) => tab.url === url);
-        if (existing?.id !== undefined)
-          await api.tabs.update(existing.id, { active: true });
-        // Keep the current page intact, including any unsaved website form.
-        else await api.tabs.create({ url, windowId: message.windowId });
-        return null;
       }
       default:
         throw new BrowserActionError("Unsupported AIC request.");

@@ -1,7 +1,7 @@
 import { EditorView } from "@codemirror/view";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { BrowserApi, Request } from "../src/browser/api";
-import type { BrowserLibrary, BrowserNote } from "../src/browser/library";
+import type { BrowserNote } from "../src/browser/library";
 import {
   BrowserSourceAccess,
   chooseBrowserSource,
@@ -37,13 +37,9 @@ function deferred() {
 
 const note = (id: string): BrowserNote => ({
   id,
-  url: "",
-  title: `${id}.md`,
   filePath: `${id}.md`,
   markdown: `${id} saved text`,
   revision: 1,
-  createdAt: 1,
-  updatedAt: 1,
 });
 
 function fixture(
@@ -56,11 +52,7 @@ function fixture(
     access: { read: "granted", write: "granted" },
     ...initial,
   };
-  const library: BrowserLibrary = {
-    version: 3,
-    notes: [note("first")],
-    history: [],
-  };
+  const library = { notes: [note("first")] };
   let failSaves = false;
   let delaySave: (() => Promise<void>) | undefined;
   let statusRequests = 0;
@@ -74,21 +66,11 @@ function fixture(
           case "status":
             if (++statusRequests > 1) await delayFollowUpStatus?.();
             return { ok: true, value: structuredClone(status) };
-          case "scan-status":
-            return { ok: true, value: { scan: null, notes: [], next: 0 } };
           case "context":
-            return {
-              ok: true,
-              value: {
-                tabId: 7,
-                windowId: 2,
-                title: "Active page",
-                url: "https://example.test/",
-              },
-            };
+            // No http(s) tab: the whole note is shown, as these tests expect.
+            return { ok: true, value: null };
           case "load":
-          case "visit":
-            return { ok: true, value: structuredClone(library) };
+            return { ok: true, value: structuredClone(library.notes[0]) };
           case "list-recovery":
             return { ok: true, value: [] };
           case "checkpoint-drafts":
@@ -102,7 +84,7 @@ function fixture(
                 error: "File editing was not allowed. Your draft is unchanged.",
               };
             const existing = library.notes.find(
-              (entry) => entry.id === message.id,
+              (entry: BrowserNote) => entry.id === message.id,
             );
             if (!existing || message.sourceId !== status.source.id)
               return {
@@ -150,7 +132,8 @@ function fixture(
     setStatus: (value: Partial<BrowserStatus>) => {
       status = { ...status, ...value };
     },
-    refresh: () => changed.emit({ "aic-browser-markdown-change": {} }, "local"),
+    // Window focus reads the note file again, which also refreshes status.
+    refresh: () => window.dispatchEvent(new Event("focus")),
     switchSource: () => {
       status = {
         state: "ready",

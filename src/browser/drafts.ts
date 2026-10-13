@@ -9,8 +9,9 @@ export { AUTOSAVE_DELAY_MS };
 
 export interface Draft {
   key: string;
+  /** Names the note file in recovery copies: `file:<id>` and its path. */
   page: PageContext;
-  note: BrowserNote | null;
+  note: BrowserNote;
   text: string;
   dirty: boolean;
   saving: boolean;
@@ -21,10 +22,6 @@ export type BrowserSaveFn = (
   id: string,
   markdown: string,
   expectedRevision: number,
-) => Promise<BrowserNote>;
-export type BrowserCreateFn = (
-  page: PageContext,
-  markdown: string,
 ) => Promise<BrowserNote>;
 
 function browserDraft(state: DraftState<BrowserNote, PageContext>): Draft {
@@ -39,36 +36,28 @@ function browserDraft(state: DraftState<BrowserNote, PageContext>): Draft {
   };
 }
 
-/** Backward-compatible page-note draft surface over the shared coordinator. */
+/** The note file's draft over the shared autosave coordinator. */
 export class BrowserDrafts {
   private readonly coordinator: DraftCoordinator<BrowserNote, PageContext>;
 
   constructor(
     saveFn: BrowserSaveFn,
     onChangeFn: (draft: Draft) => void = () => undefined,
-    createFn?: BrowserCreateFn,
   ) {
     this.coordinator = new DraftCoordinator(
       saveFn,
       {
-        contextKey: (page) => page.url,
-        opaqueRevisionKey: (note) => note.filePath,
         contextForRecord: (note) => ({
-          url: note.url || `file:${note.id}`,
-          title: note.title,
+          url: `file:${note.id}`,
+          title: note.filePath,
         }),
       },
       (state) => onChangeFn(browserDraft(state)),
-      createFn,
     );
   }
 
   activate(note: BrowserNote): Draft {
     return browserDraft(this.coordinator.activate(note));
-  }
-
-  activatePlaceholder(page: PageContext, seed = ""): Draft {
-    return browserDraft(this.coordinator.activatePlaceholder(page, seed));
   }
 
   edit(key: string, text: string): Draft | undefined {
@@ -80,11 +69,6 @@ export class BrowserDrafts {
     return this.coordinator.flush(key);
   }
 
-  async flushSnapshot(key: string): Promise<Draft | undefined> {
-    const state = await this.coordinator.flushSnapshot(key);
-    return state ? browserDraft(state) : undefined;
-  }
-
   flushAll(): Promise<boolean> {
     return this.coordinator.flushAll();
   }
@@ -92,15 +76,6 @@ export class BrowserDrafts {
   get(key: string): Draft | undefined {
     const state = this.coordinator.get(key);
     return state ? browserDraft(state) : undefined;
-  }
-
-  getForPage(url: string): Draft | undefined {
-    const state = this.coordinator.getForContext(url);
-    return state ? browserDraft(state) : undefined;
-  }
-
-  forget(key: string): boolean {
-    return this.coordinator.forget(key);
   }
 
   dirtyDrafts(): Draft[] {

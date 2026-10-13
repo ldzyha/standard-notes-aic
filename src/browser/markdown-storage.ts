@@ -1,14 +1,16 @@
 import { BrowserFileError } from "./file-errors";
 import {
-  normalizeDomainOrigin,
-  normalizePageUrl,
-  validateBrowserLibrary,
+  LibraryError,
+  NOTE_TOO_LARGE,
+  MAX_NOTE_BYTES,
   validateMarkdownPath,
-  type BrowserLibrary,
+  validateSave,
+  type BrowserNote,
 } from "./library";
-import { FolderIgnore } from "../pwa/folder-ignore";
 
 export const FILE_SOURCE_KEY = "aic-browser-markdown-source";
+/** The one note file inside a connected folder. */
+export const NOTE_FILE = "aic.md";
 export interface BrowserFileLocation {
   kind: "file" | "directory" | "unselected";
   id?: string;
@@ -20,121 +22,8 @@ export interface BrowserStatus {
   sourceError?: string;
   sourceErrorCode?: string;
   access?: { read: PermissionState; write: PermissionState };
-  warnings?: string[];
-  scan?: BrowserScan;
-}
-export interface BrowserScan {
-  id: string;
-  sourceId: string;
-  phase: "scanning" | "reading" | "complete" | "cancelled" | "failed";
-  inspected: number;
-  found: number;
-  loaded: number;
-  path: string;
-  revision: number;
-  error?: string;
-}
-export interface ScanNoteSummary {
-  id: string;
-  filePath: string;
-  title: string;
-  url: string;
-}
-export interface BrowserScanStatus {
-  scan: BrowserScan | null;
-  notes: ScanNoteSummary[];
-  next: number;
-}
-const SCAN_IO_TIMEOUT_MS = 30_000;
-class ScanCancelled extends Error {}
-/** A scan owns only local candidates until its caller publishes the observation. */
-class ScanJob {
-  readonly controller = new AbortController();
-  readonly notes: ScanNoteSummary[] = [];
-  readonly warnings: string[] = [];
-  readonly progress: BrowserScan;
-  private yieldAt = Date.now();
-  constructor(sourceId: string) {
-    this.progress = {
-      id: crypto.randomUUID(),
-      sourceId,
-      phase: "scanning",
-      inspected: 0,
-      found: 0,
-      loaded: 0,
-      path: "",
-      revision: 1,
-    };
-  }
-  check(): void {
-    if (this.controller.signal.aborted) throw new ScanCancelled();
-  }
-  update(values: Partial<BrowserScan>): void {
-    this.check();
-    Object.assign(this.progress, values);
-    this.progress.revision += 1;
-  }
-  cancel(): void {
-    if (
-      this.progress.phase === "scanning" ||
-      this.progress.phase === "reading"
-    ) {
-      this.progress.phase = "cancelled";
-      this.progress.revision += 1;
-      this.controller.abort();
-    }
-  }
-  async yield(): Promise<void> {
-    this.check();
-    if (
-      Date.now() - this.yieldAt >= 16 ||
-      this.progress.inspected % 256 === 0
-    ) {
-      await new Promise<void>((resolve) => setTimeout(resolve, 0));
-      this.yieldAt = Date.now();
-      this.check();
-    }
-  }
-}
-/** Native filesystem promises cannot be cancelled; race them and ignore late results. */
-function scanRead<T>(
-  job: ScanJob | undefined,
-  operation: () => Promise<T>,
-): Promise<T> {
-  if (!job) return operation();
-  job.check();
-  return new Promise<T>((resolve, reject) => {
-    const signal = job.controller.signal;
-    let settled = false;
-    const finish = (error: unknown, value?: T) => {
-      if (settled) return;
-      settled = true;
-      clearTimeout(timer);
-      signal.removeEventListener("abort", abort);
-      if (error) reject(error);
-      else resolve(value as T);
-    };
-    const abort = () => finish(new ScanCancelled());
-    const timer = setTimeout(
-      () =>
-        finish(
-          fail(
-            `Reading ${job.progress.path || "folder"} timed out. Other notes remain available.`,
-          ),
-        ),
-      SCAN_IO_TIMEOUT_MS,
-    );
-    signal.addEventListener("abort", abort, { once: true });
-    Promise.resolve()
-      .then(() => {
-        job.check();
-        return operation();
-      })
-      .then(
-        (value) => finish(null, value),
-        (error) => finish(error),
-      );
-  });
+  /** The folder holds metadata of the earlier one-note-per-page layout. */
+  legacyNotes?: true;
 }
 interface Permissions {
   queryPermission?(options: {
@@ -188,59 +77,15 @@ interface LocalStorage {
   get(key: string): Promise<Record<string, unknown>>;
   set(values: Record<string, unknown>): Promise<void>;
 }
-type IndexEntry = {
-  id: string;
-  path: string;
-  // "shared" and "global" are retired. Existing entries stay valid and are kept
-  // as written; their files open as ordinary Markdown notes.
-  scope: "current" | "shared" | "global";
-  url?: string;
-  title?: string;
-  origin?: string;
-  createdAt: number;
-  updatedAt: number;
-  revision: number;
-  fingerprint: string;
-};
-interface LinksIndex {
-  format: "aic-markdown-links";
-  version: 1;
-  entries: IndexEntry[];
-}
-interface ObservedFile {
-  path: string;
-  handle: BrowserMarkdownFile;
-  text: string;
-  fingerprint: string;
-}
 interface Observation {
   sourceId: string;
   root: BrowserMarkdownHandle;
-  library: BrowserLibrary;
-  files: Map<string, ObservedFile>;
-  index: LinksIndex;
-  indexText: string | null;
-  pendingText: string | null;
-  pendingBlocked: boolean;
-}
-interface PendingIndex {
-  format: "aic-links-pending";
-  version: 1;
-  baseText: string | null;
-  nextText: string;
-  writes: { path: string; fingerprint: string }[];
+  /** Null until the folder's note file exists; it is created by the first save. */
+  handle: BrowserMarkdownFile | null;
+  note: BrowserNote;
+  legacyNotes: boolean;
 }
 const encoder = new TextEncoder();
-const empty = (): BrowserLibrary => ({
-  version: 3,
-  notes: [],
-  history: [],
-});
-const emptyIndex = (): LinksIndex => ({
-  format: "aic-markdown-links",
-  version: 1,
-  entries: [],
-});
 const fail = (
   message: string,
   code:
@@ -314,20 +159,20 @@ async function permission(
     "permission",
   );
 }
-async function readText(
-  handle: BrowserMarkdownFile,
-  max = 512 * 1024,
-  job?: ScanJob,
-): Promise<string> {
-  await scanRead(job, () => permission(handle, "read"));
-  const file = await scanRead(job, () => handle.getFile());
-  if (!Number.isSafeInteger(file.size) || file.size < 0 || file.size > max)
-    throw fail("This Markdown file is too large to open.", "invalid");
+async function readText(handle: BrowserMarkdownFile): Promise<string> {
+  await permission(handle, "read");
+  const file = await handle.getFile();
+  if (
+    !Number.isSafeInteger(file.size) ||
+    file.size < 0 ||
+    file.size > MAX_NOTE_BYTES
+  )
+    throw fail(NOTE_TOO_LARGE, "invalid");
   const text = file.arrayBuffer
     ? new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
-        await scanRead(job, () => file.arrayBuffer!()),
+        await file.arrayBuffer(),
       )
-    : await scanRead(job, () => file.text());
+    : await file.text();
   if (encoder.encode(text).length !== file.size)
     throw fail(
       "The file is not valid UTF-8 Markdown, or changed while reading.",
@@ -342,10 +187,7 @@ async function writeText(
 ): Promise<void> {
   await permission(handle, "readwrite");
   const assert = async () => {
-    const actual = await readText(
-      handle,
-      Math.max(1024 * 1024, encoder.encode(text).length),
-    );
+    const actual = await readText(handle);
     if (actual !== (expected ?? ""))
       throw fail(
         "This file changed on disk. Keep or export your draft before reopening it.",
@@ -572,96 +414,22 @@ export function reconnectBrowserSource(
   return access.reconnect(id);
 }
 
-async function pathHandle(
-  root: BrowserMarkdownDirectory,
-  path: string,
-  create = false,
-): Promise<BrowserMarkdownFile> {
-  const parts = path.split("/");
-  let directory = root;
-  for (const name of parts.slice(0, -1))
-    directory = await directory.getDirectoryHandle(name, { create });
-  return directory.getFileHandle(parts.at(-1)!, { create });
-}
-async function maybeFile(
-  root: BrowserMarkdownDirectory,
-  path: string,
-): Promise<BrowserMarkdownFile | null> {
+async function maybeEntry<T>(open: () => Promise<T>): Promise<T | null> {
   try {
-    return await pathHandle(root, path);
+    return await open();
   } catch (error) {
     if (missing(error)) return null;
     throw error;
   }
 }
-function parseIndex(text: string | null): LinksIndex {
-  if (text === null) return emptyIndex();
-  try {
-    const value = JSON.parse(text) as LinksIndex;
-    if (
-      value.format !== "aic-markdown-links" ||
-      value.version !== 1 ||
-      !Array.isArray(value.entries)
-    )
-      throw new Error();
-    const paths = new Set<string>();
-    const ids = new Set<string>();
-    const urls = new Set<string>();
-    const origins = new Set<string>();
-    let global = false;
-    for (const item of value.entries) {
-      validateMarkdownPath(item.path);
-      if (
-        typeof item.id !== "string" ||
-        !item.id ||
-        item.id.length > 128 ||
-        paths.has(item.path) ||
-        ids.has(item.id) ||
-        !Number.isSafeInteger(item.revision) ||
-        item.revision < 1 ||
-        !Number.isSafeInteger(item.createdAt) ||
-        item.createdAt < 0 ||
-        !Number.isSafeInteger(item.updatedAt) ||
-        item.updatedAt < item.createdAt ||
-        !/^[a-f0-9]{64}$/u.test(item.fingerprint)
-      )
-        throw new Error();
-      paths.add(item.path);
-      ids.add(item.id);
-      if (item.scope === "current") {
-        if (
-          typeof item.title !== "string" ||
-          encoder.encode(item.title).length > 1024
-        )
-          throw new Error();
-        if (item.url) {
-          if (normalizePageUrl(item.url) !== item.url || urls.has(item.url))
-            throw new Error();
-          urls.add(item.url);
-        }
-      } else if (item.scope === "shared") {
-        if (!item.origin || origins.has(normalizeDomainOrigin(item.origin)))
-          throw new Error();
-        origins.add(item.origin);
-      } else if (item.scope === "global") {
-        if (global) throw new Error();
-        global = true;
-      } else throw new Error();
-    }
-    return value;
-  } catch {
-    throw fail(
-      "The folder's .aic/links.json is invalid. It was not overwritten.",
-      "invalid",
-    );
-  }
-}
 
-/** One worker owner; Markdown files are authoritative and never replaced by a cache. */
+/**
+ * One worker owner of the one note file. A connected folder contributes only
+ * its `aic.md`: no other file or folder in it is read, listed or written, so
+ * notes and `.aic` metadata of the earlier per-page layout stay as they are.
+ */
 export class BrowserMarkdownStorage {
   private observed: Observation | null = null;
-  private scanJob: ScanJob | null = null;
-  readonly warnings: string[] = [];
   constructor(
     private readonly local: LocalStorage,
     private readonly bindings: BrowserSourceBindings = new IndexedDbBrowserSources(),
@@ -709,697 +477,111 @@ export class BrowserMarkdownStorage {
     ]);
     return { read, write };
   }
-  scanStatus(id?: string, after = 0): BrowserScanStatus {
-    const job = this.scanJob;
-    if (!job) return { scan: null, notes: [], next: 0 };
-    const offset =
-      id === job.progress.id && Number.isSafeInteger(after) && after >= 0
-        ? Math.min(after, job.notes.length)
-        : 0;
-    const notes = job.notes.slice(offset, offset + 128);
-    return {
-      scan: { ...job.progress },
-      notes: structuredClone(notes),
-      next: offset + notes.length,
-    };
-  }
-  cancelScan(id: string): BrowserScanStatus {
-    if (this.scanJob?.progress.id === id) this.scanJob.cancel();
-    return this.scanStatus(id);
-  }
-  private beginScan(sourceId: string): ScanJob {
-    this.scanJob?.cancel();
-    this.scanJob = new ScanJob(sourceId);
-    return this.scanJob;
-  }
-  private scanFailed(job: ScanJob, error: unknown): void {
-    if (this.scanJob !== job || error instanceof ScanCancelled) return;
-    job.update({
-      phase: "failed",
-      error: error instanceof Error ? error.message : "Could not read files.",
+  async connect(id: string): Promise<void> {
+    const handle = await this.handle(bindingId(id));
+    await permission(handle, "readwrite");
+    await this.inspect(id, handle);
+    await this.local.set({
+      [FILE_SOURCE_KEY]: { id, kind: handle.kind, name: handle.name },
     });
   }
-  async connect(id: string): Promise<void> {
-    const job = this.beginScan(bindingId(id));
-    const previous = this.observed;
-    try {
-      const handle = await scanRead(job, () => this.handle(id));
-      job.update({ path: handle.name });
-      await scanRead(job, () => permission(handle, "readwrite"));
-      await this.inspect(id, handle, job, previous?.sourceId === id);
-      if (this.scanJob !== job) throw new ScanCancelled();
-      await this.local.set({
-        [FILE_SOURCE_KEY]: { id, kind: handle.kind, name: handle.name },
-      });
-    } catch (error) {
-      if (this.scanJob === job) this.observed = previous;
-      if (error instanceof ScanCancelled) return;
-      this.scanFailed(job, error);
-      throw error;
-    }
-  }
-  snapshot(): BrowserLibrary {
+  snapshot(): BrowserNote {
     if (!this.observed) throw fail("Open the original files first.", "source");
-    return structuredClone(this.observed.library);
+    return { ...this.observed.note };
   }
-  async read(refresh = true): Promise<BrowserLibrary> {
+  get legacyNotes(): boolean {
+    return !!this.observed?.legacyNotes;
+  }
+  /** `refresh` reads the note file again; otherwise only access is checked. */
+  async read(refresh = true): Promise<BrowserNote> {
     const location = await this.location();
     if (location.kind === "unselected")
       throw fail("Open a Markdown file or folder to begin.", "source");
-    let job: ScanJob | undefined;
+    const observed =
+      this.observed?.sourceId === location.id ? this.observed : null;
     try {
-      if (!refresh && this.observed && this.observed.sourceId === location.id) {
-        await permission(this.observed.root, "read");
-        if (this.observed.root.kind === "file")
-          await this.observed.root.getFile();
+      if (!refresh && observed) {
+        await permission(observed.root, "read");
+        if (observed.root.kind === "file") await observed.root.getFile();
         return this.snapshot();
       }
-      job = this.beginScan(location.id!);
-      const handle = await scanRead(job, () => this.handle(location.id!));
-      job.update({ path: handle.name });
-      return await this.inspect(location.id!, handle, job, true);
+      return await this.inspect(
+        location.id!,
+        observed?.root ?? (await this.handle(location.id!)),
+      );
     } catch (error) {
-      if (job) this.scanFailed(job, error);
-      if (
-        error instanceof ScanCancelled &&
-        this.observed?.sourceId === location.id
-      )
-        return this.snapshot();
       if (error instanceof BrowserFileError) throw error;
       throw fail(
-        error instanceof ScanCancelled
-          ? "Folder scan stopped. Scan again to open notes."
-          : missing(error)
-            ? "The original file or folder was moved or deleted. It was not recreated."
-            : "Could not read the original files. Reconnect file access and try again.",
+        missing(error)
+          ? "The original file or folder was moved or deleted. It was not recreated."
+          : "Could not read the original files. Reconnect file access and try again.",
       );
     }
-  }
-  private async restoreIndex(
-    root: BrowserMarkdownDirectory,
-    indexText: string | null,
-    mutate = false,
-    job?: ScanJob,
-  ): Promise<{
-    index: LinksIndex;
-    indexText: string | null;
-    pendingText: string | null;
-    pendingBlocked: boolean;
-  }> {
-    const pendingHandle = await scanRead(job, () =>
-      maybeFile(root, ".aic/links.pending.json"),
-    );
-    const pendingText = pendingHandle
-      ? await readText(pendingHandle, 3 * 1024 * 1024, job)
-      : null;
-    if (!pendingText)
-      return {
-        index: parseIndex(indexText),
-        indexText,
-        pendingText,
-        pendingBlocked: false,
-      };
-    let pending: PendingIndex;
-    try {
-      pending = JSON.parse(pendingText) as PendingIndex;
-      if (
-        pending.format !== "aic-links-pending" ||
-        pending.version !== 1 ||
-        (pending.baseText !== null && typeof pending.baseText !== "string") ||
-        typeof pending.nextText !== "string" ||
-        !Array.isArray(pending.writes)
-      )
-        throw new Error();
-      parseIndex(pending.nextText);
-      for (const write of pending.writes) {
-        validateMarkdownPath(write.path);
-        if (!/^[a-f0-9]{64}$/u.test(write.fingerprint)) throw new Error();
-      }
-    } catch {
-      throw fail(
-        "The pending folder metadata is invalid. It was preserved for recovery.",
-        "invalid",
-      );
-    }
-    if (indexText === pending.nextText) {
-      if (!mutate)
-        return {
-          index: parseIndex(indexText),
-          indexText,
-          pendingText,
-          pendingBlocked: false,
-        };
-      try {
-        await writeText(pendingHandle!, "", pendingText);
-        return {
-          index: parseIndex(indexText),
-          indexText,
-          pendingText: "",
-          pendingBlocked: false,
-        };
-      } catch {
-        /* Already committed; only journal cleanup remains. */
-      }
-      return {
-        index: parseIndex(indexText),
-        indexText,
-        pendingText,
-        pendingBlocked: false,
-      };
-    }
-    const matchesBase =
-      indexText === pending.baseText ||
-      (pending.baseText === null && indexText === "");
-    let committed = matchesBase;
-    for (const write of pending.writes) {
-      job?.update({ phase: "reading", path: write.path });
-      try {
-        const handle = await scanRead(job, () => maybeFile(root, write.path));
-        if (
-          !handle ||
-          (await scanRead(job, async () =>
-            digest(await readText(handle, undefined, job)),
-          )) !== write.fingerprint
-        )
-          committed = false;
-      } catch (error) {
-        if (error instanceof ScanCancelled) throw error;
-        committed = false;
-      }
-    }
-    if (!matchesBase) {
-      (job?.warnings ?? this.warnings).push(
-        "Folder links changed while a save was pending. Reconcile .aic/links.pending.json before changing links; Markdown files were preserved.",
-      );
-      return {
-        index: parseIndex(indexText),
-        indexText,
-        pendingText,
-        pendingBlocked: true,
-      };
-    }
-    if (!committed) {
-      // A body write failed. The unchanged index remains authoritative; the
-      // existing draft journal owns unsaved text, never this metadata journal.
-      return {
-        index: parseIndex(
-          indexText === "" && pending.baseText === null ? null : indexText,
-        ),
-        indexText,
-        pendingText,
-        pendingBlocked: false,
-      };
-    }
-    const index = parseIndex(pending.nextText);
-    if (!mutate) {
-      (job?.warnings ?? this.warnings).push(
-        "Notes are saved. Folder link metadata will be finalized with the next save.",
-      );
-      return { index, indexText, pendingText, pendingBlocked: false };
-    }
-    try {
-      const handle =
-        (await maybeFile(root, ".aic/links.json")) ??
-        (await pathHandle(root, ".aic/links.json", true));
-      await writeText(handle, pending.nextText, indexText);
-      indexText = pending.nextText;
-      try {
-        await writeText(pendingHandle!, "", pendingText);
-        return { index, indexText, pendingText: "", pendingBlocked: false };
-      } catch {
-        /* Metadata already committed. */
-      }
-    } catch {
-      (job?.warnings ?? this.warnings).push(
-        "Notes are saved. Folder link metadata is queued for retry.",
-      );
-    }
-    return { index, indexText, pendingText, pendingBlocked: false };
   }
   private async inspect(
     sourceId: string,
     root: BrowserMarkdownHandle,
-    job: ScanJob,
-    allowEmptyCancellation: boolean,
-  ): Promise<BrowserLibrary> {
-    const previous =
-      this.observed?.sourceId === sourceId ? this.observed : null;
-    const library = empty();
-    const files = new Map<string, ObservedFile>();
-    let restored = {
-      index: emptyIndex(),
-      indexText: null as string | null,
-      pendingText: null as string | null,
-      pendingBlocked: false,
+  ): Promise<BrowserNote> {
+    await permission(root, "read");
+    const filePath =
+      root.kind === "file" ? validateMarkdownPath(root.name) : NOTE_FILE;
+    const handle =
+      root.kind === "file"
+        ? root
+        : await maybeEntry(() => root.getFileHandle(NOTE_FILE));
+    // A missing note file is an empty note; viewing it creates nothing.
+    const markdown = handle ? await readText(handle) : "";
+    const note: BrowserNote = {
+      id: `file-${(await digest(filePath)).slice(0, 32)}`,
+      filePath,
+      markdown,
+      revision: revision(await digest(markdown)),
     };
-    const ignore = new FolderIgnore();
-    let metadataReady = false;
-    let incomplete = false;
-    const check = () => {
-      job.check();
-      if (this.scanJob !== job) throw new ScanCancelled();
-    };
-    try {
-      await scanRead(job, () => permission(root, "read"));
-      if (root.kind === "directory") {
-        job.update({ phase: "reading", path: ".aic/links.json" });
-        const metadata = await scanRead(job, () =>
-          maybeFile(root, ".aic/links.json"),
-        );
-        const indexText = metadata
-          ? await readText(metadata, 1024 * 1024, job)
-          : null;
-        restored = await this.restoreIndex(root, indexText, false, job);
-      }
-      check();
-      metadataReady = true;
-      const links = new Map(
-        restored.index.entries.map((entry) => [entry.path, entry]),
-      );
-      const open = async (path: string, handle: BrowserMarkdownFile) => {
-        job.update({ phase: "reading", path, found: job.progress.found + 1 });
-        try {
-          const text = await readText(handle, undefined, job);
-          const fingerprint = await scanRead(job, () => digest(text));
-          const link = links.get(path);
-          const id =
-            link?.id ??
-            `file-${(await scanRead(job, () => digest(path))).slice(0, 32)}`;
-          check();
-          const fields = {
-            id,
-            markdown: text,
-            filePath: path,
-            revision:
-              link?.fingerprint === fingerprint
-                ? link.revision
-                : revision(fingerprint),
-            createdAt: link?.createdAt ?? 0,
-            updatedAt: link?.updatedAt ?? 0,
-          };
-          const candidate = empty();
-          candidate.notes.push({
-            ...fields,
-            url: link?.url ?? "",
-            title: link?.title ?? path.split("/").at(-1)!,
-          });
-          // Invalid standalone records must not discard already usable notes.
-          validateBrowserLibrary(candidate);
-          files.set(id, { path, handle, text, fingerprint });
-          library.notes.push(...candidate.notes);
-          job.notes.push({
-            id,
-            filePath: path,
-            title: link?.title ?? path.split("/").at(-1)!,
-            url: link?.url ?? "",
-          });
-          job.update({ loaded: job.progress.loaded + 1 });
-        } catch (error) {
-          if (error instanceof ScanCancelled || root.kind === "file")
-            throw error;
-          incomplete = true;
-          job.warnings.push(
-            `Could not open ${path}: ${error instanceof Error ? error.message : "file unavailable"}`,
-          );
-        }
-        await job.yield();
-      };
-      if (root.kind === "file") {
-        job.update({ inspected: 1 });
-        await open(validateMarkdownPath(root.name), root);
-      } else {
-        const walk = async (
-          directory: BrowserMarkdownDirectory,
-          prefix: string,
-        ) => {
-          job.update({ phase: "reading", path: prefix || root.name });
-          try {
-            for (const name of [".gitignore", ".ignore"] as const) {
-              const rule = await scanRead(job, () =>
-                maybeFile(directory, name),
-              );
-              if (rule)
-                ignore.addRules(
-                  prefix,
-                  name,
-                  await readText(rule, 64 * 1024, job),
-                );
-            }
-          } catch (error) {
-            if (error instanceof ScanCancelled) throw error;
-            incomplete = true;
-            job.warnings.push(
-              `Could not read ignore rules in ${prefix || root.name}; that folder was skipped.`,
-            );
-            return;
-          }
-          let iterator:
-            ReturnType<BrowserMarkdownDirectory["values"]> | undefined;
-          try {
-            iterator = directory.values();
-            while (true) {
-              job.update({ phase: "scanning", path: prefix || root.name });
-              const result = await scanRead(job, () => iterator!.next());
-              check();
-              if (result.done) break;
-              const handle = result.value;
-              const path = prefix ? `${prefix}/${handle.name}` : handle.name;
-              job.update({ inspected: job.progress.inspected + 1, path });
-              await job.yield();
-              if (
-                handle.name === ".aic" ||
-                ignore.isIgnored(path, handle.kind === "directory")
-              )
-                continue;
-              if (handle.kind === "directory") await walk(handle, path);
-              else if (/\.md$/iu.test(handle.name)) {
-                try {
-                  await open(validateMarkdownPath(path), handle);
-                } catch (error) {
-                  if (error instanceof ScanCancelled) throw error;
-                  incomplete = true;
-                  job.warnings.push(
-                    `Could not open ${path}: ${error instanceof Error ? error.message : "file unavailable"}`,
-                  );
-                }
-              }
-            }
-          } catch (error) {
-            if (error instanceof ScanCancelled) throw error;
-            incomplete = true;
-            job.warnings.push(
-              `Could not read folder ${prefix || root.name}: ${error instanceof Error ? error.message : "folder unavailable"}`,
-            );
-          } finally {
-            // A stalled native iterator must not hold cancellation hostage.
-            try {
-              void iterator?.return?.().catch(() => {});
-            } catch {
-              /* Best effort disposal. */
-            }
-          }
-        };
-        await walk(root, "");
-      }
-      check();
-      job.update({ phase: "complete" });
-    } catch (error) {
-      if (!(error instanceof ScanCancelled)) throw error;
-      if (this.scanJob !== job || (!allowEmptyCancellation && files.size === 0))
-        throw error;
-      incomplete = true;
-      job.warnings.push(
-        "Folder scan stopped. Loaded notes are available; scan again to find the rest.",
-      );
-    }
-    if (this.scanJob !== job) throw new ScanCancelled();
-    if (!metadataReady) {
-      // Do not replace validated metadata with an empty index when cancelled before it was read.
-      if (previous) return this.snapshot();
-      throw new ScanCancelled();
-    }
-    if (incomplete && previous) {
-      // Unvisited originals keep their exact prior baseline. A later edit still
-      // checks current disk bytes and cannot recreate an externally deleted file.
-      const usedPaths = new Set([...files.values()].map((file) => file.path));
-      for (const record of previous.library.notes) {
-        const file = previous.files.get(record.id);
-        if (!file || files.has(record.id) || usedPaths.has(file.path)) continue;
-        if (ignore.isIgnored(file.path)) continue;
-        const oldLink = previous.index.entries.find(
-          (entry) => entry.path === file.path,
-        );
-        const newLink = restored.index.entries.find(
-          (entry) => entry.path === file.path,
-        );
-        if (JSON.stringify(oldLink) !== JSON.stringify(newLink)) {
-          job.warnings.push(
-            `Links for ${file.path} changed elsewhere. Scan again to load its current association.`,
-          );
-          continue;
-        }
-        if (record.url && library.notes.some((note) => note.url === record.url))
-          continue;
-        files.set(record.id, file);
-        library.notes.push(record);
-      }
-    }
-    if (incomplete && files.size === 0 && !allowEmptyCancellation)
-      throw fail(
-        job.warnings[0] ??
-          "No readable notes were found before scanning stopped. Scan again to reconnect this folder.",
-      );
-    const validated = validateBrowserLibrary(library);
-    this.observed = { sourceId, root, library: validated, files, ...restored };
-    this.warnings.splice(0, this.warnings.length, ...job.warnings);
-    return structuredClone(validated);
+    const legacyNotes =
+      root.kind === "directory" &&
+      !!(await maybeEntry(() => root.getDirectoryHandle(".aic")));
+    this.observed = { sourceId, root, handle, note, legacyNotes };
+    return { ...note };
   }
-  async write(next: BrowserLibrary): Promise<void> {
-    const root = this.observed?.root;
-    if (!root || root.kind === "file") return this.writeObserved(next);
-    await permission(root, "readwrite");
-    // Hold one native exclusive writer for the entire multi-file transaction.
-    // It is a zero-content lock file, not the metadata journal or user document.
-    const lockHandle = await pathHandle(root, ".aic/write.lock", true);
-    let lock: Awaited<ReturnType<BrowserMarkdownFile["createWritable"]>>;
-    try {
-      lock = await lockHandle.createWritable({
-        keepExistingData: true,
-        mode: "exclusive",
-      });
-    } catch {
-      throw fail(
-        "Another AIC window is saving this folder. Retry after it finishes.",
-        "conflict",
-      );
-    }
-    try {
-      await this.writeObserved(next);
-    } finally {
-      try {
-        if (lock.abort) await lock.abort();
-        else await lock.close();
-      } catch {
-        /* Never replace an acknowledged save or its original error with lock cleanup. */
-      }
-    }
-  }
-  private async writeObserved(next: BrowserLibrary): Promise<void> {
+  /** Compare-and-swap of the whole note file; nothing else is written. */
+  async save(
+    id: string,
+    markdown: string,
+    expectedRevision: number,
+  ): Promise<BrowserNote> {
+    validateSave(id, markdown, expectedRevision);
     const location = await this.location();
     const observed = this.observed;
     if (!observed || observed.sourceId !== location.id)
       throw fail("Reopen the files before saving.", "source");
-    const validated = validateBrowserLibrary(next);
-    const records = validated.notes;
-    if (observed.root.kind === "file") {
-      if (
-        records.length !== 1 ||
-        records[0]!.id !== observed.library.notes[0]?.id ||
-        records[0]!.url
-      )
-        throw fail(
-          "Open a folder to create more notes or save portable URL links.",
-          "source",
-        );
-      const record = records[0]!;
-      const original = observed.files.get(record.id)!;
-      if (record.markdown !== original.text)
-        await writeText(original.handle, record.markdown, original.text);
-      const fingerprint = await digest(record.markdown);
-      observed.files.set(record.id, {
-        ...original,
-        text: record.markdown,
-        fingerprint,
-      });
-      validated.notes[0]!.revision = revision(fingerprint);
-      observed.library = validated;
-      return;
-    }
-    const root = observed.root;
-    await permission(root, "readwrite");
-    const currentIndex = await maybeFile(root, ".aic/links.json");
-    let actualIndexText = currentIndex
-      ? await readText(currentIndex, 1024 * 1024)
-      : null;
-    const restored = await this.restoreIndex(root, actualIndexText, true);
-    if (restored.pendingBlocked)
-      throw fail(
-        "Folder metadata changed during a pending save. Reconcile the pending links before editing.",
+    if (id !== observed.note.id)
+      throw new LibraryError("invalid", "Invalid browser note data.");
+    if (expectedRevision !== observed.note.revision)
+      throw new LibraryError(
         "conflict",
+        "This note changed elsewhere. Reload it before saving.",
       );
-    if (JSON.stringify(restored.index) !== JSON.stringify(observed.index))
-      throw fail(
-        "Folder links changed elsewhere. Reopen the folder before saving.",
-        "conflict",
-      );
-    actualIndexText = restored.indexText;
-    observed.indexText = actualIndexText;
-    observed.pendingText = restored.pendingText;
-    let indexEntries: IndexEntry[] = observed.index.entries.filter(
-      (entry) => !observed.files.has(entry.id),
-    );
-    const changes: {
-      id: string;
-      path: string;
-      text: string;
-      original?: ObservedFile;
-      handle?: BrowserMarkdownFile;
-    }[] = [];
-    const paths = new Map<string, string>();
-    for (const record of records) {
-      const original = observed.files.get(record.id);
-      const path = validateMarkdownPath(
-        record.filePath ?? `pages/${record.id}.md`,
-      );
-      if (original && original.path !== path)
-        throw fail(
-          "Renaming original files is not supported here. Save a copy instead.",
-          "source",
-        );
-      paths.set(record.id, path);
-      if (!original) {
-        const superseded = indexEntries.filter(
-          (entry) =>
-            entry.path === path ||
-            (entry.scope === "current" &&
-              !!record.url &&
-              entry.url === record.url),
-        );
-        for (const entry of superseded) {
-          if (await maybeFile(root, entry.path))
-            throw fail(
-              "That page is already linked to an excluded file. Open the original file instead.",
-              "conflict",
-            );
-          // Only explicit creation can replace a confirmed-missing association.
-          // Existing-note saves always keep their original handle and fail if missing.
-          indexEntries = indexEntries.filter((item) => item !== entry);
-        }
-        if (await maybeFile(root, path))
-          throw fail(
-            `The file ${path} already exists. Open it instead.`,
-            "conflict",
-          );
-        changes.push({ id: record.id, path, text: record.markdown });
-      } else if (record.markdown !== original.text) {
-        if ((await readText(original.handle)) !== original.text)
-          throw fail(
-            "This file changed on disk. Keep or export your draft before reopening it.",
-            "conflict",
-          );
-        changes.push({
-          id: record.id,
-          path,
-          text: record.markdown,
-          original,
-          handle: original.handle,
-        });
+    if (markdown !== observed.note.markdown) {
+      await permission(observed.root, "readwrite");
+      let handle = observed.handle;
+      if (!handle) {
+        if (observed.root.kind !== "directory")
+          throw fail("Reopen the files before saving.", "source");
+        handle = await observed.root.getFileHandle(NOTE_FILE, { create: true });
       }
-      const linked = observed.index.entries.find(
-        (entry) => entry.id === record.id,
-      );
-      indexEntries.push({
-        id: record.id,
-        path,
-        // A retired Shared/Global link is kept as written until the user links
-        // that file to a page; the folder index never silently loses it.
-        ...(linked && linked.scope !== "current" && !record.url
-          ? {
-              scope: linked.scope,
-              ...(linked.origin ? { origin: linked.origin } : {}),
-            }
-          : { scope: "current", url: record.url, title: record.title }),
-        createdAt: record.createdAt,
-        updatedAt: record.updatedAt,
-        revision: record.revision,
-        fingerprint:
-          original?.text === record.markdown
-            ? original.fingerprint
-            : await digest(record.markdown),
-      });
-    }
-    const index: LinksIndex = {
-      format: "aic-markdown-links",
-      version: 1,
-      entries: indexEntries,
-    };
-    const text = JSON.stringify(index, null, 2);
-    parseIndex(text); // Detect path/link collisions before creating or changing files.
-    if (encoder.encode(text).length > 1024 * 1024)
-      throw fail(
-        "Folder link metadata exceeds 1 MiB. Open the individual file to edit it directly.",
-        "invalid",
-      );
-    const pending: PendingIndex = {
-      format: "aic-links-pending",
-      version: 1,
-      baseText: actualIndexText,
-      nextText: text,
-      writes: changes.map((item) => ({
-        path: item.path,
-        fingerprint: indexEntries.find((entry) => entry.id === item.id)!
-          .fingerprint,
-      })),
-    };
-    const pendingText = JSON.stringify(pending);
-    if (encoder.encode(pendingText).length > 3 * 1024 * 1024)
-      throw fail(
-        "Pending folder metadata exceeds 3 MiB. No note content was changed.",
-        "invalid",
-      );
-    const pendingHandle =
-      (await maybeFile(root, ".aic/links.pending.json")) ??
-      (await pathHandle(root, ".aic/links.pending.json", true));
-    await writeText(pendingHandle, pendingText, restored.pendingText);
-    observed.pendingText = pendingText;
-    for (const change of changes) {
-      change.handle ??= await pathHandle(root, change.path, true);
+      // A file another window created meanwhile is not empty: that is a conflict.
       await writeText(
-        change.handle,
-        change.text,
-        change.original?.text ?? null,
+        handle,
+        markdown,
+        observed.handle ? observed.note.markdown : null,
       );
+      observed.handle = handle;
     }
-    // Markdown + metadata intent are now durable. A final metadata write failure
-    // must not pretend the body was lost or cause a retry to duplicate that note.
-    for (const change of changes)
-      observed.files.set(change.id, {
-        path: change.path,
-        handle: change.handle!,
-        text: change.text,
-        fingerprint: indexEntries.find((entry) => entry.id === change.id)!
-          .fingerprint,
-      });
-    for (const note of validated.notes) note.filePath = paths.get(note.id)!;
-    observed.library = validated;
-    observed.index = index;
-    try {
-      const indexHandle =
-        currentIndex ?? (await pathHandle(root, ".aic/links.json", true));
-      await writeText(indexHandle, text, actualIndexText);
-      observed.indexText = text;
-      try {
-        await writeText(pendingHandle, "", pendingText);
-        observed.pendingText = "";
-      } catch {
-        this.warnings.push(
-          "Notes are saved. Completed folder metadata awaits cleanup.",
-        );
-      }
-    } catch {
-      const currentPending = await readText(pendingHandle, 3 * 1024 * 1024);
-      const currentMetadata = await maybeFile(root, ".aic/links.json");
-      const committedIndex = currentMetadata
-        ? await readText(currentMetadata, 1024 * 1024)
-        : null;
-      if (currentPending !== pendingText && committedIndex !== text)
-        throw fail(
-          "The note body was saved but folder links changed concurrently. Keep your recovery copy and reopen the folder.",
-          "conflict",
-        );
-      this.warnings.push(
-        "Notes are saved. Folder link metadata is queued for retry.",
-      );
-    }
+    observed.note = {
+      ...observed.note,
+      markdown,
+      revision: revision(await digest(markdown)),
+    };
+    return { ...observed.note };
   }
 }

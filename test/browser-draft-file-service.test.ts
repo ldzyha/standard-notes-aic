@@ -2,7 +2,7 @@ import { afterAll, afterEach, beforeAll, expect, it, vi } from "vitest";
 import { BrowserDrafts } from "../src/browser/drafts";
 import { createBrowserService } from "../src/browser/service";
 import type { BrowserApi, Request } from "../src/browser/api";
-import type { BrowserLibrary, BrowserNote } from "../src/browser/library";
+import type { BrowserNote } from "../src/browser/library";
 import { markdownFixture } from "./helpers/browser-markdown-fixture";
 
 const cryptoModule = "node:crypto";
@@ -50,8 +50,7 @@ function singleFile() {
         bindingId: "browser-test",
         mode: "open",
       });
-      const library = (await send({ type: "load" })) as BrowserLibrary;
-      return drafts.activate(library.notes[0]!);
+      return drafts.activate((await send({ type: "load" })) as BrowserNote);
     },
   };
 }
@@ -59,7 +58,7 @@ function singleFile() {
 it("acknowledges consecutive single-file writes and retains CAS across a worker restart", async () => {
   const h = singleFile();
   const original = await h.open();
-  const expectedRevisions = [original.note!.revision];
+  const expectedRevisions = [original.note.revision];
   for (const text of ["First", "Second"]) {
     h.drafts.edit(original.key, text);
     expect(await h.drafts.flush(original.key)).toBe(true);
@@ -71,7 +70,7 @@ it("acknowledges consecutive single-file writes and retains CAS across a worker 
       error: null,
       note: { markdown: text, filePath: "note.md" },
     });
-    expectedRevisions.push(h.drafts.get(original.key)!.note!.revision);
+    expectedRevisions.push(h.drafts.get(original.key)!.note.revision);
     expect(h.drafts.hasPendingChanges()).toBe(false);
   }
   // Exercise the real content-token contract rather than a sequential-revision fake.
@@ -81,10 +80,11 @@ it("acknowledges consecutive single-file writes and retains CAS across a worker 
   h.drafts.edit(original.key, "After restart");
   expect(await h.drafts.flush(original.key)).toBe(true);
   expect(h.files.text("note.md")).toBe("After restart");
-  const loaded = ((await h.send({ type: "load" })) as BrowserLibrary).notes[0]!;
+  const loaded = (await h.send({ type: "load" })) as BrowserNote;
   expect(h.drafts.get(original.key)!.note).toEqual(loaded);
 
   h.files.put("note.md", "External change");
+
   h.drafts.edit(original.key, "Local draft after external change");
   expect(await h.drafts.flush(original.key)).toBe(false);
   expect(h.files.text("note.md")).toBe("External change");
@@ -98,13 +98,9 @@ it("acknowledges consecutive single-file writes and retains CAS across a worker 
 
 const fileNote = (markdown = "Original", revision = 9001): BrowserNote => ({
   id: "file-id",
-  url: "",
-  title: "note.md",
   filePath: "note.md",
   markdown,
   revision,
-  createdAt: 1,
-  updatedAt: 1,
 });
 
 it.each([
@@ -115,10 +111,7 @@ it.each([
   { revision: Number.MAX_SAFE_INTEGER + 1 },
   { revision: 9001 },
   { id: "another-file" },
-  { filePath: "other.md" },
-  { filePath: undefined },
   { markdown: "Not the submitted draft" },
-  { url: "https://different.test/" },
 ])(
   "rejects an invalid file acknowledgement %j without clearing the draft",
   async (patch) => {
@@ -177,24 +170,6 @@ it("accepts a lower opaque token while preserving dirty and in-flight ownership"
   expect(drafts.get("file-id")?.text).toBe("Submitted");
 });
 
-it("keeps sequential acknowledgement validation for notes without a file binding", async () => {
-  const legacy = {
-    ...fileNote(),
-    filePath: undefined,
-    url: "https://example.test/",
-  };
-  const drafts = new BrowserDrafts(async () => ({
-    ...legacy,
-    markdown: "Submitted",
-    revision: 17,
-  }));
-  activeDrafts.push(drafts);
-  drafts.activate(legacy);
-  drafts.edit(legacy.id, "Submitted");
-  expect(await drafts.flush(legacy.id)).toBe(false);
-  expect(drafts.get(legacy.id)?.dirty).toBe(true);
-});
-
 it("saves an undo made while a file write is pending using the acknowledged token", async () => {
   const h = singleFile();
   const original = await h.open();
@@ -226,7 +201,7 @@ it("saves an undo made while a file write is pending using the acknowledged toke
     text: "Original",
     dirty: false,
     error: null,
-    note: { revision: original.note!.revision },
+    note: { revision: original.note.revision },
   });
   expect(h.drafts.hasPendingChanges()).toBe(false);
 });

@@ -2,7 +2,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createBrowserService } from "../src/browser/service";
 import { FILE_SOURCE_KEY } from "../src/browser/markdown-storage";
 import type { ActivePage, BrowserApi, Request } from "../src/browser/api";
-import type { BrowserLibrary, BrowserNote } from "../src/browser/library";
+import type { BrowserNote } from "../src/browser/library";
 import { markdownFixture } from "./helpers/browser-markdown-fixture";
 
 const cryptoModule = "node:crypto";
@@ -36,7 +36,6 @@ function harness(initial: Record<string, string> = {}, single?: string) {
     tabs: {
       query: vi.fn(async () => [active]),
       create: vi.fn(async () => ({})),
-      update: vi.fn(async () => ({})),
     },
     scripting: {
       executeScript: vi.fn(async () => [
@@ -87,12 +86,8 @@ function harness(initial: Record<string, string> = {}, single?: string) {
   };
 }
 
-async function note(h: ReturnType<typeof harness>, markdown = "Page note") {
-  return (await h.send({
-    type: "create",
-    page: h.page(),
-    markdown,
-  })) as BrowserNote;
+async function note(h: ReturnType<typeof harness>) {
+  return (await h.send({ type: "load" })) as BrowserNote;
 }
 
 describe("plain browser file service", () => {
@@ -109,13 +104,9 @@ describe("plain browser file service", () => {
       state: "ready",
       source: { kind: "directory", id: "browser-test" },
     });
-    expect(
-      ((await h.send({ type: "load" })) as BrowserLibrary).notes[0],
-    ).toMatchObject({
-      url: "",
-      filePath: "plain.md",
-      markdown: "# Existing Markdown",
-    });
+    // Only aic.md is the note; other Markdown in the folder is not opened.
+    expect(await note(h)).toMatchObject({ filePath: "aic.md", markdown: "" });
+    expect([...h.files.entries.keys()].sort()).toEqual(["", "plain.md"]);
     expect(h.local["aic-browser-library"]).toEqual({ old: "untouched" });
     expect(h.local[FILE_SOURCE_KEY]).toMatchObject({ kind: "directory" });
     h.restart();
@@ -130,22 +121,61 @@ describe("plain browser file service", () => {
       await expect(h.send(request)).rejects.toThrow("not supported");
   });
 
-  it("saves a page note as an individual Markdown file with a portable link", async () => {
-    const h = harness();
-    await h.connect();
-    const pageNote = await note(h);
-    expect(h.files.text(pageNote.filePath!)).toBe("Page note");
-    expect(h.files.text(".aic/links.json")).toContain(h.page().url);
-    expect(h.files.text(".aic/links.json")).not.toContain("Page note");
-    h.restart();
-    const restored = (await h.send({ type: "load" })) as BrowserLibrary;
-    expect(restored).toEqual({ version: 3, notes: [pageNote], history: [] });
+  it("creates the folder's aic.md with the first save and reads disk changes on load", async () => {
+    const h = harness({ ".aic/links.json": "{}" });
+    expect(await h.connect()).toMatchObject({
+      state: "ready",
+      legacyNotes: true,
+    });
+    const opened = await note(h);
+    expect(h.files.entries.has("aic.md")).toBe(false);
+    const saved = (await h.send({
+      type: "save",
+      id: opened.id,
+      revision: opened.revision,
+      markdown: "--- https://example.test/a\nNote",
+    })) as BrowserNote;
+    expect(saved.markdown).toBe("--- https://example.test/a\nNote");
+    expect(h.files.text("aic.md")).toBe("--- https://example.test/a\nNote");
+    expect(h.files.text(".aic/links.json")).toBe("{}");
+    h.files.put("aic.md", "Edited in another editor");
+    expect(await note(h)).toMatchObject({
+      markdown: "Edited in another editor",
+    });
+    await expect(
+      h.send({
+        type: "save",
+        id: opened.id,
+        revision: 0,
+        markdown: "x",
+      }),
+    ).rejects.toMatchObject({ code: "invalid" });
+    await expect(
+      h.send({
+        type: "save",
+        id: opened.id,
+        revision: saved.revision,
+        markdown: "x".repeat(512 * 1024 + 1),
+      }),
+    ).rejects.toMatchObject({
+      code: "quota",
+      message: expect.stringContaining("note file is too large"),
+    });
+    expect(h.files.text("aic.md")).toBe("Edited in another editor");
   });
 
-  it("rejects the retired Shared and Global requests without touching the folder", async () => {
+  it("rejects the retired per-page, Shared and Global requests without touching the folder", async () => {
     const h = harness({ "global.md": "# Kept" });
     await h.connect();
     for (const request of [
+      { type: "visit", windowId: 1 },
+      { type: "create", page: h.page(), markdown: "x" },
+      { type: "create-file", path: "new.md", markdown: "x" },
+      { type: "link-file", id: "a", page: h.page() },
+      { type: "delete-page", url: h.page().url, expectedNote: null },
+      { type: "navigate", windowId: 1, url: h.page().url },
+      { type: "refresh-files" },
+      { type: "scan-status" },
       { type: "create-domain", page: h.page(), markdown: "x" },
       { type: "save-domain", id: "a", markdown: "x", revision: 1 },
       { type: "create-global", markdown: "x" },
@@ -155,14 +185,14 @@ describe("plain browser file service", () => {
         "Unsupported AIC request.",
       );
     expect(h.files.text("global.md")).toBe("# Kept");
-    expect(h.files.text(".aic/links.json")).toBeUndefined();
+    expect([...h.files.entries.keys()].sort()).toEqual(["", "global.md"]);
+    expect(h.api.tabs.create).not.toHaveBeenCalled();
   });
 
   it("acknowledges current single-file revisions for consecutive edits and rejects external changes", async () => {
     const h = harness({ "note.md": "Original" }, "note.md");
     await h.connect();
-    let current = ((await h.send({ type: "load" })) as BrowserLibrary)
-      .notes[0]!;
+    let current = await note(h);
     current = (await h.send({
       type: "save",
       id: current.id,
@@ -188,86 +218,22 @@ describe("plain browser file service", () => {
     expect(h.files.text("note.md")).toBe("External");
   });
 
-  it("creates an unassociated Markdown file and links it without replacing its body", async () => {
+  it("reports the active http(s) page only and guards private windows", async () => {
     const h = harness();
     await h.connect();
-    const created = (await h.send({
-      type: "create-file",
-      path: "project/design.md",
-      markdown: "# Design",
-    })) as BrowserNote;
-    expect(created).toMatchObject({ url: "", filePath: "project/design.md" });
-    const writes = h.files.entries.get(created.filePath!)!.closes;
-    const linked = (await h.send({
-      type: "link-file",
-      id: created.id,
-      page: h.page(),
-    })) as BrowserNote;
-    expect(linked.url).toBe(h.page().url);
-    expect(h.files.entries.get(created.filePath!)!.closes).toBe(writes);
-    await expect(
-      h.send({ type: "create-file", path: "../outside.md", markdown: "Bad" }),
-    ).rejects.toMatchObject({ code: "invalid" });
-  });
-
-  it("unlinks a page while preserving its original Markdown file", async () => {
-    const h = harness();
-    await h.connect();
-    const original = await note(h);
-    await h.send({
-      type: "delete-page",
-      url: original.url,
-      expectedNote: { id: original.id, revision: original.revision },
+    expect(await h.send({ type: "context", windowId: 1 })).toMatchObject({
+      url: "https://example.test/wiki/page?id=2#part",
+      tabId: 7,
     });
-    expect(h.files.text(original.filePath!)).toBe(original.markdown);
-    expect(
-      ((await h.send({ type: "load" })) as BrowserLibrary).notes,
-    ).toMatchObject([
-      { url: "", filePath: original.filePath, markdown: original.markdown },
-    ]);
-    expect(h.api.tabs.create).not.toHaveBeenCalled();
-    expect(h.api.scripting.executeScript).not.toHaveBeenCalled();
-  });
-
-  it("does not remember unnoted page visits or write note files on navigation", async () => {
-    const h = harness();
-    await h.connect();
-    expect(await h.send({ type: "visit", windowId: 1 })).toMatchObject({
-      notes: [],
-      history: [],
-    });
-    await expect(
-      h.send({ type: "navigate", windowId: 1, url: h.page().url }),
-    ).rejects.toMatchObject({ code: "action" });
-    const saved = await note(h);
-    const writes = h.files.entries.get(saved.filePath!)!.closes;
-    await h.send({ type: "visit", windowId: 1 });
-    await h.send({ type: "navigate", windowId: 1, url: saved.url });
-    expect(h.api.tabs.update).toHaveBeenCalledWith(7, { active: true });
-    expect(h.files.entries.get(saved.filePath!)!.closes).toBe(writes);
-  });
-
-  it("keeps Current creation bound to the intended tab and guards private windows", async () => {
-    const h = harness();
-    await h.connect();
-    const old = h.page();
-    h.change({ url: "https://changed.test/" });
-    await expect(
-      h.send({ type: "create", page: old, markdown: "No" }),
-    ).rejects.toMatchObject({ code: "action" });
-    h.change({ incognito: true });
+    h.change({ url: "chrome://extensions/" });
     expect(await h.send({ type: "context", windowId: 1 })).toBeNull();
+    h.change({ url: "https://example.test/", incognito: true });
+    expect(await h.send({ type: "context", windowId: 1 })).toBeNull();
+    expect(
+      await h.send({ type: "context", windowId: 1, allowPrivate: true }),
+    ).toMatchObject({ url: "https://example.test/" });
     await expect(
-      h.send({ type: "create", page: h.page(), markdown: "No" }),
-    ).rejects.toMatchObject({ code: "action" });
-    const saved = (await h.send({
-      type: "create",
-      page: h.page(),
-      markdown: "Explicit",
-      allowPrivate: true,
-    })) as BrowserNote;
-    await expect(
-      h.send({ type: "navigate", windowId: 1, url: saved.url }),
+      h.send({ type: "capture", page: h.page(), mode: "auto" }),
     ).rejects.toMatchObject({ code: "action" });
   });
 
@@ -308,17 +274,10 @@ describe("plain browser file service", () => {
     await expect(capture).rejects.toMatchObject({ code: "source" });
   });
 
-  it("serializes concurrent first imports and prevents stale source writes", async () => {
-    const h = harness();
+  it("prevents a stale write after the source was switched", async () => {
+    const h = harness({ "aic.md": "Original" });
     await h.connect();
-    await Promise.all(
-      ["First", "Second"].map((markdown) =>
-        h.send({ type: "create", page: h.page(), markdown }),
-      ),
-    );
-    const saved = ((await h.send({ type: "load" })) as BrowserLibrary)
-      .notes[0]!;
-    expect(saved.markdown).toBe("First\n\nSecond");
+    const saved = await note(h);
     const other = markdownFixture();
     h.files.handles.set("browser-other", other.root);
     await h.send({ type: "connect-source", bindingId: "browser-other" });
@@ -330,14 +289,14 @@ describe("plain browser file service", () => {
         markdown: "Stale",
       }),
     ).rejects.toMatchObject({ code: "source" });
-    expect(h.files.text(saved.filePath!)).toBe("First\n\nSecond");
+    expect(h.files.text("aic.md")).toBe("Original");
+    expect(other.entries.has("aic.md")).toBe(false);
   });
 
   it("retains plain draft recovery during an in-flight file write and source permission loss", async () => {
     const h = harness({ "note.md": "Original" }, "note.md");
     await h.connect();
-    const saved = ((await h.send({ type: "load" })) as BrowserLibrary)
-      .notes[0]!;
+    const saved = await note(h);
     let release!: () => void;
     let entered!: () => void;
     const wait = new Promise<void>((resolve) => {
@@ -365,8 +324,12 @@ describe("plain browser file service", () => {
         {
           scope: "current",
           key: saved.id,
-          context: { url: `file:${saved.id}`, title: saved.title },
-          record: saved,
+          context: { url: `file:${saved.id}`, title: saved.filePath },
+          record: {
+            id: saved.id,
+            revision: saved.revision,
+            markdown: saved.markdown,
+          },
           text: "Latest unsaved text",
         },
       ],
@@ -385,7 +348,7 @@ describe("plain browser file service", () => {
   });
 
   it("reports read-only grants before a save and restores editing after a trusted reconnect across worker restart", async () => {
-    const h = harness({ "note.md": "Original" });
+    const h = harness({ "aic.md": "Original" });
     let writable = true;
     h.files.root.queryPermission = async ({ mode }) =>
       mode === "read" || writable ? "granted" : "prompt";
@@ -394,8 +357,7 @@ describe("plain browser file service", () => {
       return "granted";
     };
     await h.connect();
-    const original = ((await h.send({ type: "load" })) as BrowserLibrary)
-      .notes[0]!;
+    const original = await note(h);
     writable = false;
     h.restart();
     expect(await h.send({ type: "status" })).toMatchObject({
@@ -403,9 +365,7 @@ describe("plain browser file service", () => {
       access: { read: "granted", write: "prompt" },
       sourceErrorCode: "permission",
     });
-    expect(
-      ((await h.send({ type: "load" })) as BrowserLibrary).notes[0]!.markdown,
-    ).toBe("Original");
+    expect((await note(h)).markdown).toBe("Original");
     await expect(
       h.send({
         type: "save",
@@ -414,7 +374,7 @@ describe("plain browser file service", () => {
         markdown: "New draft",
       }),
     ).rejects.toMatchObject({ code: "permission" });
-    expect(h.files.text("note.md")).toBe("Original");
+    expect(h.files.text("aic.md")).toBe("Original");
     const { BrowserSourceAccess } =
       await import("../src/browser/markdown-storage");
     const access = new BrowserSourceAccess(h.files.bindings);
@@ -430,11 +390,11 @@ describe("plain browser file service", () => {
       revision: original.revision,
       markdown: "New draft",
     });
-    expect(h.files.text("note.md")).toBe("New draft");
+    expect(h.files.text("aic.md")).toBe("New draft");
   });
 
-  it("restores a remembered source after restart without a failed scan or automatic permission prompt", async () => {
-    const h = harness({ "note.md": "Saved on disk" });
+  it("restores a remembered source after restart without an automatic permission prompt", async () => {
+    const h = harness({ "aic.md": "Saved on disk" });
     await h.connect();
     const originalSource = structuredClone(h.local[FILE_SOURCE_KEY]);
     const request = vi.spyOn(h.files.root, "requestPermission");
@@ -442,7 +402,6 @@ describe("plain browser file service", () => {
     h.files.root.queryPermission = async () =>
       h.files.state.allowed ? "granted" : "prompt";
     h.restart();
-    const scanCount = h.files.state.scans;
     h.api.storage.local.set.mockClear();
     expect(await h.send({ type: "status" })).toMatchObject({
       state: "unavailable",
@@ -450,12 +409,7 @@ describe("plain browser file service", () => {
       access: { read: "prompt", write: "prompt" },
       sourceErrorCode: "permission",
     });
-    expect(await h.send({ type: "scan-status" })).toEqual({
-      scan: null,
-      notes: [],
-      next: 0,
-    });
-    expect(h.files.state.scans).toBe(scanCount);
+    expect(h.files.state.scans).toBe(0);
     expect(request).not.toHaveBeenCalled();
     expect(h.api.storage.local.set).not.toHaveBeenCalled();
     expect(h.local[FILE_SOURCE_KEY]).toEqual(originalSource);
@@ -473,9 +427,7 @@ describe("plain browser file service", () => {
       source: originalSource,
       access: { read: "granted", write: "granted" },
     });
-    expect(
-      ((await h.send({ type: "load" })) as BrowserLibrary).notes[0]!.markdown,
-    ).toBe("Saved on disk");
+    expect((await note(h)).markdown).toBe("Saved on disk");
     expect(h.local[FILE_SOURCE_KEY]).toEqual(originalSource);
   });
 });

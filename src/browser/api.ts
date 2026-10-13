@@ -1,4 +1,4 @@
-import type { PageContext, PageNoteExpectation } from "./library";
+import type { PageContext } from "./library";
 import type { capturePage } from "./capture-page";
 import type { RecoveryDraft } from "./recovery-store";
 
@@ -54,11 +54,6 @@ export type BrowserApi = {
       active?: boolean;
       windowId?: number;
     }): Promise<BrowserTab[]>;
-    get(id: number): Promise<BrowserTab>;
-    update(
-      id: number,
-      update: { active?: boolean; url?: string },
-    ): Promise<BrowserTab>;
     create(options: { url: string; windowId: number }): Promise<BrowserTab>;
     onActivated: Listener<[{ tabId: number; windowId: number }]>;
     onUpdated: Listener<
@@ -93,9 +88,6 @@ export type Request = { sourceId?: string } & (
   | { type: "unlock"; password: string }
   | { type: "lock" }
   | { type: "load" }
-  | { type: "scan-status"; id?: string; after?: number }
-  | { type: "cancel-scan"; id: string }
-  | { type: "refresh-files" }
   | {
       type: "checkpoint-drafts";
       clientId: string;
@@ -105,25 +97,13 @@ export type Request = { sourceId?: string } & (
   | { type: "list-recovery" }
   | { type: "dismiss-recovery"; clientId: string; sequence: number }
   | { type: "context"; windowId: number; allowPrivate?: boolean }
-  | { type: "visit"; windowId: number; allowPrivate?: boolean }
-  | {
-      type: "create";
-      page: ActivePage;
-      markdown: string;
-      allowPrivate?: boolean;
-      ifAbsent?: boolean;
-    }
   | { type: "save"; id: string; markdown: string; revision: number }
-  | { type: "create-file"; path: string; markdown: string }
-  | { type: "link-file"; id: string; page: ActivePage; allowPrivate?: boolean }
-  | { type: "delete-page"; url: string; expectedNote: PageNoteExpectation }
   | {
       type: "capture";
       page: ActivePage;
       mode: "auto" | "page" | "selection";
       allowPrivate?: boolean;
     }
-  | { type: "navigate"; windowId: number; url: string; allowPrivate?: boolean }
   | { type: "import"; text: string; password: string }
   | { type: "export" }
 );
