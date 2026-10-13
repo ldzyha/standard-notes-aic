@@ -169,6 +169,29 @@ describe("shared design and feature registry contract", () => {
       expect(await read(file)).not.toContain(".cm-panels");
   });
 
+  it("keeps a page card target in its own case and an unbound page a plain divider", async () => {
+    const css = await read("src/core/ui-system.css");
+    const shared = await read("src/core/preview-layout.css");
+    // The shared header rule this must outrank: three classes, loaded later.
+    expect(shared).toMatch(
+      /\.cm-editor \.cm-content :is\(\.aic-card__header, \.cm-md-preview-header\) \{[^}]*text-transform: uppercase;/u,
+    );
+    const header =
+      /\.cm-editor \.cm-content \.aic-card--page > \.aic-card__header \{([^}]*)\}/u.exec(
+        css,
+      )?.[1];
+    expect(header).toContain("text-transform: none;");
+    expect(header).toContain("letter-spacing: normal;");
+    const divider =
+      /\.cm-editor \.cm-content \.aic-card--page > \.aic-card__header\[role="separator"\] \{([^}]*)\}/u.exec(
+        css,
+      )?.[1];
+    expect(divider).toContain("min-height: 0;");
+    expect(divider).toContain("padding: 0;");
+    expect(divider).toContain("border-width: 1px 0 0;");
+    expect(divider).toContain("background: none;");
+  });
+
   it("loads shared UI in every host and does not restore copied preview shells", async () => {
     const inventory: string[] = JSON.parse(await read("CORE_FILES.json"));
     for (const file of ["ui-system.js", "ui-system.d.ts", "ui-system.css"])

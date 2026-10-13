@@ -425,8 +425,9 @@ async function maybeEntry<T>(open: () => Promise<T>): Promise<T | null> {
 
 /**
  * One worker owner of the one note file. A connected folder contributes only
- * its `aic.md`: no other file or folder in it is read, listed or written, so
- * notes and `.aic` metadata of the earlier per-page layout stay as they are.
+ * its `aic.md`: no other file is read and nothing else is listed or written,
+ * so notes and `.aic` metadata of the earlier per-page layout stay as they
+ * are. The only other access is a check whether the `.aic` folder exists.
  */
 export class BrowserMarkdownStorage {
   private observed: Observation | null = null;
