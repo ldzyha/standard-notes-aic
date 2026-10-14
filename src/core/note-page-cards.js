@@ -236,7 +236,7 @@ class PageHeaderWidget extends WidgetType {
         view.focus();
       });
     const open = view.state.facet(openTarget);
-    if (open) {
+    if (open?.can(this.target)) {
       const actions = applyUiComponent(
         document.createElement("span"),
         "card",
@@ -247,7 +247,7 @@ class PageHeaderWidget extends WidgetType {
         createIconButton(document, {
           label: "Open target",
           icon: "open",
-          onActivate: () => open(this.target),
+          onActivate: () => open.open(this.target),
         }),
       );
       header.append(actions);
@@ -347,12 +347,16 @@ const headerField = StateField.define({
 });
 
 /** Focus state, hiding and edit confinement; install outside source mode. */
-export function notePageCards({ onOpenTarget } = {}) {
+export function notePageCards({ onOpenTarget, canOpenTarget } = {}) {
   return [
     focusField,
     confinement,
     focusDecorationField,
-    openTarget.of(typeof onOpenTarget === "function" ? onOpenTarget : null),
+    openTarget.of(
+      typeof onOpenTarget === "function"
+        ? { open: onOpenTarget, can: canOpenTarget ?? (() => true) }
+        : null,
+    ),
   ];
 }
 

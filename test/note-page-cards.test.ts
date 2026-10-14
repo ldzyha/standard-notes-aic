@@ -30,6 +30,7 @@ function mount(
     readOnly?: boolean;
     preview?: boolean;
     plainHistory?: boolean;
+    canOpenTarget?: (target: string) => boolean;
   } = {},
 ) {
   const onOpenTarget = vi.fn();
@@ -41,7 +42,10 @@ function mount(
         options.plainHistory ? history() : notePageHistory(),
         EditorState.allowMultipleSelections.of(true),
         EditorState.readOnly.of(options.readOnly ?? false),
-        notePageCards({ onOpenTarget }),
+        notePageCards({
+          onOpenTarget,
+          canOpenTarget: options.canOpenTarget,
+        }),
         options.preview === false ? [] : notePageCardsPreview(),
       ],
     }),
@@ -96,6 +100,19 @@ describe("note page cards", () => {
       "https://example.com/docs",
     );
     expect(text()).toBe(NOTE);
+    view.destroy();
+  });
+
+  it("offers Open target only for targets the host can open", () => {
+    const { view, cards } = mount(NOTE, {
+      canOpenTarget: (target) => target.startsWith("https:"),
+    });
+    expect(cards().map((card) => !!card.querySelector("button"))).toEqual([
+      false,
+      true,
+      false,
+      false,
+    ]);
     view.destroy();
   });
 

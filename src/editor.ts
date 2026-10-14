@@ -67,6 +67,8 @@ export type AicEditorOptions = {
   onSave?: (reason?: "action" | "boundary") => boolean | Promise<boolean>;
   /** "Open target" on a page card; without it the action is not shown. */
   onOpenTarget?: (target: string) => void;
+  /** Targets that get "Open target"; all of them when omitted. */
+  canOpenTarget?: (target: string) => boolean;
 };
 
 export type SaveState = "dirty" | "saved" | "placeholder" | "unavailable";
@@ -139,6 +141,7 @@ export class AicEditor {
   private readonly onChange: (text: string) => void;
   private readonly onSave: AicEditorOptions["onSave"];
   private readonly onOpenTarget: AicEditorOptions["onOpenTarget"];
+  private readonly canOpenTarget: AicEditorOptions["canOpenTarget"];
   private pageFocus: string | null = null;
   private readonly saveButton: HTMLButtonElement | null;
   private readonly saveStatus: HTMLElement | null;
@@ -157,6 +160,7 @@ export class AicEditor {
     this.onChange = options.onChange ?? (() => {});
     this.onSave = options.onSave;
     this.onOpenTarget = options.onOpenTarget;
+    this.canOpenTarget = options.canOpenTarget;
     this.currentReadOnly = options.readOnly ?? false;
     this.element = this.document.createElement("section");
     this.element.className = "aic-editor";
@@ -259,7 +263,10 @@ export class AicEditor {
       EditorView.lineWrapping,
       placeholder(SLASH_SNIPPET_PLACEHOLDER),
       slashSnippetExtension(),
-      notePageCards({ onOpenTarget: this.onOpenTarget }),
+      notePageCards({
+        onOpenTarget: this.onOpenTarget,
+        canOpenTarget: this.canOpenTarget,
+      }),
       EditorView.contentAttributes.of({
         "aria-label": "AIC Markdown note",
         spellcheck: "true",

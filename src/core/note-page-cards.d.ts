@@ -21,6 +21,8 @@ export function pageExternalAnnotations(): Annotation<unknown>[];
 export type NotePageCardsOptions = {
   /** Host navigation for "Open target"; without it the action is not shown. */
   onOpenTarget?: (target: string) => void;
+  /** Targets that get "Open target"; all of them when omitted. */
+  canOpenTarget?: (target: string) => boolean;
 };
 
 export type FocusedPage = {
