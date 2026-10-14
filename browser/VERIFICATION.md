@@ -2,6 +2,46 @@
 
 [English](VERIFICATION.md) · [Українська](VERIFICATION.uk.md)
 
+## Prepared release 52.7.6 / browser 0.12.0 — October 14, 2026
+
+The Chromium manifest is **0.12.0** with Standard Notes AIC 52.7.6, AIC Notes
+61.6.5 and shared core 8.0.0. Its description now names the one note file and the
+page per web address; the six required permissions and optional HTTP(S) access
+are unchanged. Each one is still used: `sidePanel` (panel behavior), `storage`
+(connection metadata and recovery), `tabs` (active-tab address, **Open target**,
+**Open AIC in tab**), `scripting` and optional site access (**Import current
+content**), `clipboardRead` (Paste on an empty typed field) and `clipboardWrite`
+(Copy). No submission or approval is claimed.
+
+On Node 24.21.0, `npm run check` passed: formatting, ESLint, TypeScript,
+**1,225 tests in 97 files**, and the Standard Notes and PWA builds.
+`npm run build:browser` passed, and `npm test -- test/pwa-offline.test.ts` passed
+17 tests. These are synthetic suites and local builds; no installed extension was
+run in Chrome or Edge.
+
+The [pre-release rule](../AGENTS.md) review used clean local Core revision
+`c152359c05f572b701651baebca09a49594114bf`:
+`playground/document/DOCUMENT-GUIDE.md`, `templates.js` and `format-guide.js`.
+It also used the local DDK writing skill: `ddk/SKILL.md`, its
+`references/ddk-rules.md`, `references/templates.md` and
+`references/update-mode.md`, and the `ddk-diagram`, `ddk-glossary`,
+`ddk-bibliography`, `ddk-high-level-design`, `ddk-detailed-view`,
+`ddk-error-handling`, `ddk-test-cases` and `ddk-open-question` sub-skills. The
+public [DDK prompt](https://ddk.dzyha.com/prompt.html) was **not** fetched or
+compared online for this review.
+
+Compared with `src/core/slash-snippets.js` (catalogue 2.0.0): the eight section
+templates match the Core templates and DDK block sets in title, question and
+table columns; glossary and bibliography use the DDK list forms; the flowchart,
+sequence and state templates follow `ddk-diagram`, including the one sentence
+under the diagram. No template drift was found. In `src/core/agent-guide.js`
+(version 3), the DDK summary names prose, bullets, steps, tables and Mermaid but
+not the glossary and bibliography formats or DDK's table rule (three or more
+items sharing two or more attributes). The guide also still describes
+`*.note.md` sidecars and URL-to-file associations, which the VS Code and browser
+hosts no longer create. Both are recorded for the owner; core behavior was not
+changed for this release.
+
 ## One note file — October 13, 2026
 
 The panel edits one note file (`aic.md` in the connected folder, or the connected

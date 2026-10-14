@@ -1,6 +1,6 @@
 {
   "registryVersion": 1,
-  "asOf": "2026-10-02",
+  "asOf": "2026-10-14",
   "status": {
     "currentFacts": "The shared runtime registry and base geometry exist in src/core/ui-system.*. Button is adopted by shared toolbar/actions and parts of the browser; card and field are adopted by the shared AIC renderer; toolbar, menu, notice, and tree are partially adopted in the browser. Most legacy selectors remain active and required. Pages is a ninth ID added for the shared note page bar and has no legacy selectors.",
     "approvedDirection": "The user approved one cross-host design system using BEM elements and explicit modifiers for Standard Notes, Chromium, and VS Code. The eight current IDs are the implemented technical baseline accepted in root review, not names separately prescribed by the user.",

@@ -5,8 +5,8 @@ import localManifest from "../public/ext.local.json";
 
 describe("Standard Notes component manifest", () => {
   it("registers AIC with the Code icon and interchangeable Markdown storage", () => {
-    expect(packageJson.version).toBe("51.0.1");
-    expect(packageJson.aicEditorCore).toBe("7.5.3");
+    expect(packageJson.version).toBe("52.7.6");
+    expect(packageJson.aicEditorCore).toBe("8.0.0");
     expect(manifest).toMatchObject({
       identifier: "com.dzyha.standard-notes-aic",
       name: "AIC",

@@ -13,18 +13,16 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
-Prepared, unreleased plain-file update: the PWA and browser extension edit ordinary
-Markdown files and folders; VS Code uses native documents. No AIC password,
-encryption, encrypted backup or legacy conversion is required or provided.
-Standard Notes keeps its own encryption and synchronization. Masked field previews
-and copying without revealing values remain available in every editor.
-See [the cross-host usage guide](RELEASE_INSTALL.md), [PWA files](pwa/README.md)
-and [browser files and URL links](browser/README.md). Publication is verified separately.
-
-Prepared release 51.0.1 pairs with AIC Notes 60.0.2, experimental browser 0.11.3
-and shared core 7.5.3. Code previews let vertical scrolling continue through the
-document, retain their full height, and preserve horizontal scrolling for long
-lines. Release assets and store availability require separate verification.
+Prepared release 52.7.6 pairs with AIC Notes 61.6.5, experimental browser 0.12.0
+and shared core 8.0.0. The PWA and browser extension edit ordinary Markdown files
+and folders; VS Code uses native documents. No AIC password, encryption, encrypted
+backup or legacy conversion is required or provided. One note splits into page
+cards with exact targets; the browser panel edits one `aic.md` and shows the page
+of the active tab. Slash templates follow DDK, and `/aic` inserts an AIC block.
+Standard Notes keeps its own encryption and synchronization. See
+[the cross-host usage guide](RELEASE_INSTALL.md), [PWA files](pwa/README.md) and
+[browser files and pages](browser/README.md). Release assets and store
+availability require separate verification.
 
 The local-file PWA opens Markdown files and folders and writes connected originals,
 with device snapshots as a secondary cache. Each host shows one note at a time;
@@ -457,7 +455,7 @@ The compact menu has three groups:
 
 Slash completion is
 disabled in fenced/inline code and in locked notes, so `/` remains ordinary Markdown there. AIC
-Notes uses this same catalog in both ordinary `.md` documents and contextual `.note.md` notes.
+Notes uses this same catalog in both ordinary `.md` documents and its Linked Note `aic.md`.
 
 ## Preview and source controls
 

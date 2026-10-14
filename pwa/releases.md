@@ -15,12 +15,12 @@ These instructions describe the new working version. Deployment, signed packages
 and store availability must still be verified. Older release entries below
 record their original behavior and may mention features removed from this version.
 
-| Where to work             | What to open                                        | Where a save goes                                               |
-| ------------------------- | --------------------------------------------------- | --------------------------------------------------------------- |
-| [AIC Notes PWA](/)        | A `.md` file or folder                              | The connected file on disk                                      |
-| Chrome or Edge side panel | A `.md` file or folder; optionally link it to a URL | The connected file; links stay in `.aic/links.json` for folders |
-| VS Code desktop or Web    | A Markdown file through **AIC Markdown**            | The workspace's filesystem provider, using native Save/Undo     |
-| Standard Notes            | A note with the **AIC** editor                      | Standard Notes, under its own storage and sync settings         |
+| Where to work             | What to open                                  | Where a save goes                                           |
+| ------------------------- | --------------------------------------------- | ----------------------------------------------------------- |
+| [AIC Notes PWA](/)        | A `.md` file or folder                        | The connected file on disk                                  |
+| Chrome or Edge side panel | A `.md` file, or a folder that holds `aic.md` | The connected file, or `aic.md` in the folder               |
+| VS Code desktop or Web    | A Markdown file through **AIC Markdown**      | The workspace's filesystem provider, using native Save/Undo |
+| Standard Notes            | A note with the **AIC** editor                | Standard Notes, under its own storage and sync settings     |
 
 The same file syntax works across the three file-based hosts. Standard Notes
 does not automatically open or synchronize that folder; transfer content there
@@ -29,13 +29,15 @@ remain untouched by this removal.
 
 ### Open, create and save
 
-1. In the PWA choose **Files** or **Folder**. In the browser panel choose
-   **Open file** or **Open folder**. Grant access and select a note in the tree.
-   Folder scanning shows Markdown and applies `node_modules`, `.git`, `.gitignore`
-   and `.ignore` exclusions.
-2. Use **New note** in the PWA or **More options → New file** in the browser panel. With direct
-   write access, choose a destination or a name within the connected folder.
-   A new file starts blank; opening an existing file keeps its text.
+1. In the PWA choose **Files** or **Folder**, grant access and select a note in
+   the tree. Folder scanning shows Markdown and applies `node_modules`, `.git`,
+   `.gitignore` and `.ignore` exclusions. In the browser panel choose
+   **Open file** or **Open folder**; a folder uses its `aic.md`, and the panel
+   reads and writes no other file there.
+2. Use **New note** in the PWA. With direct write access, choose a destination
+   or a name within the connected folder. A new file starts blank; opening an
+   existing file keeps its text. In the browser panel, your first edit creates a
+   missing `aic.md`.
 3. Write in Preview or Markdown source. **Save** or Ctrl/Cmd+S flushes a pending
    save. Wait for **Saved to file** in the PWA or **On disk** in the browser;
    **Unsaved**, **Saving…** or **Reconnect** does not confirm a completed write.
@@ -43,8 +45,9 @@ remain untouched by this removal.
    **More options → Reconnect access** in the browser. The visible source shows
    the filename and relative location; browsers do not expose its absolute OS path.
 5. If another app changed the file, review its content or keep your draft as a
-   separate copy: **Save a copy** in the PWA, **Download copy** in the
-   browser. A deleted source is not recreated automatically.
+   separate copy: **Save a copy** in the PWA, **Export unsaved draft** in the
+   browser, where **Discard my changes and reload** loads the file instead. A
+   deleted source is not recreated automatically.
 6. Removing a workspace connection or uninstalling an app does not delete its
    original files. Uninstalling or clearing browser data can remove local recovery
    copies, so those copies do not replace saved files and backups.
@@ -56,36 +59,27 @@ browser drafts and download Markdown copies. **Browser draft · download to save
 means the original was not updated: choose **Save a copy** or **Export Markdown**
 to keep the text as a file.
 
-In the browser extension, a folder scan shows entries checked, notes ready and
-the current path, without guessing a percentage. **Use found notes** stops the
-scan and keeps notes already read. **Scan again** or **More options → Refresh
-folder** explicitly rescans; ordinary loads, tab changes and saves reuse the
-connected folder's index. When notes are found, **Notes** opens automatically.
-The tree expands lazily, 100 rows per level; **Show more** reveals more rows,
-while search includes every indexed note.
-
 ### Keep one note in focus
 
+The editor shows one note at a time: in the PWA the file selected in the tree,
+in the browser panel its one note file, and in VS Code the opened document.
+
+Inside a note, a `---` line after a blank line starts a new page, and
+`--- <path-or-url>` binds the following page to that file path or web address.
+Each page shows as a card; **Open target** on a bound card opens its web address
+in a new tab or, in the PWA, selects the file with that path.
+
+The browser panel shows only the page bound to the active tab's exact address.
+An address without a page shows an empty card; the page is added at the end of
+the note when you start typing, and a page visit by itself writes nothing.
+Changing tabs changes the page shown and clears Undo for the previous page. A tab
+without an `http` or `https` address shows the whole note. In VS Code, Linked
+Note shows the page of the workspace `aic.md` bound to the active file.
+
 For a remembered browser location, **Continue** restores access to the selected
-files. Other locations and **New file** are in **More options**. If no permission
-prompt appears in the side panel, use **More options → Open AIC in tab** and
-continue there. The original panel checks access when you return.
-
-The editor shows one note at a time: the file selected in the tree, or in the
-browser extension the note for the active page.
-
-For browser URL associations, open a **folder**, select a file, then choose
-**More options → Link file to current page**. Choose **Follow active tab** to resume
-page-based navigation after browsing files. Current follows the exact URL, Shared
-belongs to its exact origin, and Global belongs to the selected folder. A single
-file connection opens only that file, without folder scopes or URL linking.
-All three browser scopes edit ordinary Markdown and AIC blocks directly, without
-an additional Edit/Done step. The source path and Download copy follow the active
-scope; Global stays selected when you change browser pages.
-
-A page visit by itself does not create a note. Links live in `.aic/links.json`;
-content stays in `.md` files that other editors can read. Selecting a file from
-the tree lets you work independently of the active website.
+file or folder. Other locations are in **More options**. If no permission prompt
+appears in the side panel, use **More options → Open AIC in tab** and continue
+there. The original panel checks access when you return.
 
 ### Reuse project context with a coding agent
 
@@ -163,9 +157,10 @@ verify its neighboring `.sha256`: `sha256sum -c FILE.sha256` on Linux,
 `shasum -a 256 FILE` on macOS, or `(Get-FileHash .\FILE -Algorithm SHA256).Hash`
 in PowerShell. Build success, publication and installed behavior are separate checks.
 
-The writing guidance was reviewed on October 2 against local Core revision
+The writing guidance was reviewed on October 14 against local Core revision
 `c152359c05f572b701651baebca09a49594114bf`, its document guide, format rules and
-templates, and the current public DDK guide. [The review record](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/VERIFICATION.md)
+templates, and the local DDK writing skill; the public DDK guide was not
+compared online for this review. [The review record](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/VERIFICATION.md)
 identifies the sources and differences. AIC reuses the writing method in Markdown;
 this does not claim a merge of DDK's editor runtime or JSON format.
 
@@ -175,6 +170,26 @@ this does not claim a merge of DDK's editor runtime or JSON format.
 
 The entries below preserve their original release context. Use the guide above
 for the prepared plain-file version.
+
+## Prepared update: Standard Notes 52.7.6 / VS Code 61.6.5 / browser 0.12.0
+
+Shared core 8.0.0 changes the note model. A `---` line after a blank line splits
+a note into pages, and `--- <path-or-url>` binds the next page to a file path or
+web address; pages show as cards with **Open target**. The Current, Shared and
+Global tabs are removed. The browser panel edits one `aic.md` and shows the page
+of the active tab; per-URL note files, the notes tree, history and pin are
+removed. VS Code's Linked Note shows the page of the workspace `aic.md` bound to
+the active file; sidecar notes, pin and Trash are removed. Existing files are
+never deleted or converted. The PWA reopens the last note, and slash templates
+follow DDK with `/aic` for an AIC block.
+
+Publication of these versions is pending verification. After publication, use
+[VSIX 61.6.5](https://github.com/ldzyha/aic-notes/releases/download/v61.6.5/aic-notes-61.6.5.vsix)
+and its [SHA-256](https://github.com/ldzyha/aic-notes/releases/download/v61.6.5/aic-notes-61.6.5.vsix.sha256),
+[Standard Notes 52.7.6](https://github.com/ldzyha/standard-notes-aic/releases/tag/v52.7.6),
+and [Chromium 0.12.0 ZIP](https://github.com/ldzyha/standard-notes-aic/releases/download/v52.7.6/aic-browser-chromium-0.12.0.zip)
+with [SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v52.7.6/aic-browser-chromium-0.12.0.zip.sha256).
+PWA deployment and store submission or approval are verified separately.
 
 ## Prepared update: Standard Notes 51.0.1 / VS Code 60.0.2 / browser 0.11.3
 

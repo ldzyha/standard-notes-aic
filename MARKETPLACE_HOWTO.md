@@ -4,17 +4,17 @@
 
 ## English
 
-### Prepared release — October 2, 2026
+### Prepared release — October 14, 2026
 
-[AIC Notes 60.0.2](https://github.com/ldzyha/aic-notes/releases/tag/v60.0.2)
-and [Standard Notes AIC 51.0.1](https://github.com/ldzyha/standard-notes-aic/releases/tag/v51.0.1)
-are prepared with browser 0.11.3 and core 7.5.3. Verify final GitHub assets,
+[AIC Notes 61.6.5](https://github.com/ldzyha/aic-notes/releases/tag/v61.6.5)
+and [Standard Notes AIC 52.7.6](https://github.com/ldzyha/standard-notes-aic/releases/tag/v52.7.6)
+are prepared with browser 0.12.0 and core 8.0.0. Verify final GitHub assets,
 SHA-256 values and installation before claiming a release or store approval.
 
 | Destination            | Latest checked state                                     | Prepared update                     |
 | ---------------------- | -------------------------------------------------------- | ----------------------------------- |
-| VS Code Marketplace    | 59.0.2 public (October 2)                                | 60.0.2, submission not yet verified |
-| Chrome Web Store       | 0.9.3 public; 0.11.1 pending review; new upload disabled | `aic-browser-chromium-0.11.3.zip`   |
+| VS Code Marketplace    | 59.0.2 public (October 2)                                | 61.6.5, submission not yet verified |
+| Chrome Web Store       | 0.9.3 public; 0.11.1 pending review; new upload disabled | `aic-browser-chromium-0.12.0.zip`   |
 | Microsoft Edge Add-ons | No Edge workspace at the October 1 check                 | No confirmed submission             |
 
 The October 2 checks confirm Marketplace **59.0.2** public and Chrome **0.9.3**
@@ -43,7 +43,7 @@ local Markdown, optional encryption, or explicit export model.
   verify their SHA-256 values. `manifest.json` must be at the ZIP root and
   `THIRD_PARTY_NOTICES.md` must include required dependency notices.
 - Keep the store listing's description, permissions, deliberate import, clipboard
-  behavior, local encryption, and absence of synchronization accurate. Never put
+  behavior, plain local files, and absence of synchronization accurate. Never put
   credentials, passwords, tokens, or recovery codes in the repository.
 - Check public canonical links without authentication:
   [homepage](https://aic.dzyha.com/), [Terms and privacy](https://aic.dzyha.com/terms),
@@ -61,10 +61,10 @@ local Markdown, optional encryption, or explicit export model.
 
 #### VS Code Marketplace
 
-1. Verify the 60.0.2 GitHub VSIX and checksum, then upload those exact bytes to
+1. Verify the 61.6.5 GitHub VSIX and checksum, then upload those exact bytes to
    the existing listing after checking its current version.
 2. Wait for Microsoft verification, confirm `ldzyha.aic-notes` publicly shows
-   **60.0.2**, then install it in a clean VS Code profile.
+   **61.6.5**, then install it in a clean VS Code profile.
 3. A GitHub VSIX supports manual installation but does not publish the extension.
    See the [Marketplace publishing guide](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md).
 
@@ -114,17 +114,17 @@ See [Local data](browser/README.md).
 
 ## Українська
 
-### Підготовлений випуск — 2 жовтня 2026
+### Підготовлений випуск — 14 жовтня 2026
 
-Підготовлено [AIC Notes 60.0.2](https://github.com/ldzyha/aic-notes/releases/tag/v60.0.2)
-і [Standard Notes AIC 51.0.1](https://github.com/ldzyha/standard-notes-aic/releases/tag/v51.0.1)
-із браузерним пакетом 0.11.3 та ядром 7.5.3. Перед заявою про випуск або схвалення
+Підготовлено [AIC Notes 61.6.5](https://github.com/ldzyha/aic-notes/releases/tag/v61.6.5)
+і [Standard Notes AIC 52.7.6](https://github.com/ldzyha/standard-notes-aic/releases/tag/v52.7.6)
+із браузерним пакетом 0.12.0 та ядром 8.0.0. Перед заявою про випуск або схвалення
 перевірте остаточні файли GitHub, SHA-256 та встановлення.
 
 | Призначення            | Останній перевірений стан                                        | Підготовлене оновлення             |
 | ---------------------- | ---------------------------------------------------------------- | ---------------------------------- |
-| VS Code Marketplace    | 59.0.2 доступна (2 жовтня)                                       | 60.0.2, подання ще не підтверджене |
-| Chrome Web Store       | 0.9.3 доступна; 0.11.1 перевіряється; нове завантаження вимкнено | `aic-browser-chromium-0.11.3.zip`  |
+| VS Code Marketplace    | 59.0.2 доступна (2 жовтня)                                       | 61.6.5, подання ще не підтверджене |
+| Chrome Web Store       | 0.9.3 доступна; 0.11.1 перевіряється; нове завантаження вимкнено | `aic-browser-chromium-0.12.0.zip`  |
 | Microsoft Edge Add-ons | Простір Edge недоступний під час перевірки 1 жовтня              | Подання не підтверджене            |
 
 Перевірки 2 жовтня підтвердили публічні Marketplace **59.0.2** і Chrome **0.9.3**,
@@ -152,7 +152,7 @@ PWA, що входить до Standard Notes AIC 49.1.2, має компактн
   [`browser/manifest.json`](browser/manifest.json), перегляньте фінальні архіви
   та перевірте SHA-256. `manifest.json` має бути в корені ZIP, а
   `THIRD_PARTY_NOTICES.md` — містити потрібні повідомлення про залежності.
-- Опис магазину, дозволи, явний імпорт, поведінка буфера обміну, локальне шифрування
+- Опис магазину, дозволи, явний імпорт, поведінка буфера обміну, звичайні локальні файли
   та відсутність синхронізації мають відповідати продукту. Не зберігайте в
   репозиторії облікові дані, паролі, токени чи коди відновлення.
 - Перевірте без авторизації канонічні публічні посилання:
@@ -172,9 +172,9 @@ PWA, що входить до Standard Notes AIC 49.1.2, має компактн
 
 #### VS Code Marketplace
 
-1. Перевірте VSIX 60.0.2 із GitHub та контрольну суму, потім завантажте ті самі
+1. Перевірте VSIX 61.6.5 із GitHub та контрольну суму, потім завантажте ті самі
    байти до наявного запису після перевірки поточної версії.
-2. Дочекайтеся перевірки Microsoft, підтвердьте публічну **60.0.2** у
+2. Дочекайтеся перевірки Microsoft, підтвердьте публічну **61.6.5** у
    `ldzyha.aic-notes` і встановіть її у чистому профілі VS Code.
 3. VSIX на GitHub дозволяє ручне встановлення, але не публікує розширення.
    Див. [інструкцію публікації Marketplace](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md).

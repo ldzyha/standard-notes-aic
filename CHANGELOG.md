@@ -2,6 +2,108 @@
 
 [English](CHANGELOG.md) · [Українська](CHANGELOG.uk.md)
 
+## 52.7.6 — 2026-10-14
+
+Release sequence 52 · 7 feature outcomes · 6 fixed-bug outcomes.
+Coordinates Standard Notes AIC 52.7.6, AIC Notes 61.6.5, experimental browser
+0.12.0 and shared core 8.0.0. Prepared release; publication is verified separately.
+Shared core 8.0.0 is a breaking change of the note model: one note is split into
+pages, and the note-scope tabs are gone.
+
+### F01 — Plain Markdown files without an app password
+
+The PWA and the browser extension open ordinary `.md` files and folders and save
+directly to the connected original; browser copies serve only as recovery. The
+app password, encrypted workspace, encrypted backups and `.aicnotes` import are
+removed. Existing old files and browser data are left untouched and are not
+converted. Secret fields stay masked on screen, but the Markdown file is plain
+text. Standard Notes keeps its own encryption and synchronization.
+
+### F02 — The PWA reopens the last note
+
+Starting the PWA, or returning to it with browser Back or Forward, reopens the
+last opened note of its workspace. Closing or removing that workspace stops the
+reopening; its files are not changed.
+
+### F03 — One note at a time instead of Current, Shared and Global
+
+The Current, Shared and Global tabs are removed. The PWA shows the file selected
+in its tree, and the browser panel shows the note for the active page. Earlier
+Shared and Global files stay in place as ordinary Markdown; the PWA opens them
+from its file tree. Recovered drafts from those scopes remain exportable.
+
+### F04 — Note pages with exact targets and one-page focus
+
+A `---` line after a blank line splits a note into pages, and
+`--- <path-or-url>` binds the following page to that file path or web address.
+Each page appears as a card. A bound card shows its target exactly and offers
+**Open target**; an unbound page is a plain divider. A focused view shows one
+target's page, keeps edits inside it and, for a target without a page, adds the
+page at the end of the note when you start typing.
+
+### F05 — The browser panel edits one note file
+
+The side panel edits one file: `aic.md` in the connected folder, or the connected
+file itself. It shows the page bound to the active tab's exact address. An
+address without a page shows an empty card, and visiting a page writes nothing;
+the first edit adds the page and creates a missing `aic.md`. A tab without an
+`http` or `https` address shows the whole note. The note file is limited to
+512 KiB and is never truncated.
+
+### F06 — Per-page browser notes, the notes tree and pin are retired
+
+The browser panel no longer has per-URL note files, the `.aic/links.json` index,
+the notes tree, history, ancestor and related links, pin, file linking, page
+deletion or folder scanning. Files of the earlier layout stay in the folder
+unchanged and are no longer read; nothing is imported into `aic.md`. Recovered
+drafts from earlier versions remain under **Review recovered drafts**.
+
+### F07 — Slash templates follow DDK; `/aic` inserts an AIC block
+
+The `/` menu has three groups: Markdown blocks, the eight DDK sections (Section,
+Glossary, Bibliography, High-level design, Detailed view, Error handling, Test
+cases, Open question) and flowchart, sequence and state diagrams. `/aic` inserts
+an AIC block; `/security` still finds it. Page, noise/wave and other templates
+outside DDK are removed. Untitled AIC blocks and their Copy, Edit, Cut and
+reorder labels say "AIC block". Existing Markdown reads and renders as before.
+
+### B01 — Page boundaries follow the note text
+
+An unclosed code fence ends with its page instead of swallowing the following
+pages. A bound separator always starts a new page, leading empty pages are kept,
+and the first page starts at the top of the note, including frontmatter. Targets
+keep their letter case, web addresses are shown without a user name or password,
+and a target that would not read back unchanged is refused instead of creating
+a page that could never be found.
+
+### B02 — Undo stays in the focused page
+
+Changing the focused target clears the Undo history, so Undo can no longer change
+a page that is not shown.
+
+### B03 — Open target finds files by their folder path
+
+In the PWA, **Open target** finds a file whose target is written relative to the
+opened folder, and says so when no file matches instead of doing nothing.
+
+### B04 — Typed slash commands come first
+
+A typed command name ranks above alias and loose matches: `/error` offers
+**/error-handling** first, and Enter inserts it.
+
+### B05 — Browser file conflicts keep a way out
+
+When `aic.md` changed elsewhere and the focused page is unchanged on disk, Save
+writes the draft's page into the current file and keeps every other byte.
+Otherwise the conflict is reported, the draft stays exportable, and
+**Discard my changes and reload** loads the file after a confirmation. Changing
+files names this way out instead of leaving the draft stuck.
+
+### B06 — Editor bars follow the color scheme
+
+The bars above and below the editor, such as the AIC import bar, use the host's
+light or dark colors instead of CodeMirror's default light panel.
+
 ## 51.0.1 — 2026-10-02
 
 Release sequence 51 · 0 feature outcomes · 1 fixed-bug outcome.
