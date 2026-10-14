@@ -15,9 +15,9 @@ Opening a source link uses ordinary browser navigation.
 
 ## Files and browser-local data
 
-You choose a Markdown file or folder and grant access through the browser picker.
-Note content is plain Markdown on disk in one note file: `aic.md` in the chosen
-folder, or the chosen file. AIC reads and writes no other file in the folder.
+You choose one Markdown note file and grant access through the browser picker.
+Note content is plain Markdown on disk in that file. AIC reads and writes no
+other file.
 File handles and connection metadata are remembered locally in
 IndexedDB. Browser-local storage can also hold cached metadata, preferences and
 plain draft recovery checkpoints. AIC does not use `storage.sync`.

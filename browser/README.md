@@ -13,17 +13,17 @@ package publication and store approval are verified separately.
 
 ## Open files and start writing
 
-Choose **Open folder** or **Open file** through the browser's file picker. A
-folder uses the file `aic.md` inside it; a file is used as it is. Notes are saved
-directly to that one file. A missing `aic.md` is created by your first edit, not
-by opening the folder. An existing `aic.md` is used unchanged. AIC reads and
-writes no other file in the folder. The note file can be up to 512 KiB; a larger
-file is not opened or saved and is never truncated.
+Choose **Open note file** or **Create note file** (suggested name `aic.md`)
+through the browser's file picker. Notes are saved directly to that one file,
+which is used unchanged. AIC reads and writes no other file and does not open
+folders. The note file can be up to 512 KiB; a larger file is not opened or
+saved and is never truncated.
 
 A remembered location shows its name and one **Continue** button when access needs
 renewal. The button becomes available once the saved file handle is ready; it
 requests access to that same location without choosing it again. Use **More options**
-to open a different file or folder.
+to open a different note file. A folder remembered by an earlier version is not
+reopened; open its `aic.md` instead.
 
 The selected location and save status stay visible. Wait for the disk-save
 confirmation before closing. If the file changed elsewhere, was deleted or lost
@@ -33,7 +33,7 @@ when the browser requests it.
 
 An open panel retains its live file handle while the background worker restarts.
 When editing permission expires, **Reconnect access** appears beside the file
-location. It reuses the selected file or folder and retries pending saves without
+location. It reuses the note file and retries pending saves without
 replacing your draft. Read access alone is not a saved/write-ready state. A file
 conflict is shown as **File changed**, not a permission problem.
 
@@ -48,7 +48,7 @@ future prompts. See [Chrome's permission guidance](https://developer.chrome.com/
 
 Files stay on disk when you remove the extension. Uninstalling does remove
 browser-local recovery copies and remembered file access. After reinstalling,
-choose the same file or folder again. Use your own filesystem, Git, Google Drive
+choose the same note file again. Use your own filesystem, Git, Google Drive
 or other sync software to move files between devices. AIC has no sync server.
 
 There is no app password, encrypted workspace or `.aicnotes` importer. Existing
@@ -74,7 +74,7 @@ the save reports **File changed** and the draft is kept.
 Earlier versions kept one Markdown file per page (`pages/`), Shared
 (`shared/<id>.md`) and Global (`global.md`) files and a `.aic/links.json` index.
 Those files are never deleted, moved or rewritten and are no longer read or
-shown: they stay in the folder as ordinary Markdown. There is no import into
+shown: they stay on disk as ordinary Markdown. There is no import into
 `aic.md`; copy text from them yourself when needed. Recovery copies of drafts
 from those versions stay under **Review recovered drafts** and are never applied
 automatically.

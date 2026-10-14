@@ -5,10 +5,11 @@
 ## Prepared package 0.12.0 — October 14, 2026
 
 This candidate replaces per-page note files with one note file. The panel edits
-`aic.md` in the connected folder, or the connected file, and shows the page of
+the one note file you open or create (suggested name `aic.md`); folders are not
+opened. It shows the page of
 that note bound to the active tab's exact address. Per-URL note files, the links
 index, the notes tree, history, pin and file linking are removed; earlier files
-stay in the folder untouched. Notes are plain Markdown on disk; there is no app
+stay on disk untouched. Notes are plain Markdown on disk; there is no app
 password or encrypted library. The six required permissions and the optional
 HTTP(S) site access are unchanged. No 0.12.0 submission or approval is claimed.
 Recheck the dated dashboard observations below before submission. The texts
@@ -16,10 +17,11 @@ below replace the 0.9.3 listing texts further down, which describe per-page
 notes, domain navigation and an encrypted library that this package no longer has.
 
 Пакет 0.12.0 замінює окремі файли нотаток для сторінок одним файлом нотаток.
-Панель редагує `aic.md` у підключеній папці або підключений файл і показує
+Панель редагує один файл нотаток, який ви відкриваєте чи створюєте
+(запропонована назва `aic.md`); папки не відкриваються. Вона показує
 сторінку цієї нотатки, прив’язану до точної адреси активної вкладки. Окремі
 файли для URL, індекс зв’язків, дерево нотаток, історію, закріплення та
-прив’язування файлів вилучено; попередні файли лишаються в папці без змін.
+прив’язування файлів вилучено; попередні файли лишаються на диску без змін.
 Нотатки зберігаються на диску як звичайний Markdown; пароля застосунку чи
 зашифрованої бібліотеки немає. Шість обов’язкових дозволів і необов’язковий
 доступ до сайтів HTTP(S) не змінено. Подання чи схвалення 0.12.0 не заявляється.
@@ -36,8 +38,7 @@ One local Markdown note file in the side panel. Each web address shows its own p
 ### Detailed description — 0.12.0
 
 Keep notes beside the web page you are reading. AIC opens a Markdown editor in
-the browser's side panel and saves to one note file you choose: `aic.md` in a
-folder, or a single `.md` file.
+the browser's side panel and saves to one Markdown note file you choose.
 
 - Inside the note, `--- https://example.com/docs` starts a page bound to that
   exact address. The panel shows the page of the active tab; an address without
@@ -58,7 +59,7 @@ for Chrome 140 or newer; Incognito is not supported.
 
 Тримайте нотатки поруч із вебсторінкою, яку читаєте. AIC відкриває
 Markdown-редактор у бічній панелі браузера й зберігає зміни в один вибраний вами
-файл нотаток: `aic.md` у папці або окремий `.md`-файл.
+Markdown-файл нотаток.
 
 - У нотатці рядок `--- https://example.com/docs` починає сторінку, прив’язану
   саме до цієї адреси. Панель показує сторінку активної вкладки; для адреси без

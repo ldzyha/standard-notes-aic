@@ -11,42 +11,35 @@ is available in [AIC Notes](https://github.com/ldzyha/aic-notes/blob/main/LICENS
 
 ## Your files and devices
 
-AIC is a file editor and viewer. **New note** chooses a Markdown destination;
-**Open files** and **Open folder** open existing notes. **Add files/folder** adds
-to the current workspace. AIC provides no app-level encryption, passphrase setup,
-Lock, encrypted export or legacy bundle import. Protection and synchronization
-are owned by your storage provider, device or host application. Standard Notes
-continues to handle its own storage and encryption.
+AIC Notes edits one Markdown note file, which you open or create once. AIC
+provides no app-level encryption, passphrase setup, Lock or encrypted export.
+Protection and synchronization are owned by your storage provider, device or
+host application. Standard Notes continues to handle its own storage and
+encryption.
 
-On browsers with writable-file support, Save, Ctrl/Cmd+S and autosave write directly
-to the selected originals. The browser cache is secondary. File handles and
-relative display names are remembered locally; browsers do not expose absolute
-operating-system paths. AIC checks observed external changes and stops when an
-original is missing or access is denied. Failed drafts remain available for retry
-or export; autosave never recreates a deleted file. AIC does not merge concurrent
-edits or guarantee that another program cannot change a file during a save.
+On browsers with writable-file support, Save, Ctrl/Cmd+S and autosave write
+directly to the note file; a copy is also kept in browser storage. The file
+handle and its name are remembered locally; browsers do not expose absolute
+operating-system paths. AIC checks for external changes and stops when the file
+is missing or access is denied. The draft remains available for retry or
+download; autosave never recreates a deleted file. AIC does not merge
+concurrent edits or guarantee that another program cannot change a file during
+a save.
 
-Browsers without native writes can edit browser drafts and download Markdown
-copies. **Browser draft · download to save** does not claim that an original file
-was updated. Browser storage may be cleared or evicted. Keep files you need in
-your filesystem or chosen storage service; drafts are not guaranteed crash backups.
-
-The explorer shows `.md` files case-insensitively, skipping `.git`, `node_modules`
-and paths excluded by supported `.gitignore` or `.ignore` rules. Removing a
-workspace disconnects it and removes its app cache; it does not delete original
-or exported files. Existing unsupported stores and files are not automatically
-deleted or converted.
+Other browsers keep the note in browser storage, with **Download note** and
+**Replace from file…**. Browser storage may be cleared or evicted. Keep files
+you need in your filesystem or chosen storage service. Workspaces of earlier
+versions are no longer shown; their files and browser data are not deleted.
 
 Markdown files, browser drafts and exports are readable data. Secret-field syntax
 masks values in the interface and supports explicit copying; masking does not
 encrypt files. Export and copy include authored secret values. Other applications,
-clipboard history and services receiving the files may read them. Folder export
-refuses existing destinations; interrupted operations can leave new files behind.
+clipboard history and services receiving the files may read them.
 
 AIC provides no server storage, account or synchronization service. You can place
 files in Google Drive or another folder you manage. Its permissions, protection,
-privacy policy and conflict handling belong to that service. AIC writes selected
-files and does not connect to or manage your sync account.
+privacy policy and conflict handling belong to that service. AIC writes the note
+file and does not connect to or manage your sync account.
 
 ## Offline use and connections
 
