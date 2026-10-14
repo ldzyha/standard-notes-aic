@@ -192,8 +192,10 @@ describe("note page targets", () => {
       "https://example.com/Docs?a=1",
     );
     expect(normalizeTarget("https://example.com/")).toBe("https://example.com");
-    expect(normalizeTarget(".\\Src\\App\\")).toBe("src/app");
-    expect(normalizeTarget("/src/app/Editor.ts")).toBe("src/app/editor.ts");
+    expect(normalizeTarget("/Home/Me/Src/App/")).toBe("/home/me/src/app");
+    expect(normalizeTarget("C:\\Work\\App.ts")).toBe("c:/work/app.ts");
+    expect(normalizeTarget(".\\Src\\App\\")).toBe("./src/app");
+    expect(normalizeTarget("/")).toBe("");
     expect(normalizeTarget("Café.md")).toBe("café.md");
   });
 
@@ -222,13 +224,20 @@ describe("note page targets", () => {
     expect(matches(bound, "https://example.com/docs/a?id=1")).toBe(false);
   });
 
-  it("matches paths case-insensitively and never files under a bound folder", () => {
-    expect(matches("/src/app/", "SRC\\app")).toBe(true);
-    expect(matches("./src/app/Editor.ts", "src/app/editor.ts")).toBe(true);
-    expect(matches("/src/app/", "SRC\\app\\editor.ts")).toBe(false);
-    expect(matches("src/app", "src/application.ts")).toBe(false);
-    expect(matches("/", "src/app")).toBe(false);
-    expect(matches("src/app", "https://example.com/src/app")).toBe(false);
+  it("matches full paths case-insensitively and never files under a bound folder", () => {
+    expect(matches("/home/me/src/app/", "/HOME/me/src/app")).toBe(true);
+    expect(matches("C:/Work/App.ts", "c:\\work\\app.ts")).toBe(true);
+    expect(matches("/home/me/src/app", "/home/me/src/app/editor.ts")).toBe(
+      false,
+    );
+    expect(matches("/home/me/src/app", "/home/me/src/application.ts")).toBe(
+      false,
+    );
+    expect(matches("/home/me/app.ts", "home/me/app.ts")).toBe(false);
+    expect(matches("./src/app.ts", "src/app.ts")).toBe(false);
+    expect(matches("src/app.ts", "SRC/app.ts")).toBe(true);
+    expect(matches("/", "/src/app")).toBe(false);
+    expect(matches("/src/app", "https://example.com/src/app")).toBe(false);
   });
 
   it("returns the first page bound to exactly the target", () => {
@@ -252,22 +261,22 @@ describe("note page targets", () => {
 
   it("returns the text that appends a page for a target", () => {
     const cases: [string, string][] = [
-      ["", "--- src/a.ts\n"],
-      ["One", "\n\n--- src/a.ts\n"],
-      ["One\n", "\n--- src/a.ts\n"],
-      ["One\n\n", "--- src/a.ts\n"],
-      ["One\n  ", "\n--- src/a.ts\n"],
-      ["---\na: 1\n---\n", "\n--- src/a.ts\n"],
-      ["One\r\nTwo", "\r\n\r\n--- src/a.ts\r\n"],
+      ["", "--- /home/me/a.ts\n"],
+      ["One", "\n\n--- /home/me/a.ts\n"],
+      ["One\n", "\n--- /home/me/a.ts\n"],
+      ["One\n\n", "--- /home/me/a.ts\n"],
+      ["One\n  ", "\n--- /home/me/a.ts\n"],
+      ["---\na: 1\n---\n", "\n--- /home/me/a.ts\n"],
+      ["One\r\nTwo", "\r\n\r\n--- /home/me/a.ts\r\n"],
       // An open fence is left as written: a bound separator ends it.
-      ["One\n\n~~~~js\ncode", "\n\n--- src/a.ts\n"],
-      ["One\n\n```js\ncode\n", "\n--- src/a.ts\n"],
-      ["x\r\n```\r\n", "\r\n--- src/a.ts\r\n"],
+      ["One\n\n~~~~js\ncode", "\n\n--- /home/me/a.ts\n"],
+      ["One\n\n```js\ncode\n", "\n--- /home/me/a.ts\n"],
+      ["x\r\n```\r\n", "\r\n--- /home/me/a.ts\r\n"],
     ];
     for (const [text, appended] of cases) {
-      expect(appendPageText(text, " src/a.ts\n")).toBe(appended);
+      expect(appendPageText(text, " /home/me/a.ts\n")).toBe(appended);
       const pages = notePages(text + appended);
-      const page = pages[pageForTarget(pages, "src/a.ts")]!;
+      const page = pages[pageForTarget(pages, "/home/me/a.ts")]!;
       expect([page.content, page.to]).toEqual([
         text.length + appended.length,
         text.length + appended.length,

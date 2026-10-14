@@ -780,7 +780,7 @@ the user’s sync client owns that step.
 ## Note pages
 
 A note can be a notebook. A line that is exactly `---` starts a new page, and
-`--- <path-or-url>` (for example `--- /src/app/editor.ts` or
+`--- <path-or-url>` (for example `--- /home/me/src/editor.ts` or
 `--- https://example.com/docs`) binds the page that follows to that target.
 The note stays one file; pages are a derived view and no text, index or
 metadata is written. Owner: `src/core/note-pages.js`.
@@ -801,8 +801,10 @@ metadata is written. Owner: `src/core/note-pages.js`.
   folder or URL prefix does not match what is below it. URL targets ignore the
   hash, host case and a trailing slash; without a query they ignore the visited
   query, with a query they need the same query. Path targets compare in NFC
-  without case, with `\` as `/` and without leading `./` or `/`. The first
-  matching page wins.
+  without case (`C:` equals `c:`), with `\` as `/` and without a trailing `/`.
+  Hosts write full paths (`/home/me/src/app.ts`, `C:/work/app.ts`); a leading
+  `/` or `./` is kept, so a relative target matches only the same relative
+  text. The first matching page wins.
 
 Page cards (`aic-card--page`, owner `src/core/note-page-cards.js`) are part of
 the shared editor. In preview each separator line is a card header: the bound

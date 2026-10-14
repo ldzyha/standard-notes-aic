@@ -3,6 +3,8 @@
 // A page break is a line that is exactly `---`, optionally followed by
 // whitespace and a navigation target (`--- /src/app/editor.ts`,
 // `--- https://example.com/docs`). The target binds the page that follows.
+// Hosts write a file target as its full path (`--- /home/me/src/app.ts`,
+// `--- C:/work/app.ts`); a relative path is still a target, matched literally.
 // - Four or more dashes, `- - -`, `***`, `___` and indented rules are ordinary
 //   thematic breaks, never page breaks.
 // - The line must start the body or follow a blank line, so `---` directly
@@ -26,6 +28,9 @@
 //
 // A page matches a navigation target only when their normalized forms are
 // equal; there is no folder or URL-prefix matching. The first match wins.
+// A path is normalized by trimming, NFC, `\` to `/`, dropping trailing `/` and
+// lower-casing (so paths match case-insensitively and `c:` equals `C:`). The
+// leading `/` and `./` are kept: `/a`, `./a` and `a` are different targets.
 
 const SEPARATOR = /^---(?:[ \t]+(\S.*?))?[ \t]*$/u;
 const FENCE = /^ {0,3}(`{3,}|~{3,})(.*)$/u;
@@ -127,7 +132,6 @@ export function normalizeTarget(raw) {
   return value
     .normalize("NFC")
     .replaceAll("\\", "/")
-    .replace(/^(?:\.?\/)+/u, "")
     .replace(/\/+$/u, "")
     .toLowerCase();
 }

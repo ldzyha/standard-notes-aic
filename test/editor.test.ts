@@ -792,7 +792,7 @@ describe("AIC editor integration", () => {
       "| Hidden | table |\n| --- | --- |\n| h1 | h2 |\n\n```aic\n# Hidden block\n\n---\n```\n";
     const page =
       "Shown\n\n| A | B |\n| --- | --- |\n| 1 | 2 |\n\n```aic\n# Shown block\n\n---\n```\n\n~~~\n\n---\n~~~";
-    const source = `---\ntitle: Notebook\n---\nIntro\n\n--- other.ts\n${hidden}\n--- src/app.ts\n${page}\n\n--- https://example.com\n${hidden}`;
+    const source = `---\ntitle: Notebook\n---\nIntro\n\n--- /home/me/other.ts\n${hidden}\n--- /home/me/src/app.ts\n${page}\n\n--- https://example.com\n${hidden}`;
     editor.switchDocument("aic.md", source);
     const shown = () => editor.view.contentDOM.textContent ?? "";
     const titles = () =>
@@ -800,10 +800,10 @@ describe("AIC editor integration", () => {
         (card) => card.querySelector(".aic-card__title")?.textContent,
       );
 
-    expect(editor.focusTarget("/src/App.ts")).toBe(true);
-    expect(titles()).toEqual(["/src/App.ts"]);
+    expect(editor.focusTarget("/home/me/src/App.ts")).toBe(true);
+    expect(titles()).toEqual(["/home/me/src/App.ts"]);
     expect(editor.focusedPage).toEqual({
-      target: "/src/App.ts",
+      target: "/home/me/src/App.ts",
       from: source.indexOf("Shown"),
       to: source.indexOf("Shown") + page.length,
       exists: true,
@@ -838,7 +838,7 @@ describe("AIC editor integration", () => {
       ".aic-source-mode-toggle",
     )!;
     toggle.click();
-    expect(titles()).toEqual(["/src/App.ts"]);
+    expect(titles()).toEqual(["/home/me/src/App.ts"]);
     expect(shown()).not.toMatch(/Hidden|Intro/u);
     editor.view.dispatch(editor.view.state.replaceSelection("raw"));
     expect(editor.value).toBe(`${before}raw${after}`);
@@ -847,9 +847,9 @@ describe("AIC editor integration", () => {
     // A host update passes and the page is found again where it moved.
     onChange.mockClear();
     expect(
-      editor.updateDocument(`--- src/app.ts\nMoved\n\n---\n${hidden}`),
+      editor.updateDocument(`--- /home/me/src/app.ts\nMoved\n\n---\n${hidden}`),
     ).toBe(true);
-    expect(editor.focusedPage).toMatchObject({ from: 15, text: "Moved" });
+    expect(editor.focusedPage).toMatchObject({ from: 24, text: "Moved" });
     expect(editor.updateDocument("No pages")).toBe(true);
     expect(editor.value).toBe("No pages");
     expect(editor.focusedPage).toMatchObject({ exists: false, text: "" });

@@ -15,6 +15,11 @@ export type NotePage = {
 export function notePages(text: string): NotePage[];
 /** Target as shown in labels: URL credentials are removed. */
 export function displayTarget(raw: string | null | undefined): string;
+/**
+ * Comparison form of a target. URL: `scheme://host/path?query` without a
+ * trailing `/`. Path: trimmed, NFC, `\` as `/`, no trailing `/`, lower-case;
+ * a leading `/` or `./` is kept, so only full paths written alike match.
+ */
 export function normalizeTarget(raw: string): string;
 /** Index of the first page whose target equals `target` when normalized, or -1. */
 export function pageForTarget(
