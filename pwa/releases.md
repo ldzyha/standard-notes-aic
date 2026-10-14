@@ -15,59 +15,52 @@ These instructions describe the new working version. Deployment, signed packages
 and store availability must still be verified. Older release entries below
 record their original behavior and may mention features removed from this version.
 
-| Where to work             | What to open                                  | Where a save goes                                           |
-| ------------------------- | --------------------------------------------- | ----------------------------------------------------------- |
-| [AIC Notes PWA](/)        | A `.md` file or folder                        | The connected file on disk                                  |
-| Chrome or Edge side panel | A `.md` file, or a folder that holds `aic.md` | The connected file, or `aic.md` in the folder               |
-| VS Code desktop or Web    | A Markdown file through **AIC Markdown**      | The workspace's filesystem provider, using native Save/Undo |
-| Standard Notes            | A note with the **AIC** editor                | Standard Notes, under its own storage and sync settings     |
+| Where to work             | What to open                             | Where a save goes                                           |
+| ------------------------- | ---------------------------------------- | ----------------------------------------------------------- |
+| [AIC Notes PWA](/)        | Your one note file, chosen once          | The note file, or browser storage without file access       |
+| Chrome or Edge side panel | Your one note file                       | The note file                                               |
+| VS Code desktop or Web    | A Markdown file through **AIC Markdown** | The workspace's filesystem provider, using native Save/Undo |
+| Standard Notes            | A note with the **AIC** editor           | Standard Notes, under its own storage and sync settings     |
 
 The same file syntax works across the three file-based hosts. Standard Notes
-does not automatically open or synchronize that folder; transfer content there
+does not automatically open or synchronize that file; transfer content there
 explicitly. Old `.aicnotes` files are not opened or converted. Existing files
 remain untouched by this removal.
 
 ### Open, create and save
 
-1. In the PWA choose **Files** or **Folder**, grant access and select a note in
-   the tree. Folder scanning shows Markdown and applies `node_modules`, `.git`,
-   `.gitignore` and `.ignore` exclusions. In the browser panel choose
-   **Open file** or **Open folder**; a folder uses its `aic.md`, and the panel
-   reads and writes no other file there.
-2. Use **New note** in the PWA. With direct write access, choose a destination
-   or a name within the connected folder. A new file starts blank; opening an
-   existing file keeps its text. In the browser panel, your first edit creates a
-   missing `aic.md`.
-3. Write in Preview or Markdown source. **Save** or Ctrl/Cmd+S flushes a pending
-   save. Wait for **Saved to file** in the PWA or **On disk** in the browser;
+1. On first launch choose **Open note file** or **Create new note** (suggested
+   name `aic.md`) in the PWA, or **Open note file** or **Create note file** in
+   the browser panel. Later launches open the same file.
+2. Write in Preview or Markdown source. **Save** or Ctrl/Cmd+S flushes a pending
+   save. Wait for **Saved to aic.md** in the PWA or **On disk** in the browser;
    **Unsaved**, **Saving…** or **Reconnect** does not confirm a completed write.
-4. To renew permission use **Note options → Reconnect files** in the PWA or
-   **More options → Reconnect access** in the browser. The visible source shows
-   the filename and relative location; browsers do not expose its absolute OS path.
-5. If another app changed the file, review its content or keep your draft as a
-   separate copy: **Save a copy** in the PWA, **Export unsaved draft** in the
-   browser, where **Discard my changes and reload** loads the file instead. A
-   deleted source is not recreated automatically.
-6. Removing a workspace connection or uninstalling an app does not delete its
-   original files. Uninstalling or clearing browser data can remove local recovery
-   copies, so those copies do not replace saved files and backups.
+3. To renew permission use **Reconnect note file** in the PWA or **More options →
+   Reconnect access** in the browser. Until then the PWA shows its last stored
+   copy read-only. Browsers do not expose the file's absolute OS path.
+4. If another app changed the file, keep your draft as a separate copy:
+   **Download note** in the PWA, where **Reload note file** then loads the file;
+   **Export unsaved draft** in the browser, where **Discard my changes and
+   reload** loads the file. A deleted file is not recreated automatically.
+5. Uninstalling an app does not delete the note file. Uninstalling or clearing
+   browser data can remove local copies, so they do not replace saved files and
+   backups.
 
-Direct write-back needs a supported picker and writable provider. On a browser
-with that support, an old cache-only copy stays read-only until **Save to file**
-connects a destination. On a browser without direct writes, the PWA lets you edit
-browser drafts and download Markdown copies. **Browser draft · download to save**
-means the original was not updated: choose **Save a copy** or **Export Markdown**
-to keep the text as a file.
+Direct write-back needs File System Access (Chromium browsers on desktop).
+Other browsers, including Firefox, Safari and mobile browsers, keep the PWA note
+in browser storage: the status says **Saved in this browser**; use **Download
+note** to keep a file and **Replace from file…** to load one. Workspaces of
+earlier versions are no longer shown; their files stay on disk.
 
 ### Keep one note in focus
 
-The editor shows one note at a time: in the PWA the file selected in the tree,
-in the browser panel its one note file, and in VS Code the opened document.
+There is one note file. The PWA shows the whole note, the browser panel shows
+the page for the active tab, and VS Code shows the opened document.
 
 Inside a note, a `---` line after a blank line starts a new page, and
-`--- <path-or-url>` binds the following page to that file path or web address.
-Each page shows as a card; **Open target** on a bound card opens its web address
-in a new tab or, in the PWA, selects the file with that path.
+`--- <path-or-url>` binds the following page to that full file path or web
+address. Each page shows as a card; **Open target** on a bound card opens its
+web address in a new tab. The PWA shows a file path as text only.
 
 The browser panel shows only the page bound to the active tab's exact address.
 An address without a page shows an empty card; the page is added at the end of
@@ -76,8 +69,9 @@ Changing tabs changes the page shown and clears Undo for the previous page. A ta
 without an `http` or `https` address shows the whole note. In VS Code, Linked
 Note shows the page of the workspace `aic.md` bound to the active file.
 
-For a remembered browser location, **Continue** restores access to the selected
-file or folder. Other locations are in **More options**. If no permission prompt
+For a remembered browser location, **Continue** restores access to the note
+file. A folder remembered by an earlier version is not reopened: open its
+`aic.md` instead. Other locations are in **More options**. If no permission prompt
 appears in the side panel, use **More options → Open AIC in tab** and continue
 there. The original panel checks access when you return.
 
@@ -127,8 +121,8 @@ may need an initial model download; ordinary editing does not depend on AI.
 
 ### Sync and work offline
 
-Place the folder in Google Drive, OneDrive, Dropbox, Git or another location you
-manage, then open that local folder in each app. AIC saves files; your chosen tool
+Place the note file in Google Drive, OneDrive, Dropbox, Git or another location
+you manage, then open that local file in each app. AIC saves files; your chosen tool
 transfers them. Wait for both file-save and sync completion before switching
 devices. Concurrent changes must be reviewed rather than overwritten silently.
 

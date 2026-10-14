@@ -78,24 +78,19 @@ Use the DDK method to create the first document sufficient for the reader's next
 
 ## Use the current Notes assistant locally
 
-1. Choose **New note** to start with a blank Markdown file, or **Files** /
-   **Folder** to edit existing files. Choose a destination when creating a
-   note. The explorer shows only `.md` and skips `.git`, `node_modules`, and paths
-   excluded by `.gitignore` or `.ignore`.
+1. On first launch choose **Open note file** for an existing Markdown file, or
+   **Create new note** for a new one. Every later launch opens the same note.
 2. Select prose to review, or leave the selection empty to review the current
    note. Choose **Fix grammar** for spelling, grammar and punctuation, or
    **Improve** for clearer wording. Local AI accepts up to 14,000 characters;
    select a shorter passage in a longer note.
 3. Review the preview and its facts. Choose **Apply** to make the change or
    **Cancel** to keep the original. Editor Undo restores an applied suggestion.
-4. On browsers with writable-file support, changes autosave to the selected
-   original `.md` file. **Save** or Ctrl/Cmd+S retries a pending or failed save.
-   **Save a copy** chooses another destination; **Export Markdown** or **Export
-   all notes** creates copies. Without writable-file support, edits stay in a
-   browser draft until you download a copy; the status says **Browser draft ·
-   download to save**. Your storage service handles synchronization.
-   **Remove from this device…** disconnects the workspace and removes its app
-   cache; original files remain on disk.
+4. On browsers with writable-file support, changes autosave to the note file.
+   **Save** or Ctrl/Cmd+S retries a pending or failed save. Other browsers keep
+   the note in browser storage; the status says **Saved in this browser**.
+   **Download note** saves a copy as a file. Your storage service handles
+   synchronization.
 
 AI processing starts only after your action.
 Code, links, raw HTML, legacy properties and AIC secret fences remain protected;

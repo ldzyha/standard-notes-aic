@@ -6,77 +6,53 @@
 [Releases and installation](https://aic.dzyha.com/releases) ·
 [How to write documents](https://aic.dzyha.com/how-to)
 
-AIC is an editor and viewer for your files. **New note** creates a blank `.md`
-file at a chosen destination. **Open files** and **Open folder** open existing
-Markdown in separate workspaces; **Add files/folder** adds to the current one.
-There is no encryption setup, password, Lock, encrypted export or legacy bundle
-import. File protection and synchronization belong to your device and storage
-service. Standard Notes continues to own its own storage and encryption.
+AIC Notes is one note: one Markdown file split into pages by `---` lines. You
+choose the file once; every launch opens the same file. There is no encryption
+setup, password, Lock or encrypted export. File protection and synchronization
+belong to your device and storage service.
+
+## Choosing the note
+
+The first launch shows **Choose your note file** with two actions:
+
+- **Open note file** - opens an existing Markdown file.
+- **Create new note** - creates a new file; the suggested name is `aic.md`.
+
+**Note options** (the ⋯ button) holds **Download note**, **Open note file…**
+(or **Replace from file…**, see below) and the help links.
 
 ## Editing and saving
 
-On browsers with writable-file support, edits save directly to the selected
-original files. The location strip shows the relative path and **Saved to file**,
-**Saving…**, **Unsaved**, or the failed operation. Autosave, Ctrl/Cmd+S and editor
-Save share one owner. Acknowledgement follows the file commit; a secondary browser
-cache failure does not undo that commit.
+Where the browser can write files (File System Access: Chrome, Edge and other
+Chromium browsers on desktop), edits save directly to the note file. The header
+shows **Saved to aic.md**, **Saving…**, **Unsaved** or **Save failed**.
+Autosave, Ctrl/Cmd+S and editor Save share one owner. A save writes only when
+the file still holds the text AIC last read or wrote:
 
-Handles are remembered locally outside file content. Reopening reads originals
-again and may need renewed browser permission. Observed external changes, missing
-files and denied access stop the save while preserving the draft. Autosave never
-recreates a deleted original. **Save a copy** chooses another destination and
-leaves the old file untouched; rename original files in your filesystem.
+- **The file changed elsewhere** - the save stops and keeps your draft. Use
+  **Download note** to keep it, then **Reload note file** to open the file's
+  text.
+- **Access must be granted again** - the app shows the last copy stored in the
+  browser, read-only, with one **Reconnect note file** button.
+- **The file was moved or deleted** - it is never recreated. The app shows the
+  choose screen again; a new file starts with the last saved text.
 
-Browsers without writable-file support edit browser drafts and download Markdown
-copies. The status says **Browser draft · download to save**, never **Saved to
-file**. Choose **Save a copy** or **Export Markdown** to download the current
-text. Browser storage can be cleared or evicted; downloaded files are the copies
-you control. Existing cache-only workspaces on writable-file browsers remain
-readable until **Save to file** chooses a destination.
+Other browsers (Firefox, Safari, and browsers on iOS and Android) keep the note
+in the browser's own storage. The header shows **Saved in this browser**. Use
+**Download note** to keep a copy as a file and **Replace from file…** to load a
+file's text into the note. Browser storage can be cleared or evicted; downloaded
+files are the copies you control.
 
-**Remove from this device…** disconnects the workspace and removes its app cache,
-not original files. Closing a workspace keeps its remembered entry. The app reopens the last opened
-note on launch until its workspace is closed or removed. Existing
-unsupported data stores and files are not automatically deleted or converted.
-Secret-field syntax still masks values on screen and supports explicit copying;
+Workspaces of earlier versions are no longer shown. Their files stay on disk and
+their browser data is not deleted. Secret-field syntax masks values on screen;
 it does not encrypt the Markdown file.
 
-## Folders and navigation
+## Pages
 
-The explorer shows `.md` files case-insensitively. Native scanning skips `.git`
-and `node_modules` and applies `.gitignore` and `.ignore` within each selected
-folder; `.ignore` wins in the same directory. A negation cannot revive an excluded
-parent. The chosen root stays eligible; global Git configuration is not read.
-Fallback folder pickers enumerate before the app can filter their results.
-
-Scanning continues in batches of at most 1,000 inspected entries or 64 notes,
-with progress, cooperative yielding and **Cancel opening**. Committed batches
-remain available when scanning stops. The cursor lives for that opening operation
-and does not resume after the app closes. At most four metadata/content reads
-run together; each read has a 30-second timeout.
-
-Only retained notes count toward the 2,000-file import limit. Files are limited to
-4 MiB each and the cached JSON workspace to 6 MiB; editable UTF-8 text is limited
-to 512 KiB. The initial list shows 100 matching notes; **Show more** and **Search
-notes…** preserve the editor and its draft. Ignore files are limited to 64 KiB
-each, 1 MiB total, 256 applicable files and 10,000 lines. Unreadable rules stop
-that folder instead of silently importing excluded data.
-
-On mobile, **Browse notes** opens a drawer. Selecting a note, Escape or browser
-Back returns to the editor without replacing its selection or Undo history.
-Compact SVG actions leave room for content.
-
-The editor shows exactly the file selected in the tree. `*.note.md` files are
-ordinary Markdown files in that tree; none is opened alongside another file.
-A `---` line after a blank line splits a note into page cards;
-`--- <path-or-url>` heads the card, whose **Open target** opens a web URL in a
-new tab or selects the workspace file with that path. A tree click always opens
-the clicked file.
-
-**Export all notes** writes a selected folder or downloads a ZIP preserving paths.
-Folder export refuses existing destination files. An interrupted export may leave
-newly written files. Export has a separate 60,000-file/folder physical limit;
-ZIP fallback has a 12 MiB archive limit.
+A `---` line after a blank line splits the note into page cards;
+`--- <path-or-url>` heads the card with that target. For a web URL, **Open
+target** opens it in a new tab. A file path (written in full, for example
+`--- /home/me/src/app.ts`) is shown as text only: a browser cannot open it.
 
 ## Offline use and updates
 
