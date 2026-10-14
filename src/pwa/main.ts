@@ -226,7 +226,6 @@ function editorText(): string {
 
 function reflect() {
   app.dataset.hasNote = String(!!editor);
-  menuButton.hidden = !note.exists;
   const state = saveTask
     ? "Saving…"
     : saveFailed
@@ -431,7 +430,9 @@ async function fix() {
 }
 
 window.addEventListener("beforeunload", (event) => {
-  if (dirty) event.preventDefault();
+  if (!dirty) return;
+  event.preventDefault();
+  event.returnValue = "";
 });
 window.addEventListener("pagehide", (event) => {
   appUpdates?.suspend(event.persisted);

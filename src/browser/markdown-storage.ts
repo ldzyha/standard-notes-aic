@@ -385,16 +385,14 @@ export class BrowserMarkdownStorage {
   async location(): Promise<BrowserFileLocation> {
     const value = (await this.local.get(FILE_SOURCE_KEY))[FILE_SOURCE_KEY];
     if (value === undefined || value === null) return { kind: "unselected" };
+    // A folder remembered by an earlier version is not reopened: choose the file.
     if (
       value &&
       typeof value === "object" &&
       "kind" in value &&
       value.kind === "directory"
     )
-      throw fail(
-        "AIC no longer opens folders. Open the note file itself, for example the folder's aic.md.",
-        "source",
-      );
+      return { kind: "unselected" };
     if (
       !value ||
       typeof value !== "object" ||

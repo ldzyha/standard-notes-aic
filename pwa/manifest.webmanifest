@@ -2,7 +2,7 @@
   "id": "./",
   "name": "AIC Notes",
   "short_name": "AIC Notes",
-  "description": "Local notes and encrypted file and folder bundles",
+  "description": "One Markdown note, split into pages with ---",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

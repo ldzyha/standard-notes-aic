@@ -245,7 +245,7 @@ describe("PWA one note", () => {
     expect(document.querySelector(".pwa-title")?.textContent).toBe(
       "Choose your note file",
     );
-    expect(has("Note options")).toBe(false);
+    expect(has("Note options")).toBe(true);
     expect(has("Create new note")).toBe(true);
     await click("Open note file");
     expect(field().value).toContain("--- /home/me/a.ts");

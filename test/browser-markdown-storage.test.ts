@@ -80,10 +80,12 @@ describe("the one note file", () => {
       kind: "directory",
       name: "notes",
     };
-    await expect(h.restart().read()).rejects.toMatchObject({
-      code: "source",
-      message: expect.stringContaining("no longer opens folders"),
-    });
+    const restarted = h.restart();
+    expect(await restarted.location()).toEqual({ kind: "unselected" });
+    await expect(restarted.read()).rejects.toMatchObject({ code: "source" });
+    // Choosing the file works again.
+    await restarted.connect("browser-test");
+    expect((await restarted.read()).markdown).toBe("Note");
     expect(h.fixture.entries.get("aic.md")).toMatchObject({ writes: 0 });
   });
 
