@@ -4,26 +4,28 @@
 
 ## Prepared plain-file workflow — unreleased
 
-AIC is a Markdown editor and viewer. PWA and browser extensions open ordinary
-`.md` files and folders; VS Code uses its native document and filesystem provider.
+AIC is a Markdown editor and viewer. The PWA and browser extension each edit one
+ordinary `.md` note file, chosen once; VS Code uses its native document and
+filesystem provider.
 Standard Notes owns authentication, encryption and synchronization for its notes.
 AIC does not add encryption, passwords, encrypted backups or legacy conversion.
 Masking and copy-without-reveal remain shared display behavior for typed fields.
 External storage, such as a user-managed Drive folder, owns protection and sync.
 
-The browser extension edits one real Markdown note file: `aic.md` in the selected
-folder, created by the first save, or the selected file. No other file in the
-folder is read or written. Connecting or viewing a page does not create a file;
+The browser extension edits one real Markdown note file, opened or created
+through the file picker (suggested name `aic.md`). No other file is read or
+written and folders are not opened. Viewing a page does not change the file;
 new documents have no automatic AIC block. Source path and Download note file
 refer to that file; Download page exports the focused page.
 Remembered unavailable locations show one Continue action after the handle is
 ready. Reconnect is only offered when access needs renewal; an explicit AIC tab
 can obtain the same browser grant, which the original panel rechecks on return.
 
-The selected disk files are authoritative. Save acknowledgement follows the disk
+The note file is authoritative where it can be written. Save acknowledgement follows the disk
 commit; lost permissions, missing files and observed external edits retain drafts
-and require reconnect/review. App removal does not delete external files. PWA
-fallback browsers explicitly download a copy when direct writing is unavailable.
+and require reconnect/review. App removal does not delete external files. Without
+direct file writing the PWA keeps the note in browser storage, with Download
+note and Replace from file.
 
 The browser worker keeps source-bound plain draft recovery independently of disk
 writes. Acknowledged checkpoints survive Reload without a password. Recovery
@@ -32,7 +34,7 @@ clears the active checkpoint; confirmed dismissal checks the reviewed sequence.
 A forced shutdown before checkpoint ACK is not guaranteed recoverable. Browser
 storage is secondary and is cleared by uninstall; ordinary disk files remain.
 
-Checks: browser storage/service/recovery and panel suites, PWA disk/file/UI suites,
+Checks: browser storage/service/recovery and panel suites, PWA disk/UI suites,
 VS Code native and web provider suites, and shared registry/core parity. Builds
 and source tests are separate from publication. The practical cross-host guide
 is [Releases and installation](RELEASE_INSTALL.md).
@@ -656,7 +658,7 @@ marker migration, untrusted copy, modified-file preservation and failed writes.
 Browser transfer actions live in the bounded More options menu and use shared
 `import-page`, `import-file` and `export-file` outline icons from
 `src/core/icons.css`. The menu uses left-aligned compact rows, concise visible
-labels and a narrow width cap. File and folder actions replace encrypted backups. Accessible
+labels and a narrow width cap. File actions replace encrypted backups. Accessible
 labels retain the complete action, and shared primitives preserve focus styles
 and coarse-pointer touch targets. Navigation, help and confirmation surfaces
 retain their own width and lifecycle. Coverage: `browser-panel-actions`
@@ -664,56 +666,33 @@ and responsive browser validation.
 
 ## Portable file notes
 
-The PWA and browser extension open plain Markdown files and folders. VS Code
-uses its native Markdown provider with the same shared editor core. **New file**,
-**Open file** and **Open folder** in the browser require no password. The PWA uses
-**New note**, **Files** and **Folder**. In the PWA, opening creates
-a separate local workspace; adding files or folders merges into the current one.
-PWA imports and file navigation show only `.md`
-(case-insensitive). Native Markdown folder imports retain the selected root, prune
-nested `.git` and `node_modules`, and apply scoped `.gitignore`/`.ignore` rules
-before descent; `.ignore` wins in one folder and negation cannot revive a pruned
-parent. Rules never escape the selected root or use global Git configuration. Fallback
-pickers enumerate first, permit rule files only for parsing, and never import
-them; generic binary folder import remains unchanged. Rules are bounded to 64 KiB
-each, 1 MiB total, 256 applicable files and 10,000 lines; invalid or unreadable
-rules reject the selection. Markdown traversal has no inspected-entry ceiling and
-never silently truncates a tree; cooperative checkpoints keep progress and cancellation
-responsive. Selected `.md` files retain the 2,000-file quota and hierarchy
-without explicit parent-folder records. Existing payloads retain the combined
-2,000 files/explicit-folders limit, including empty folders. Export reconstructs
-parents under its separate 60,000 physical-entry and 12 MiB ZIP bounds. Coverage
-is in `pwa-files` and `pwa-data`.
+The PWA is one note. Owner: `src/pwa/disk.ts` (`PwaNote`, one store with an
+optional file handle); UI: `src/pwa/main.ts`.
 
-Folder opening uses the existing import owner to report scanning/reading progress
-and expose **Cancel opening**. The file adapter accepts an AbortSignal and
-scanning/reading callbacks, throttles progress with forced task-yield updates,
-and reports completed reads. Batches contain at most 1,000 inspected entries or
-64 notes. Each awaits a storage commit, releases temporary candidates and bytes,
-and continues the same live iterator/index. Metadata and byte reads each use four
-lanes; per-batch sizes and the cumulative budget are checked before byte reads.
-Per-directory and per-file I/O has a 30-second deadline; the human picker has none.
-Cancellation stops scheduling/progress and ignores late results. Already
-committed batches remain available; only the pending batch is discarded. The
-scan cursor is in memory for this operation, while committed notes persist. Markdown navigation
-initially renders 100 matching
-rows and offers filename search and **Show more**. Filtering/paging updates only
-the file navigation; the active editor and unsaved draft retain their owner.
-The search field uses the shared `field` primitive, with host CSS handling
-placement. Unchanged in-memory file data reuse canonical byte validation while
-metadata and descriptors remain validated; Markdown source bytes are preserved. Coverage: `pwa-files`, `pwa-ui` and `pwa-data`.
+- **First run** - **Choose your note file** offers **Open note file** and
+  **Create new note** (`showSaveFilePicker`, suggested name `aic.md`). The
+  choice is stored in IndexedDB (`aic-notes-pwa-note`) and reopened on every
+  launch.
+- **With File System Access** - the note is bound to the file handle. Saves
+  write the file by compare-and-swap against the text last read or written,
+  then update the stored copy (its failure is a warning). A change made
+  elsewhere stops the save, keeps the draft and offers **Reload note file**.
+  When access must be granted again, the stored copy is shown read-only with
+  one **Reconnect note file** action. A moved or deleted file is never
+  recreated; the chooser returns, and a new file starts with the stored text.
+- **Without File System Access** - the same store keeps the note in IndexedDB.
+  **Note options** offers **Download note** and **Replace from file…** (a plain
+  file input).
+- **Every browser** - saves compare the stored revision, so a second window
+  cannot overwrite a newer note silently. The note is shown whole as page
+  cards; Open target opens URL targets in a new tab and is not offered for
+  file paths.
 
-**Save** commits to connected original files before updating secondary browser
-snapshots. Revision and byte comparisons reject stale or conflicting writes.
-Removing a local workspace disconnects it without deleting its files. Launch
-reopens the last opened note (one `localStorage` value owned by `src/pwa/storage.ts`)
-until its workspace is closed or removed. Browsers
-without writable file handles offer explicit download copies and distinguish
-browser drafts from files saved to disk. No protected entity, key or encrypted
-export is part of the runtime.
-
-Coverage includes `pwa-local-workspaces`, `pwa-data`, `pwa-disk`, `pwa-files` and
-`pwa-ui`. See [PWA usage](pwa/README.md) and [extension updates](pwa/EXTENSION_UPDATES.md).
+Workspaces, folder import and ignore rules, the file tree and drawer, new file,
+Save a copy and the last-opened restore were removed. Data of earlier
+workspaces stays in IndexedDB, unused and not deleted. Coverage: `pwa-disk` and
+`pwa-ui`. See [PWA usage](pwa/README.md) and
+[extension updates](pwa/EXTENSION_UPDATES.md).
 
 Public pages are part of the same offline shell. `src/pwa/sw.js` maps directory,
 HTML and extensionless document URLs to their built pages. When Hosting redirects
@@ -737,30 +716,10 @@ working-tree previews are permitted, while release proof requires committed
 source. Publisher listings, credentials and explicit enable variables complete
 activation; usage and setup are in [extension updates](pwa/EXTENSION_UPDATES.md).
 
-## Mobile Notes navigation
-
-Mobile shows a full-height editor with a modal Notes drawer that reuses the
-existing sidebar. Browsing, filtering, contextual menus and responsive layout
-changes retain the mounted editor, selection and Undo history. **New note** chooses
-an original file destination when native writes are available; download-only
-browsers create a clearly labeled browser draft. Open files and Open folder are
-direct actions. Compact SVG buttons retain native accessible names and 44-pixel
-touch targets; Escape and Back restore the editor.
-
-Note options owns **Save to file** for an unconnected cached copy, **Save a copy**
-for a connected file or download draft, **Reconnect files**, Export Markdown and
-details. Workspace options owns additions, full export, Close workspace and
-separate removal of the local connection/cache. Rename original files through
-the filesystem. Local autosave, explicit Save and Retry use one save owner and
-revision checks. **Saved to file** confirms the original write; **Browser draft ·
-download to save** does not. Neither status confirms completion of external sync.
-Coverage: `pwa-ui`, `pwa-ai-controls` and separate responsive-browser validation.
-
 ## One note at a time
 
-Each host shows exactly one note. The PWA shows the file selected in the tree.
-The browser panel shows the one note file of the connected source: `aic.md` in
-the connected folder, or the connected file. It focuses the page bound to the
+Each host shows exactly one note. The PWA shows its one note whole. The browser
+panel shows the one connected note file and focuses the page bound to the
 active tab's URL by a `--- <url>` line; a URL without a page shows an empty card
 and the page is appended on the first typing. A tab without an http(s) URL shows
 the whole note. There are no per-URL note files, notes tree, history, pin or
@@ -771,11 +730,8 @@ other `*.md`, `.aic/links.json`, `.aic/links.pending.json`, `.aic/write.lock`)
 stay on disk untouched and are no longer read. Stored recovery drafts from those
 versions stay reviewable and exportable and are never applied to the note file.
 
-PWA saves update connected original Markdown files. On browsers with native
-write support, cached copies remain read-only until a destination is connected.
-Download-only browsers edit local drafts and explicitly download Markdown copies.
-Neither opening a folder nor saving confirms background cloud synchronization;
-the user’s sync client owns that step.
+Saving does not confirm background cloud synchronization; the user’s sync
+client owns that step.
 
 ## Note pages
 
@@ -830,15 +786,12 @@ modes:
 Hosts:
 
 - PWA and Standard Notes: the whole note as cards. Open target opens an
-  http(s) URL in a new tab; in the PWA a path equal to a workspace file, as
-  stored or relative to the opened folder, selects that file, and a notice says
-  when no note matches. A file selected in the PWA tree always opens itself.
-- Browser panel, while following the active tab: the note linked to the exact
-  URL opens first, on its own bound page when it has one. Otherwise the first
-  loaded folder note with a page for exactly that URL opens on that page and
-  saves to its own file. Otherwise the empty page note is offered as before.
-  Open target opens a URL target in a new tab.
+  http(s) URL in a new tab. The PWA offers it only for URL targets
+  (`canOpenTarget`); a path target is shown as text.
+- Browser panel, while following the active tab: the page of the one note file
+  bound to the exact URL; a URL without a page shows an empty card. Open target
+  opens a URL target in a new tab.
 
-The browser reads bound targets from note text that is already loaded, on each
-navigation and without stored state. Coverage: `note-pages`, `note-page-cards`,
+The browser reads bound targets from the loaded note text on each navigation
+and without stored state. Coverage: `note-pages`, `note-page-cards`,
 `editor`, `browser-panel`, `browser-note-file-flow` and `pwa-ui`.

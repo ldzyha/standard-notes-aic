@@ -14,23 +14,22 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
 Prepared release 52.7.6 pairs with AIC Notes 61.6.5, experimental browser 0.12.0
-and shared core 8.0.0. The PWA and browser extension edit ordinary Markdown files
-and folders; VS Code uses native documents. No AIC password, encryption, encrypted
+and shared core 8.0.0. The PWA and browser extension each edit one ordinary Markdown
+note file, chosen once; VS Code uses native documents. No AIC password, encryption, encrypted
 backup or legacy conversion is required or provided. One note splits into page
-cards with exact targets; the browser panel edits one `aic.md` and shows the page
-of the active tab. Slash templates follow DDK, and `/aic` inserts an AIC block.
+cards with exact targets (a file target is its full path); the browser panel
+shows the page of the active tab. Slash templates follow DDK, and `/aic` inserts an AIC block.
 Standard Notes keeps its own encryption and synchronization. See
 [the cross-host usage guide](RELEASE_INSTALL.md), [PWA files](pwa/README.md) and
 [browser files and pages](browser/README.md). Release assets and store
 availability require separate verification.
 
-The local-file PWA opens Markdown files and folders and writes connected originals,
-with device snapshots as a secondary cache. Each host shows one note at a time;
-a `---` line after a blank line splits a note into pages, and `--- <path-or-url>`
-binds the following page to that target;
-mobile navigation gives the editor more space. Optional on-device AI and the shared DDK-based writing guide help
-revise documents. Folder imports count only Markdown files and support progress
-and cancellation. VS Code refuses to save an existing document after its file
+The PWA is just the note: it writes the note file directly where the browser
+allows (File System Access) and otherwise keeps the note in browser storage with
+Download and Replace from file. A `---` line after a blank line splits a note
+into pages, and `--- <path-or-url>` binds the following page to that target.
+Optional on-device AI and the shared DDK-based writing guide help revise
+documents. VS Code refuses to save an existing document after its file
 has been deleted. Synchronization remains under the user's control.
 
 Empty editable secret (`*|`) parts offer **Generate password** at every panel
