@@ -54,8 +54,11 @@ earlier versions are no longer shown; their files stay on disk.
 
 ### Keep one note in focus
 
-There is one note file. The PWA shows the whole note, the browser panel shows
-the page for the active tab, and VS Code shows the opened document.
+There is one note file, chosen once and shared by every app; pages bind by
+full path or URL. The aic code editor and VS Code share the choice through
+`~/.config/aic/note-file.json`; the PWA and the browser extension ask once
+themselves. The PWA shows the whole note, the browser panel shows the page for
+the active tab, and VS Code shows the opened document.
 
 Inside a note, a `---` line after a blank line starts a new page, and
 `--- <path-or-url>` binds the following page to that full file path or web
@@ -67,7 +70,8 @@ An address without a page shows an empty card; the page is added at the end of
 the note when you start typing, and a page visit by itself writes nothing.
 Changing tabs changes the page shown and clears Undo for the previous page. A tab
 without an `http` or `https` address shows the whole note. In VS Code, Linked
-Note shows the page of the workspace `aic.md` bound to the active file.
+Note shows the page of the chosen note file bound to the active file's full
+path.
 
 For a remembered browser location, **Continue** restores access to the note
 file. A folder remembered by an earlier version is not reopened: open its

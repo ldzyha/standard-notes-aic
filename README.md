@@ -14,8 +14,10 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
 Prepared release 52.7.6 pairs with AIC Notes 61.6.5, experimental browser 0.12.0
-and shared core 8.0.0. The PWA and browser extension each edit one ordinary Markdown
-note file, chosen once; VS Code uses native documents. No AIC password, encryption, encrypted
+and shared core 8.0.0. There is one ordinary Markdown note file, chosen once and shared
+by every app; pages bind by full path or URL. The aic code editor and VS Code share the
+choice through `~/.config/aic/note-file.json`; the PWA and the browser extension ask once
+themselves. VS Code opens other documents natively. No AIC password, encryption, encrypted
 backup or legacy conversion is required or provided. One note splits into page
 cards with exact targets (a file target is its full path); the browser panel
 shows the page of the active tab. Slash templates follow DDK, and `/aic` inserts an AIC block.
@@ -454,7 +456,7 @@ The compact menu has three groups:
 
 Slash completion is
 disabled in fenced/inline code and in locked notes, so `/` remains ordinary Markdown there. AIC
-Notes uses this same catalog in both ordinary `.md` documents and its Linked Note `aic.md`.
+Notes uses this same catalog in both ordinary `.md` documents and its Linked Note (the chosen note file).
 
 ## Preview and source controls
 

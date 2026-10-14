@@ -4,9 +4,11 @@
 
 ## Prepared plain-file workflow — unreleased
 
-AIC is a Markdown editor and viewer. The PWA and browser extension each edit one
-ordinary `.md` note file, chosen once; VS Code uses its native document and
-filesystem provider.
+AIC is a Markdown editor and viewer. There is one ordinary `.md` note file,
+chosen once and shared by every app; pages bind by full path or URL. The aic
+code editor and VS Code share the choice through `~/.config/aic/note-file.json`;
+the PWA and the browser extension ask once themselves. VS Code opens other
+Markdown documents through its native document and filesystem provider.
 Standard Notes owns authentication, encryption and synchronization for its notes.
 AIC does not add encryption, passwords, encrypted backups or legacy conversion.
 Masking and copy-without-reveal remain shared display behavior for typed fields.
@@ -786,12 +788,13 @@ modes:
 Hosts:
 
 - PWA and Standard Notes: the whole note as cards. Open target opens an
-  http(s) URL in a new tab. The PWA offers it only for URL targets
-  (`canOpenTarget`); a path target is shown as text.
+  http(s) URL in a new tab and is offered only for URL targets
+  (`canOpenTarget`); a full-path target is shown as text.
 - Browser panel, while following the active tab: the page of the one note file
   bound to the exact URL; a URL without a page shows an empty card. Open target
-  opens a URL target in a new tab.
+  opens a URL target in a new tab; a full-path target, shown with the whole
+  note, has no Open target.
 
 The browser reads bound targets from the loaded note text on each navigation
 and without stored state. Coverage: `note-pages`, `note-page-cards`,
-`editor`, `browser-panel`, `browser-note-file-flow` and `pwa-ui`.
+`editor`, `main`, `browser-panel`, `browser-note-file-flow` and `pwa-ui`.

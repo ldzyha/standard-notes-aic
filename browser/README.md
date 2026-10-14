@@ -63,7 +63,8 @@ Inside the note file, a `---` line after a blank line starts a new page and
 address. The panel shows only the page bound to the active tab's address, as one
 card. An address without a page shows an empty card; the page is added at the end
 of the file when you start typing. Merely visiting a page writes nothing.
-**Open target** on the card opens its address in a new tab.
+**Open target** on the card opens its address in a new tab; a card bound to a
+full file path has no Open target.
 
 Changing tabs changes the page shown; the file, Undo history and an unsaved draft
 stay. A tab without an `http` or `https` address, such as a browser settings page,

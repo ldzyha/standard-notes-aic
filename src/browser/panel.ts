@@ -15,6 +15,8 @@ import {
   type BrowserStatus,
 } from "./markdown-storage";
 
+const URL_TARGET = /^https?:\/\//iu;
+
 /** The page of the note a tab is bound to: its URL without the fragment. */
 function pageTarget(url: string): string {
   const target = new URL(url);
@@ -1185,9 +1187,11 @@ export class BrowserPanel {
       },
       onSave: () => (current() ? this.drafts!.flush(draft.key) : false),
       onOpenTarget: (target) => {
-        if (/^https?:\/\//iu.test(target))
+        if (URL_TARGET.test(target))
           void this.openTab(target).catch((error) => this.fail(error));
       },
+      // A tab can show only http(s) pages; full-path targets get no action.
+      canOpenTarget: (target) => URL_TARGET.test(target),
     });
     this.editor.switchDocument(draft.key, draft.text);
     this.reflectDraft(draft);

@@ -21,6 +21,7 @@ declare global {
   }
 }
 
+const URL_TARGET = /^https?:\/\//iu;
 const root = document.querySelector<HTMLElement>("#app");
 if (!root) throw new Error("AIC editor root is missing");
 
@@ -36,9 +37,11 @@ const editor = new AicEditor(root, {
   readOnly: !standalone,
   onSave: commitDraft,
   onOpenTarget: (target) => {
-    if (/^https?:\/\//iu.test(target))
+    if (URL_TARGET.test(target))
       window.open(target, "_blank", "noopener,noreferrer");
   },
+  // Standard Notes can open only http(s) targets; full paths get no action.
+  canOpenTarget: (target) => URL_TARGET.test(target),
   onChange: (text) => {
     // Read-only belongs at the interaction boundary. If any mutation reaches
     // the document, never silently discard its draft tracking.

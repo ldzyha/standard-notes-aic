@@ -13,7 +13,10 @@ The [complete getting-started guide](https://aic.dzyha.com/releases) keeps file
 opening, direct saving, note pages, AIC blocks, copy controls, offline use,
 external sync and extension installation together. AIC uses plain `.md` files in
 the PWA, browser extension and VS Code, without an app password or `.aicnotes`
-support. Existing old files are left untouched. Standard Notes keeps its own
+support. There is one note file, chosen once and shared by every app; pages bind
+by full path or URL. The aic code editor and VS Code share the choice through
+`~/.config/aic/note-file.json`; the PWA and the browser extension ask once
+themselves. Existing old files are left untouched. Standard Notes keeps its own
 storage and sync. The version entry below is a release record; publication is
 verified separately.
 
@@ -95,8 +98,11 @@ in PowerShell. Test an installed package separately from its build and checksum.
 [Повна інструкція](https://aic.dzyha.com/releases/uk/) збирає в одному місці
 відкриття й запис файлів, сторінки нотатки, блоки AIC, копіювання, офлайн-роботу,
 зовнішню синхронізацію та встановлення. AIC використовує звичайні `.md` у PWA,
-браузері й VS Code без пароля застосунку та підтримки `.aicnotes`. Наявні старі
-файли не змінюються. Standard Notes зберігає власне сховище й синхронізацію.
+браузері й VS Code без пароля застосунку та підтримки `.aicnotes`. Файл нотатки
+один: його вибирають один раз, і його спільно використовують усі застосунки;
+сторінки прив’язуються за повним шляхом або URL. Редактор коду aic і VS Code
+ділять цей вибір через `~/.config/aic/note-file.json`; PWA і браузерне
+розширення один раз питають самі. Наявні старі файли не змінюються. Standard Notes зберігає власне сховище й синхронізацію.
 Запис версії нижче є історією релізу; публікація перевіряється окремо.
 
 ### Підготовлений випуск — 14 жовтня 2026 року

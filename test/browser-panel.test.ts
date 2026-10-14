@@ -322,6 +322,23 @@ describe("browser panel", () => {
     );
   });
 
+  it("offers Open target only on http(s) page cards", async () => {
+    const markdown = `--- /home/me/src/a.ts\nPath page\n\n--- ${A}\nURL page\n`;
+    const fake = fixture({ markdown });
+    const { root } = await mount(fake);
+    fake.go(null, 10);
+    await shows(root, null);
+    const view = editor(root);
+    view.dispatch({ selection: { anchor: view.state.doc.length } });
+    await vi.waitFor(() =>
+      expect(
+        [...root.querySelectorAll(".aic-card--page")].map(
+          (card) => !!card.querySelector('[aria-label="Open target"]'),
+        ),
+      ).toEqual([false, true]),
+    );
+  });
+
   it("imports captured content into the focused page, not the end of the file", async () => {
     const fake = fixture();
     const { root } = await mount(fake);

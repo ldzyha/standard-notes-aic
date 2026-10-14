@@ -143,6 +143,35 @@ describe("Standard Notes editor bridge", () => {
     await vi.waitFor(() => expect(editor.dataset.saveState).toBe("saved"));
   });
 
+  it("offers Open target only on http(s) page cards", async () => {
+    vi.resetModules();
+    window.ReactNativeWebView = {};
+    const root = document.createElement("main");
+    root.id = "app";
+    document.body.append(root);
+    const opened = vi.spyOn(window, "open").mockReturnValue(null);
+    await import("../src/main");
+    const view = EditorView.findFromDOM(
+      root.querySelector<HTMLElement>(".cm-editor")!,
+    )!;
+    const text =
+      "Intro\n\n--- /home/me/src/a.ts\nPath page\n\n--- https://example.com/docs\nURL page\n";
+    bridge.stream("note-pages", text);
+    view.dispatch({ selection: { anchor: text.length } });
+    const cards = [...root.querySelectorAll<HTMLElement>(".aic-card--page")];
+    expect(
+      cards.map((card) => !!card.querySelector('[aria-label="Open target"]')),
+    ).toEqual([false, true]);
+    cards[1]!
+      .querySelector<HTMLButtonElement>('[aria-label="Open target"]')!
+      .click();
+    expect(opened).toHaveBeenCalledExactlyOnceWith(
+      "https://example.com/docs",
+      "_blank",
+      "noopener,noreferrer",
+    );
+  });
+
   it("starts a dirty old-note save before a direct context switch", async () => {
     vi.resetModules();
     bridge.saves.length = 0;
