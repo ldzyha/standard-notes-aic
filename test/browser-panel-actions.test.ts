@@ -216,6 +216,7 @@ describe("browser panel direct actions", () => {
       "Follow active tab",
       "Link file to current page",
       "Refresh folder",
+      "Open folder…",
     ])
       expect(root.querySelector(`[aria-label="${removed}"]`)).toBeNull();
     expect(root.querySelector('[aria-label="Add content"]')).toBeNull();
@@ -226,8 +227,7 @@ describe("browser panel direct actions", () => {
     expect(root.querySelector(".browser-menu-group")?.textContent).toBe(
       "This page",
     );
-    expect(button(root, "Open file…").textContent).toBe("Open file…");
-    expect(button(root, "Open folder…").textContent).toBe("Open folder…");
+    expect(button(root, "Open note file…").textContent).toBe("Open note file…");
     expect(
       root.querySelector<HTMLElement>(".browser-overlay")?.dataset.layout,
     ).toBe("actions");

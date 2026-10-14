@@ -546,7 +546,7 @@ navigation and lifecycle checks. They are separate from authenticated host verif
 | `security-otp`                                                 | In-memory Base32/otpauth parsing and WebCrypto TOTP; fixed non-secret diagnostics                                                        | security-otp: RFC 6238 SHA-1/SHA-256/SHA-512 vectors and rejected inputs     |
 | `security-qr`                                                  | Retained bounded local-image decoder with resource cleanup                                                                               | security-qr; no mounted QR import or generation UI                           |
 | `agentic-notes`                                                | Scope/section utilities only                                                                                                             | agentic-notes; no enabled universal agent adapter or standalone writer       |
-| `note-pages`, `note-page-cards`                                | Pure `---` page parser and exact target matching; page card headers, one-target focus and edit confinement                               | note-pages, note-page-cards, editor, browser-panel, browser-folder-flow      |
+| `note-pages`, `note-page-cards`                                | Pure `---` page parser and exact target matching; page card headers, one-target focus and edit confinement                               | note-pages, note-page-cards, editor, browser-panel, browser-note-file-flow   |
 | `icons.css`, `preview-layout.css`, module CSS and declarations | Common action presentation, preview geometry and adapter API contracts                                                                   | editor, publication, TypeScript checks and browser layout QA                 |
 
 Adapter ownership stays explicit: `src/editor.ts`, `toolbar.ts`, `commands.ts`,
@@ -640,7 +640,7 @@ page is the same on disk as where the draft started, the draft's page is
 written into the disk text and every other byte of the file is kept;
 otherwise the save reports the conflict, the draft stays exportable and
 **Discard my changes and reload** loads the disk text after a confirmation.
-Coverage: `browser-panel`, `browser-folder-flow` and the feature
+Coverage: `browser-panel`, `browser-note-file-flow` and the feature
 registry checks.
 
 ## Portable agent instructions
@@ -841,4 +841,4 @@ Hosts:
 
 The browser reads bound targets from note text that is already loaded, on each
 navigation and without stored state. Coverage: `note-pages`, `note-page-cards`,
-`editor`, `browser-panel`, `browser-folder-flow` and `pwa-ui`.
+`editor`, `browser-panel`, `browser-note-file-flow` and `pwa-ui`.

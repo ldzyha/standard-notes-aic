@@ -31,7 +31,6 @@ function event<T extends unknown[]>() {
 
 function harness(initial: Record<string, string> = {}) {
   const files = markdownFixture(initial);
-  const scans = vi.spyOn(files.root, "values");
   const grant = vi.spyOn(files.root, "requestPermission");
   vi.spyOn(IndexedDbBrowserSources.prototype, "read").mockImplementation(
     files.bindings.read,
@@ -39,8 +38,8 @@ function harness(initial: Record<string, string> = {}) {
   vi.spyOn(IndexedDbBrowserSources.prototype, "write").mockImplementation(
     files.bindings.write,
   );
-  const picker = vi.fn(async () => files.root);
-  vi.stubGlobal("showDirectoryPicker", picker);
+  const picker = vi.fn(async () => [files.root]);
+  vi.stubGlobal("showOpenFilePicker", picker);
   const local: Record<string, unknown> = {};
   const changed = event<[Record<string, unknown>, string]>();
   const activated = event<[{ tabId: number; windowId: number }]>();
@@ -102,7 +101,6 @@ function harness(initial: Record<string, string> = {}) {
     api,
     picker,
     grant,
-    scans,
     restart: () => {
       service = createBrowserService(api, files.bindings);
     },
@@ -152,7 +150,7 @@ afterEach(() => {
 async function open(h: ReturnType<typeof harness>) {
   const mounted = mount(h.api);
   await mounted.panel.ready;
-  button(mounted.root, "Open folder").click();
+  button(mounted.root, "Open note file").click();
   await vi.waitFor(() =>
     expect(
       mounted.root.querySelector(".browser-note .cm-editor"),
@@ -179,47 +177,12 @@ function type(view: EditorView, text: string) {
     userEvent: "input.type",
   });
 }
-const legacyFolder = () => ({
-  "pages/page-1.md": "# Earlier page note\n",
-  "shared/shared-1.md": "Shared\r\nnote",
-  "global.md": "\uFEFFGlobal",
-  "project/readme.md": "# Other Markdown\n",
-  ".aic/links.json": JSON.stringify({
-    format: "aic-markdown-links",
-    version: 1,
-    entries: [
-      {
-        id: "page-1",
-        path: "pages/page-1.md",
-        scope: "current",
-        url: PROJECT,
-        title: "Synthetic project",
-        createdAt: 1,
-        updatedAt: 2,
-        revision: 3,
-        fingerprint: "0".repeat(64),
-      },
-    ],
-  }),
-  ".aic/links.pending.json": JSON.stringify({
-    format: "aic-links-pending",
-    version: 1,
-    baseText: "an index that is no longer on disk",
-    nextText: "{}",
-    writes: [{ path: "pages/page-1.md", fingerprint: "1".repeat(64) }],
-  }),
-  ".aic/write.lock": "",
-});
-
 describe("one note file, one page per tab", () => {
-  it("connects a folder of earlier page notes, focuses aic.md on the tab and leaves every earlier file byte-identical", async () => {
-    const h = harness(legacyFolder());
+  it("connects the note file, focuses the tab's page and leaves other files byte-identical", async () => {
+    const h = harness({ "readme.md": "# Other Markdown\n" });
     const before = structuredClone([...h.files.entries]);
-    await h.files
-      .file(".aic/write.lock")
-      .createWritable({ keepExistingData: true, mode: "exclusive" });
     const { root, view } = await open(h);
-    // The earlier note for this URL is not shown: the page is an empty card.
+    // The URL has no page yet: the page is an empty card.
     expect(view.state.doc.toString()).toBe("");
     expect(focusedPage(view.state)).toMatchObject({ exists: false });
     expect(root.querySelectorAll(".cm-editor")).toHaveLength(1);
@@ -229,7 +192,7 @@ describe("one note file, one page per tab", () => {
     expect(
       root.querySelector(".browser-file-location .aic-context__path")!
         .textContent,
-    ).toBe("notes/aic.md");
+    ).toBe("aic.md");
     // Connecting and viewing create nothing.
     expect([...h.files.entries]).toEqual(before);
     type(view, "First note");
@@ -242,15 +205,11 @@ describe("one note file, one page per tab", () => {
         `--- ${PROJECT}\nFirst note, continued`,
       ),
     );
-    expect([...h.files.entries].filter(([path]) => path !== "aic.md")).toEqual(
-      before,
+    expect(h.files.entries.get("readme.md")).toEqual(
+      new Map(before).get("readme.md"),
     );
-    expect(h.scans).not.toHaveBeenCalled();
     button(root, "More options").click();
     const menu = root.querySelector<HTMLElement>(".browser-overlay")!;
-    expect(menu.textContent).toContain(
-      "Earlier page notes stay in this folder as Markdown files.",
-    );
     expect(
       [...menu.querySelectorAll("button")].map((item) =>
         item.getAttribute("aria-label"),
@@ -260,8 +219,7 @@ describe("one note file, one page per tab", () => {
       "Insert from Markdown file",
       "Download page",
       "AIC guide",
-      "Open file…",
-      "Open folder…",
+      "Open note file…",
       "Download note file",
       "Terms and privacy",
       "Releases and installation",
@@ -500,7 +458,6 @@ describe("one note file, one page per tab", () => {
       expect(currentEditor(reopened.root).state.doc.toString()).toBe(saved),
     );
     expect(h.picker).toHaveBeenCalledTimes(1);
-    expect(h.scans).not.toHaveBeenCalled();
     expect(h.files.text("aic.md")).toBe(saved);
     expect(h.local[RECOVERY_KEY]).toBeDefined();
   });

@@ -594,7 +594,7 @@
         "standard-notes-aic/test/note-page-cards.test.ts",
         "standard-notes-aic/test/editor.test.ts",
         "standard-notes-aic/test/browser-panel.test.ts",
-        "standard-notes-aic/test/browser-folder-flow.test.ts",
+        "standard-notes-aic/test/browser-note-file-flow.test.ts",
         "standard-notes-aic/test/pwa-ui.test.ts",
         "aic-notes/test/note-routing.test.js",
         "aic-notes/test/web-host.test.js",
@@ -737,7 +737,7 @@
     {
       "id": "browser.markdown-files",
       "group": "browser-adapter",
-      "purpose": "Edit one plain Markdown note file directly: `aic.md` in the connected folder, or the connected file. A missing `aic.md` is created by the first save, never by connecting or viewing. The browser worker serializes mutations and writes the whole file by compare-and-swap against the bytes it last read, so a change made elsewhere is reported as a conflict; the file is limited to 512 KiB and is never truncated. No other file in the folder is listed, read or written: Markdown files and `.aic` metadata of the earlier one-note-per-page layout stay untouched. Draft recovery copies, including copies of earlier page, Shared and Global drafts, stay reviewable and exportable and are never applied to the note file.",
+      "purpose": "Edit one plain Markdown note file directly: the file the user opened or created (suggested name aic.md); folders are not opened. The browser worker serializes mutations and writes the whole file by compare-and-swap against the bytes it last read, so a change made elsewhere is reported as a conflict; the file is limited to 512 KiB and is never truncated. A moved or deleted note file is never recreated. No other file is listed, read or written. A folder remembered by an earlier version is not reopened; the panel asks for the note file. Draft recovery copies, including copies of earlier page, Shared and Global drafts, stay reviewable and exportable and are never applied to the note file.",
       "hosts": ["browser"],
       "canonicalOwners": [
         "standard-notes-aic/src/browser/markdown-storage.ts",
@@ -760,7 +760,7 @@
         "standard-notes-aic/test/browser-recovery-store.test.ts",
         "standard-notes-aic/test/browser-panel.test.ts",
         "standard-notes-aic/test/browser-source-access.test.ts",
-        "standard-notes-aic/test/browser-folder-flow.test.ts"
+        "standard-notes-aic/test/browser-note-file-flow.test.ts"
       ]
     },
     {
@@ -785,7 +785,7 @@
       "verification": [
         "standard-notes-aic/test/browser-draft-file-service.test.ts",
         "standard-notes-aic/test/browser-drafts.test.ts",
-        "standard-notes-aic/test/browser-folder-flow.test.ts",
+        "standard-notes-aic/test/browser-note-file-flow.test.ts",
         "standard-notes-aic/test/browser-panel-actions.test.ts",
         "standard-notes-aic/test/browser-panel-reconnect.test.ts",
         "standard-notes-aic/test/browser-panel.test.ts"
@@ -809,7 +809,7 @@
         "standard-notes-aic/src/browser/service.ts"
       ],
       "verification": [
-        "standard-notes-aic/test/browser-folder-flow.test.ts",
+        "standard-notes-aic/test/browser-note-file-flow.test.ts",
         "standard-notes-aic/test/browser-page-import.test.ts",
         "standard-notes-aic/test/browser-panel-actions.test.ts",
         "standard-notes-aic/test/browser-panel.test.ts",

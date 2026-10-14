@@ -394,4 +394,4 @@ Export Markdown і деталі. Меню простору містить дод
 
 Браузер читає прив’язані цілі з уже завантаженого тексту нотаток під час
 кожної навігації й нічого не зберігає. Перевірки: `note-pages`,
-`note-page-cards`, `editor`, `browser-panel`, `browser-folder-flow` і `pwa-ui`.
+`note-page-cards`, `editor`, `browser-panel`, `browser-note-file-flow` і `pwa-ui`.

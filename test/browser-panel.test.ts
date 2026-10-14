@@ -81,7 +81,7 @@ function fixture(
   const recoveries = new Map<string, RecoverySnapshot>();
   const status = () => ({
     state,
-    source: { kind: "directory", id: "browser-panel-test", name: "notes" },
+    source: { kind: "file", id: "browser-panel-test", name: "aic.md" },
     access: { read: "granted", write: "granted" },
   });
   const api = {
@@ -256,19 +256,19 @@ afterEach(() => {
 });
 
 describe("browser panel", () => {
-  it("opens files and folders without any credentials or encrypted actions", async () => {
+  it("opens or creates the note file without any credentials or encrypted actions", async () => {
     const fake = fixture({ state: "unselected" });
     const { root } = await mount(fake, false);
-    expect(root.textContent).toContain("Open your notes");
+    expect(root.textContent).toContain("Choose your note file");
     const gate = root.querySelector(".browser-files-gate")!;
     expect(
       [...gate.querySelectorAll("button")].map((item) =>
         item.getAttribute("aria-label"),
       ),
-    ).toEqual(["Open folder", "Open file"]);
+    ).toEqual(["Open note file", "Create note file"]);
     expect(root.querySelector('input[type="password"]')).toBeNull();
     expect(root.textContent).not.toMatch(/encrypt|unlock|passphrase|backup/iu);
-    button(gate as HTMLElement, "Open folder").click();
+    button(gate as HTMLElement, "Open note file").click();
     await vi.waitFor(() =>
       expect(root.querySelector(".cm-editor")).not.toBeNull(),
     );

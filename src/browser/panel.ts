@@ -38,7 +38,6 @@ export class BrowserPanel {
   private warmedSourceId: string | null = null;
   private checkingAccess = false;
   private selectingSource = false;
-  private legacyNotes = false;
   private sourceChanged = false;
   /** A connect, reconnect or first status read owns the source until it settles. */
   private sourceBusy = false;
@@ -453,14 +452,13 @@ export class BrowserPanel {
     if (box.childElementCount) box.append(this.menuSeparator());
     box.append(
       this.menuHeading("Files"),
-      this.menuButton("Open file…", "document", () => this.connectFile("file")),
-      this.menuButton("Open folder…", "folder", () =>
-        this.connectFile("folder"),
+      this.menuButton("Open note file…", "document", () =>
+        this.connectFile("file"),
       ),
     );
     if (this.source?.id && this.state === "ready" && this.needsFilePermission())
       box.append(
-        this.menuButton("Reconnect access", "folder", () =>
+        this.menuButton("Reconnect access", "document", () =>
           this.reconnectFile(),
         ),
       );
@@ -476,14 +474,6 @@ export class BrowserPanel {
           this.closeOverlay(true);
           this.exportDraft(noteId);
         }),
-      );
-    if (this.legacyNotes && this.canUseLibrary())
-      box.append(
-        this.el(
-          "p",
-          "browser-menu-hint",
-          "Earlier page notes stay in this folder as Markdown files.",
-        ),
       );
     box.append(
       this.menuSeparator(),
@@ -584,11 +574,10 @@ export class BrowserPanel {
               .catch(() => {
                 if (!this.disposed && this.source?.id === status.source.id)
                   this.tell(
-                    "This location could not be restored. Use More options to open the file or folder again.",
+                    "This location could not be restored. Use More options to open the note file again.",
                     "error",
                   );
               });
-          this.legacyNotes = !!status.legacyNotes;
           this.sourceChanged = false;
           this.renderFileLocation();
         } else if (message.type === "save") {
@@ -645,19 +634,14 @@ export class BrowserPanel {
     )!;
     const reconnect =
       this.fileLocation.querySelector<HTMLButtonElement>(".browser-reconnect")!;
-    const selected = ["file", "directory"].includes(this.source.kind);
+    const selected = this.source.kind === "file";
     path.textContent = selected
-      ? [
-          this.source.kind === "directory" ? this.source.name : "",
-          this.drafts?.get(this.noteId ?? "")?.note.filePath,
-        ]
-          .filter(Boolean)
-          .join("/") ||
+      ? this.drafts?.get(this.noteId ?? "")?.note.filePath ||
         this.source.name ||
-        "Markdown files"
-      : "No file or folder selected";
+        "Note file"
+      : "No note file selected";
     path.title = selected
-      ? `Selected ${this.source.kind === "directory" ? "folder" : "file"}: ${this.source.name}. Edits are written directly to disk.`
+      ? `Note file: ${this.source.name}. Edits are written directly to disk.`
       : "Choose a file to keep your notes outside the extension.";
     const needsPermission = this.needsFilePermission();
     reconnect.hidden = !needsPermission || !this.source.id;
@@ -679,7 +663,7 @@ export class BrowserPanel {
           ? "File changed"
           : "Check file"
         : !selected
-          ? "Open file or folder"
+          ? "Open note file"
           : this.hasPendingDrafts()
             ? "Unsaved"
             : this.state === "unavailable"
@@ -853,7 +837,7 @@ export class BrowserPanel {
     }
   }
 
-  private async connectFile(mode: "file" | "folder"): Promise<void> {
+  private async connectFile(mode: "file" | "create"): Promise<void> {
     if (this.privateWindow && !this.allowPrivate)
       throw new Error("Read and accept the private-window notice first.");
     if (this.selectingSource || this.reconnecting || this.sourceBusy) return;
@@ -968,28 +952,28 @@ export class BrowserPanel {
       const gate = this.el("section", "browser-gate browser-files-gate");
       const remembered = this.source?.id && this.state === "unavailable";
       gate.append(
-        this.el("h1", "", remembered ? "Your notes" : "Open your notes"),
+        this.el("h1", "", remembered ? "Your note" : "Choose your note file"),
       );
       if (remembered) {
         const name = this.el(
           "p",
           "browser-source-name",
-          this.source!.name || "Markdown files",
+          this.source!.name || "Note file",
         );
         name.title = name.textContent ?? "";
         const resume = this.button("Continue", () => this.reconnectFile(), {
-          icon: "folder",
+          icon: "document",
         });
         resume.dataset.continueSource = "true";
         gate.append(name, resume);
       } else {
         const actions = this.el("div", "browser-file-actions");
         actions.append(
-          this.button("Open folder", () => this.connectFile("folder"), {
-            icon: "folder",
-          }),
-          this.button("Open file", () => this.connectFile("file"), {
+          this.button("Open note file", () => this.connectFile("file"), {
             icon: "document",
+          }),
+          this.button("Create note file", () => this.connectFile("create"), {
+            icon: "note-add",
             variant: "ghost",
           }),
         );
@@ -1232,7 +1216,7 @@ export class BrowserPanel {
       this.disposed ||
       this.state !== "ready" ||
       !this.source ||
-      !["file", "directory"].includes(this.source.kind) ||
+      this.source.kind !== "file" ||
       !this.source.id
     )
       return;
@@ -1284,11 +1268,7 @@ export class BrowserPanel {
   }
 
   private async loadRecoveredDrafts(): Promise<void> {
-    if (
-      !this.canUseLibrary() ||
-      !this.source ||
-      !["file", "directory"].includes(this.source.kind)
-    )
+    if (!this.canUseLibrary() || !this.source || this.source.kind !== "file")
       return;
     const generation = this.generation;
     try {

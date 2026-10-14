@@ -1,10 +1,10 @@
 /**
- * The one note the browser panel edits: `aic.md` in the connected folder, or
- * the connected file. The extension's background worker is its sole writer.
+ * The one note the browser panel edits: the connected note file. The
+ * extension's background worker is its sole writer.
  */
 export interface BrowserNote {
   id: string;
-  /** Path inside the connected folder, or the connected file's name. */
+  /** The connected file's name. */
   filePath: string;
   markdown: string;
   /** Opaque token of the bytes last observed on disk, never a counter. */

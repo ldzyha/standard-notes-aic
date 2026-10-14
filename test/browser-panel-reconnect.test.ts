@@ -213,7 +213,7 @@ describe("browser panel file access recovery", () => {
       .querySelector<HTMLButtonElement>('button[aria-label="More options"]')!
       .click();
     root
-      .querySelector<HTMLButtonElement>('button[aria-label="Open file…"]')!
+      .querySelector<HTMLButtonElement>('button[aria-label="Open note file…"]')!
       .click();
     expect(chooseBrowserSource).toHaveBeenCalledWith(
       "file",

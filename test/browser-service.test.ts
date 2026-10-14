@@ -102,13 +102,13 @@ describe("plain browser file service", () => {
     });
     expect(await h.connect()).toMatchObject({
       state: "ready",
-      source: { kind: "directory", id: "browser-test" },
+      source: { kind: "file", id: "browser-test" },
     });
-    // Only aic.md is the note; other Markdown in the folder is not opened.
+    // Only the note file is opened; other Markdown is not.
     expect(await note(h)).toMatchObject({ filePath: "aic.md", markdown: "" });
-    expect([...h.files.entries.keys()].sort()).toEqual(["", "plain.md"]);
+    expect(h.files.text("plain.md")).toBe("# Existing Markdown");
     expect(h.local["aic-browser-library"]).toEqual({ old: "untouched" });
-    expect(h.local[FILE_SOURCE_KEY]).toMatchObject({ kind: "directory" });
+    expect(h.local[FILE_SOURCE_KEY]).toMatchObject({ kind: "file" });
     h.restart();
     expect(await h.send({ type: "status" })).toMatchObject({ state: "ready" });
     for (const request of [
@@ -121,14 +121,10 @@ describe("plain browser file service", () => {
       await expect(h.send(request)).rejects.toThrow("not supported");
   });
 
-  it("creates the folder's aic.md with the first save and reads disk changes on load", async () => {
+  it("saves the note file and reads disk changes on load", async () => {
     const h = harness({ ".aic/links.json": "{}" });
-    expect(await h.connect()).toMatchObject({
-      state: "ready",
-      legacyNotes: true,
-    });
+    expect(await h.connect()).toMatchObject({ state: "ready" });
     const opened = await note(h);
-    expect(h.files.entries.has("aic.md")).toBe(false);
     const saved = (await h.send({
       type: "save",
       id: opened.id,
@@ -164,7 +160,7 @@ describe("plain browser file service", () => {
     expect(h.files.text("aic.md")).toBe("Edited in another editor");
   });
 
-  it("rejects the retired per-page, Shared and Global requests without touching the folder", async () => {
+  it("rejects the retired per-page, Shared and Global requests without touching files", async () => {
     const h = harness({ "global.md": "# Kept" });
     await h.connect();
     for (const request of [
@@ -185,7 +181,7 @@ describe("plain browser file service", () => {
         "Unsupported AIC request.",
       );
     expect(h.files.text("global.md")).toBe("# Kept");
-    expect([...h.files.entries.keys()].sort()).toEqual(["", "global.md"]);
+    expect([...h.files.entries.keys()].sort()).toEqual(["aic.md", "global.md"]);
     expect(h.api.tabs.create).not.toHaveBeenCalled();
   });
 
@@ -290,7 +286,7 @@ describe("plain browser file service", () => {
       }),
     ).rejects.toMatchObject({ code: "source" });
     expect(h.files.text("aic.md")).toBe("Original");
-    expect(other.entries.has("aic.md")).toBe(false);
+    expect(other.text("aic.md")).toBe("");
   });
 
   it("retains plain draft recovery during an in-flight file write and source permission loss", async () => {
@@ -409,7 +405,6 @@ describe("plain browser file service", () => {
       access: { read: "prompt", write: "prompt" },
       sourceErrorCode: "permission",
     });
-    expect(h.files.state.scans).toBe(0);
     expect(request).not.toHaveBeenCalled();
     expect(h.api.storage.local.set).not.toHaveBeenCalled();
     expect(h.local[FILE_SOURCE_KEY]).toEqual(originalSource);

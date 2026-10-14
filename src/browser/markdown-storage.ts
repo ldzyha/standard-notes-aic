@@ -9,10 +9,8 @@ import {
 } from "./library";
 
 export const FILE_SOURCE_KEY = "aic-browser-markdown-source";
-/** The one note file inside a connected folder. */
-export const NOTE_FILE = "aic.md";
 export interface BrowserFileLocation {
-  kind: "file" | "directory" | "unselected";
+  kind: "file" | "unselected";
   id?: string;
   name?: string;
 }
@@ -22,8 +20,6 @@ export interface BrowserStatus {
   sourceError?: string;
   sourceErrorCode?: string;
   access?: { read: PermissionState; write: PermissionState };
-  /** The folder holds metadata of the earlier one-note-per-page layout. */
-  legacyNotes?: true;
 }
 interface Permissions {
   queryPermission?(options: {
@@ -51,24 +47,7 @@ export interface BrowserMarkdownFile extends Permissions {
     abort?(): Promise<void>;
   }>;
 }
-export interface BrowserMarkdownDirectory extends Permissions {
-  kind: "directory";
-  name: string;
-  getFileHandle(
-    name: string,
-    options?: { create?: boolean },
-  ): Promise<BrowserMarkdownFile>;
-  getDirectoryHandle(
-    name: string,
-    options?: { create?: boolean },
-  ): Promise<BrowserMarkdownDirectory>;
-  values(): AsyncIterableIterator<
-    BrowserMarkdownFile | BrowserMarkdownDirectory
-  >;
-  removeEntry(name: string): Promise<void>;
-}
-export type BrowserMarkdownHandle =
-  BrowserMarkdownFile | BrowserMarkdownDirectory;
+export type BrowserMarkdownHandle = BrowserMarkdownFile;
 export interface BrowserSourceBindings {
   read(id: string): Promise<unknown | null>;
   write(id: string, handle: BrowserMarkdownHandle): Promise<void>;
@@ -79,11 +58,8 @@ interface LocalStorage {
 }
 interface Observation {
   sourceId: string;
-  root: BrowserMarkdownHandle;
-  /** Null until the folder's note file exists; it is created by the first save. */
-  handle: BrowserMarkdownFile | null;
+  handle: BrowserMarkdownFile;
   note: BrowserNote;
-  legacyNotes: boolean;
 }
 const encoder = new TextEncoder();
 const fail = (
@@ -102,7 +78,7 @@ function bindingId(value: unknown): string {
     typeof value !== "string" ||
     !/^browser-[a-zA-Z0-9_-]{1,100}$/u.test(value)
   )
-    throw fail("Open your Markdown file or folder again.", "invalid");
+    throw fail("Open your note file again.", "invalid");
   return value;
 }
 function nativeHandle(value: unknown): BrowserMarkdownHandle {
@@ -114,7 +90,7 @@ function nativeHandle(value: unknown): BrowserMarkdownHandle {
     typeof value.name !== "string"
   )
     throw fail(
-      "Remembered file access is unavailable. Open the original file or folder again.",
+      "Remembered file access is unavailable. Open the note file again.",
     );
   if (
     value.kind === "file" &&
@@ -124,18 +100,8 @@ function nativeHandle(value: unknown): BrowserMarkdownHandle {
     typeof value.createWritable === "function"
   )
     return value as BrowserMarkdownFile;
-  if (
-    value.kind === "directory" &&
-    "values" in value &&
-    typeof value.values === "function" &&
-    "getFileHandle" in value &&
-    typeof value.getFileHandle === "function" &&
-    "getDirectoryHandle" in value &&
-    typeof value.getDirectoryHandle === "function"
-  )
-    return value as BrowserMarkdownDirectory;
   throw fail(
-    "Remembered file access is unavailable. Open the original file or folder again.",
+    "Remembered file access is unavailable. Open the note file again.",
   );
 }
 async function permission(
@@ -183,12 +149,12 @@ async function readText(handle: BrowserMarkdownFile): Promise<string> {
 async function writeText(
   handle: BrowserMarkdownFile,
   text: string,
-  expected: string | null,
+  expected: string,
 ): Promise<void> {
   await permission(handle, "readwrite");
   const assert = async () => {
     const actual = await readText(handle);
-    if (actual !== (expected ?? ""))
+    if (actual !== expected)
       throw fail(
         "This file changed on disk. Keep or export your draft before reopening it.",
         "conflict",
@@ -355,14 +321,11 @@ export class BrowserSourceAccess {
 }
 
 export async function chooseBrowserSource(
-  mode: "file" | "folder" | "create",
+  mode: "file" | "create",
   bindings: BrowserSourceBindings = new IndexedDbBrowserSources(),
   access?: BrowserSourceAccess,
 ): Promise<string | null> {
   const host = window as unknown as {
-    showDirectoryPicker?(options: {
-      mode: "readwrite";
-    }): Promise<BrowserMarkdownDirectory>;
     showOpenFilePicker?(options: object): Promise<BrowserMarkdownFile[]>;
     showSaveFilePicker?(options: object): Promise<BrowserMarkdownFile>;
   };
@@ -371,11 +334,9 @@ export async function chooseBrowserSource(
     const types = [
       { description: "Markdown", accept: { "text/markdown": [".md"] } },
     ];
-    if (mode === "folder")
-      handle = await host.showDirectoryPicker?.({ mode: "readwrite" });
-    else if (mode === "create")
+    if (mode === "create")
       handle = await host.showSaveFilePicker?.({
-        suggestedName: "note.md",
+        suggestedName: "aic.md",
         types,
       });
     else
@@ -390,7 +351,7 @@ export async function chooseBrowserSource(
       throw fail(
         "This browser cannot edit local files directly. Open AIC in a browser with file access support.",
       );
-    if (handle.kind === "file") validateMarkdownPath(handle.name);
+    validateMarkdownPath(handle.name);
     await permission(handle, "readwrite", true);
     const id = `browser-${crypto.randomUUID()}`;
     await bindings.write(id, handle);
@@ -414,21 +375,7 @@ export function reconnectBrowserSource(
   return access.reconnect(id);
 }
 
-async function maybeEntry<T>(open: () => Promise<T>): Promise<T | null> {
-  try {
-    return await open();
-  } catch (error) {
-    if (missing(error)) return null;
-    throw error;
-  }
-}
-
-/**
- * One worker owner of the one note file. A connected folder contributes only
- * its `aic.md`: no other file is read and nothing else is listed or written,
- * so notes and `.aic` metadata of the earlier per-page layout stay as they
- * are. The only other access is a check whether the `.aic` folder exists.
- */
+/** One worker owner of the one note file; nothing else is read or written. */
 export class BrowserMarkdownStorage {
   private observed: Observation | null = null;
   constructor(
@@ -439,42 +386,51 @@ export class BrowserMarkdownStorage {
     const value = (await this.local.get(FILE_SOURCE_KEY))[FILE_SOURCE_KEY];
     if (value === undefined || value === null) return { kind: "unselected" };
     if (
+      value &&
+      typeof value === "object" &&
+      "kind" in value &&
+      value.kind === "directory"
+    )
+      throw fail(
+        "AIC no longer opens folders. Open the note file itself, for example the folder's aic.md.",
+        "source",
+      );
+    if (
       !value ||
       typeof value !== "object" ||
       !("kind" in value) ||
       !("id" in value) ||
       !("name" in value) ||
-      (value.kind !== "file" && value.kind !== "directory") ||
+      value.kind !== "file" ||
       typeof value.name !== "string"
     )
       throw fail(
-        "Remembered file location is invalid. Open the original file or folder again.",
+        "Remembered file location is invalid. Open the note file again.",
         "invalid",
       );
-    return { kind: value.kind, id: bindingId(value.id), name: value.name };
+    return { kind: "file", id: bindingId(value.id), name: value.name };
   }
   async assertSource(expected?: string): Promise<void> {
     const location = await this.location();
     if (location.id !== expected)
       throw fail(
-        "The selected files changed in another panel. Reopen the current files before editing.",
+        "The note file changed in another panel. Reopen it before editing.",
         "source",
       );
   }
-  private async handle(id: string): Promise<BrowserMarkdownHandle> {
+  private async handle(id: string): Promise<BrowserMarkdownFile> {
     return nativeHandle(await this.bindings.read(bindingId(id)));
   }
   async access(): Promise<{ read: PermissionState; write: PermissionState }> {
     const source = await this.location();
-    if (!source.id)
-      throw fail("Choose a Markdown file or folder first.", "source");
-    const root =
+    if (!source.id) throw fail("Choose your note file first.", "source");
+    const handle =
       this.observed?.sourceId === source.id
-        ? this.observed.root
+        ? this.observed.handle
         : await this.handle(source.id);
     const [read, write] = await Promise.all([
-      root.queryPermission?.({ mode: "read" }) ?? ("granted" as const),
-      root.queryPermission?.({ mode: "readwrite" }) ?? ("granted" as const),
+      handle.queryPermission?.({ mode: "read" }) ?? ("granted" as const),
+      handle.queryPermission?.({ mode: "readwrite" }) ?? ("granted" as const),
     ]);
     return { read, write };
   }
@@ -487,61 +443,49 @@ export class BrowserMarkdownStorage {
     });
   }
   snapshot(): BrowserNote {
-    if (!this.observed) throw fail("Open the original files first.", "source");
+    if (!this.observed) throw fail("Open the note file first.", "source");
     return { ...this.observed.note };
-  }
-  get legacyNotes(): boolean {
-    return !!this.observed?.legacyNotes;
   }
   /** `refresh` reads the note file again; otherwise only access is checked. */
   async read(refresh = true): Promise<BrowserNote> {
     const location = await this.location();
     if (location.kind === "unselected")
-      throw fail("Open a Markdown file or folder to begin.", "source");
+      throw fail("Open your note file to begin.", "source");
     const observed =
       this.observed?.sourceId === location.id ? this.observed : null;
     try {
       if (!refresh && observed) {
-        await permission(observed.root, "read");
-        if (observed.root.kind === "file") await observed.root.getFile();
+        await permission(observed.handle, "read");
+        await observed.handle.getFile();
         return this.snapshot();
       }
       return await this.inspect(
         location.id!,
-        observed?.root ?? (await this.handle(location.id!)),
+        observed?.handle ?? (await this.handle(location.id!)),
       );
     } catch (error) {
       if (error instanceof BrowserFileError) throw error;
       throw fail(
         missing(error)
-          ? "The original file or folder was moved or deleted. It was not recreated."
-          : "Could not read the original files. Reconnect file access and try again.",
+          ? "The note file was moved or deleted. It was not recreated."
+          : "Could not read the note file. Reconnect file access and try again.",
       );
     }
   }
   private async inspect(
     sourceId: string,
-    root: BrowserMarkdownHandle,
+    handle: BrowserMarkdownFile,
   ): Promise<BrowserNote> {
-    await permission(root, "read");
-    const filePath =
-      root.kind === "file" ? validateMarkdownPath(root.name) : NOTE_FILE;
-    const handle =
-      root.kind === "file"
-        ? root
-        : await maybeEntry(() => root.getFileHandle(NOTE_FILE));
-    // A missing note file is an empty note; viewing it creates nothing.
-    const markdown = handle ? await readText(handle) : "";
+    await permission(handle, "read");
+    const filePath = validateMarkdownPath(handle.name);
+    const markdown = await readText(handle);
     const note: BrowserNote = {
       id: `file-${(await digest(filePath)).slice(0, 32)}`,
       filePath,
       markdown,
       revision: revision(await digest(markdown)),
     };
-    const legacyNotes =
-      root.kind === "directory" &&
-      !!(await maybeEntry(() => root.getDirectoryHandle(".aic")));
-    this.observed = { sourceId, root, handle, note, legacyNotes };
+    this.observed = { sourceId, handle, note };
     return { ...note };
   }
   /** Compare-and-swap of the whole note file; nothing else is written. */
@@ -554,7 +498,7 @@ export class BrowserMarkdownStorage {
     const location = await this.location();
     const observed = this.observed;
     if (!observed || observed.sourceId !== location.id)
-      throw fail("Reopen the files before saving.", "source");
+      throw fail("Reopen the note file before saving.", "source");
     if (id !== observed.note.id)
       throw new LibraryError("invalid", "Invalid browser note data.");
     if (expectedRevision !== observed.note.revision)
@@ -562,22 +506,8 @@ export class BrowserMarkdownStorage {
         "conflict",
         "This note changed elsewhere. Reload it before saving.",
       );
-    if (markdown !== observed.note.markdown) {
-      await permission(observed.root, "readwrite");
-      let handle = observed.handle;
-      if (!handle) {
-        if (observed.root.kind !== "directory")
-          throw fail("Reopen the files before saving.", "source");
-        handle = await observed.root.getFileHandle(NOTE_FILE, { create: true });
-      }
-      // A file another window created meanwhile is not empty: that is a conflict.
-      await writeText(
-        handle,
-        markdown,
-        observed.handle ? observed.note.markdown : null,
-      );
-      observed.handle = handle;
-    }
+    if (markdown !== observed.note.markdown)
+      await writeText(observed.handle, markdown, observed.note.markdown);
     observed.note = {
       ...observed.note,
       markdown,

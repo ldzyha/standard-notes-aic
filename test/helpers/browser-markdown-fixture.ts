@@ -1,15 +1,15 @@
 import type {
-  BrowserMarkdownDirectory,
   BrowserMarkdownFile,
   BrowserMarkdownHandle,
   BrowserSourceBindings,
 } from "../../src/browser/markdown-storage";
 
+/** The one note file; `root` is its handle. Other paths are bystander files. */
+
 export function markdownFixture(initial: Record<string, string> = {}) {
   const entries = new Map<
     string,
     {
-      kind: "file" | "directory";
       text: string;
       writes: number;
       closes: number;
@@ -17,36 +17,17 @@ export function markdownFixture(initial: Record<string, string> = {}) {
       beforeClose?: () => Promise<void>;
     }
   >();
-  entries.set("", {
-    kind: "directory",
-    text: "",
-    writes: 0,
-    closes: 0,
-    failClose: false,
-  });
-  const state = { allowed: true, scans: 0 };
+  const state = { allowed: true };
   const locks = new Set<string>();
   const absent = () =>
     new DOMException("Synthetic missing file", "NotFoundError");
   const put = (path: string, text: string) => {
-    const parts = path.split("/");
-    for (let end = 1; end < parts.length; end++) {
-      const parent = parts.slice(0, end).join("/");
-      if (!entries.has(parent))
-        entries.set(parent, {
-          kind: "directory",
-          text: "",
-          writes: 0,
-          closes: 0,
-          failClose: false,
-        });
-    }
     const current = entries.get(path);
     entries.set(
       path,
       current
         ? { ...current, text }
-        : { kind: "file", text, writes: 0, closes: 0, failClose: false },
+        : { text, writes: 0, closes: 0, failClose: false },
     );
   };
   const permissions = {
@@ -64,7 +45,7 @@ export function markdownFixture(initial: Record<string, string> = {}) {
     ...permissions,
     async getFile() {
       const value = entries.get(path);
-      if (!value || value.kind !== "file") throw absent();
+      if (!value) throw absent();
       const text = value.text;
       return {
         size: new TextEncoder().encode(text).length,
@@ -103,55 +84,9 @@ export function markdownFixture(initial: Record<string, string> = {}) {
       };
     },
   });
-  const directory = (path: string): BrowserMarkdownDirectory => ({
-    kind: "directory",
-    name: path.split("/").at(-1) || "notes",
-    ...permissions,
-    async getFileHandle(name, options = {}) {
-      const full = path ? `${path}/${name}` : name;
-      const value = entries.get(full);
-      if (!value && options.create) put(full, "");
-      else if (!value) throw absent();
-      else if (value.kind !== "file")
-        throw new DOMException("Type mismatch", "TypeMismatchError");
-      return file(full);
-    },
-    async getDirectoryHandle(name, options = {}) {
-      const full = path ? `${path}/${name}` : name;
-      const value = entries.get(full);
-      if (!value && options.create)
-        entries.set(full, {
-          kind: "directory",
-          text: "",
-          writes: 0,
-          closes: 0,
-          failClose: false,
-        });
-      else if (!value) throw absent();
-      else if (value.kind !== "directory")
-        throw new DOMException("Type mismatch", "TypeMismatchError");
-      return directory(full);
-    },
-    async *values() {
-      if (!entries.has(path)) throw absent();
-      state.scans++;
-      const prefix = path ? `${path}/` : "";
-      for (const [name, value] of entries) {
-        if (
-          name &&
-          name.startsWith(prefix) &&
-          !name.slice(prefix.length).includes("/")
-        )
-          yield value.kind === "file" ? file(name) : directory(name);
-      }
-    },
-    async removeEntry(name) {
-      const full = path ? `${path}/${name}` : name;
-      if (!entries.delete(full)) throw absent();
-    },
-  });
-  for (const [path, text] of Object.entries(initial)) put(path, text);
-  const root = directory("");
+  for (const [path, text] of Object.entries({ "aic.md": "", ...initial }))
+    put(path, text);
+  const root = file("aic.md");
   const handles = new Map<string, BrowserMarkdownHandle>([
     ["browser-test", root],
   ]);
@@ -166,7 +101,6 @@ export function markdownFixture(initial: Record<string, string> = {}) {
     entries,
     root,
     file,
-    directory,
     handles,
     bindings,
     put,

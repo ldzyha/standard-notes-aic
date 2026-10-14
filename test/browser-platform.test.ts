@@ -206,8 +206,8 @@ describe("Chromium browser boundary", () => {
     h.chrome.storage.local.get.mockResolvedValue({
       [FILE_SOURCE_KEY]: {
         id: "browser-current",
-        kind: "directory",
-        name: "Current folder",
+        kind: "file",
+        name: "aic.md",
       },
     });
     vi.stubGlobal("chrome", h.chrome);

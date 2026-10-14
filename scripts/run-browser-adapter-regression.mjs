@@ -11,7 +11,7 @@ const suites = {
     "test/browser-drafts.test.ts",
     "test/browser-panel.test.ts",
     "test/browser-panel-reconnect.test.ts",
-    "test/browser-folder-flow.test.ts",
+    "test/browser-note-file-flow.test.ts",
     "test/browser-panel-actions.test.ts",
   ],
   extension: [

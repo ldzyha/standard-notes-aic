@@ -83,7 +83,6 @@ export function createBrowserService(
                 "Allow file editing to save changes. Reconnect files; your draft is unchanged.",
             }
           : {}),
-        ...(files.legacyNotes ? { legacyNotes: true as const } : {}),
       };
     } catch (error) {
       return {
@@ -132,7 +131,7 @@ export function createBrowserService(
         return run(async () => {
           if (message.mode === "migrate")
             throw new BrowserActionError(
-              "Open a Markdown file or folder. Encrypted libraries are not supported.",
+              "Open your note file. Encrypted libraries are not supported.",
             );
           await files.connect(message.bindingId);
           sourceGeneration += 1;

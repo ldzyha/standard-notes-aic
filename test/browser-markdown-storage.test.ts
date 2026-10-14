@@ -31,39 +31,6 @@ async function harness(initial: Record<string, string>, single?: string) {
   return { fixture, local, storage, restart: open };
 }
 
-/** Earlier one-note-per-page folder, with a save that never finished. */
-const legacyFolder = () => ({
-  "pages/page-1.md": "# Earlier page note\n",
-  "shared/shared-1.md": "Shared\r\nnote",
-  "global.md": "﻿Global",
-  "project/readme.md": "# Other Markdown\n",
-  ".aic/links.json": JSON.stringify({
-    format: "aic-markdown-links",
-    version: 1,
-    entries: [
-      {
-        id: "page-1",
-        path: "pages/page-1.md",
-        scope: "current",
-        url: "https://example.test/a",
-        title: "A",
-        createdAt: 1,
-        updatedAt: 2,
-        revision: 3,
-        fingerprint: "0".repeat(64),
-      },
-    ],
-  }),
-  ".aic/links.pending.json": JSON.stringify({
-    format: "aic-links-pending",
-    version: 1,
-    baseText: "an index that is no longer on disk",
-    nextText: "{}",
-    writes: [{ path: "pages/page-1.md", fingerprint: "1".repeat(64) }],
-  }),
-  ".aic/write.lock": "",
-});
-
 describe("the one note file", () => {
   it("writes a connected file as exact Markdown across repeated saves and a restart", async () => {
     const h = await harness({ "note.md": "Original" }, "note.md");
@@ -76,7 +43,8 @@ describe("the one note file", () => {
     );
     await h.storage.save(first.id, "Second edit", first.revision);
     expect(h.fixture.text("note.md")).toBe("Second edit");
-    expect([...h.fixture.entries.keys()].sort()).toEqual(["", "note.md"]);
+    expect([...h.fixture.entries.keys()].sort()).toEqual(["aic.md", "note.md"]);
+    expect(h.fixture.text("aic.md")).toBe("");
     expect((await h.restart().read()).markdown).toBe("Second edit");
     expect(h.local[FILE_SOURCE_KEY]).toMatchObject({
       kind: "file",
@@ -105,30 +73,18 @@ describe("the one note file", () => {
     expect(h.fixture.text("note.md")).toBe("﻿# Updated\r\n");
   });
 
-  it("uses a folder's aic.md and creates it only with the first save", async () => {
-    const h = await harness({ "readme.md": "# Not the note\n" });
-    const opened = await h.storage.read();
-    expect(opened).toMatchObject({ filePath: "aic.md", markdown: "" });
-    expect(h.storage.legacyNotes).toBe(false);
-    // Connecting, reading again and an unchanged save create nothing.
-    await h.storage.save(opened.id, "", opened.revision);
-    expect([...h.fixture.entries.keys()].sort()).toEqual(["", "readme.md"]);
-    const saved = await h.storage.save(
-      opened.id,
-      "--- https://example.test/a\nFirst",
-      opened.revision,
-    );
-    expect(h.fixture.text("aic.md")).toBe("--- https://example.test/a\nFirst");
-    expect([...h.fixture.entries.keys()].sort()).toEqual([
-      "",
-      "aic.md",
-      "readme.md",
-    ]);
-    expect(h.fixture.text("readme.md")).toBe("# Not the note\n");
-    // The folder is never listed: only aic.md is opened by name.
-    expect(h.fixture.state.scans).toBe(0);
-    expect(await h.restart().read()).toEqual(saved);
-    expect(h.local[FILE_SOURCE_KEY]).toMatchObject({ kind: "directory" });
+  it("asks for the note file again when an earlier version remembered a folder", async () => {
+    const h = await harness({ "aic.md": "Note" });
+    h.local[FILE_SOURCE_KEY] = {
+      id: "browser-test",
+      kind: "directory",
+      name: "notes",
+    };
+    await expect(h.restart().read()).rejects.toMatchObject({
+      code: "source",
+      message: expect.stringContaining("no longer opens folders"),
+    });
+    expect(h.fixture.entries.get("aic.md")).toMatchObject({ writes: 0 });
   });
 
   it("adopts an existing aic.md byte for byte", async () => {
@@ -138,26 +94,6 @@ describe("the one note file", () => {
     expect((await h.storage.read()).markdown).toBe(text);
     expect(h.fixture.text("aic.md")).toBe(text);
     expect(h.fixture.entries.get("aic.md")).toMatchObject({ writes: 0 });
-  });
-
-  it("leaves every file of the earlier per-page layout untouched and saves despite its pending journal and lock", async () => {
-    const h = await harness(legacyFolder());
-    const before = structuredClone([...h.fixture.entries]);
-    // A crashed window may still hold the old folder lock.
-    await h.fixture
-      .file(".aic/write.lock")
-      .createWritable({ keepExistingData: true, mode: "exclusive" });
-    const opened = await h.storage.read();
-    expect(opened).toMatchObject({ filePath: "aic.md", markdown: "" });
-    expect(h.storage.legacyNotes).toBe(true);
-    expect([...h.fixture.entries]).toEqual(before);
-    const saved = await h.storage.save(opened.id, "New note", opened.revision);
-    await h.storage.save(saved.id, "New note, edited", saved.revision);
-    expect(h.fixture.text("aic.md")).toBe("New note, edited");
-    expect(
-      [...h.fixture.entries].filter(([path]) => path !== "aic.md"),
-    ).toEqual(before);
-    expect(h.fixture.state.scans).toBe(0);
   });
 
   it("rejects external changes and a deleted note file without overwriting or recreating it", async () => {
@@ -183,7 +119,7 @@ describe("the one note file", () => {
     }
   });
 
-  it("lets only one of two windows create the note file", async () => {
+  it("lets only one of two windows save over the same text", async () => {
     const h = await harness({});
     const other = h.restart();
     const first = await h.storage.read();

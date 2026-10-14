@@ -59,7 +59,6 @@ describe("visible panel filesystem access", () => {
     expect(bindings.read).toHaveBeenCalledTimes(1);
     await restored;
     expect(files.state.allowed).toBe(true);
-    expect(files.state.scans).toBe(0);
   });
 
   it("does not revive a retained handle after disposal while a warm lookup is pending", async () => {
@@ -126,9 +125,13 @@ describe("visible panel filesystem access", () => {
 
   it("retains the picker handle before returning the new source id", async () => {
     const files = markdownFixture();
-    vi.stubGlobal("window", { showDirectoryPicker: async () => files.root });
+    const showSaveFilePicker = vi.fn(async () => files.root);
+    vi.stubGlobal("window", { showSaveFilePicker });
     const access = new BrowserSourceAccess(files.bindings);
-    const id = await chooseBrowserSource("folder", files.bindings, access);
+    const id = await chooseBrowserSource("create", files.bindings, access);
+    expect(showSaveFilePicker).toHaveBeenCalledWith(
+      expect.objectContaining({ suggestedName: "aic.md" }),
+    );
     expect(id).toMatch(/^browser-/u);
     files.handles.clear();
     const request = vi.spyOn(files.root, "requestPermission");
