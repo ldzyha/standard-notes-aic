@@ -84,7 +84,7 @@
     },
     {
       "id": "menu",
-      "purpose": "Bounded contextual choice surface with compact left-aligned action rows, decorative SVG icons, subtle section titles, separators, hints, focus entry, dismissal, and host-owned action callbacks. PWA document, workspace, Open and Help sheets use shared native actions with host-owned placement, focus restoration and lifecycle cleanup.",
+      "purpose": "Bounded contextual choice surface with compact left-aligned action rows, decorative SVG icons, subtle section titles, separators, hints, focus entry, dismissal, and host-owned action callbacks. The PWA note options sheet uses shared native actions with host-owned placement, focus restoration and lifecycle cleanup.",
       "hosts": ["standard-notes", "standalone", "browser", "vscode"],
       "bem": {
         "block": "aic-menu",
@@ -236,7 +236,7 @@
     {
       "id": "tree",
       "purpose": "Hierarchical or ordered navigation metadata with groups, items, rows, labels, and actions; it never owns note content. Connected navigation uses native nested lists and disclosure groups, with compact SVG folder/document icons, ownership guide lines, single-line labels and touch-aware rows.",
-      "hosts": ["standard-notes", "standalone", "pwa"],
+      "hosts": ["standard-notes", "standalone"],
       "bem": {
         "block": "aic-tree",
         "elements": [

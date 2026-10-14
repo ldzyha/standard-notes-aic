@@ -25,23 +25,18 @@
     {
       "id": "host.portable-file-notes",
       "group": "host-adapters",
-      "purpose": "Open plain Markdown files and folders in the PWA, edit connected original files through one acknowledged save owner and keep browser snapshots secondary. Choose a disk destination for new files. Remember handles and the last opened note locally, reopen that note on launch, reread originals before editing and reject external changes or deleted files without recreating them. Use the shared Markdown/AIC syntax, masked fields, SVG actions, compact mobile drawer and connected file tree. Folder traversal excludes node_modules, .git and .gitignore/.ignore rules, yields in bounded batches and retains committed results. No application encryption, password setup, encrypted import/export or legacy conversion is provided. File protection and synchronization belong to the selected storage or host; Standard Notes retains its own account services. Unsupported filesystem browsers offer explicit copies. Workspace removal disconnects without deleting original files. Update activation waits for acknowledged saves.",
+      "purpose": "The PWA is one note. On first run the user opens an existing Markdown file or creates a new one (suggested name aic.md); every launch reopens that file. Where the browser can write files (File System Access), the note is bound to that one file handle: saves write the file by compare-and-swap against the text last read, a change made elsewhere keeps the draft and offers Reload note file, a moved or deleted file is never recreated, and while access must be granted again the last copy stored in the browser is shown read-only with one Reconnect note file action. Other browsers keep the note in IndexedDB with Download note and Replace from file. The whole note is shown as page cards; Open target opens URL targets in a new tab and is not offered for file paths. Workspaces, folder import, the file tree and new-file creation were removed; earlier workspace data stays in the browser, unused. No application encryption is provided. Update activation waits for acknowledged saves.",
       "hosts": ["pwa", "browser", "vscode"],
       "canonicalOwners": [
         "standard-notes-aic/src/pwa/main.ts",
-        "standard-notes-aic/src/pwa/controller.ts"
+        "standard-notes-aic/src/pwa/disk.ts"
       ],
       "sourceFiles": [
         "standard-notes-aic/src/pwa/main.ts",
-        "standard-notes-aic/src/pwa/controller.ts",
-        "standard-notes-aic/src/pwa/model.ts",
-        "standard-notes-aic/src/pwa/storage.ts",
-        "standard-notes-aic/src/pwa/files.ts",
-        "standard-notes-aic/src/pwa/folder-ignore.ts",
+        "standard-notes-aic/src/pwa/disk.ts",
         "standard-notes-aic/src/pwa/styles.css",
         "standard-notes-aic/src/pwa/sw.js",
-        "standard-notes-aic/src/pwa/app-lifecycle.ts",
-        "standard-notes-aic/src/pwa/disk.ts"
+        "standard-notes-aic/src/pwa/app-lifecycle.ts"
       ],
       "entrypoints": [
         "standard-notes-aic/pwa/index.html",
@@ -49,14 +44,10 @@
         "aic-notes/src/extension.js"
       ],
       "verification": [
-        "standard-notes-aic/test/pwa-data.test.ts",
-        "standard-notes-aic/test/pwa-local-workspaces.test.ts",
-        "standard-notes-aic/test/pwa-files.test.ts",
-        "standard-notes-aic/test/pwa-folder-ignore.test.ts",
+        "standard-notes-aic/test/pwa-disk.test.ts",
         "standard-notes-aic/test/pwa-ui.test.ts",
         "standard-notes-aic/test/pwa-offline.test.ts",
-        "standard-notes-aic/test/pwa-app-lifecycle.test.ts",
-        "standard-notes-aic/test/pwa-disk.test.ts"
+        "standard-notes-aic/test/pwa-app-lifecycle.test.ts"
       ]
     },
     {

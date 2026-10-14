@@ -11,7 +11,6 @@
   --aic-success: #236d35;
   --aic-chip: var(--vscode-list-activeSelectionBackground, #e3effa);
   --aic-contrast: var(--vscode-editorWidget-background, #f5f6f8);
-  --pwa-sidebar: var(--vscode-sideBar-background, #f5f6f8);
   --pwa-titlebar: var(--vscode-titleBar-activeBackground, var(--aic-contrast));
   --aic-tabbar-bg: var(--vscode-editorGroupHeader-tabsBackground, #f0f2f5);
 }
@@ -28,7 +27,6 @@
     --aic-success: #90d9a1;
     --aic-chip: var(--vscode-list-activeSelectionBackground, #243b50);
     --aic-contrast: var(--vscode-editorWidget-background, #25272b);
-    --pwa-sidebar: var(--vscode-sideBar-background, #181a1d);
     --pwa-titlebar: var(
       --vscode-titleBar-activeBackground,
       var(--aic-contrast)
@@ -47,8 +45,7 @@ body {
   font-family: var(--aic-font-ui);
 }
 .pwa-shell,
-.pwa-dialog,
-.pwa-notes-drawer {
+.pwa-dialog {
   box-sizing: border-box;
   --aic-control-size: 44px;
   --aic-control-size-compact: 44px;
@@ -90,9 +87,11 @@ body {
   width: 20px;
   height: 20px;
 }
-.pwa-help {
-  display: flex;
-  flex-direction: column;
+.pwa-status {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .pwa-notice {
   flex: 0 0 auto;
@@ -107,136 +106,33 @@ body {
   background: var(--aic-contrast);
 }
 .pwa-shell .aic-button,
-.pwa-dialog .aic-button,
-.pwa-notes-drawer .aic-button {
+.pwa-dialog .aic-button {
   max-width: 100%;
   overflow-wrap: anywhere;
-}
-.pwa-layout {
-  display: grid;
-  grid-template-columns: 248px minmax(0, 1fr);
-  flex: 1;
-  min-width: 0;
-  min-height: 0;
-}
-.pwa-sidebar {
-  min-width: 0;
-  padding: 0 8px 12px;
-  background: var(--pwa-sidebar);
-  border-right: 1px solid var(--aic-border);
-  overflow: auto;
-  overscroll-behavior: contain;
-  scroll-padding: 8px;
-}
-.pwa-sidebar__heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  min-height: 40px;
-  padding-inline: 4px 0;
-  color: var(--aic-muted);
-  font-size: 11px;
-  font-weight: 500;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-.pwa-workspace-select {
-  display: block;
-  width: 100%;
-  min-height: var(--aic-control-size);
-  font-size: 16px;
-}
-.pwa-browser-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  padding-block: 8px;
-}
-.pwa-browser-actions > :first-child {
-  flex: 1 1 auto;
-}
-.pwa-browser-actions > :not(:first-child) {
-  flex: 0 0 auto;
-}
-.pwa-entities,
-.pwa-files {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  min-width: 0;
-}
-.pwa-files {
-  margin-top: 4px;
-}
-.pwa-files__filter:not([hidden]) {
-  display: block;
-  width: 100%;
-  box-sizing: border-box;
-  font-size: 16px;
-  margin-top: 8px;
-}
-.pwa-files__summary:not([hidden]) {
-  display: block;
-  margin: 8px 4px;
-  color: var(--aic-muted);
-  font-size: 12px;
-}
-.pwa-entities__item {
-  width: 100%;
-  justify-content: flex-start;
-  text-align: start;
-  overflow-wrap: anywhere;
-  border-radius: 0;
-}
-.pwa-entities__item[aria-current="true"] {
-  background: var(--aic-chip);
-  color: var(--vscode-list-activeSelectionForeground, var(--aic-fg));
-  box-shadow: inset 2px 0 var(--aic-accent);
-}
-.pwa-file-heading {
-  display: none;
 }
 .pwa-content {
   display: flex;
   flex-direction: column;
+  flex: 1;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
 }
-.pwa-note-header {
-  display: flex;
-  align-items: center;
-  flex: 0 0 auto;
-  min-width: 0;
-  gap: 2px;
-  min-height: 48px;
-  padding: 2px 8px;
-  border-bottom: 1px solid var(--aic-border);
-  background: var(--aic-bg);
-}
-.pwa-note-header__title {
-  flex: 1;
-  min-width: 0;
-  justify-content: flex-start;
-  text-align: start;
+.pwa-start {
+  padding: 20px 16px;
+  overflow-y: auto;
 }
 .pwa-title {
-  min-width: 0;
-  font-size: 13px;
+  margin: 0;
+  font-size: 20px;
   font-weight: 500;
   line-height: 1.4;
-  margin: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .pwa-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  flex: 0 0 auto;
-  min-width: 0;
 }
 .pwa-editor {
   display: flex;
@@ -274,58 +170,12 @@ body {
   font-size: 13px;
   line-height: 1.6;
 }
-.pwa-source {
-  box-sizing: border-box;
-  flex: 1;
-  width: 100%;
-  min-height: 240px;
-  font-family: ui-monospace, monospace;
-  font-size: 16px;
-  line-height: 1.6;
-  resize: none;
-  padding: 16px;
-  white-space: pre;
-}
-.pwa-shell[data-has-note="false"] .pwa-content {
-  padding: 20px 24px;
-  overflow-y: auto;
-}
-.pwa-shell[data-has-note="false"] .pwa-note-header {
-  padding: 0;
-  min-height: 0;
-  margin: 0 0 16px;
-  border: 0;
-}
-.pwa-shell[data-has-note="false"] .pwa-note-header__title {
-  padding: 0;
-  opacity: 1;
-  min-height: 0;
-}
-.pwa-shell[data-has-note="false"] .pwa-title {
-  font-size: 20px;
-  font-weight: 500;
-  line-height: 1.4;
-  white-space: normal;
-  overflow-wrap: anywhere;
-}
-.pwa-shell[data-has-note="false"] .pwa-document-context {
-  display: none;
-}
-.pwa-shell[data-has-note="false"] .pwa-actions > :first-child {
-  flex: 0 1 auto;
-}
-.pwa-shell[data-has-note="false"] .pwa-editor {
-  flex: 0 0 auto;
-}
-.pwa-dialog,
-.pwa-notes-drawer {
-  width: min(440px, calc(100vw - 24px));
-  max-width: calc(100vw - 24px);
+.pwa-dialog {
+  width: min(var(--aic-menu-width), calc(100vw - 24px));
   max-height: calc(
     100dvh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)
   );
   overflow: auto;
-  overflow-wrap: anywhere;
   overscroll-behavior: contain;
   border: 1px solid var(--aic-border);
   border-radius: var(--aic-radius-surface);
@@ -333,37 +183,8 @@ body {
   color: var(--aic-fg);
   box-shadow: 0 8px 24px #0003;
 }
-.pwa-dialog:not(.aic-menu),
-.pwa-notes-drawer {
-  padding: var(--aic-space-4);
-}
-.pwa-dialog::backdrop,
-.pwa-notes-drawer::backdrop {
+.pwa-dialog::backdrop {
   background: #0006;
-}
-.pwa-dialog h2:not(.aic-menu__title--compact),
-.pwa-notes-drawer h2 {
-  font-size: 14px;
-  font-weight: 600;
-  margin: 0 0 16px;
-}
-.pwa-dialog__field {
-  display: block;
-  margin-bottom: 16px;
-  font-size: 13px;
-}
-.pwa-dialog__field input {
-  width: 100%;
-  min-width: 0;
-  box-sizing: border-box;
-  font-size: 16px;
-  margin-top: 6px;
-}
-.pwa-dialog__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 8px;
 }
 .pwa-sheet {
   flex-direction: column;
@@ -372,127 +193,22 @@ body {
 .pwa-sheet[open] {
   display: flex;
 }
-.pwa-sheet[data-layout="actions"] {
-  width: min(var(--aic-menu-width), calc(100vw - 24px));
-}
-.pwa-notes-drawer {
-  padding: 0;
-}
-.pwa-notes-drawer[open] {
-  display: flex;
-  flex-direction: column;
-}
-.pwa-notes-drawer__heading {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 8px 4px 12px;
-  border-bottom: 1px solid var(--aic-border);
-  background: var(--pwa-titlebar);
-}
-.pwa-notes-drawer__heading h2 {
-  margin: 0;
-}
-.pwa-notes-drawer .pwa-sidebar {
-  border: 0;
-  min-height: 0;
-}
 [hidden] {
   display: none !important;
 }
 @media (max-width: 700px) {
-  .pwa-layout {
-    display: flex;
-  }
-  .pwa-sidebar {
-    flex: 1;
-    border: 0;
-  }
-  .pwa-shell[data-screen="browser"] .pwa-content {
-    display: none;
-  }
-  .pwa-shell[data-screen="browser"][data-has-workspaces="false"] .pwa-content {
-    display: flex;
-    flex: 1;
-    padding: 20px 16px;
-  }
-  .pwa-shell[data-screen="browser"][data-has-workspaces="false"] .pwa-sidebar {
-    display: none;
-  }
-  .pwa-shell[data-screen="editor"] .pwa-sidebar,
-  .pwa-shell[data-screen="editor"] .pwa-header {
-    display: none;
-  }
-  .pwa-shell[data-screen="editor"]
-    .pwa-header:has(.pwa-header__update:not([hidden])) {
-    display: flex;
-  }
-  .pwa-shell[data-screen="editor"] .pwa-content {
-    flex: 1;
-  }
-  .pwa-shell[data-screen="editor"] .pwa-actions {
-    display: none;
-  }
-  .pwa-shell[data-screen="editor"] .pwa-notice {
-    max-height: 44px;
-  }
-  .pwa-note-header {
-    padding: 2px;
-  }
-  .pwa-title {
-    font-size: 14px;
-  }
-  .pwa-shell[data-has-note="false"] .pwa-actions > :first-child {
-    flex: 0 1 auto;
-  }
-  .pwa-shell[data-has-note="false"]
-    .pwa-actions
-    > :not(:first-child):not(:last-child) {
-    flex: 0 1 auto;
-  }
-  .pwa-shell[data-has-note="false"] .pwa-actions > :last-child {
-    flex: 0 0 44px;
-  }
-  .pwa-dialog,
-  .pwa-notes-drawer {
+  .pwa-dialog {
     margin: auto auto max(12px, env(safe-area-inset-bottom));
-    max-height: calc(90dvh - env(safe-area-inset-top));
-  }
-  .pwa-notes-drawer {
-    max-height: min(80dvh, 700px);
-  }
-}
-@media (min-width: 701px) {
-  .pwa-header {
-    padding-inline: 10px;
-  }
-  .pwa-note-header > :first-child {
-    display: none;
   }
 }
 @media (pointer: fine) {
-  .pwa-browser-actions .aic-button {
-    padding-inline: 4px;
-  }
   .pwa-shell,
-  .pwa-dialog,
-  .pwa-notes-drawer {
+  .pwa-dialog {
     --aic-control-size: 32px;
     --aic-control-size-compact: 28px;
     --aic-control-size-touch: 32px;
   }
   .pwa-header {
-    min-height: 36px;
-  }
-  .pwa-sidebar__heading {
-    min-height: 36px;
-  }
-  .pwa-workspace-select,
-  .pwa-files__filter:not([hidden]) {
-    font-size: 13px;
-  }
-  .pwa-note-header {
     min-height: 36px;
   }
   .pwa-editor > .aic-editor > .aic-toolbar {
