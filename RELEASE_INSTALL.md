@@ -13,10 +13,13 @@ The [complete getting-started guide](https://aic.dzyha.com/releases) keeps file
 opening, direct saving, note pages, AIC blocks, copy controls, offline use,
 external sync and extension installation together. AIC uses plain `.md` files in
 the PWA, browser extension and VS Code, without an app password or `.aicnotes`
-support. There is one note file, chosen once and shared by every app; pages bind
-by full path or URL. The aic code editor and VS Code share the choice through
-`~/.config/aic/note-file.json`; the PWA and the browser extension ask once
-themselves. Existing old files are left untouched. Standard Notes keeps its own
+support. VS Code and the aic code editor keep one note per project at the
+project root, `<project folder>/<project folder name>.note.md`; pages bind by
+the path inside the project (`--- src/index.js`). The PWA and the browser
+extension use the one note file you choose there (suggested name `aic.md`);
+pages bind by URL. A `<project>.note.md` from older versions is adopted as is;
+the `<folder>/aic.md` used by VS Code 61.6.5 is no longer followed, so copy its
+pages into the project note. Nothing is migrated or deleted. Standard Notes keeps its own
 storage and sync. The version entry below is a release record; publication is
 verified separately.
 
@@ -98,11 +101,15 @@ in PowerShell. Test an installed package separately from its build and checksum.
 [Повна інструкція](https://aic.dzyha.com/releases/uk/) збирає в одному місці
 відкриття й запис файлів, сторінки нотатки, блоки AIC, копіювання, офлайн-роботу,
 зовнішню синхронізацію та встановлення. AIC використовує звичайні `.md` у PWA,
-браузері й VS Code без пароля застосунку та підтримки `.aicnotes`. Файл нотатки
-один: його вибирають один раз, і його спільно використовують усі застосунки;
-сторінки прив’язуються за повним шляхом або URL. Редактор коду aic і VS Code
-ділять цей вибір через `~/.config/aic/note-file.json`; PWA і браузерне
-розширення один раз питають самі. Наявні старі файли не змінюються. Standard Notes зберігає власне сховище й синхронізацію.
+браузері й VS Code без пароля застосунку та підтримки `.aicnotes`. VS Code і
+редактор коду aic ведуть одну нотатку на проєкт у корені проєкту,
+`<папка проєкту>/<назва папки проєкту>.note.md`; сторінки прив’язуються за
+шляхом усередині проєкту (`--- src/index.js`). PWA і браузерне розширення
+використовують один файл нотатки, який ви там вибираєте (запропонована назва
+`aic.md`); сторінки прив’язуються за URL. `<project>.note.md` зі старіших версій
+використовується як є; `<папка>/aic.md`, який використовував VS Code 61.6.5,
+більше не відстежується, тож скопіюйте його сторінки в нотатку проєкту. Нічого
+не переноситься й не видаляється. Standard Notes зберігає власне сховище й синхронізацію.
 Запис версії нижче є історією релізу; публікація перевіряється окремо.
 
 ### Підготовлений випуск — 14 жовтня 2026 року

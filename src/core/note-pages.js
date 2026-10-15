@@ -3,8 +3,9 @@
 // A page break is a line that is exactly `---`, optionally followed by
 // whitespace and a navigation target (`--- /src/app/editor.ts`,
 // `--- https://example.com/docs`). The target binds the page that follows.
-// Hosts write a file target as its full path (`--- /home/me/src/app.ts`,
-// `--- C:/work/app.ts`); a relative path is still a target, matched literally.
+// Hosts write a file target one way only: VS Code and the aic code editor
+// use the path inside the project (`--- src/app.ts`); any path is matched
+// literally after normalizing, so `src/a`, `./src/a` and `/src/a` differ.
 // - Four or more dashes, `- - -`, `***`, `___` and indented rules are ordinary
 //   thematic breaks, never page breaks.
 // - The line must start the body or follow a blank line, so `---` directly

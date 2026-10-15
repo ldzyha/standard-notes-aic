@@ -14,12 +14,13 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
 Prepared release 52.7.6 pairs with AIC Notes 61.6.5, experimental browser 0.12.0
-and shared core 8.0.0. There is one ordinary Markdown note file, chosen once and shared
-by every app; pages bind by full path or URL. The aic code editor and VS Code share the
-choice through `~/.config/aic/note-file.json`; the PWA and the browser extension ask once
-themselves. VS Code opens other documents natively. No AIC password, encryption, encrypted
+and shared core 8.0.0. Notes are ordinary Markdown files. VS Code and the aic code editor
+keep one note per project at the project root, `<project folder>/<project folder name>.note.md`;
+pages bind by the path inside the project (`--- src/index.js`). The PWA and the browser
+extension use the one note file you choose there (open or create, suggested name `aic.md`);
+pages bind by URL. VS Code opens other documents natively. No AIC password, encryption, encrypted
 backup or legacy conversion is required or provided. One note splits into page
-cards with exact targets (a file target is its full path); the browser panel
+cards with exact targets (a file target is its path inside the project); the browser panel
 shows the page of the active tab. Slash templates follow DDK, and `/aic` inserts an AIC block.
 Standard Notes keeps its own encryption and synchronization. See
 [the cross-host usage guide](RELEASE_INSTALL.md), [PWA files](pwa/README.md) and
@@ -456,7 +457,7 @@ The compact menu has three groups:
 
 Slash completion is
 disabled in fenced/inline code and in locked notes, so `/` remains ordinary Markdown there. AIC
-Notes uses this same catalog in both ordinary `.md` documents and its Linked Note (the chosen note file).
+Notes uses this same catalog in both ordinary `.md` documents and its Linked Note (the project note).
 
 ## Preview and source controls
 

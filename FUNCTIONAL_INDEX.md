@@ -4,10 +4,16 @@
 
 ## Prepared plain-file workflow — unreleased
 
-AIC is a Markdown editor and viewer. There is one ordinary `.md` note file,
-chosen once and shared by every app; pages bind by full path or URL. The aic
-code editor and VS Code share the choice through `~/.config/aic/note-file.json`;
-the PWA and the browser extension ask once themselves. VS Code opens other
+AIC is a Markdown editor and viewer. Notes are ordinary `.md` files. VS Code
+and the aic code editor keep one note per project at the project root,
+`<project folder>/<project folder name>.note.md`; pages bind by the path inside
+the project (`--- src/index.js`). In VS Code the project is the workspace
+folder, named in its exact case; with several folders the active file's folder
+chooses the note. The PWA and the browser extension use the one note file you
+choose there (open or create, suggested name `aic.md`); pages bind by URL.
+A `<project>.note.md` from older versions is adopted as is; the `<folder>/aic.md`
+used by VS Code 61.6.5 is no longer followed (copy its pages into the project
+note); nothing is migrated or deleted. VS Code opens other
 Markdown documents through its native document and filesystem provider.
 Standard Notes owns authentication, encryption and synchronization for its notes.
 AIC does not add encryption, passwords, encrypted backups or legacy conversion.
@@ -760,9 +766,10 @@ metadata is written. Owner: `src/core/note-pages.js`.
   hash, host case and a trailing slash; without a query they ignore the visited
   query, with a query they need the same query. Path targets compare in NFC
   without case (`C:` equals `c:`), with `\` as `/` and without a trailing `/`.
-  Hosts write full paths (`/home/me/src/app.ts`, `C:/work/app.ts`); a leading
-  `/` or `./` is kept, so a relative target matches only the same relative
-  text. The first matching page wins.
+  Hosts write a path target one way only: VS Code and the aic code editor use
+  the path inside the project (`src/app.ts`). Any path is matched literally
+  after normalizing; a leading `/` or `./` is kept, so `src/a`, `./src/a` and
+  `/src/a` differ. The first matching page wins.
 
 Page cards (`aic-card--page`, owner `src/core/note-page-cards.js`) are part of
 the shared editor. In preview each separator line is a card header: the bound
@@ -789,10 +796,10 @@ Hosts:
 
 - PWA and Standard Notes: the whole note as cards. Open target opens an
   http(s) URL in a new tab and is offered only for URL targets
-  (`canOpenTarget`); a full-path target is shown as text.
+  (`canOpenTarget`); a path target is shown as text.
 - Browser panel, while following the active tab: the page of the one note file
   bound to the exact URL; a URL without a page shows an empty card. Open target
-  opens a URL target in a new tab; a full-path target, shown with the whole
+  opens a URL target in a new tab; a path target, shown with the whole
   note, has no Open target.
 
 The browser reads bound targets from the loaded note text on each navigation

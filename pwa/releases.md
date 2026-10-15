@@ -54,14 +54,17 @@ earlier versions are no longer shown; their files stay on disk.
 
 ### Keep one note in focus
 
-There is one note file, chosen once and shared by every app; pages bind by
-full path or URL. The aic code editor and VS Code share the choice through
-`~/.config/aic/note-file.json`; the PWA and the browser extension ask once
-themselves. The PWA shows the whole note, the browser panel shows the page for
+VS Code and the aic code editor keep one note per project at the project root,
+`<project folder>/<project folder name>.note.md`; pages bind by the path inside
+the project (`--- src/index.js`). The PWA and the browser extension use the one
+note file you choose there; pages bind by URL. A `<project>.note.md` from older
+versions is adopted as is; the `<folder>/aic.md` used by VS Code 61.6.5 is no
+longer followed, so copy its pages into the project note. Nothing is migrated or
+deleted. The PWA shows the whole note, the browser panel shows the page for
 the active tab, and VS Code shows the opened document.
 
 Inside a note, a `---` line after a blank line starts a new page, and
-`--- <path-or-url>` binds the following page to that full file path or web
+`--- <path-or-url>` binds the following page to that file path or web
 address. Each page shows as a card; **Open target** on a bound card opens its
 web address in a new tab. The PWA shows a file path as text only.
 
@@ -70,8 +73,8 @@ An address without a page shows an empty card; the page is added at the end of
 the note when you start typing, and a page visit by itself writes nothing.
 Changing tabs changes the page shown and clears Undo for the previous page. A tab
 without an `http` or `https` address shows the whole note. In VS Code, Linked
-Note shows the page of the chosen note file bound to the active file's full
-path.
+Note shows the page of the project note bound to the active file's path inside
+the project.
 
 For a remembered browser location, **Continue** restores access to the note
 file. A folder remembered by an earlier version is not reopened: open its
