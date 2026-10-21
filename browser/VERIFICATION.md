@@ -50,6 +50,10 @@ links index, the notes tree, history, ancestors, related links, pin, file
 linking, page deletion and folder scanning were removed. Everything below about
 those features is history and does not describe current behaviour.
 
+Note, October 21, 2026: the panel edits the one connected note file only. A
+folder remembered by an earlier version is not reopened; choose its `aic.md`.
+The "connected folder" wording above is kept as history.
+
 Verified only by synthetic Vitest suites with simulated browser APIs and DOM; no
 installed extension was run in Chrome or Edge. A test of a folder holding files
 of the earlier layout, an unfinished `.aic/links.pending.json` and a held

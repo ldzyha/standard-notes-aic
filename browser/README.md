@@ -106,7 +106,9 @@ previews use their content height so scrolling continues through the note.
 While editing, AIC requests a separate local draft checkpoint. Acknowledged
 checkpoints can survive Reload or a browser restart; they do not mean the file
 has been saved. The active checkpoint is cleared after the file save is confirmed.
-Recovered drafts are reviewed explicitly and can be saved as copies. Recovery
+Recovered drafts are reviewed explicitly and can be saved as copies. Drafts are
+listed for the file connection that created them; choosing a file again starts a
+new connection, so drafts of the earlier one are not listed. Recovery
 never automatically replaces a file or restores a deleted note. If a checkpoint
 fails, keep the panel open and save or export the draft before closing.
 

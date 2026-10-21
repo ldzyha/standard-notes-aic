@@ -33,9 +33,23 @@ the file still holds the text AIC last read or wrote:
   **Download note** to keep it, then **Reload note file** to open the file's
   text.
 - **Access must be granted again** - the app shows the last copy stored in the
-  browser, read-only, with one **Reconnect note file** button.
+  browser, read-only, with one **Reconnect note file** button. An unsaved draft
+  stays in the editor and is saved after reconnecting when the file is
+  unchanged; if the file changed, the app asks before replacing the draft.
 - **The file was moved or deleted** - it is never recreated. The app shows the
-  choose screen again; a new file starts with the last saved text.
+  choose screen again. Choosing an empty or new file starts it with the last
+  saved text. A file that already has text is opened, not written over, and the
+  app first asks before replacing text that is kept only in this browser, with a
+  download of it.
+- **Another window saved** - the save stops and keeps your draft; use **Reload
+  note file**.
+
+While you type, the unsaved text is also kept in this browser's storage and is
+removed after a successful save. If the page is closed or killed first, the next
+launch puts the text back as unsaved when the note is unchanged. If the note
+changed meanwhile, **Recover unsaved text** asks: **Open as a copy** adds the
+text as a new page at the end of the note, unsaved; **Download unsaved text**;
+or **Discard unsaved text**.
 
 Other browsers (Firefox, Safari, and browsers on iOS and Android) keep the note
 in the browser's own storage. The header shows **Saved in this browser**. Use
@@ -43,8 +57,10 @@ in the browser's own storage. The header shows **Saved in this browser**. Use
 file's text into the note. Browser storage can be cleared or evicted; downloaded
 files are the copies you control.
 
-Workspaces of earlier versions are no longer shown. Their files stay on disk and
-their browser data is not deleted. Secret-field syntax masks values on screen;
+Workspaces of earlier versions are not migrated and are no longer shown. Nothing
+was deleted: files stay where they were, and a workspace that lived only in the
+browser (Firefox, Safari) stays in the browser's storage until the site data is
+cleared. There is no export for it. Secret-field syntax masks values on screen;
 it does not encrypt the Markdown file.
 
 ## Pages

@@ -50,7 +50,9 @@ Direct write-back needs File System Access (Chromium browsers on desktop).
 Other browsers, including Firefox, Safari and mobile browsers, keep the PWA note
 in browser storage: the status says **Saved in this browser**; use **Download
 note** to keep a file and **Replace from file…** to load one. Workspaces of
-earlier versions are no longer shown; their files stay on disk.
+earlier versions are not migrated or shown; nothing was deleted. Their files stay
+where they were, and a workspace that lived only in the browser stays in its
+storage until the site data is cleared.
 
 ### Keep one note in focus
 

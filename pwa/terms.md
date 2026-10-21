@@ -22,14 +22,17 @@ directly to the note file; a copy is also kept in browser storage. The file
 handle and its name are remembered locally; browsers do not expose absolute
 operating-system paths. AIC checks for external changes and stops when the file
 is missing or access is denied. The draft remains available for retry or
-download; autosave never recreates a deleted file. AIC does not merge
+download; autosave never recreates a deleted file. Text typed but not yet saved
+is also kept in browser storage until it is saved or discarded. AIC does not merge
 concurrent edits or guarantee that another program cannot change a file during
 a save.
 
 Other browsers keep the note in browser storage, with **Download note** and
 **Replace from file…**. Browser storage may be cleared or evicted. Keep files
 you need in your filesystem or chosen storage service. Workspaces of earlier
-versions are no longer shown; their files and browser data are not deleted.
+versions are not migrated or shown; nothing was deleted. Their files stay where
+they were, and a workspace that lived only in the browser stays in its storage
+until the site data is cleared.
 
 Markdown files, browser drafts and exports are readable data. Secret-field syntax
 masks values in the interface and supports explicit copying; masking does not
