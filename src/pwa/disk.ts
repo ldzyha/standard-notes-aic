@@ -29,43 +29,71 @@ export interface NoteRecord {
   handle?: NoteFileHandle;
 }
 
+/** Text typed but not yet saved, kept so a killed page does not lose it. */
+export interface NoteDraft {
+  text: string;
+  /** The note text the draft was typed against. */
+  baseText: string;
+  savedAt: number;
+}
+
 export interface NoteRecords {
   read(): Promise<NoteRecord | null>;
   /** Writes when the stored revision is still `expected`; returns false otherwise. */
   write(record: NoteRecord, expected: number): Promise<boolean>;
+  readDraft(): Promise<NoteDraft | null>;
+  /** Replaces the stored draft. Starts its write before returning. */
+  writeDraft(draft: NoteDraft): Promise<void>;
+  /** Removes the stored draft only when it was written at `savedAt`. */
+  clearDraft(savedAt: number): Promise<void>;
 }
 
 const KEY = "note";
+const DRAFT_KEY = "draft";
 
 export class IndexedDbNoteRecords implements NoteRecords {
+  private database: IDBDatabase | null = null;
+  private opening: Promise<IDBDatabase> | null = null;
   constructor(private readonly factory = globalThis.indexedDB) {}
+  /** One shared connection, so a write on page hide starts without waiting. */
+  private open(): Promise<IDBDatabase> {
+    if (!this.factory) throw new Error("This browser cannot store the note.");
+    const factory = this.factory;
+    return (this.opening ??= new Promise<IDBDatabase>((resolve, reject) => {
+      // A new database: workspaces of earlier versions stay where they are.
+      const request = factory.open("aic-notes-pwa-note", 1);
+      request.onupgradeneeded = () => request.result.createObjectStore("note");
+      request.onsuccess = () => {
+        const database = request.result;
+        const drop = () => {
+          database.close();
+          if (this.database === database) this.database = this.opening = null;
+        };
+        database.onversionchange = database.onclose = drop;
+        this.database = database;
+        resolve(database);
+      };
+      request.onerror = request.onblocked = () => {
+        this.opening = null;
+        reject(new Error("This browser cannot store the note."));
+      };
+    }));
+  }
   private async transact<T>(
     mode: IDBTransactionMode,
     operation: (store: IDBObjectStore, done: (value: T) => void) => void,
   ): Promise<T> {
-    if (!this.factory) throw new Error("This browser cannot store the note.");
-    // A new database: workspaces of earlier versions stay where they are.
-    const database = await new Promise<IDBDatabase>((resolve, reject) => {
-      const request = this.factory.open("aic-notes-pwa-note", 1);
-      request.onupgradeneeded = () => request.result.createObjectStore("note");
-      request.onsuccess = () => resolve(request.result);
-      request.onerror = request.onblocked = () =>
-        reject(new Error("This browser cannot store the note."));
-    });
-    try {
-      return await new Promise<T>((resolve, reject) => {
-        const transaction = database.transaction("note", mode);
-        let result: T;
-        operation(transaction.objectStore("note"), (value) => {
-          result = value;
-        });
-        transaction.oncomplete = () => resolve(result);
-        transaction.onabort = transaction.onerror = () =>
-          reject(new Error("The note could not be stored in this browser."));
+    const database = this.database ?? (await this.open());
+    return new Promise<T>((resolve, reject) => {
+      const transaction = database.transaction("note", mode);
+      let result: T;
+      operation(transaction.objectStore("note"), (value) => {
+        result = value;
       });
-    } finally {
-      database.close();
-    }
+      transaction.oncomplete = () => resolve(result);
+      transaction.onabort = transaction.onerror = () =>
+        reject(new Error("The note could not be stored in this browser."));
+    });
   }
   read(): Promise<NoteRecord | null> {
     return this.transact("readonly", (store, done) => {
@@ -83,10 +111,40 @@ export class IndexedDbNoteRecords implements NoteRecords {
       };
     });
   }
+  readDraft(): Promise<NoteDraft | null> {
+    return this.transact("readonly", (store, done) => {
+      const request = store.get(DRAFT_KEY);
+      request.onsuccess = () => done(validDraft(request.result));
+    });
+  }
+  writeDraft(draft: NoteDraft): Promise<void> {
+    return this.transact("readwrite", (store) => {
+      store.put(draft, DRAFT_KEY);
+    });
+  }
+  clearDraft(savedAt: number): Promise<void> {
+    return this.transact("readwrite", (store) => {
+      const request = store.get(DRAFT_KEY);
+      request.onsuccess = () => {
+        if (validDraft(request.result)?.savedAt === savedAt)
+          store.delete(DRAFT_KEY);
+      };
+    });
+  }
 }
 
 export class MemoryNoteRecords implements NoteRecords {
   record: NoteRecord | null = null;
+  draft: NoteDraft | null = null;
+  async readDraft() {
+    return this.draft && { ...this.draft };
+  }
+  async writeDraft(draft: NoteDraft) {
+    this.draft = { ...draft };
+  }
+  async clearDraft(savedAt: number) {
+    if (this.draft?.savedAt === savedAt) this.draft = null;
+  }
   async read() {
     return this.record && { ...this.record };
   }
@@ -106,6 +164,16 @@ function valid(value: unknown): NoteRecord | null {
       (record.handle?.kind === "file" &&
         typeof record.handle.getFile === "function"))
     ? record
+    : null;
+}
+
+function validDraft(value: unknown): NoteDraft | null {
+  const draft = value as NoteDraft | undefined;
+  return draft &&
+    typeof draft.text === "string" &&
+    typeof draft.baseText === "string" &&
+    Number.isFinite(draft.savedAt)
+    ? draft
     : null;
 }
 
@@ -177,6 +245,7 @@ export class PwaNote {
   access: NoteAccess = "ready";
   /** False until the user has chosen or created the note. */
   exists = false;
+  private draftStamp = 0;
   constructor(
     private readonly records: NoteRecords = new IndexedDbNoteRecords(),
     private readonly host: Pickers = window as unknown as Pickers,
@@ -228,6 +297,32 @@ export class PwaNote {
       }
       throw error;
     }
+  }
+
+  /** Keeps unsaved text beside the note. Its write starts before this returns. */
+  keepDraft(text: string): Promise<void> {
+    // The fraction tells windows apart: only the writer removes its draft.
+    this.draftStamp = Math.max(Date.now() + Math.random(), this.draftStamp + 1);
+    return this.records.writeDraft({
+      text,
+      baseText: this.text,
+      savedAt: this.draftStamp,
+    });
+  }
+
+  /** The draft left by an earlier page, if any. */
+  savedDraft(): Promise<NoteDraft | null> {
+    return this.records.readDraft();
+  }
+
+  /** Removes this window's draft, or `draft` when it is the stored one. */
+  dropDraft(draft?: NoteDraft): Promise<void> {
+    return this.records.clearDraft(draft?.savedAt ?? this.draftStamp);
+  }
+
+  /** Makes a stored draft this window's own, so saving it clears it. */
+  adoptDraft(draft: NoteDraft): void {
+    this.draftStamp = draft.savedAt;
   }
 
   /**

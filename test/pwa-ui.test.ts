@@ -436,3 +436,79 @@ describe("PWA second window", () => {
     expect(status()).toBe("Saved in this browser");
   });
 });
+
+describe("PWA unsaved draft", () => {
+  const records = () => state.records as InstanceType<typeof MemoryNoteRecords>;
+  it("stores typing at once, restores it after a killed page and clears it on save", async () => {
+    await click("Open note file");
+    disk.revoke();
+    type("# Typed, never saved");
+    await vi.waitFor(() =>
+      expect(records().draft?.text).toBe("# Typed, never saved"),
+    );
+    expect(records().draft?.baseText).toContain("# Note");
+    await launch();
+    expect(field().value).toBe("# Typed, never saved");
+    expect(field().readOnly).toBe(true);
+    expect(status()).toBe("Unsaved");
+    await click("Reconnect note file");
+    expect(disk.text()).toBe("# Typed, never saved");
+    await vi.waitFor(() => expect(records().draft).toBeNull());
+  });
+
+  it("writes the draft synchronously when the page is hidden", async () => {
+    await click("Open note file");
+    disk.revoke();
+    type("# Last words");
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    document.dispatchEvent(new Event("visibilitychange"));
+    Reflect.deleteProperty(document, "visibilityState");
+    expect(records().draft?.text).toBe("# Last words");
+  });
+
+  it("drops a draft that equals the note", async () => {
+    await click("Open note file");
+    records().draft = { text: disk.text(), baseText: "x", savedAt: 5 };
+    await launch();
+    expect(records().draft).toBeNull();
+    expect(document.querySelector("dialog")).toBeNull();
+  });
+
+  describe("when the note changed meanwhile", () => {
+    beforeEach(async () => {
+      await click("Open note file");
+      records().draft = { text: "# Lost text", baseText: "# Old", savedAt: 5 };
+      await launch();
+    });
+    it("asks, keeps the text on Escape and never overwrites the note", async () => {
+      const dialog = document.querySelector("dialog")!;
+      expect(dialog.getAttribute("aria-label")).toBe("Recover unsaved text");
+      const escape = new Event("cancel", { cancelable: true });
+      dialog.dispatchEvent(escape);
+      expect(escape.defaultPrevented).toBe(true);
+      expect(field().value).toContain("# Note");
+      expect(records().draft?.text).toBe("# Lost text");
+    });
+    it("downloads the text", async () => {
+      await click("Download unsaved text");
+      expect(await read(downloads[0]!)).toBe("# Lost text");
+      expect(records().draft?.text).toBe("# Lost text");
+    });
+    it("opens the text as a copy on a new page, unsaved", async () => {
+      await click("Open as a copy");
+      expect(field().value).toBe(`${disk.text()}\n\n---\n# Lost text`);
+      expect(status()).toBe("Unsaved");
+      expect(document.querySelector("dialog")).toBeNull();
+      await new Promise((done) => setTimeout(done, 800));
+      expect(disk.text()).not.toContain("# Lost text");
+    });
+    it("discards the text on request", async () => {
+      await click("Discard unsaved text");
+      expect(records().draft).toBeNull();
+      expect(document.querySelector("dialog")).toBeNull();
+    });
+  });
+});

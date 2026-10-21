@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  IndexedDbNoteRecords,
   MemoryNoteRecords,
   PwaNote,
   type NoteFileHandle,
@@ -265,5 +266,76 @@ describe("PWA note in two windows", () => {
     expect(first.text).toBe("# From the second window");
     await first.save("# Then the first");
     expect(f.content()).toBe("# Then the first");
+  });
+});
+
+describe("PWA unsaved draft", () => {
+  it("keeps the draft beside the note and removes only its own copy", async () => {
+    const records = new MemoryNoteRecords();
+    const note = new PwaNote(records, {});
+    await note.choose(true);
+    await note.save("# Saved");
+    await note.keepDraft("# Typed");
+    expect(await note.savedDraft()).toMatchObject({
+      text: "# Typed",
+      baseText: "# Saved",
+    });
+    // Another window's later draft is not removed by this window.
+    const other = new PwaNote(records, {});
+    await other.load();
+    await other.keepDraft("# Typed elsewhere");
+    await note.dropDraft();
+    expect((await note.savedDraft())?.text).toBe("# Typed elsewhere");
+    await other.dropDraft();
+    expect(await note.savedDraft()).toBeNull();
+  });
+
+  it("starts the browser write at once on page hide and reuses one connection", async () => {
+    const data = new Map<string, unknown>();
+    let opened = 0;
+    const factory = {
+      open() {
+        opened++;
+        const request: Record<string, any> = {};
+        queueMicrotask(() => {
+          const database = {
+            close() {},
+            createObjectStore() {},
+            transaction() {
+              const transaction: Record<string, any> = {};
+              setTimeout(() => transaction.oncomplete?.(), 0);
+              transaction.objectStore = () => ({
+                get(key: string) {
+                  const get: Record<string, any> = {};
+                  queueMicrotask(() => {
+                    get.result = data.get(key);
+                    get.onsuccess?.();
+                  });
+                  return get;
+                },
+                put: (value: unknown, key: string) => data.set(key, value),
+                delete: (key: string) => data.delete(key),
+              });
+              return transaction;
+            },
+          };
+          request.result = database;
+          request.onupgradeneeded?.();
+          request.onsuccess?.();
+        });
+        return request;
+      },
+    } as unknown as IDBFactory;
+    const records = new IndexedDbNoteRecords(factory);
+    await records.writeDraft({ text: "a", baseText: "", savedAt: 1 });
+    const pending = records.writeDraft({ text: "b", baseText: "", savedAt: 2 });
+    // The transaction is created before any await.
+    expect((data.get("draft") as { text: string }).text).toBe("b");
+    await pending;
+    await records.clearDraft(1);
+    expect((await records.readDraft())?.text).toBe("b");
+    await records.clearDraft(2);
+    expect(await records.readDraft()).toBeNull();
+    expect(opened).toBe(1);
   });
 });

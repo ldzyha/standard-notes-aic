@@ -7,7 +7,7 @@ import { AicEditor } from "../editor";
 import { attachLocalAI, type LocalAIControls } from "./ai-controls";
 import logoUrl from "../../public/aic-logo.svg?url";
 import { createUiButton, applyUiComponent } from "../core/ui-system.js";
-import { PwaNote, canBindFile, downloadNote } from "./disk";
+import { PwaNote, canBindFile, downloadNote, type NoteDraft } from "./disk";
 import "../styles.css";
 import "../core/ui-system.css";
 import "../core/icons.css";
@@ -33,6 +33,11 @@ let heldBase: string | null = null;
 let saveTask: Promise<boolean> | null = null;
 let saveFailed = false;
 let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
+let draftTimer: ReturnType<typeof setTimeout> | null = null;
+// A draft of this page is stored; it is removed once the text is saved.
+let draftStored = false;
+// A draft of an earlier page waits for a choice and must not be overwritten.
+let recovering = false;
 let lifecycle = 0;
 let appUpdates: AppUpdateLifecycle | null = null;
 let requestAppActivation = false;
@@ -288,6 +293,7 @@ function renderChooser() {
   );
   panel.append(heading, text, actions);
   content.replaceChildren(panel);
+  syncDraft();
   reflect();
 }
 
@@ -295,6 +301,8 @@ function clearEditor() {
   lifecycle++;
   if (autosaveTimer) clearTimeout(autosaveTimer);
   autosaveTimer = null;
+  if (draftTimer) clearTimeout(draftTimer);
+  draftTimer = null;
   aiControls?.dispose();
   aiControls = null;
   editor?.destroy();
@@ -306,7 +314,7 @@ function clearEditor() {
   content.replaceChildren();
 }
 
-function render() {
+function render(restore?: { text: string; autosave: boolean }) {
   if (!note.exists || note.access === "missing") {
     renderChooser();
     if (note.access === "missing")
@@ -317,11 +325,16 @@ function render() {
     return;
   }
   clearEditor();
+  if (restore && restore.text !== note.text) {
+    draft = restore.text;
+    dirty = true;
+    if (restore.autosave) autosaveTimer = setTimeout(() => void save(), 600);
+  }
   const mounted = lifecycle;
   const container = element("div", "pwa-editor");
   content.append(container);
   editor = new AicEditor(container, {
-    initialText: note.text,
+    initialText: editorText(),
     readOnly: readOnly(),
     onChange: (value) => {
       if (mounted === lifecycle) edit(value);
@@ -333,7 +346,7 @@ function render() {
     // A browser cannot open a file path: the card shows the path only.
     canOpenTarget: (target) => URL_TARGET.test(target),
   });
-  editor.switchDocument("note", note.text);
+  editor.switchDocument("note", editorText());
   aiControls = attachLocalAI(editor.toolbar?.element ?? container, {
     compact: true,
     editor,
@@ -345,7 +358,25 @@ function render() {
     notify(
       `This is the last copy saved in this browser. Reconnect ${note.name} to edit it.`,
     );
+  syncDraft();
   reflect();
+}
+
+/** Keeps the unsaved text in this browser, or removes it once it is saved. */
+function syncDraft() {
+  if (recovering) return;
+  if (dirty) {
+    draftStored = true;
+    void note.keepDraft(draft).catch(() => {});
+  } else if (draftStored) {
+    draftStored = false;
+    void note.dropDraft().catch(() => {});
+  }
+}
+function flushDraft() {
+  if (draftTimer) clearTimeout(draftTimer);
+  draftTimer = null;
+  syncDraft();
 }
 
 function edit(text: string) {
@@ -354,6 +385,8 @@ function edit(text: string) {
   dirty = text !== note.text;
   saveFailed = false;
   reflect();
+  if (draftTimer) clearTimeout(draftTimer);
+  draftTimer = setTimeout(flushDraft, 300);
   if (autosaveTimer) clearTimeout(autosaveTimer);
   autosaveTimer = dirty
     ? setTimeout(() => {
@@ -376,6 +409,7 @@ async function save(): Promise<boolean> {
       if (started !== lifecycle) return false;
       dirty = draft !== note.text;
       saveFailed = false;
+      syncDraft();
       notify(warning ?? "");
       return !dirty;
     } catch (error) {
@@ -457,7 +491,11 @@ window.addEventListener("beforeunload", (event) => {
 });
 window.addEventListener("pagehide", (event) => {
   appUpdates?.suspend(event.persisted);
+  flushDraft();
   void save();
+});
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") flushDraft();
 });
 window.addEventListener("pageshow", (event) => {
   if (event.persisted) appUpdates?.resume();
@@ -476,16 +514,106 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+/** Offers the text an earlier page left unsaved; nothing is dropped unasked. */
+function recover(saved: NoteDraft) {
+  recovering = true;
+  const dialog = applyUiComponent(
+    element("dialog", "pwa-dialog pwa-sheet"),
+    "menu",
+    ["compact"],
+  );
+  dialog.setAttribute("aria-label", "Recover unsaved text");
+  const finish = () => {
+    recovering = false;
+    dialog.close();
+    dialog.remove();
+    syncDraft();
+  };
+  const items: HTMLElement[] = [
+    element("strong", "", "Recover unsaved text"),
+    element(
+      "p",
+      "pwa-empty",
+      `Text typed ${new Date(saved.savedAt).toLocaleString()} was never saved, and ${note.name} has changed since.`,
+    ),
+  ];
+  if (editor)
+    items.push(
+      button(
+        "Open as a copy",
+        () => {
+          // A new page at the end: neither the note nor the text is replaced.
+          const gap = !note.text
+            ? ""
+            : note.text.endsWith("\n\n")
+              ? ""
+              : note.text.endsWith("\n")
+                ? "\n"
+                : "\n\n";
+          const text = note.text
+            ? `${note.text}${gap}---\n${saved.text}`
+            : saved.text;
+          note.adoptDraft(saved);
+          draftStored = true;
+          recovering = false;
+          dialog.close();
+          dialog.remove();
+          render({ text, autosave: false });
+        },
+        { icon: "document" },
+      ),
+    );
+  items.push(
+    button(
+      "Download unsaved text",
+      () => downloadNote(saved.text, "aic-unsaved.md"),
+      { icon: "export-file" },
+    ),
+    button(
+      "Discard unsaved text",
+      async () => {
+        await note.dropDraft(saved);
+        finish();
+      },
+      { variant: "danger" },
+    ),
+  );
+  for (const item of items.slice(2)) applyUiComponent(item, "menu", [], "item");
+  dialog.append(...items);
+  // A choice is required; Escape must not drop or hide the text.
+  dialog.addEventListener("cancel", (event) => event.preventDefault());
+  document.body.append(dialog);
+  dialog.showModal();
+}
+
 async function start() {
+  let saved: NoteDraft | null = null;
   try {
     await note.load();
+    saved = await note.savedDraft();
   } catch (error) {
     notify(
       error instanceof Error ? error.message : "The note could not be read.",
       true,
     );
   }
-  render();
+  if (saved?.text === note.text) {
+    await note.dropDraft(saved).catch(() => {});
+    saved = null;
+  }
+  if (
+    saved &&
+    saved.baseText === note.text &&
+    note.exists &&
+    note.access !== "missing"
+  ) {
+    note.adoptDraft(saved);
+    draftStored = true;
+    render({ text: saved.text, autosave: note.access === "ready" });
+  } else {
+    render();
+    if (saved) recover(saved);
+  }
   if (
     /^https?:$/u.test(location.protocol) &&
     "serviceWorker" in navigator &&
