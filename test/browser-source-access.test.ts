@@ -140,6 +140,17 @@ describe("visible panel filesystem access", () => {
     await reconnect;
   });
 
+  it("never writes to a file picked with Create, so an existing note is kept", async () => {
+    const files = markdownFixture({ "note.md": "Existing text" });
+    const handle = files.file("note.md");
+    const write = vi.spyOn(handle, "createWritable");
+    vi.stubGlobal("window", { showSaveFilePicker: async () => handle });
+    const id = await chooseBrowserSource("create", files.bindings);
+    expect(id).toMatch(/^browser-/u);
+    expect(write).not.toHaveBeenCalled();
+    expect(files.text("note.md")).toBe("Existing text");
+  });
+
   it("preserves denial as a permission error without reading or changing a file", async () => {
     const files = markdownFixture({ "note.md": "Original" });
     const handle = files.file("note.md");
