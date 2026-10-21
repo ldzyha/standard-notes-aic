@@ -438,11 +438,13 @@ describe("PWA file input", () => {
   it("still delivers a file chosen after the window regained focus", async () => {
     vi.useFakeTimers();
     let input!: HTMLInputElement;
-    vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(function (
-      this: HTMLInputElement,
-    ) {
-      input = this;
-    });
+    vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+    const create = document.createElement.bind(document);
+    vi.spyOn(document, "createElement").mockImplementation(((tag: string) => {
+      const created = create(tag);
+      if (tag === "input") input = created as HTMLInputElement;
+      return created;
+    }) as never);
     const picked = pickTextFile();
     window.dispatchEvent(new Event("focus"));
     Object.defineProperty(input, "files", {
