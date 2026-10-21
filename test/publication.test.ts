@@ -78,7 +78,7 @@ describe("publication metadata", () => {
       "Release sequence 53 · 6 feature outcomes · 3 fixed-bug outcomes",
     );
     expect(changelog).toContain(
-      "### F05 — Page targets are full paths matched exactly as written",
+      "### F05 — Page targets are matched exactly as written",
     );
     expect(changelog).toContain("shared core 8.1.0");
     expect(marketplaceHowto).toContain("aic-browser-chromium-0.13.0.zip");
