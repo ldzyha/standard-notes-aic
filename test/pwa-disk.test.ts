@@ -1,7 +1,8 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   IndexedDbNoteRecords,
   MemoryNoteRecords,
+  pickTextFile,
   PwaNote,
   type NoteFileHandle,
 } from "../src/pwa/disk";
@@ -418,5 +419,38 @@ describe("PWA save after another window chose a different file", () => {
     await note.choose(false);
     vi.spyOn(f.records, "write").mockRejectedValueOnce(new Error("Full"));
     expect(await note.save("# Saved")).toMatch("browser's copy");
+  });
+});
+
+describe("PWA file input", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("resolves null when the dialog closes without a cancel event", async () => {
+    vi.useFakeTimers();
+    vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(() => {});
+    const picked = pickTextFile();
+    window.dispatchEvent(new Event("focus"));
+    await vi.advanceTimersByTimeAsync(1500);
+    await expect(picked).resolves.toBeNull();
+    vi.restoreAllMocks();
+  });
+
+  it("still delivers a file chosen after the window regained focus", async () => {
+    vi.useFakeTimers();
+    let input!: HTMLInputElement;
+    vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(function (
+      this: HTMLInputElement,
+    ) {
+      input = this;
+    });
+    const picked = pickTextFile();
+    window.dispatchEvent(new Event("focus"));
+    Object.defineProperty(input, "files", {
+      value: [{ name: "a.md", size: 3, text: async () => "abc" }],
+    });
+    input.dispatchEvent(new Event("change"));
+    await vi.advanceTimersByTimeAsync(1500);
+    await expect(picked).resolves.toEqual({ name: "a.md", text: "abc" });
+    vi.restoreAllMocks();
   });
 });

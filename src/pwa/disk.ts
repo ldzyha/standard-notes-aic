@@ -215,13 +215,39 @@ export function pickTextFile(): Promise<{ name: string; text: string } | null> {
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".md,.markdown,.txt,text/markdown,text/plain";
-    input.addEventListener("cancel", () => resolve(null));
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const settle = (finish: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      window.removeEventListener("focus", closed);
+      finish();
+    };
+    // Some browsers fire no cancel event: when the window is focused again
+    // and no file arrived shortly after, the dialog was dismissed.
+    const closed = () => {
+      clearTimeout(timer);
+      timer = setTimeout(() => {
+        if (!input.files?.length) settle(() => resolve(null));
+      }, 1000);
+    };
+    window.addEventListener("focus", closed);
+    input.addEventListener("cancel", () => settle(() => resolve(null)));
     input.addEventListener("change", () => {
       const file = input.files?.[0];
-      if (!file) return resolve(null);
+      if (!file) return settle(() => resolve(null));
       if (file.size > MAX_NOTE_BYTES)
-        return reject(new Error("The note file must be 4 MiB or smaller."));
-      file.text().then((text) => resolve({ name: file.name, text }), reject);
+        return settle(() =>
+          reject(new Error("The note file must be 4 MiB or smaller.")),
+        );
+      // Keep the focus listener out of the way while the file is read.
+      clearTimeout(timer);
+      window.removeEventListener("focus", closed);
+      file.text().then(
+        (text) => settle(() => resolve({ name: file.name, text })),
+        (error: unknown) => settle(() => reject(error)),
+      );
     });
     input.click();
   });
