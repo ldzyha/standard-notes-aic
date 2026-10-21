@@ -28,6 +28,8 @@ let draft = "";
 let dirty = false;
 let working = false;
 let conflict = false;
+// The note text a held draft was written against, after the file changed.
+let heldBase: string | null = null;
 let saveTask: Promise<boolean> | null = null;
 let saveFailed = false;
 let autosaveTimer: ReturnType<typeof setTimeout> | null = null;
@@ -250,6 +252,7 @@ function reflect() {
     !!saveTask,
     saveTask ? "saving" : saveFailed ? "failed" : dirty ? "dirty" : "none",
   );
+  editor?.setReadOnly(readOnly());
   const fixLabel =
     note.access === "reconnect"
       ? "Reconnect note file"
@@ -299,6 +302,7 @@ function clearEditor() {
   dirty = false;
   saveFailed = false;
   conflict = false;
+  heldBase = null;
   content.replaceChildren();
 }
 
@@ -414,19 +418,35 @@ async function openOther() {
 }
 
 async function fix() {
-  if (note.access === "reconnect" || conflict) {
-    if (
-      conflict &&
-      !confirm(
-        `Replace your draft with the text in ${note.name}? Download the note first to keep the draft.`,
-      )
+  if (note.access !== "reconnect" && !conflict) return void (await save());
+  const keep = dirty ? draft : null;
+  const base = heldBase ?? note.text;
+  heldBase = null;
+  // The permission prompt needs this click, so it comes first.
+  await note.reconnect();
+  notify("");
+  if (keep === null) return render();
+  if (note.text === base) {
+    // The file is as it was: the draft stays and is saved.
+    conflict = false;
+    saveFailed = false;
+    await save();
+    return;
+  }
+  if (
+    confirm(
+      `${note.name} changed. Replace your draft with its text? Cancel keeps the draft: download it first.`,
     )
-      return;
-    // The permission prompt needs this click, so it comes first.
-    await note.reconnect();
-    notify("");
-    render();
-  } else await save();
+  )
+    return render();
+  // Saving now would overwrite the newer file text: hold the draft instead.
+  conflict = true;
+  saveFailed = true;
+  heldBase = base;
+  notify(
+    `${note.name} changed. Your draft is kept: download it, then reload the note file.`,
+    true,
+  );
 }
 
 window.addEventListener("beforeunload", (event) => {

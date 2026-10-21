@@ -362,3 +362,49 @@ describe("PWA one note without file access", () => {
     await vi.waitFor(() => expect(field().value).toBe("# From file"));
   });
 });
+
+describe("PWA reconnect keeps the draft", () => {
+  it("saves a dirty draft after access returns and the file is unchanged", async () => {
+    await click("Open note file");
+    type("# My draft");
+    disk.revoke();
+    await saveShortcut();
+    expect(document.querySelector(".pwa-notice")?.textContent).toMatch(
+      "draft is kept",
+    );
+    await click("Reconnect note file");
+    expect(field().value).toBe("# My draft");
+    expect(disk.text()).toBe("# My draft");
+    expect(status()).toBe("Saved to aic.md");
+  });
+
+  it("asks before replacing the draft when the file changed meanwhile", async () => {
+    await click("Open note file");
+    type("# My draft");
+    disk.revoke();
+    await saveShortcut();
+    disk.replace("# Newer on disk");
+    const ask = vi.fn(() => false);
+    vi.stubGlobal("confirm", ask);
+    await click("Reconnect note file");
+    expect(ask).toHaveBeenCalledOnce();
+    expect(field().value).toBe("# My draft");
+    expect(disk.text()).toBe("# Newer on disk");
+    expect(has("Reload note file")).toBe(true);
+    ask.mockReturnValue(true);
+    await click("Reload note file");
+    expect(field().value).toBe("# Newer on disk");
+  });
+
+  it("makes the editor read-only as soon as an autosave loses access", async () => {
+    await click("Open note file");
+    disk.revoke();
+    type("# Typed");
+    await vi.waitFor(() => expect(status()).toBe("Save failed"), {
+      timeout: 3000,
+    });
+    expect(field().readOnly).toBe(true);
+    expect(status()).toBe("Save failed");
+    expect(has("Reconnect note file")).toBe(true);
+  });
+});
