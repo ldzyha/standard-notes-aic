@@ -43,7 +43,7 @@ note file** (suggested name `aic.md`). Folders are no longer connected, and
 version is not reopened: choose its note file. Files in that folder stay
 unchanged.
 
-### F05 — Page targets are full paths matched exactly as written
+### F05 — Page targets are matched exactly as written
 
 `src/a`, `./src/a` and `/src/a` are three different targets. Case, `\` and a
 trailing `/` still do not matter. VS Code and the aic code editor write a file
