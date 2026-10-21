@@ -245,6 +245,8 @@ export class PwaNote {
   access: NoteAccess = "ready";
   /** False until the user has chosen or created the note. */
   exists = false;
+  /** True when Create picked a file that already had text, which was opened. */
+  adoptedExisting = false;
   private draftStamp = 0;
   constructor(
     private readonly records: NoteRecords = new IndexedDbNoteRecords(),
@@ -328,13 +330,27 @@ export class PwaNote {
   /**
    * Lets the user choose the note: an existing file (`create` false) or a new
    * one. Where files cannot be bound, the chosen file's text becomes the note
-   * and a new note starts empty. Returns false when the user cancels. Call it
-   * first in a click handler.
+   * and a new note starts empty. A file that already has text is opened, never
+   * written over. Text that exists only in this browser is replaced only when
+   * `approve` agrees. Returns false when the user cancels or it does not.
+   * Call it first in a click handler.
    */
-  async choose(create: boolean): Promise<boolean> {
+  async choose(
+    create: boolean,
+    approve: (oldText: string) => boolean | Promise<boolean> = () => false,
+  ): Promise<boolean> {
+    this.adoptedExisting = false;
+    const mayReplace = async (next: string) =>
+      !(
+        this.exists &&
+        this.text &&
+        next !== this.text &&
+        // Otherwise the old text still lives in its own file.
+        (this.access === "missing" || !this.handle)
+      ) || (await approve(this.text));
     if (!canBindFile(this.host as object)) {
       const picked = create ? { text: "" } : await pickTextFile();
-      if (!picked) return false;
+      if (!picked || !(await mayReplace(picked.text))) return false;
       await this.store(picked.text);
       return true;
     }
@@ -355,11 +371,12 @@ export class PwaNote {
         return "";
       throw error;
     });
-    // A new file starts with the text of a note whose file went missing.
+    // A new empty file starts with the text of a note whose file went missing.
     if (create && !text && this.access === "missing" && this.text) {
       text = this.text;
       await write(handle, null, text);
-    }
+    } else if (!(await mayReplace(text))) return false;
+    this.adoptedExisting = create && !!text && text !== this.text;
     this.access = "ready";
     await this.store(text, handle);
     return true;

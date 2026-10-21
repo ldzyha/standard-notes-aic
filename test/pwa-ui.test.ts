@@ -348,7 +348,6 @@ describe("PWA one note without file access", () => {
     control("Note options").click();
     await click("Download note");
     expect(await read(downloads[0]!)).toBe("# Browser note");
-    vi.stubGlobal("confirm", () => true);
     vi.spyOn(HTMLInputElement.prototype, "click").mockImplementation(function (
       this: HTMLInputElement,
     ) {
@@ -358,7 +357,9 @@ describe("PWA one note without file access", () => {
       this.dispatchEvent(new Event("change"));
     });
     control("Note options").click();
-    await click("Replace from file…");
+    control("Replace from file…").click();
+    await vi.waitFor(() => expect(has("Replace note text")).toBe(true));
+    await click("Replace note text");
     await vi.waitFor(() => expect(field().value).toBe("# From file"));
   });
 });
@@ -510,5 +511,42 @@ describe("PWA unsaved draft", () => {
       expect(records().draft).toBeNull();
       expect(document.querySelector("dialog")).toBeNull();
     });
+  });
+});
+
+describe("PWA another file after the bound file is gone", () => {
+  it("offers a download of the old text and replaces it only on request", async () => {
+    await click("Open note file");
+    const old = field().value;
+    disk.remove();
+    await launch();
+    expect(document.querySelector(".pwa-notice")?.textContent).toMatch(
+      "empty file starts with the last saved text",
+    );
+    const other = file("# Another file");
+    Object.defineProperty(window, "showOpenFilePicker", {
+      configurable: true,
+      value: vi.fn(async () => [other.handle]),
+    });
+    control("Open note file").click();
+    await vi.waitFor(() => expect(has("Replace note text")).toBe(true));
+    control("Download previous text").click();
+    expect(await read(downloads[0]!)).toBe(old);
+    await click("Keep previous text");
+    expect(document.querySelector(".pwa-start")).not.toBeNull();
+    expect(has("Replace note text")).toBe(false);
+    control("Open note file").click();
+    await vi.waitFor(() => expect(has("Replace note text")).toBe(true));
+    await click("Replace note text");
+    expect(field().value).toBe("# Another file");
+  });
+
+  it("says when Create opened a file that already had text", async () => {
+    await click("Create new note");
+    expect(field().value).toContain("--- /home/me/a.ts");
+    expect(document.querySelector(".pwa-notice")?.textContent).toMatch(
+      "already has text",
+    );
+    expect(disk.text()).toContain("--- /home/me/a.ts");
   });
 });

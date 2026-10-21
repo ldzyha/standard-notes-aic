@@ -319,7 +319,7 @@ function render(restore?: { text: string; autosave: boolean }) {
     renderChooser();
     if (note.access === "missing")
       notify(
-        `${note.name} was moved or deleted. Open it again, or create a new file: it starts with the last saved text.`,
+        `${note.name} was moved or deleted. Open it again, or create a new file: an empty file starts with the last saved text.`,
         true,
       );
     return;
@@ -431,22 +431,65 @@ async function save(): Promise<boolean> {
   return saveTask;
 }
 
+/** Asks before text that exists only in this browser is replaced. */
+function askReplace(oldText: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    const dialog = applyUiComponent(
+      element("dialog", "pwa-dialog pwa-sheet"),
+      "menu",
+      ["compact"],
+    );
+    dialog.setAttribute("aria-label", "Replace the note text");
+    const answer = (value: boolean) => {
+      dialog.close();
+      dialog.remove();
+      resolve(value);
+    };
+    const choice = (label: string, action: () => void, text = label) => {
+      const control = createUiButton(document, {
+        label,
+        variant: "ghost",
+        text,
+      });
+      applyUiComponent(control, "menu", [], "item");
+      control.addEventListener("click", action);
+      return control;
+    };
+    dialog.append(
+      element("strong", "", "Replace the note text?"),
+      element(
+        "p",
+        "pwa-empty",
+        "The last saved text of this note is kept only in this browser. Download it first to keep a copy.",
+      ),
+      choice("Download previous text", () =>
+        downloadNote(oldText, "aic-previous.md"),
+      ),
+      choice("Replace note text", () => answer(true)),
+      choice("Keep previous text", () => answer(false)),
+    );
+    dialog.addEventListener("cancel", (event) => {
+      event.preventDefault();
+      answer(false);
+    });
+    document.body.append(dialog);
+    dialog.showModal();
+  });
+}
+
 async function choose(create: boolean) {
-  if (await note.choose(create)) {
-    notify("");
+  if (await note.choose(create, askReplace)) {
+    notify(
+      note.adoptedExisting
+        ? `${note.name} already has text, so it was opened, not replaced.`
+        : "",
+    );
     render();
   }
 }
 
 /** Another file (or, without file access, another file's text) becomes the note. */
 async function openOther() {
-  if (
-    !canBindFile() &&
-    !confirm(
-      "Replace the note in this browser with a file? Download the note first to keep its text.",
-    )
-  )
-    return;
   if (!(await save()) && !confirm("Discard the unsaved draft?")) return;
   await choose(false);
 }

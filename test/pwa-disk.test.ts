@@ -339,3 +339,60 @@ describe("PWA unsaved draft", () => {
     expect(opened).toBe(1);
   });
 });
+
+describe("PWA choosing another file", () => {
+  async function missingNote() {
+    const f = fixture("# Last saved");
+    await f.note().choose(false);
+    f.remove();
+    const note = f.note();
+    await note.load();
+    const other = fixture("# Another file");
+    const choosing = new PwaNote(f.records, other.host);
+    await choosing.load();
+    return { f, other, note: choosing };
+  }
+
+  it("keeps the last text unless replacing it is approved", async () => {
+    const { f, note } = await missingNote();
+    expect(note.access).toBe("missing");
+    expect(await note.choose(false)).toBe(false);
+    expect([note.text, f.records.record?.text]).toEqual([
+      "# Last saved",
+      "# Last saved",
+    ]);
+    const approve = vi.fn(() => true);
+    expect(await note.choose(false, approve)).toBe(true);
+    expect(approve).toHaveBeenCalledWith("# Last saved");
+    expect(note.text).toBe("# Another file");
+  });
+
+  it("asks before a non-empty file picked with Create replaces the last text", async () => {
+    const { other, note } = await missingNote();
+    const declined = vi.fn(() => false);
+    expect(await note.choose(true, declined)).toBe(false);
+    expect(note.text).toBe("# Last saved");
+    expect(await note.choose(true, () => true)).toBe(true);
+    // The file is opened, never written over.
+    expect(other.handle.createWritable).not.toHaveBeenCalled();
+    expect([note.text, other.content(), note.adoptedExisting]).toEqual([
+      "# Another file",
+      "# Another file",
+      true,
+    ]);
+  });
+
+  it("carries the last text into an empty file without asking", async () => {
+    const f = fixture("# Last saved");
+    await f.note().choose(false);
+    f.remove();
+    const empty = fixture("");
+    const note = new PwaNote(f.records, empty.host);
+    await note.load();
+    expect(await note.choose(true)).toBe(true);
+    expect([empty.content(), note.adoptedExisting]).toEqual([
+      "# Last saved",
+      false,
+    ]);
+  });
+});
