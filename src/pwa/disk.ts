@@ -182,7 +182,7 @@ async function readFile(handle: NoteFileHandle): Promise<string> {
   if (file.size > MAX_NOTE_BYTES)
     throw new Error("The note file must be 4 MiB or smaller.");
   try {
-    return new TextDecoder("utf-8", { fatal: true }).decode(
+    return new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(
       await file.arrayBuffer(),
     );
   } catch {

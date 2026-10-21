@@ -454,3 +454,18 @@ describe("PWA file input", () => {
     vi.restoreAllMocks();
   });
 });
+
+describe("PWA byte order mark", () => {
+  it("keeps a UTF-8 BOM when the note is read and saved", async () => {
+    const f = fixture("\uFEFF# With BOM");
+    const note = f.note();
+    await note.choose(false);
+    expect(note.text).toBe("\uFEFF# With BOM");
+    await note.save("\uFEFF# Changed");
+    const raw = new Uint8Array(await (await f.handle.getFile()).arrayBuffer());
+    expect([...raw.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    const reopened = f.note();
+    await reopened.load();
+    expect(reopened.text).toBe("\uFEFF# Changed");
+  });
+});
