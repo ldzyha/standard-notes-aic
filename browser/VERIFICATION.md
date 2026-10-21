@@ -42,6 +42,12 @@ items sharing two or more attributes). The guide also still describes
 hosts no longer create. Both are recorded for the owner; core behavior was not
 changed for this release.
 
+Update, October 21, 2026: the sidecar and URL-to-file part of this gap is
+closed. Guide version 4 describes the one project note
+`<project folder name>.note.md`, its `---` pages and read-only owner context, and
+treats existing per-file and per-folder sidecars only as read-only context, never
+creates them, and drops URL-to-file associations. The missing DDK summary formats noted above remain open.
+
 ## One note file — October 13, 2026
 
 The panel edits one note file (`aic.md` in the connected folder, or the connected

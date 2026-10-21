@@ -663,6 +663,12 @@ rules or change an existing `AGENTS.md`. Optional full-kernel operations remain
 separate and require that runtime. Tests cover guide parity, fresh setup, legacy
 marker migration, untrusted copy, modified-file preservation and failed writes.
 
+Guide version 4 directs agents to the one project note (`<project folder
+name>.note.md`: leading text plus the page bound to the working file) as
+read-only owner context, never to create it or add pages, and to read legacy
+per-file and per-folder `*.note.md` files only if they exist. `aic context resolve
+--path <file>` returns the same context; other hosts read the note directly.
+
 Browser transfer actions live in the bounded More options menu and use shared
 `import-page`, `import-file` and `export-file` outline icons from
 `src/core/icons.css`. The menu uses left-aligned compact rows, concise visible

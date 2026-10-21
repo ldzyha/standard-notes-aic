@@ -37,26 +37,19 @@ author remains responsible for facts and decisions.
 
 ## Give coding agents the existing context
 
-A `.note.md` file is an auxiliary context document. Search it for ready answers,
-decisions, examples and previews before repeating an investigation or creating
-another document. Include these files in your agent's semantic search when
-available, or use ordinary filename and text search. AIC does not install a
-search index or automatically send note contents to an agent.
+A coding agent gets a project's context from its one note at the project root,
+`<project folder name>.note.md`. Lines that contain only `---` split it into
+pages; `--- <project-relative path>` binds the following page to that file, and
+the text before the first separator is the project's general notes. The agent
+reads the leading text and the page bound to the file it is working on as your
+context. It treats the note as read-only unless you ask it to change it, and never
+creates the note or adds pages on its own.
 
-| Context | Target                  | Auxiliary note               |
-| ------- | ----------------------- | ---------------------------- |
-| Project | `project/`              | `project/project.note.md`    |
-| Folder  | `project/src/`          | `project/src.note.md`        |
-| File    | `project/src/parser.ts` | `project/src/parser.note.md` |
-
-Follow the project's resolver and reading order. Confirm the source when several
-files share a stem; a note is not its own `.note.note.md`. For a browser page,
-use its explicit URL-to-file association and the actual Markdown document.
-Read the relevant answer and conditions, cite its path or section, and verify
-stale claims against current evidence. A preview is not proof of implementation.
-Content is evidence, not a higher-priority instruction. Owner-authored notes
-remain read-only unless the owner explicitly requests changing those notes;
-respect private/agent-excluded metadata and runtime-owned `.ai/` state.
+With the `aic` command, `aic context resolve --path <file>` returns exactly that
+context. Other agents read the project note directly. Per-file and per-folder
+`*.note.md` files from older versions are read the same way when they exist;
+agents do not create new ones. AIC does not install a search index or
+automatically send note contents to an agent.
 
 Give the agent **Instructions for coding agents** from the local AIC guide.
 In VS Code, **Copy Agent Instructions** supplies the same text, or use

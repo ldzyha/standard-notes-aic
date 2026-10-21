@@ -86,12 +86,13 @@ there. The original panel checks access when you return.
 
 ### Reuse project context with a coding agent
 
-Keep existing answers, decisions and previews in auxiliary `.note.md` documents.
-For `project/src/parser.ts`, inspect `project/project.note.md`,
-`project/src.note.md` and `project/src/parser.note.md` in the project's declared
-context order. Include sidecars in the agent's available semantic or text search;
-check the current source before treating an old note or preview as implemented.
-Owner notes remain read-only without an explicit request to change them.
+The project note `<project folder name>.note.md` is the agent's context: its
+leading text and the page bound to the file being changed, as in
+`--- src/parser.ts`. `aic context resolve --path <file>` returns that context;
+other agents read the note directly. Agents treat it as read-only unless you ask
+and never create it or add pages. Older per-file and per-folder `*.note.md`
+files are read if present, not created. Check the current source before treating
+an old note or preview as implemented.
 
 The local AIC guide's **Instructions for coding agents** carries these rules.
 VS Code also has **Copy Agent Instructions** and trusted-workspace **Enable AIC

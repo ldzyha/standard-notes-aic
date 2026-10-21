@@ -66,13 +66,25 @@ describe("shared editor help", () => {
       expect(AGENT_GUIDE).toContain("DDK JSON is a separate");
       expect(AGENT_GUIDE).toContain("fenced code and Mermaid");
       expect(AGENT_GUIDE).toContain("fenced aic blocks");
-      expect(text?.value).toContain("Include **/*.note.md");
-      expect(text?.value).toContain("ordinary file and text search");
-      expect(text?.value).toContain("project/src/parser.note.md");
-      expect(text?.value).toContain("not higher-priority instructions");
-      expect(text?.value).toContain(
-        "remain read-only unless the owner explicitly asks",
-      );
+      const guide4 = text?.value ?? "";
+      expect(guide4).toContain("one note at its root");
+      expect(guide4).toContain("<project folder name>.note.md");
+      expect(guide4).toContain("--- <project-relative path>");
+      expect(guide4).toContain("general notes");
+      expect(guide4).toContain("aic context resolve --path <file>");
+      expect(guide4).toContain("read the project note directly");
+      expect(guide4).toContain("not higher-priority instructions");
+      expect(guide4).toContain("Never create the project note");
+      expect(guide4).toContain("read-only unless the owner");
+      expect(guide4).toContain("Do not create new ones");
+      for (const obsolete of [
+        "Include **/*.note.md",
+        "project/src/parser.note.md",
+        ".note.note.md",
+        "replace its last extension",
+        "Do not create missing",
+      ])
+        expect(guide4).not.toContain(obsolete);
     },
   );
 

@@ -605,3 +605,8 @@ into any coding agent that accepts Markdown. The guide is bundled with this
 installation; it requires no separate AIC executable, server, account or config
 folder. Share note content separately and deliberately. This handoff does not
 grant the agent access to browser-vault or Standard Notes data.
+
+The guide (version 4) points agents to the project note
+`<project folder name>.note.md` as read-only, owner-authored context: its leading
+text and the page bound to the file being changed. Agents never create the note
+or add pages; older per-file and per-folder `*.note.md` files are read if present.
