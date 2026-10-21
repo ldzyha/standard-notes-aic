@@ -408,3 +408,31 @@ describe("PWA reconnect keeps the draft", () => {
     expect(has("Reconnect note file")).toBe(true);
   });
 });
+
+describe("PWA second window", () => {
+  it("offers Reload after another window saved and keeps the draft until then", async () => {
+    fileAccess(false);
+    await launch();
+    await click("Create new note");
+    type("# Mine");
+    await saveShortcut();
+    const records = state.records as InstanceType<typeof MemoryNoteRecords>;
+    const stored = records.record!;
+    await records.write(
+      { text: "# Other window", revision: stored.revision + 1 },
+      stored.revision,
+    );
+    type("# Mine, edited");
+    await saveShortcut();
+    expect(document.querySelector(".pwa-notice")?.textContent).toMatch(
+      "another window",
+    );
+    expect(has("Reload note file")).toBe(true);
+    expect(has("Retry save")).toBe(false);
+    expect(field().value).toBe("# Mine, edited");
+    vi.stubGlobal("confirm", () => true);
+    await click("Reload note file");
+    expect(field().value).toBe("# Other window");
+    expect(status()).toBe("Saved in this browser");
+  });
+});

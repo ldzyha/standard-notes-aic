@@ -212,6 +212,12 @@ export class PwaNote {
 
   /** Reads the bound file; it replaces the stored copy when they differ. */
   private async refresh(): Promise<void> {
+    // Another window may have saved or chosen a file since this one loaded.
+    const current = await this.records.read();
+    if (current) {
+      this.revision = current.revision;
+      this.handle = current.handle ?? this.handle;
+    }
     try {
       const text = await readFile(this.handle!);
       if (text !== this.text) await this.store(text, this.handle!);
@@ -290,19 +296,34 @@ export class PwaNote {
   }
 
   private async store(text: string, handle?: NoteFileHandle): Promise<void> {
-    const record: NoteRecord = {
-      text,
-      revision: this.revision + 1,
-      ...(handle ? { handle } : {}),
-    };
-    if (!(await this.records.write(record, this.revision)))
-      throw new Error(
-        "The note changed in another window. Reload this page to continue.",
-      );
-    this.exists = true;
-    this.text = text;
-    this.revision = record.revision;
-    this.handle = handle ?? null;
+    for (let retry = true; ; retry = false) {
+      const record: NoteRecord = {
+        text,
+        revision: this.revision + 1,
+        ...(handle ? { handle } : {}),
+      };
+      if (await this.records.write(record, this.revision)) {
+        this.exists = true;
+        this.text = text;
+        this.revision = record.revision;
+        this.handle = handle ?? null;
+        return;
+      }
+      // Another window only moved the revision: continue from it, once.
+      const current = await this.records.read();
+      if (!retry || current?.text !== this.text) throw new NoteConflictError();
+      this.revision = current.revision;
+    }
+  }
+}
+
+/** The stored note was changed by another window. */
+export class NoteConflictError extends Error {
+  constructor() {
+    super(
+      "The note changed in another window. Reload the note file to continue.",
+    );
+    this.name = "NoteConflictError";
   }
 }
 

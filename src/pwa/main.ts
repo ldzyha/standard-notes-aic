@@ -381,7 +381,7 @@ async function save(): Promise<boolean> {
     } catch (error) {
       if (started !== lifecycle) return false;
       saveFailed = true;
-      conflict = /changed outside/u.test(String(error));
+      conflict = /changed outside|another window/u.test(String(error));
       notify(error instanceof Error ? error.message : "Save failed.", true);
       return false;
     } finally {
@@ -423,7 +423,8 @@ async function fix() {
   const base = heldBase ?? note.text;
   heldBase = null;
   // The permission prompt needs this click, so it comes first.
-  await note.reconnect();
+  if (note.handle) await note.reconnect();
+  else await note.load();
   notify("");
   if (keep === null) return render();
   if (note.text === base) {

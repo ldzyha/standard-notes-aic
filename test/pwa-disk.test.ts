@@ -237,3 +237,33 @@ describe("PWA note without file access", () => {
     expect(records.record?.text).toBe("# Second window");
   });
 });
+
+describe("PWA note in two windows", () => {
+  it("continues after another window only moved the revision", async () => {
+    const records = new MemoryNoteRecords();
+    const note = new PwaNote(records, {});
+    await note.choose(true);
+    await note.save("# One");
+    const stored = records.record!;
+    await records.write(
+      { ...stored, revision: stored.revision + 1 },
+      stored.revision,
+    );
+    await note.save("# Two");
+    expect(records.record?.text).toBe("# Two");
+    expect(note.text).toBe("# Two");
+  });
+
+  it("reloads a file another window saved without a stale revision", async () => {
+    const f = fixture();
+    const first = f.note();
+    await first.choose(false);
+    const second = f.note();
+    await second.load();
+    await second.save("# From the second window");
+    await first.reconnect();
+    expect(first.text).toBe("# From the second window");
+    await first.save("# Then the first");
+    expect(f.content()).toBe("# Then the first");
+  });
+});
