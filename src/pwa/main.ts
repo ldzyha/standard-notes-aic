@@ -682,14 +682,19 @@ async function start() {
         updateButton.setAttribute("aria-label", label);
       },
     });
-    const registration = await navigator.serviceWorker.register("./sw.js", {
-      scope: "./",
-    });
-    appUpdates.attach(registration);
-    // Updates are checked by the browser and on focus, never against a notes server.
-    window.addEventListener("focus", () => {
-      void registration.update().catch(() => {});
-    });
+    try {
+      const registration = await navigator.serviceWorker.register("./sw.js", {
+        scope: "./",
+      });
+      appUpdates.attach(registration);
+      // Updates are checked by the browser and on focus, never against a notes server.
+      window.addEventListener("focus", () => {
+        void registration.update().catch(() => {});
+      });
+    } catch (error) {
+      // Offline start and updates are lost; the note itself works.
+      console.warn("AIC Notes could not register its service worker.", error);
+    }
   }
 }
 void start().catch((error: unknown) =>

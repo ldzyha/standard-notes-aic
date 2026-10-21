@@ -550,3 +550,34 @@ describe("PWA another file after the bound file is gone", () => {
     expect(disk.text()).toContain("--- /home/me/a.ts");
   });
 });
+
+describe("PWA service worker", () => {
+  afterEach(() => {
+    Reflect.deleteProperty(navigator, "serviceWorker");
+    vi.unstubAllEnvs();
+  });
+
+  it("treats a failed registration as non-fatal: a console warning, no banner", async () => {
+    const register = vi.fn(async () => {
+      throw new Error("Registration failed");
+    });
+    Object.defineProperty(navigator, "serviceWorker", {
+      configurable: true,
+      value: {
+        controller: null,
+        addEventListener() {},
+        removeEventListener() {},
+        register,
+      },
+    });
+    vi.stubEnv("PROD", true);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    await launch();
+    await vi.waitFor(() => expect(register).toHaveBeenCalled());
+    await new Promise((done) => setTimeout(done, 20));
+    const notice = document.querySelector<HTMLElement>(".pwa-notice")!;
+    expect(notice.hidden).toBe(true);
+    expect(notice.textContent).toBe("");
+    expect(warn).toHaveBeenCalled();
+  });
+});
