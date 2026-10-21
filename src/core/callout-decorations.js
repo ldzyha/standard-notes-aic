@@ -1,4 +1,4 @@
-import { syntaxTree } from "@codemirror/language";
+import { ensureSyntaxTree, syntaxTree } from "@codemirror/language";
 import { Decoration, ViewPlugin } from "@codemirror/view";
 
 export const CALLOUT_CORE_VERSION = "1.0.0";
@@ -31,7 +31,11 @@ function insideCode(tree, position) {
 
 function decorations(view) {
   const { state } = view;
-  const tree = syntaxTree(state);
+  // The parser works in time-boxed slices, so under load the tree may still be
+  // partial and a code fence unrecognized. Parse the visible text when it fits
+  // the budget; otherwise the plugin redraws when the finished tree arrives.
+  const tree =
+    ensureSyntaxTree(state, view.viewport.to, 100) ?? syntaxTree(state);
   const ranges = [];
   const seen = new Set();
   for (const visible of view.visibleRanges) {
@@ -66,7 +70,11 @@ export function makeCalloutExtension() {
       }
 
       update(update) {
-        if (update.docChanged || update.viewportChanged)
+        if (
+          update.docChanged ||
+          update.viewportChanged ||
+          syntaxTree(update.startState) !== syntaxTree(update.state)
+        )
           this.decorations = decorations(update.view);
       }
     },
