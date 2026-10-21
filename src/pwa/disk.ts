@@ -394,10 +394,13 @@ export class PwaNote {
       if (state && state !== "granted") this.access = "reconnect";
       if (this.access !== "ready")
         throw new Error("Reconnect the note file first. Your draft is kept.");
+      // Before the file is touched: another window may have moved the note on.
+      await this.resync();
       await write(this.handle, this.text, text);
       try {
         await this.store(text, this.handle);
-      } catch {
+      } catch (error) {
+        if (error instanceof NoteConflictError) throw error;
         this.text = text;
         return "The note file is saved; this browser's copy could not be updated.";
       }
@@ -405,6 +408,18 @@ export class PwaNote {
     }
     await this.store(text);
     return undefined;
+  }
+
+  /**
+   * Continues from the stored revision and file when another window only
+   * moved them; throws when the stored note holds different text.
+   */
+  private async resync(): Promise<void> {
+    const current = await this.records.read();
+    if (current?.revision === this.revision) return;
+    if (current?.text !== this.text) throw new NoteConflictError();
+    this.revision = current.revision;
+    this.handle = current.handle ?? this.handle;
   }
 
   private async store(text: string, handle?: NoteFileHandle): Promise<void> {

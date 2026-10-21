@@ -396,3 +396,27 @@ describe("PWA choosing another file", () => {
     ]);
   });
 });
+
+describe("PWA save after another window chose a different file", () => {
+  it("surfaces a conflict and writes neither file", async () => {
+    const f = fixture("# First file");
+    const first = f.note();
+    await first.choose(false);
+    const g = fixture("# Second file");
+    const second = new PwaNote(f.records, g.host);
+    await second.load();
+    expect(await second.choose(false, () => true)).toBe(true);
+    await expect(first.save("# Edited")).rejects.toThrow("another window");
+    expect(f.content()).toBe("# First file");
+    expect(f.handle.createWritable).not.toHaveBeenCalled();
+    expect(f.records.record?.text).toBe("# Second file");
+  });
+
+  it("still reports only the browser copy failing as a warning", async () => {
+    const f = fixture();
+    const note = f.note();
+    await note.choose(false);
+    vi.spyOn(f.records, "write").mockRejectedValueOnce(new Error("Full"));
+    expect(await note.save("# Saved")).toMatch("browser's copy");
+  });
+});
