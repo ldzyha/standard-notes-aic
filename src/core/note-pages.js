@@ -1,7 +1,7 @@
 // One note as a notebook: pages are a read-only view over the note text.
 //
 // A page break is a line that is exactly `---`, optionally followed by
-// whitespace and a navigation target (`--- /src/app/editor.ts`,
+// whitespace and a navigation target (`--- src/app/editor.ts`,
 // `--- https://example.com/docs`). The target binds the page that follows.
 // Hosts write a file target one way only: VS Code and the aic code editor
 // use the path inside the project (`--- src/app.ts`); any path is matched

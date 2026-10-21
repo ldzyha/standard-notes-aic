@@ -22,7 +22,7 @@ describe("note pages", () => {
 
   it("splits on blank-line separated --- lines and binds the following page", () => {
     const source =
-      "Intro\n\n---\nPlain\n\n--- /src/app/editor.ts\nCode\n\n---   https://example.com/docs  \nDocs";
+      "Intro\n\n---\nPlain\n\n--- src/app/editor.ts\nCode\n\n---   https://example.com/docs  \nDocs";
     expect(texts(source)).toEqual([
       "Intro\n\n",
       "Plain\n\n",
@@ -32,7 +32,7 @@ describe("note pages", () => {
     expect(targets(source)).toEqual([
       null,
       null,
-      "/src/app/editor.ts",
+      "src/app/editor.ts",
       "https://example.com/docs",
     ]);
   });
