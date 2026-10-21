@@ -2,6 +2,80 @@
 
 [English](CHANGELOG.md) · [Українська](CHANGELOG.uk.md)
 
+## 53.6.3 — 2026-10-21
+
+Release sequence 53 · 6 feature outcomes · 3 fixed-bug outcomes.
+Coordinates Standard Notes AIC 53.6.3, AIC Notes 62.3.1, experimental browser
+0.13.0 and shared core 8.1.0. Prepared release; publication is verified separately.
+Shared core 8.1.0 changes how a page target is matched: exactly as written.
+
+### F01 — The PWA edits one note in one file
+
+Choose an existing Markdown file or create one (suggested name `aic.md`) once;
+every launch opens it. Where the browser can write files, edits save directly to
+it. Other browsers keep the note in browser storage with **Download note** and
+**Replace from file…**. If another app or window changed the file, the save stops
+and the draft stays. **Reconnect note file** restores access and keeps the draft.
+A moved or deleted file is never recreated.
+
+### F02 — PWA workspaces, folders and the file tree are retired
+
+The PWA no longer has workspaces, folder import, the file tree or new files, and
+reopening the last note gives way to its one note. Workspaces of earlier versions
+are not migrated or shown. Nothing is deleted: files stay where they were, and a
+workspace kept only in the browser stays in its storage until the site data is
+cleared.
+
+### F03 — Unsaved PWA text survives a closed page
+
+While you type, the unsaved text is also kept in browser storage and removed
+after a successful save. After the page is closed or killed, the next launch puts
+the text back when the note is unchanged. Otherwise **Recover unsaved text**
+offers **Open as a copy** (a new page at the end of the note), **Download unsaved
+text** or **Discard unsaved text**. Replacing text kept only in the browser asks
+first and offers its download.
+
+### F04 — The browser extension connects one note file
+
+The side panel connects one note file, chosen with **Open note file** or **Create
+note file** (suggested name `aic.md`). Folders are no longer connected, and
+`aic.md` is no longer looked up in a folder. A folder remembered by an earlier
+version is not reopened: choose its note file. Files in that folder stay
+unchanged.
+
+### F05 — Page targets are full paths matched exactly as written
+
+`src/a`, `./src/a` and `/src/a` are three different targets. Case, `\` and a
+trailing `/` still do not matter. VS Code and the aic code editor write a file
+target as the path inside the project (`--- src/index.js`); the PWA shows a file
+path as text only.
+
+### F06 — Coding agents read the project note
+
+The bundled guide for coding agents (version 4) points them to the project note
+`<project folder name>.note.md` as read-only, owner-authored context: its leading
+text and the page bound to the file being changed. Agents never create the note
+or add pages. Per-file and per-folder `*.note.md` files are read if present and
+not created.
+
+### B01 — Open target only where it works
+
+A page bound to a file path showed **Open target** in Standard Notes and the
+browser panel, and the button did nothing. The action now appears only on web
+addresses, which open in a new tab.
+
+### B02 — Warning and error quotes follow the finished parse
+
+A `!>` or `!>>` line inside a code fence could be drawn as a warning or error
+quote while the editor had not finished parsing the note, and stayed that way
+until the next edit or scroll. Quotes now redraw when the parse finishes.
+
+### B03 — A failed service worker is not an error banner
+
+When the browser refused to register the PWA's service worker, the app showed an
+error banner although the note worked. The failure is now a console warning;
+offline start and app updates are unavailable in that case.
+
 ## 52.7.6 — 2026-10-14
 
 Release sequence 52 · 7 feature outcomes · 6 fixed-bug outcomes.

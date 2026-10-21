@@ -161,11 +161,11 @@ verify its neighboring `.sha256`: `sha256sum -c FILE.sha256` on Linux,
 `shasum -a 256 FILE` on macOS, or `(Get-FileHash .\FILE -Algorithm SHA256).Hash`
 in PowerShell. Build success, publication and installed behavior are separate checks.
 
-The writing guidance was reviewed on October 14 against local Core revision
+The writing guidance was reviewed on October 21 against local Core revision
 `c152359c05f572b701651baebca09a49594114bf`, its document guide, format rules and
 templates, and the local DDK writing skill; the public DDK guide was not
 compared online for this review. [The review record](https://github.com/ldzyha/standard-notes-aic/blob/main/browser/VERIFICATION.md)
-identifies the sources and differences. AIC reuses the writing method in Markdown;
+identifies the sources and the differences that remain open. AIC reuses the writing method in Markdown;
 this does not claim a merge of DDK's editor runtime or JSON format.
 
 [Open notes](/) · [Document writing](/how-to) · [Data and permissions](/terms)
@@ -174,6 +174,28 @@ this does not claim a merge of DDK's editor runtime or JSON format.
 
 The entries below preserve their original release context. Use the guide above
 for the prepared plain-file version.
+
+## Prepared update: Standard Notes 53.6.3 / VS Code 62.3.1 / browser 0.13.0
+
+Shared core 8.1.0 matches a page target exactly as written, so `src/a`, `./src/a`
+and `/src/a` are different targets. The PWA edits one note file you choose, keeps
+unsaved text in the browser, and has no workspaces, folders or file tree. The
+browser panel connects one note file instead of a folder. VS Code and the aic
+code editor keep one note per project, `<project folder>/<project folder name>.note.md`,
+with pages bound by the path inside the project; the `<folder>/aic.md` of VS Code
+61.6.5 is no longer followed, so copy its pages into the project note. Coding
+agents read that note through guide version 4. **Open target** appears only on
+web addresses in Standard Notes and the browser panel, and warning and error
+quotes redraw when the parse finishes. Existing files are never deleted or
+converted.
+
+Publication of these versions is pending verification. After publication, use
+[VSIX 62.3.1](https://github.com/ldzyha/aic-notes/releases/download/v62.3.1/aic-notes-62.3.1.vsix)
+and its [SHA-256](https://github.com/ldzyha/aic-notes/releases/download/v62.3.1/aic-notes-62.3.1.vsix.sha256),
+[Standard Notes 53.6.3](https://github.com/ldzyha/standard-notes-aic/releases/tag/v53.6.3),
+and [Chromium 0.13.0 ZIP](https://github.com/ldzyha/standard-notes-aic/releases/download/v53.6.3/aic-browser-chromium-0.13.0.zip)
+with [SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v53.6.3/aic-browser-chromium-0.13.0.zip.sha256).
+PWA deployment and store submission or approval are verified separately.
 
 ## Prepared update: Standard Notes 52.7.6 / VS Code 61.6.5 / browser 0.12.0
 

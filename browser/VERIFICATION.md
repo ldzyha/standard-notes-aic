@@ -2,6 +2,58 @@
 
 [English](VERIFICATION.md) · [Українська](VERIFICATION.uk.md)
 
+## Prepared release 53.6.3 / browser 0.13.0 — October 21, 2026
+
+The Chromium manifest is **0.13.0** with Standard Notes AIC 53.6.3, AIC Notes
+62.3.1 and shared core 8.1.0. The extension connects one note file instead of a
+folder, and **Open target** appears only on page cards bound to a web address.
+The manifest `name` ("AIC — Page notes"), `default_title` and `description` were
+reviewed and kept: each web address still shows its own page of the one note.
+The six required permissions and optional HTTP(S) access are unchanged. Each one
+is still used in the code: `sidePanel` (`src/browser/platform.ts`), `storage`
+(`storage.local` connection metadata and recovery), `tabs` (active-tab address,
+**Open target**, **Open AIC in tab**), `scripting` and optional site access
+(**Import current content**), `clipboardRead` (Paste on an empty typed field) and
+`clipboardWrite` (Copy). No submission or approval is claimed.
+
+On Node 24.21.0, `npm run check` passed: formatting, ESLint, TypeScript,
+**1,137 tests in 93 files**, and the Standard Notes and PWA builds.
+`npm run build:browser` passed and wrote `aic-browser-chromium-0.13.0.zip`, and
+`npm test -- test/pwa-offline.test.ts` passed 17 tests. The count fell from 1,225
+because the suites of the removed PWA workspaces, folders and file tree went with
+them. These are synthetic suites and local builds; no installed extension was run
+in Chrome or Edge.
+
+The [pre-release rule](../AGENTS.md) review used the clean local Core revision
+`c152359c05f572b701651baebca09a49594114bf`, unchanged since the October 14
+review: `playground/document/DOCUMENT-GUIDE.md`, `templates.js` and
+`format-guide.js`. It also used the local DDK writing skill
+`/home/dev/.claude/skills/ddk/SKILL.md` (79,609 bytes, SHA-256
+`1ef5d56b4b0eb2ea9dad1815a96bc56bd8dbcc2e9f8deffc74749c5eab873317`, modified
+October 21). It is now one file with its bundled DDK guide and template
+catalogue; the `references/` files and `ddk-*` sub-skills named on October 14 no
+longer exist locally. The public [DDK prompt](https://ddk.dzyha.com/prompt.html)
+was **not** fetched or compared online for this review.
+
+Core `templates.js` and `src/core/slash-snippets.js` (catalogue 2.0.0) agree on
+every section's title, question and table columns. Four differences from the
+skill's catalogue are **open** and need an owner decision before publication; no
+template was changed for this release:
+
+- Glossary is a Term / Description table in the skill and a list in AIC.
+- Bibliography is a Source / Use table asking how each source is useful in the
+  skill, and a list asking only which sources support the document in AIC.
+- High-level design asks how the main parts are connected and has a diagram with
+  one sentence in the skill. AIC asks how they work together and adds a Part /
+  Responsibility / Dependency table that repeats the diagram nodes.
+- Implementation plan, a numbered list, is in the skill's catalogue and not in the
+  AIC `/` menu.
+
+Detailed view, Error handling, Test cases, Open question and the flowchart,
+sequence and state templates match. In `src/core/agent-guide.js` (version 4) the
+sidecar and URL-association gap of the October 14 review is closed; the DDK
+summary still lacks the glossary and bibliography formats and DDK's table rule.
+
 ## Prepared release 52.7.6 / browser 0.12.0 — October 14, 2026
 
 The Chromium manifest is **0.12.0** with Standard Notes AIC 52.7.6, AIC Notes

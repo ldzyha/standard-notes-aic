@@ -2,40 +2,38 @@
 
 [English](#english) · [Українська](#українська)
 
-## Prepared package 0.12.0 — October 14, 2026
+## Prepared package 0.13.0 — October 21, 2026
 
-This candidate replaces per-page note files with one note file. The panel edits
-the one note file you open or create (suggested name `aic.md`); folders are not
-opened. It shows the page of
-that note bound to the active tab's exact address. Per-URL note files, the links
-index, the notes tree, history, pin and file linking are removed; earlier files
-stay on disk untouched. Notes are plain Markdown on disk; there is no app
-password or encrypted library. The six required permissions and the optional
-HTTP(S) site access are unchanged. No 0.12.0 submission or approval is claimed.
-Recheck the dated dashboard observations below before submission. The texts
-below replace the 0.9.3 listing texts further down, which describe per-page
-notes, domain navigation and an encrypted library that this package no longer has.
+This candidate connects one note file instead of a folder. The panel edits the
+one note file you open or create (suggested name `aic.md`); folders are not
+connected and `aic.md` is not looked up in a folder. A folder remembered by an
+earlier version is not reopened: choose its note file. **Open target** appears
+only on page cards bound to a web address. Notes are plain Markdown on disk;
+there is no app password or encrypted library. The six required permissions and
+the optional HTTP(S) site access are unchanged, and each one is still used. No
+0.13.0 submission or approval is claimed. Recheck the dated dashboard
+observations below before submission. The texts below are the current listing
+texts; they supersede the 0.12.0 texts, which describe a folder or a file.
 
-Пакет 0.12.0 замінює окремі файли нотаток для сторінок одним файлом нотаток.
-Панель редагує один файл нотаток, який ви відкриваєте чи створюєте
-(запропонована назва `aic.md`); папки не відкриваються. Вона показує
-сторінку цієї нотатки, прив’язану до точної адреси активної вкладки. Окремі
-файли для URL, індекс зв’язків, дерево нотаток, історію, закріплення та
-прив’язування файлів вилучено; попередні файли лишаються на диску без змін.
-Нотатки зберігаються на диску як звичайний Markdown; пароля застосунку чи
-зашифрованої бібліотеки немає. Шість обов’язкових дозволів і необов’язковий
-доступ до сайтів HTTP(S) не змінено. Подання чи схвалення 0.12.0 не заявляється.
-Перед поданням перевірте наведені нижче датовані спостереження з панелі знову.
-Тексти нижче замінюють тексти опису 0.9.3, які описують нотатки окремих
-сторінок, навігацію за доменом і зашифровану бібліотеку, яких цей пакет уже не має.
+Пакет 0.13.0 підключає один файл нотаток замість папки. Панель редагує один
+файл нотаток, який ви відкриваєте чи створюєте (запропонована назва `aic.md`);
+папки не підключаються, а `aic.md` не шукається в папці. Папка, запам’ятована
+попередньою версією, не відкривається повторно: оберіть її файл нотаток.
+**Open target** є лише на картках сторінок, прив’язаних до вебадреси. Нотатки
+зберігаються на диску як звичайний Markdown; пароля застосунку чи зашифрованої
+бібліотеки немає. Шість обов’язкових дозволів і необов’язковий доступ до сайтів
+HTTP(S) не змінено, і кожен із них і далі використовується. Подання чи схвалення
+0.13.0 не заявляється. Перед поданням перевірте наведені нижче датовані
+спостереження з панелі знову. Тексти нижче є поточними текстами запису; вони
+замінюють тексти 0.12.0, які описують папку або файл.
 
-### Short description — 0.12.0
+### Short description — 0.13.0
 
 One local Markdown note file in the side panel. Each web address shows its own page; import readable page text on request.
 
 Один локальний Markdown-файл нотаток у бічній панелі. Кожна вебадреса показує власну сторінку; читабельний текст сторінки імпортується на ваш запит.
 
-### Detailed description — 0.12.0
+### Detailed description — 0.13.0
 
 Keep notes beside the web page you are reading. AIC opens a Markdown editor in
 the browser's side panel and saves to one Markdown note file you choose.
@@ -60,6 +58,146 @@ for Chrome 140 or newer; Incognito is not supported.
 Тримайте нотатки поруч із вебсторінкою, яку читаєте. AIC відкриває
 Markdown-редактор у бічній панелі браузера й зберігає зміни в один вибраний вами
 Markdown-файл нотаток.
+
+- У нотатці рядок `--- https://example.com/docs` починає сторінку, прив’язану
+  саме до цієї адреси. Панель показує сторінку активної вкладки; для адреси без
+  сторінки показується порожня картка, а сторінка додається, щойно ви почнете
+  писати.
+- Пишіть заголовки, списки, завдання, таблиці, блоки коду, розгортувані розділи
+  та діаграми Mermaid. Перемикайтеся між Markdown і прев’ю.
+- Імпортуйте читабельний виділений текст або вміст сторінки, коли самі цього
+  хочете. AIC просить доступ до цього сайту й не змінює сайт і не заповнює його
+  форми.
+- Зберігайте структурований текст, замасковані значення, поля карток і одноразові
+  коди в типізованих полях. Копіюйте значення вручну; пароль генерується лише для
+  порожнього поля.
+
+Нотатки — звичайний Markdown на вашому диску; маскування візуальне, а не
+шифрування. AIC не має облікового запису, хмарного сервісу, телеметрії чи
+синхронізації; користуйтеся власною синхронізацією файлів. Відвідування сторінки
+нічого не записує, і AIC не веде списку відвіданих сторінок. Буфер обміну
+читається лише після явної дії Paste. Нотатки й імпортований вміст не
+надсилаються розробникові. Це експериментальне розширення для настільного
+Chrome 140 або новішого; режим Incognito не підтримується.
+
+### Single purpose — 0.13.0
+
+Edit one local Markdown note file in the side panel, showing the page of the
+note bound to the active web page, including deliberate page-content import.
+
+Редагування одного локального Markdown-файла нотаток у бічній панелі з показом
+сторінки нотатки, прив’язаної до активної вебсторінки, включно з явним імпортом
+вмісту сторінки.
+
+### Permission explanations — 0.13.0
+
+- **`sidePanel`** - displays the editor beside the active website.
+- **`storage`** - keeps local connection metadata, preferences and plain draft
+  recovery checkpoints in trusted extension contexts. No `storage.sync`.
+- **`tabs`** - reads the active tab's address in the panel's own window to show
+  the page bound to it, and opens a page address from the note, or AIC itself,
+  in a new tab after a user action.
+- **`scripting`** - runs the bundled read-only capture function after the user
+  chooses **Import current content**. It does not insert data into the website.
+- **Optional `http://*/*`, `https://*/*`** - requested for the current origin
+  only when the user imports; broad access is not granted at installation.
+- **`clipboardRead`** - reads clipboard text only when the user presses Paste on
+  an empty typed field. No background polling or clipboard history.
+- **`clipboardWrite`** - copies a field value or block after a user action.
+  Masked values are intentionally copied as plain text.
+
+- **`sidePanel`** - показує редактор поруч з активним сайтом.
+- **`storage`** - зберігає локальні метадані підключення, налаштування та
+  відкриті контрольні точки відновлення чернеток у довірених контекстах
+  розширення. `storage.sync` не використовується.
+- **`tabs`** - читає адресу активної вкладки у вікні панелі, щоб показати
+  прив’язану до неї сторінку, і після дії користувача відкриває адресу з
+  нотатки або сам AIC у новій вкладці.
+- **`scripting`** - запускає вбудовану функцію читання сторінки лише після
+  вибору **Import current content**. Вона нічого не вставляє на сайт.
+- **Необов’язкові `http://*/*`, `https://*/*`** - запитуються лише для
+  поточного origin під час імпорту; широкий доступ під час встановлення не
+  надається.
+- **`clipboardRead`** - читає текст буфера обміну лише після натискання Paste
+  на порожньому типізованому полі. Без фонового опитування й історії буфера.
+- **`clipboardWrite`** - копіює значення поля чи блок після дії
+  користувача. Замасковані значення навмисно копіюються як звичайний текст.
+
+### Data-use changes — 0.13.0
+
+Website content, exact page addresses written as page targets in the user's note
+file, and any credentials or personal data the user writes into notes are
+processed locally. They are stored as plain text in the chosen file on disk and
+in local recovery checkpoints, not in an encrypted library; there is no vault
+passphrase and no recent-pages list. Nothing is sent to the developer. Update
+the dashboard's data-use answers and the privacy policy wording to match before
+submission.
+
+Вміст сайтів, точні адреси сторінок, які користувач записав як цілі сторінок у
+своєму файлі нотаток, і будь-які облікові чи персональні дані, які користувач
+записав у нотатки, обробляються локально. Вони зберігаються звичайним текстом у
+вибраному файлі на диску та в локальних контрольних точках відновлення, а не в
+зашифрованій бібліотеці; парольної фрази сховища й списку недавніх сторінок
+немає. Нічого не надсилається розробникові. Перед поданням оновіть відповіді про
+використання даних у панелі та формулювання політики приватності.
+
+## Prepared package 0.12.0 — October 14, 2026
+
+This candidate replaces per-page note files with one note file. The panel edits
+`aic.md` in the connected folder, or the connected file, and shows the page of
+that note bound to the active tab's exact address. Per-URL note files, the links
+index, the notes tree, history, pin and file linking are removed; earlier files
+stay in the folder untouched. Notes are plain Markdown on disk; there is no app
+password or encrypted library. The six required permissions and the optional
+HTTP(S) site access are unchanged. No 0.12.0 submission or approval is claimed.
+Recheck the dated dashboard observations below before submission. The texts
+below replace the 0.9.3 listing texts further down, which describe per-page
+notes, domain navigation and an encrypted library that this package no longer has.
+
+Пакет 0.12.0 замінює окремі файли нотаток для сторінок одним файлом нотаток.
+Панель редагує `aic.md` у підключеній папці або підключений файл і показує
+сторінку цієї нотатки, прив’язану до точної адреси активної вкладки. Окремі
+файли для URL, індекс зв’язків, дерево нотаток, історію, закріплення та
+прив’язування файлів вилучено; попередні файли лишаються в папці без змін.
+Нотатки зберігаються на диску як звичайний Markdown; пароля застосунку чи
+зашифрованої бібліотеки немає. Шість обов’язкових дозволів і необов’язковий
+доступ до сайтів HTTP(S) не змінено. Подання чи схвалення 0.12.0 не заявляється.
+Перед поданням перевірте наведені нижче датовані спостереження з панелі знову.
+Тексти нижче замінюють тексти опису 0.9.3, які описують нотатки окремих
+сторінок, навігацію за доменом і зашифровану бібліотеку, яких цей пакет уже не має.
+
+### Short description — 0.12.0
+
+One local Markdown note file in the side panel. Each web address shows its own page; import readable page text on request.
+
+Один локальний Markdown-файл нотаток у бічній панелі. Кожна вебадреса показує власну сторінку; читабельний текст сторінки імпортується на ваш запит.
+
+### Detailed description — 0.12.0
+
+Keep notes beside the web page you are reading. AIC opens a Markdown editor in
+the browser's side panel and saves to one note file you choose: `aic.md` in a
+folder, or a single `.md` file.
+
+- Inside the note, `--- https://example.com/docs` starts a page bound to that
+  exact address. The panel shows the page of the active tab; an address without
+  a page shows an empty card, and the page is added when you start typing.
+- Write headings, lists, tasks, tables, code blocks, collapsible sections and
+  Mermaid diagrams. Switch between Markdown and preview.
+- Import readable selected text or page content when you choose. AIC requests
+  access to that site and does not edit the website or fill its forms.
+- Keep structured text, masked values, card fields and one-time codes in typed
+  fields. Copy values manually; generate a password only for an empty field.
+
+Notes are plain Markdown on your disk; masking is visual, not encryption. AIC has
+no account, cloud service, telemetry or synchronization; use your own file sync.
+Visiting a page writes nothing, and AIC keeps no list of visited pages.
+Clipboard reads happen only after an explicit Paste action. Notes and imported
+content are not sent to the developer. This is an experimental desktop extension
+for Chrome 140 or newer; Incognito is not supported.
+
+Тримайте нотатки поруч із вебсторінкою, яку читаєте. AIC відкриває
+Markdown-редактор у бічній панелі браузера й зберігає зміни в один вибраний вами
+файл нотаток: `aic.md` у папці або окремий `.md`-файл.
 
 - У нотатці рядок `--- https://example.com/docs` починає сторінку, прив’язану
   саме до цієї адреси. Панель показує сторінку активної вкладки; для адреси без

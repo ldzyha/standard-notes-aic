@@ -26,8 +26,8 @@ describe("publication metadata", () => {
   it("uses the unified installation guide as the public release notes", () => {
     expect(releaseInstall).toContain("https://aic.dzyha.com/releases");
     expect(releaseInstall).toContain("https://aic.dzyha.com/terms");
-    expect(releaseInstall).toContain("aic-notes-61.6.5.vsix");
-    expect(releaseInstall).toContain("aic-browser-chromium-0.12.0.zip");
+    expect(releaseInstall).toContain("aic-notes-62.3.1.vsix");
+    expect(releaseInstall).toContain("aic-browser-chromium-0.13.0.zip");
     expect(releaseInstall).toContain("## English");
     expect(releaseInstall).toContain("## Українська");
     expect(releaseWorkflow).toContain("--notes-file RELEASE_INSTALL.md");
@@ -71,17 +71,17 @@ describe("publication metadata", () => {
   });
 
   it("documents the current R.F.B release and packages usage and UI contracts", () => {
-    expect(manifest.version).toBe("52.7.6");
-    expect(browserManifest.version).toBe("0.12.0");
-    expect(changelog).toContain(`## ${manifest.version} — 2026-10-14`);
+    expect(manifest.version).toBe("53.6.3");
+    expect(browserManifest.version).toBe("0.13.0");
+    expect(changelog).toContain(`## ${manifest.version} — 2026-10-21`);
     expect(changelog).toContain(
-      "Release sequence 52 · 7 feature outcomes · 6 fixed-bug outcomes",
+      "Release sequence 53 · 6 feature outcomes · 3 fixed-bug outcomes",
     );
     expect(changelog).toContain(
-      "### F04 — Note pages with exact targets and one-page focus",
+      "### F05 — Page targets are full paths matched exactly as written",
     );
-    expect(changelog).toContain("shared core 8.0.0");
-    expect(marketplaceHowto).toContain("aic-browser-chromium-0.12.0.zip");
+    expect(changelog).toContain("shared core 8.1.0");
+    expect(marketplaceHowto).toContain("aic-browser-chromium-0.13.0.zip");
     expect(marketplaceHowto).toContain(
       `[Standard Notes AIC ${manifest.version}](https://github.com/ldzyha/standard-notes-aic/releases/tag/v${manifest.version})`,
     );

@@ -13,8 +13,8 @@ highlighting, AIC details cards, and Mermaid diagrams in the editor.
 
 The complete, test-owned behavior map is in [`FUNCTIONAL_INDEX.md`](FUNCTIONAL_INDEX.md).
 
-Prepared release 52.7.6 pairs with AIC Notes 61.6.5, experimental browser 0.12.0
-and shared core 8.0.0. Notes are ordinary Markdown files. VS Code and the aic code editor
+Prepared release 53.6.3 pairs with AIC Notes 62.3.1, experimental browser 0.13.0
+and shared core 8.1.0. Notes are ordinary Markdown files. VS Code and the aic code editor
 keep one note per project at the project root, `<project folder>/<project folder name>.note.md`;
 pages bind by the path inside the project (`--- src/index.js`). The PWA and the browser
 extension use the one note file you choose there (open or create, suggested name `aic.md`);

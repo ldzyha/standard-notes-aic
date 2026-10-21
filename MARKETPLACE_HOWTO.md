@@ -4,17 +4,17 @@
 
 ## English
 
-### Prepared release — October 14, 2026
+### Prepared release — October 21, 2026
 
-[AIC Notes 61.6.5](https://github.com/ldzyha/aic-notes/releases/tag/v61.6.5)
-and [Standard Notes AIC 52.7.6](https://github.com/ldzyha/standard-notes-aic/releases/tag/v52.7.6)
-are prepared with browser 0.12.0 and core 8.0.0. Verify final GitHub assets,
+[AIC Notes 62.3.1](https://github.com/ldzyha/aic-notes/releases/tag/v62.3.1)
+and [Standard Notes AIC 53.6.3](https://github.com/ldzyha/standard-notes-aic/releases/tag/v53.6.3)
+are prepared with browser 0.13.0 and core 8.1.0. Verify final GitHub assets,
 SHA-256 values and installation before claiming a release or store approval.
 
 | Destination            | Latest checked state                                     | Prepared update                     |
 | ---------------------- | -------------------------------------------------------- | ----------------------------------- |
-| VS Code Marketplace    | 59.0.2 public (October 2)                                | 61.6.5, submission not yet verified |
-| Chrome Web Store       | 0.9.3 public; 0.11.1 pending review; new upload disabled | `aic-browser-chromium-0.12.0.zip`   |
+| VS Code Marketplace    | 59.0.2 public (October 2)                                | 62.3.1, submission not yet verified |
+| Chrome Web Store       | 0.9.3 public; 0.11.1 pending review; new upload disabled | `aic-browser-chromium-0.13.0.zip`   |
 | Microsoft Edge Add-ons | No Edge workspace at the October 1 check                 | No confirmed submission             |
 
 The October 2 checks confirm Marketplace **59.0.2** public and Chrome **0.9.3**
@@ -31,10 +31,10 @@ links; GitHub source files are not the policy destination. The dashboard evidenc
 including the 0.11.1 package SHA-256 and six required permissions, is recorded in
 [browser/STORE_LISTING.md](browser/STORE_LISTING.md).
 
-The PWA shipped with Standard Notes AIC 49.1.2 provides the compact mobile
-interface: direct **New note**, **Files**, and **Folder** actions; a Notes drawer
-that retains the editor; and canonical Terms redirects. It does not change the
-local Markdown, optional encryption, or explicit export model.
+The PWA edits the one Markdown note file you choose, or keeps the note in
+browser storage where the browser cannot write files. It has no encrypted
+format, and **Download note** is the explicit export. The canonical Terms
+redirects are unchanged.
 
 ### Release gates
 
@@ -61,10 +61,10 @@ local Markdown, optional encryption, or explicit export model.
 
 #### VS Code Marketplace
 
-1. Verify the 61.6.5 GitHub VSIX and checksum, then upload those exact bytes to
+1. Verify the 62.3.1 GitHub VSIX and checksum, then upload those exact bytes to
    the existing listing after checking its current version.
 2. Wait for Microsoft verification, confirm `ldzyha.aic-notes` publicly shows
-   **61.6.5**, then install it in a clean VS Code profile.
+   **62.3.1**, then install it in a clean VS Code profile.
 3. A GitHub VSIX supports manual installation but does not publish the extension.
    See the [Marketplace publishing guide](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md).
 
@@ -102,29 +102,29 @@ and [VS run for 57.1.2](https://github.com/ldzyha/aic-notes/actions/runs/3684721
 succeeded; store submissions and credential checks were skipped. A verified GitHub
 asset is not an authenticated store submission.
 
-Before updating or moving from an unpacked installation, wait for save confirmation,
-export an **encrypted backup**, and keep its password. Do not remove a populated
-extension because local data can disappear. Automatic transfer between unpacked and
-store installations is not proven; test restoration separately. Libraries v1 and
-v2 are read without rewriting; the next write uses v3, which older builds cannot
-read. The original encrypted backup remains available.
+Before updating or moving from an unpacked installation, wait for the disk-save
+confirmation and keep a copy of the note file. Notes are plain Markdown in that
+file; removing the extension clears local recovery copies and remembered file
+access, but not the file. A folder connected by an earlier version is not
+reopened: choose its note file again. Automatic transfer between unpacked and
+store installations is not proven; test reconnecting the file separately.
 See [Local data](browser/README.md).
 
 ---
 
 ## Українська
 
-### Підготовлений випуск — 14 жовтня 2026
+### Підготовлений випуск — 21 жовтня 2026
 
-Підготовлено [AIC Notes 61.6.5](https://github.com/ldzyha/aic-notes/releases/tag/v61.6.5)
-і [Standard Notes AIC 52.7.6](https://github.com/ldzyha/standard-notes-aic/releases/tag/v52.7.6)
-із браузерним пакетом 0.12.0 та ядром 8.0.0. Перед заявою про випуск або схвалення
+Підготовлено [AIC Notes 62.3.1](https://github.com/ldzyha/aic-notes/releases/tag/v62.3.1)
+і [Standard Notes AIC 53.6.3](https://github.com/ldzyha/standard-notes-aic/releases/tag/v53.6.3)
+із браузерним пакетом 0.13.0 та ядром 8.1.0. Перед заявою про випуск або схвалення
 перевірте остаточні файли GitHub, SHA-256 та встановлення.
 
 | Призначення            | Останній перевірений стан                                        | Підготовлене оновлення             |
 | ---------------------- | ---------------------------------------------------------------- | ---------------------------------- |
-| VS Code Marketplace    | 59.0.2 доступна (2 жовтня)                                       | 61.6.5, подання ще не підтверджене |
-| Chrome Web Store       | 0.9.3 доступна; 0.11.1 перевіряється; нове завантаження вимкнено | `aic-browser-chromium-0.12.0.zip`  |
+| VS Code Marketplace    | 59.0.2 доступна (2 жовтня)                                       | 62.3.1, подання ще не підтверджене |
+| Chrome Web Store       | 0.9.3 доступна; 0.11.1 перевіряється; нове завантаження вимкнено | `aic-browser-chromium-0.13.0.zip`  |
 | Microsoft Edge Add-ons | Простір Edge недоступний під час перевірки 1 жовтня              | Подання не підтверджене            |
 
 Перевірки 2 жовтня підтвердили публічні Marketplace **59.0.2** і Chrome **0.9.3**,
@@ -141,10 +141,10 @@ Chrome **0.11.1 на перевірці** та вимкнені нові зав�
 пакета 0.11.1 і шістьма потрібними дозволами, зафіксовано у
 [browser/STORE_LISTING.md](browser/STORE_LISTING.md).
 
-PWA, що входить до Standard Notes AIC 49.1.2, має компактний мобільний інтерфейс:
-прямі дії **New note**, **Files** і **Folder**, панель нотаток зі збереженням
-редактора та канонічні переспрямування для Terms. Локальна Markdown-модель,
-необов'язкове шифрування й явний експорт не змінилися.
+PWA редагує один файл нотатки Markdown, який ви вибрали, або зберігає нотатку в
+сховищі браузера там, де браузер не може записувати файли. Зашифрованого формату
+немає, а явним експортом є **Download note**. Канонічні переспрямування для Terms
+не змінилися.
 
 ### Випускні перевірки
 
@@ -172,9 +172,9 @@ PWA, що входить до Standard Notes AIC 49.1.2, має компактн
 
 #### VS Code Marketplace
 
-1. Перевірте VSIX 61.6.5 із GitHub та контрольну суму, потім завантажте ті самі
+1. Перевірте VSIX 62.3.1 із GitHub та контрольну суму, потім завантажте ті самі
    байти до наявного запису після перевірки поточної версії.
-2. Дочекайтеся перевірки Microsoft, підтвердьте публічну **61.6.5** у
+2. Дочекайтеся перевірки Microsoft, підтвердьте публічну **62.3.1** у
    `ldzyha.aic-notes` і встановіть її у чистому профілі VS Code.
 3. VSIX на GitHub дозволяє ручне встановлення, але не публікує розширення.
    Див. [інструкцію публікації Marketplace](https://github.com/ldzyha/aic-notes/blob/main/MARKETPLACE_PUBLISHING.md).
@@ -215,9 +215,10 @@ ZIP; версії VS Code і браузера незалежні.
 артефакт GitHub не є автентифікованим поданням до магазину.
 
 Перед оновленням або переходом з unpacked-інсталяції дочекайтеся підтвердження
-збереження, експортуйте **зашифровану резервну копію** і збережіть пароль. Не
-видаляйте заповнене розширення, бо локальні дані можуть зникнути. Автоматичне
+запису на диск і збережіть копію файлу нотатки. Нотатки — звичайний Markdown у
+цьому файлі; видалення розширення очищує локальні копії відновлення та
+запам’ятований доступ до файлу, але не сам файл. Папка, підключена попередньою
+версією, не відкривається повторно: оберіть її файл нотатки знову. Автоматичне
 перенесення між розпакованим і магазинним встановленням не доведене; окремо
-перевірте відновлення. Бібліотеки v1 і v2 читаються без переписування; наступне
-збереження використовує v3, яку старі збірки не прочитають. Оригінальна зашифрована копія лишається доступною. Див.
+перевірте повторне підключення файлу. Див.
 [Локальні дані](browser/README.md).

@@ -19,39 +19,43 @@ the path inside the project (`--- src/index.js`). The PWA and the browser
 extension use the one note file you choose there (suggested name `aic.md`);
 pages bind by URL. A `<project>.note.md` from older versions is adopted as is;
 the `<folder>/aic.md` used by VS Code 61.6.5 is no longer followed, so copy its
-pages into the project note. Nothing is migrated or deleted. Standard Notes keeps its own
+pages into the project note and write each target as the path inside the
+project (`src/a.js`, not `./src/a.js`). Nothing is migrated or deleted. Standard Notes keeps its own
 storage and sync. The version entry below is a release record; publication is
 verified separately.
 
-### Prepared release — October 14, 2026
+### Prepared release — October 21, 2026
 
-**Standard Notes AIC 52.7.6**, **AIC Notes 61.6.5**, and experimental
-**Chrome/Edge 0.12.0** use shared core **8.0.0**. These are prepared versions;
+**Standard Notes AIC 53.6.3**, **AIC Notes 62.3.1**, and experimental
+**Chrome/Edge 0.13.0** use shared core **8.1.0**. These are prepared versions;
 verify the GitHub assets and checksums before installation. PWA deployment,
 store submission and approval are separate steps.
 
 One note splits into pages: a `---` line after a blank line starts a page, and
-`--- <path-or-url>` binds the next page to a file path or web address. Pages show
-as cards with **Open target**. The Current, Shared and Global tabs are removed.
-The browser panel edits one `aic.md` (or the connected file) and shows the page
-of the active tab; per-URL note files, the notes tree, history and pin are
-removed. VS Code's Linked Note shows the page of the workspace `aic.md` bound to
-the active file; sidecar notes, pin and Trash are removed. Existing files are
-never deleted or converted. The PWA reopens the last note, and slash templates
-follow DDK with `/aic` for an AIC block.
+`--- <path-or-url>` binds the next page to a file path or web address, matched
+exactly as written. Pages show as cards; **Open target** opens a web address, or
+a project file in VS Code. The Current, Shared and Global tabs are removed. The
+PWA edits the one note file you choose and keeps unsaved text in the browser; its
+workspaces, folders and file tree are removed. The browser panel connects one
+note file and shows the page of the active tab; per-URL note files, the notes
+tree, history and pin are removed. VS Code's Linked Note shows the page of the
+project note `<folder>/<folder name>.note.md` bound to the active file's path;
+sidecar notes, pin and Trash are removed. Existing files are never deleted or
+converted. Coding agents read the project note through guide version 4, and
+slash templates follow DDK with `/aic` for an AIC block.
 
 ### VS Code desktop, Web and code-server
 
-1. After publication, download [AIC Notes 61.6.5 VSIX](https://github.com/ldzyha/aic-notes/releases/download/v61.6.5/aic-notes-61.6.5.vsix)
-   and [SHA-256](https://github.com/ldzyha/aic-notes/releases/download/v61.6.5/aic-notes-61.6.5.vsix.sha256).
+1. After publication, download [AIC Notes 62.3.1 VSIX](https://github.com/ldzyha/aic-notes/releases/download/v62.3.1/aic-notes-62.3.1.vsix)
+   and [SHA-256](https://github.com/ldzyha/aic-notes/releases/download/v62.3.1/aic-notes-62.3.1.vsix.sha256).
 2. In VS Code or vscode.dev, run **Extensions: Install from VSIX…**, select the
-   file and reload. In code-server use `code-server --install-extension ./aic-notes-61.6.5.vsix --force`.
-3. Confirm **61.6.5** in Extensions. Read-only repositories support viewing;
+   file and reload. In code-server use `code-server --install-extension ./aic-notes-62.3.1.vsix --force`.
+3. Confirm **62.3.1** in Extensions. Read-only repositories support viewing;
    saves require a writable filesystem provider.
 
 [Marketplace](https://marketplace.visualstudio.com/items?itemName=ldzyha.aic-notes)
 publicly provides **59.0.2**, confirmed October 2. Submission and public
-availability of 61.6.5 must be verified separately.
+availability of 62.3.1 must be verified separately.
 Marketplace installs follow VS Code's automatic-update settings;
 VSIX installations can enable **Auto Update**. Open VSX publishing is separate;
 the GitHub VSIX supports manual code-server installation.
@@ -63,14 +67,14 @@ the GitHub VSIX supports manual code-server installation.
 3. Select **AIC** from the note editor menu. Existing installations check the
    same manifest for updates; restart the client if an old version persists.
 
-After publication, the versioned package is [AIC 52.7.6 ZIP](https://github.com/ldzyha/standard-notes-aic/releases/download/v52.7.6/standard-notes-aic-52.7.6.zip)
-with [SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v52.7.6/standard-notes-aic-52.7.6.zip.sha256).
+After publication, the versioned package is [AIC 53.6.3 ZIP](https://github.com/ldzyha/standard-notes-aic/releases/download/v53.6.3/standard-notes-aic-53.6.3.zip)
+with [SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v53.6.3/standard-notes-aic-53.6.3.zip.sha256).
 The hosted manifest is the normal installation method.
 
 ### Chrome / Microsoft Edge — experimental
 
-After publication, download [Chromium ZIP 0.12.0](https://github.com/ldzyha/standard-notes-aic/releases/download/v52.7.6/aic-browser-chromium-0.12.0.zip)
-and [SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v52.7.6/aic-browser-chromium-0.12.0.zip.sha256).
+After publication, download [Chromium ZIP 0.13.0](https://github.com/ldzyha/standard-notes-aic/releases/download/v53.6.3/aic-browser-chromium-0.13.0.zip)
+and [SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v53.6.3/aic-browser-chromium-0.13.0.zip.sha256).
 Extract it to a permanent folder with `manifest.json` at its root. Open
 `chrome://extensions` or `edge://extensions`, enable **Developer mode**, choose
 **Load unpacked**, and select that folder.
@@ -78,7 +82,7 @@ Extract it to a permanent folder with `manifest.json` at its root. Open
 The October 2 check confirmed Chrome 0.9.3 public and 0.11.1 pending
 review, with new uploads disabled. The October 1 Edge Partner Center check
 exposed no Edge workspace.
-Recheck these conditions before submitting 0.12.0; no new submission or approval
+Recheck these conditions before submitting 0.13.0; no new submission or approval
 is claimed by this prepared release.
 
 For an existing unpacked installation, wait for the disk-save confirmation, keep
@@ -108,42 +112,46 @@ in PowerShell. Test an installed package separately from its build and checksum.
 використовують один файл нотатки, який ви там вибираєте (запропонована назва
 `aic.md`); сторінки прив’язуються за URL. `<project>.note.md` зі старіших версій
 використовується як є; `<папка>/aic.md`, який використовував VS Code 61.6.5,
-більше не відстежується, тож скопіюйте його сторінки в нотатку проєкту. Нічого
+більше не відстежується, тож скопіюйте його сторінки в нотатку проєкту й запишіть
+кожну ціль як шлях усередині проєкту (`src/a.js`, а не `./src/a.js`). Нічого
 не переноситься й не видаляється. Standard Notes зберігає власне сховище й синхронізацію.
 Запис версії нижче є історією релізу; публікація перевіряється окремо.
 
-### Підготовлений випуск — 14 жовтня 2026 року
+### Підготовлений випуск — 21 жовтня 2026 року
 
-**Standard Notes AIC 52.7.6**, **AIC Notes 61.6.5** та
-експериментальне розширення Chrome/Edge **0.12.0** використовують спільне ядро
-**8.0.0**. Версії підготовлено;
+**Standard Notes AIC 53.6.3**, **AIC Notes 62.3.1** та
+експериментальне розширення Chrome/Edge **0.13.0** використовують спільне ядро
+**8.1.0**. Версії підготовлено;
 перед встановленням перевірте появу файлів і контрольних сум GitHub.
 Розгортання PWA, подання до магазинів та схвалення перевіряються окремо.
 
 Одна нотатка ділиться на сторінки: рядок `---` після порожнього рядка починає
 сторінку, а `--- <шлях-або-url>` прив’язує наступну сторінку до шляху файла чи
-вебадреси. Сторінки показуються картками з **Open target**. Вкладки Current,
-Shared і Global вилучено. Браузерна панель редагує один `aic.md` (або
-підключений файл) і показує сторінку активної вкладки; окремі файли нотаток для
-URL, дерево нотаток, історію та закріплення вилучено. Linked Note у VS Code
-показує сторінку робочого `aic.md`, прив’язану до активного файла; sidecar-нотатки,
-закріплення й Trash вилучено. Наявні файли ніколи не видаляються й не
-конвертуються. PWA знову відкриває останню нотатку, а шаблони `/` відповідають
-DDK, де `/aic` вставляє блок AIC.
+вебадреси, які зіставляються точно як записані. Сторінки показуються картками;
+**Open target** відкриває вебадресу або, у VS Code, файл проєкту. Вкладки
+Current, Shared і Global вилучено. PWA редагує один файл нотатки, який ви
+вибрали, і зберігає незбережений текст у браузері; його робочі простори, папки й
+дерево файлів вилучено. Браузерна панель підключає один файл нотатки й показує
+сторінку активної вкладки; окремі файли нотаток для URL, дерево нотаток, історію
+та закріплення вилучено. Linked Note у VS Code показує сторінку нотатки проєкту
+`<папка>/<назва папки>.note.md`, прив’язану до шляху активного файла;
+sidecar-нотатки, закріплення й Trash вилучено. Наявні файли ніколи не
+видаляються й не конвертуються. Агенти читають нотатку проєкту за
+інструкцією версії 4, а шаблони `/` відповідають DDK, де `/aic` вставляє блок AIC.
 
 ### VS Code desktop, Web та code-server
 
-1. Після публікації завантажте [AIC Notes 61.6.5 VSIX](https://github.com/ldzyha/aic-notes/releases/download/v61.6.5/aic-notes-61.6.5.vsix)
-   і [SHA-256](https://github.com/ldzyha/aic-notes/releases/download/v61.6.5/aic-notes-61.6.5.vsix.sha256).
+1. Після публікації завантажте [AIC Notes 62.3.1 VSIX](https://github.com/ldzyha/aic-notes/releases/download/v62.3.1/aic-notes-62.3.1.vsix)
+   і [SHA-256](https://github.com/ldzyha/aic-notes/releases/download/v62.3.1/aic-notes-62.3.1.vsix.sha256).
 2. У VS Code або vscode.dev виконайте **Extensions: Install from VSIX…**,
    виберіть файл і перезавантажте вікно. Для code-server:
-   `code-server --install-extension ./aic-notes-61.6.5.vsix --force`.
-3. Перевірте **61.6.5** у списку Extensions. Репозиторії лише для читання можна
+   `code-server --install-extension ./aic-notes-62.3.1.vsix --force`.
+3. Перевірте **62.3.1** у списку Extensions. Репозиторії лише для читання можна
    переглядати; збереження потребує провайдера з підтримкою запису.
 
 [Marketplace](https://marketplace.visualstudio.com/items?itemName=ldzyha.aic-notes)
 публічно надає **59.0.2**, що підтверджено 2 жовтня. Подання й публічну
-доступність 61.6.5 ще потрібно перевірити. Автооновлення залежать від
+доступність 62.3.1 ще потрібно перевірити. Автооновлення залежать від
 налаштувань VS Code; для VSIX можна увімкнути **Auto Update**. Open VSX — окремий
 канал; GitHub VSIX залишається способом ручного встановлення в code-server.
 
@@ -154,21 +162,21 @@ DDK, де `/aic` вставляє блок AIC.
 3. Виберіть **AIC** у меню редактора. Наявні інсталяції перевіряють той самий
    маніфест; якщо лишилася стара версія, перезапустіть клієнт.
 
-Після публікації доступний [архів AIC 52.7.6](https://github.com/ldzyha/standard-notes-aic/releases/download/v52.7.6/standard-notes-aic-52.7.6.zip)
-та [SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v52.7.6/standard-notes-aic-52.7.6.zip.sha256).
+Після публікації доступний [архів AIC 53.6.3](https://github.com/ldzyha/standard-notes-aic/releases/download/v53.6.3/standard-notes-aic-53.6.3.zip)
+та [SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v53.6.3/standard-notes-aic-53.6.3.zip.sha256).
 Звичайний спосіб встановлення — опублікований маніфест.
 
 ### Chrome / Microsoft Edge — експериментально
 
-Після публікації завантажте [Chromium ZIP 0.12.0](https://github.com/ldzyha/standard-notes-aic/releases/download/v52.7.6/aic-browser-chromium-0.12.0.zip)
-та [SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v52.7.6/aic-browser-chromium-0.12.0.zip.sha256).
+Після публікації завантажте [Chromium ZIP 0.13.0](https://github.com/ldzyha/standard-notes-aic/releases/download/v53.6.3/aic-browser-chromium-0.13.0.zip)
+та [SHA-256](https://github.com/ldzyha/standard-notes-aic/releases/download/v53.6.3/aic-browser-chromium-0.13.0.zip.sha256).
 Розпакуйте в постійну папку з `manifest.json` у корені. У `chrome://extensions`
 або `edge://extensions` увімкніть **Developer mode**, натисніть **Load unpacked**
 та виберіть папку.
 
 Перевірка 2 жовтня підтвердила Chrome 0.9.3 у публічному доступі й 0.11.1 на
 перевірці, з вимкненим новим завантаженням. Перевірка Partner Center 1 жовтня
-не виявила доступного простору Edge. Перед поданням 0.12.0 перевірте цей стан знову; підготовлений випуск
+не виявила доступного простору Edge. Перед поданням 0.13.0 перевірте цей стан знову; підготовлений випуск
 не означає нового подання чи схвалення.
 
 Для наявної unpacked-інсталяції дочекайтеся підтвердження запису на диск,

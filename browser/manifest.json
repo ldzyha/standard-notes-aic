@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "AIC — Page notes",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "minimum_chrome_version": "140",
   "description": "One local Markdown note file in the side panel. Each web address shows its own page; import readable page text on request.",
   "homepage_url": "https://aic.dzyha.com/",
